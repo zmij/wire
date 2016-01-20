@@ -35,14 +35,14 @@ TEST(Bits, SignificantBits64)
 {
 	using namespace tip::wire::bits;
 
-	EXPECT_EQ(0, significant_bits(0ul));
-	EXPECT_EQ(1, significant_bits(1ul));
-	EXPECT_EQ(2, significant_bits(2ul));
-	EXPECT_EQ(2, significant_bits(3ul));
-	EXPECT_EQ(3, significant_bits(4ul));
-	EXPECT_EQ(5, significant_bits(16ul));
-	EXPECT_EQ(11, significant_bits(1024ul));
-	EXPECT_EQ(11, significant_bits(1040ul));
+	EXPECT_EQ(0, significant_bits((uint64_t)0ul));
+	EXPECT_EQ(1, significant_bits((uint64_t)1ul));
+	EXPECT_EQ(2, significant_bits((uint64_t)2ul));
+	EXPECT_EQ(2, significant_bits((uint64_t)3ul));
+	EXPECT_EQ(3, significant_bits((uint64_t)4ul));
+	EXPECT_EQ(5, significant_bits((uint64_t)16ul));
+	EXPECT_EQ(11, significant_bits((uint64_t)1024ul));
+	EXPECT_EQ(11, significant_bits((uint64_t)1040ul));
 
 	EXPECT_EQ(49, significant_bits(static_cast<uint64_t>(1ul << 48)));
 }

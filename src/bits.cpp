@@ -27,9 +27,9 @@ uint32_t
 significant_bits(uint16_t v)
 {
 	uint32_t r;
-	register unsigned int t;
+	unsigned int t;
 
-	r = (t = v >> 8) ? 8 + bit_number(t) : bit_number(v);
+	r = ((t = v >> 8)) ? 8 + bit_number(t) : bit_number(v);
 
 	return r;
 }
@@ -38,12 +38,12 @@ uint32_t
 significant_bits(uint32_t v)
 {
 	uint32_t r;
-	register unsigned int t, tt;
+	unsigned int t, tt;
 
-	if (tt = v >> 16) {
-		r = (t = tt >> 8) ? 24 + bit_number(t) : 16 + bit_number(tt);
+	if ((tt = v >> 16)) {
+		r = ((t = tt >> 8)) ? 24 + bit_number(t) : 16 + bit_number(tt);
 	} else {
-		r = (t = v >> 8) ? 8 + bit_number(t) : bit_number(v);
+		r = ((t = v >> 8)) ? 8 + bit_number(t) : bit_number(v);
 	}
 
 	return r;
@@ -53,19 +53,19 @@ uint32_t
 significant_bits(uint64_t v)
 {
 	uint32_t r;
-	register unsigned int t, tt, ttt;
+	uint64_t t, tt, ttt;
 
-	if (ttt = v >> 32) {
-		if (tt = ttt >> 16) {
-			r = (t = tt >> 8) ? 56 + bit_number(t) : 48 + bit_number(tt);
+	if ((ttt = v >> 32)) {
+		if ((tt = ttt >> 16)) {
+			r = ((t = tt >> 8)) ? 56 + bit_number(t) : 48 + bit_number(tt);
 		} else {
-			r = (t = ttt >> 8) ? 40 + bit_number(t) : 32 + bit_number(ttt);
+			r = ((t = ttt >> 8)) ? 40 + bit_number(t) : 32 + bit_number(ttt);
 		}
 	} else {
-		if (tt = v >> 16) {
-			r = (t = tt >> 8) ? 24 + bit_number(t) : 16 + bit_number(tt);
+		if ((tt = v >> 16)) {
+			r = ((t = tt >> 8)) ? 24 + bit_number(t) : 16 + bit_number(tt);
 		} else {
-			r = (t = v >> 8) ? 8 + bit_number(t) : bit_number(v);
+			r = ((t = v >> 8)) ? 8 + bit_number(t) : bit_number(v);
 		}
 	}
 	return r;

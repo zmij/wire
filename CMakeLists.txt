@@ -36,7 +36,10 @@ find_package(Boost 1.58 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${Boost_INCLUDE_DIRS}
+)
 add_definitions("-std=c++11")
 
 set(${LIB_NAME}_LIB ${lib_name})
