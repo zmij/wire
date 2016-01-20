@@ -19,8 +19,8 @@ protected:
 	typedef buffer_type::const_iterator					input_iterator;
 	typedef std::back_insert_iterator<buffer_type>		output_iterator;
 
-	typedef detail::writer< T, detail::SCALAR_VARINT >	writer_type;
-	typedef detail::reader< T, detail::SCALAR_VARINT >	reader_type;
+	typedef detail::writer< T >	writer_type;
+	typedef detail::reader< T >	reader_type;
 
 	buffer_type buffer;
 };
