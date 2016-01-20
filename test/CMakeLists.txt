@@ -23,7 +23,7 @@ target_link_libraries(test-wire
 
 if (GTEST_XML_OUTPUT)
     set (
-        TEST_ARGS --gtest_output=xml:test-pg-async-detail.xml
+        TEST_ARGS --gtest_output=xml:test-wire.xml
     )
 endif()
 
