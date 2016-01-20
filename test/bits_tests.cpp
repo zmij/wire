@@ -10,7 +10,7 @@
 
 TEST(Bits, SignificantBits32)
 {
-	using namespace tip::wire::bits;
+	using namespace wire::bits;
 
 	EXPECT_EQ(0, significant_bits(0u));
 	EXPECT_EQ(1, significant_bits(1u));
@@ -33,7 +33,7 @@ TEST(Bits, SignificantBits32)
 
 TEST(Bits, SignificantBits64)
 {
-	using namespace tip::wire::bits;
+	using namespace wire::bits;
 
 	EXPECT_EQ(0, significant_bits((uint64_t)0ul));
 	EXPECT_EQ(1, significant_bits((uint64_t)1ul));

@@ -5,13 +5,12 @@
  *      Author: zmij
  */
 
-#ifndef TIP_WIRE_DETAIL_BITS_HPP_
-#define TIP_WIRE_DETAIL_BITS_HPP_
+#ifndef WIRE_DETAIL_BITS_HPP_
+#define WIRE_DETAIL_BITS_HPP_
 
 #include <cstdint>
 #include <type_traits>
 
-namespace tip {
 namespace wire {
 namespace bits {
 
@@ -31,7 +30,6 @@ significant_bits(int64_t);
 
 }  // namespace bits
 }  // namespace wire
-}  // namespace tip
 
 
-#endif /* TIP_WIRE_DETAIL_BITS_HPP_ */
+#endif /* WIRE_DETAIL_BITS_HPP_ */

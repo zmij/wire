@@ -11,33 +11,16 @@
 #include <type_traits>
 #include <iterator>
 #include <wire/detail/wire_traits.hpp>
+#include <wire/detail/helpers.hpp>
+
 #include <boost/endian/arithmetic.hpp>
 
 #include <bitset>
 #include <iostream>
 
-namespace tip {
 namespace wire {
 
 namespace detail {
-
-template < typename T, bool is_fundamental >
-struct arg_type_helper_impl;
-
-template < typename T >
-struct arg_type_helper_impl< T, true > {
-	typedef T type;
-};
-
-template < typename T >
-struct arg_type_helper_impl< T, false > {
-	typedef T const& type;
-};
-
-template < typename T >
-struct arg_type_helper :
-	arg_type_helper_impl< typename std::decay< T >::type,
-			std::is_fundamental< typename std::decay< T >::type >::value > {};
 
 template < typename T, size_t byte >
 struct varint_mask_impl {
@@ -298,7 +281,6 @@ private:
 };
 
 }  // namespace wire
-}  // namespace tip
 
 
 #endif /* TIP_WIRE_BUFFERS_HPP_ */

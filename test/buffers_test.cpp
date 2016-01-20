@@ -9,7 +9,6 @@
 #include <wire/buffers.hpp>
 #include <vector>
 
-namespace tip {
 namespace wire {
 namespace test {
 
@@ -71,4 +70,3 @@ VARINT_TEST(int64_t,
 
 }  // namespace test
 }  // namespace wire
-}  // namespace tip

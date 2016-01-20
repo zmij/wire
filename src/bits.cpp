@@ -7,7 +7,6 @@
 
 #include <wire/detail/bits.hpp>
 
-namespace tip {
 namespace wire {
 namespace bits {
 
@@ -91,4 +90,3 @@ significant_bits(int64_t v)
 
 }  // namespace bits
 }  // namespace wire
-}  // namespace tip

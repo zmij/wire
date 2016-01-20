@@ -5,13 +5,12 @@
  *      Author: zmij
  */
 
-#ifndef TIP_WIRE_TYPES_HPP_
-#define TIP_WIRE_TYPES_HPP_
+#ifndef WIRE_TYPES_HPP_
+#define WIRE_TYPES_HPP_
 
 #include <cstdint>
 #include <type_traits>
 
-namespace tip {
 namespace wire {
 
 namespace detail {
@@ -41,8 +40,6 @@ typedef detail::fixed_size< int64_t > int64_fixed_t;
 typedef detail::fixed_size< uint64_t > uint64_fixed_t;
 
 }  // namespace wire
-}  // namespace tip
 
 
-
-#endif /* TIP_WIRE_TYPES_HPP_ */
+#endif /* WIRE_TYPES_HPP_ */

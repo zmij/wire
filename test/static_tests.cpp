@@ -9,7 +9,6 @@
 #include <wire/detail/wire_traits.hpp>
 #include <wire/buffers.hpp>
 
-namespace tip {
 namespace wire {
 namespace detail {
 
@@ -82,4 +81,3 @@ static_assert(std::is_same< arg_type_helper< std::string >::type, std::string co
 
 }  // namespace detail
 }  // namespace wire
-}  // namespace tip

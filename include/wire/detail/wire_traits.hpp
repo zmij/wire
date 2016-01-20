@@ -5,8 +5,8 @@
  *      Author: zmij
  */
 
-#ifndef TIP_WIRE_DETAIL_WIRE_TRAITS_HPP_
-#define TIP_WIRE_DETAIL_WIRE_TRAITS_HPP_
+#ifndef WIRE_DETAIL_WIRE_TRAITS_HPP_
+#define WIRE_DETAIL_WIRE_TRAITS_HPP_
 
 #include <wire/types.hpp>
 
@@ -21,7 +21,6 @@
 #include <map>
 #include <unordered_map>
 
-namespace tip {
 namespace wire {
 namespace detail {
 
@@ -106,8 +105,6 @@ struct wire_type< std::unordered_multimap< K, V > > : std::integral_constant< wi
 
 }  // namespace detail
 }  // namespace wire
-}  // namespace tip
 
 
-
-#endif /* TIP_WIRE_DETAIL_WIRE_TRAITS_HPP_ */
+#endif /* WIRE_DETAIL_WIRE_TRAITS_HPP_ */
