@@ -52,6 +52,8 @@ template <>
 struct wire_type< float > : std::integral_constant< wire_types, SCALAR_FIXED > {};
 template <>
 struct wire_type< double > : std::integral_constant< wire_types, SCALAR_FIXED > {};
+template <>
+struct wire_type< long double > : std::integral_constant< wire_types, SCALAR_FIXED > {};
 
 template < typename T >
 struct wire_type< fixed_size< T > > : std::integral_constant< wire_types, SCALAR_FIXED > {};

@@ -25,11 +25,30 @@ struct fixed_size_base < T, true > {
 		size = sizeof(T)
 	};
 	type value;
+
+	operator type() const { return value; }
 };
 
 template < typename T >
-struct fixed_size : detail::fixed_size_base< T, std::is_integral<T>::value > {
+struct fixed_size
+	: fixed_size_base< T, std::is_integral<T>::value > {
+	typedef fixed_size_base< T, std::is_integral<T>::value >	base_type;
+	typedef typename base_type::type							type;
+	fixed_size() : base_type{0} {}
+	fixed_size(type v) : base_type{v} {}
+	fixed_size(fixed_size const&) = default;
+
+	fixed_size&
+	operator = (fixed_size const&) = default;
+	fixed_size&
+	operator = (type const& v)
+	{
+		base_type::value = v;
+		return *this;
+	}
 };
+
+
 
 }  // namespace detail
 

@@ -12,7 +12,8 @@
 #include <iterator>
 #include <wire/detail/wire_traits.hpp>
 #include <wire/detail/helpers.hpp>
-#include <wire/detail/varint.hpp>
+#include <wire/detail/fixed_io.hpp>
+#include <wire/detail/varint_io.hpp>
 
 #include <bitset>
 #include <iostream>
@@ -25,11 +26,19 @@ template < typename T, wire_types >
 struct writer_impl;
 
 template < typename T >
+struct writer_impl< T, SCALAR_FIXED >
+	: fixed_size_writer< T > {};
+
+template < typename T >
 struct writer_impl<T, SCALAR_VARINT >
 	: varint_writer< T, std::is_signed< typename std::decay<T>::type >::value > {};
 
 template < typename T, wire_types >
 struct reader_impl;
+
+template < typename T >
+struct reader_impl< T, SCALAR_FIXED >
+	: fixed_size_reader< T > {};
 
 template < typename T >
 struct reader_impl< T, SCALAR_VARINT >
