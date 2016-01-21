@@ -36,8 +36,14 @@ enum wire_types {
 	CLASS
 };
 
+template < typename T, bool >
+struct wire_enum_type;
+
 template < typename T >
-struct wire_type;// : std::integral_constant< wire_types, CLASS > {};
+struct wire_enum_type< T, true > : std::integral_constant< wire_types, SCALAR_VARINT > {};
+
+template < typename T >
+struct wire_type : wire_enum_type< T, std::is_enum<T>::value > {};
 
 //@{
 /** @name Fixed wire size types */

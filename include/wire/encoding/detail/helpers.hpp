@@ -24,12 +24,26 @@ struct arg_type_helper_impl< T, true > {
 	typedef base_type&						out_type;
 };
 
+template < typename T, bool is_enum >
+struct arg_type_helper_enum;
+
 template < typename T >
-struct arg_type_helper_impl< T, false > {
+struct arg_type_helper_enum< T, true > {
+	typedef typename std::decay< T >::type	base_type;
+	typedef base_type						in_type;
+	typedef base_type&						out_type;
+};
+
+template < typename T >
+struct arg_type_helper_enum< T, false > {
 	typedef typename std::decay< T >::type	base_type;
 	typedef base_type const&				in_type;
 	typedef base_type&						out_type;
 };
+
+template < typename T >
+struct arg_type_helper_impl< T, false >
+	: arg_type_helper_enum< T, std::is_enum<T>::value > {};
 
 template < typename T >
 struct arg_type_helper :

@@ -70,6 +70,13 @@ BUFFER_IO_TEST(int64_t,
 	::testing::Values(0, 1, 2, -1, -5, 16, 100, -1800, 4096,
 		std::numeric_limits<int32_t>::max(), std::numeric_limits<int32_t>::min(),
 		std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::min()));
+
+typedef detail::wire_types wire_types_enum;
+BUFFER_IO_TEST(wire_types_enum,
+	::testing::Values(
+		detail::SCALAR_VARINT, detail::SCALAR_FIXED)
+);
+
 //@}
 
 //@{

@@ -32,6 +32,24 @@ struct varint_mask_impl< T, 0 > {
 template < typename T >
 struct varint_mask : varint_mask_impl< T, sizeof(T) - 1 > {};
 
+template < std::size_t byte_count >
+struct enum_integral_type;
+
+template <>
+struct enum_integral_type<2> {
+	typedef uint16_t type;
+};
+
+template <>
+struct enum_integral_type<4> {
+	typedef uint32_t type;
+};
+
+template <>
+struct enum_integral_type<8> {
+	typedef uint64_t type;
+};
+
 template < typename T, bool is_signed >
 struct varint_writer;
 
@@ -63,11 +81,31 @@ struct varint_writer < T, true > {
 	}
 };
 
+template < typename T, bool is_enum >
+struct varint_enum_writer;
+
+template < typename T >
+struct varint_enum_writer< T, true > {
+	typedef typename arg_type_helper<T>::base_type			base_type;
+	typedef typename arg_type_helper<T>::in_type			in_type;
+	typedef typename enum_integral_type< sizeof(T) >::type	integral_type;
+	typedef varint_writer< integral_type, false >			writer_type;
+
+	template < typename OutputIterator >
+	static void
+	write( OutputIterator o, in_type v)
+	{
+		typedef octet_output_iterator_concept< OutputIterator >	output_iterator_check;
+		typedef typename output_iterator_check::value_type		value_type;
+		writer_type::write(o, static_cast<integral_type>(v));
+	}
+};
+
 /**
  * Implementation of varint writer for unsigned types
  */
 template < typename T >
-struct varint_writer < T, false > {
+struct varint_enum_writer < T, false > {
 	typedef typename arg_type_helper<T>::base_type	base_type;
 	typedef typename arg_type_helper<T>::in_type	in_type;
 	typedef varint_mask< T >	mask_type;
@@ -93,6 +131,10 @@ struct varint_writer < T, false > {
 		*o++ = current;
 	}
 };
+
+template < typename T >
+struct varint_writer< T, false >
+	: varint_enum_writer< T, std::is_enum<T>::value > {};
 
 template < typename T, bool is_signed >
 struct varint_reader;
@@ -144,8 +186,35 @@ struct varint_reader< T, true > {
 	}
 };
 
+template < typename T, bool is_enum >
+struct varint_enum_reader;
+
 template < typename T >
-struct varint_reader< T, false > {
+struct varint_enum_reader< T, true > {
+	typedef typename arg_type_helper<T>::base_type			base_type;
+	typedef typename arg_type_helper<T>::out_type			out_type;
+	typedef typename enum_integral_type< sizeof(T) >::type	integral_type;
+	typedef varint_reader< integral_type, false >			reader_type;
+
+	template < typename InputIterator >
+	static std::pair< InputIterator, bool >
+	read(InputIterator begin, InputIterator end, out_type v)
+	{
+		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
+		typedef typename input_iterator_check::result_type		result_type;
+
+		integral_type iv;
+		result_type res = reader_type::read(begin, end, iv);
+		if (res.second) {
+			v = static_cast<base_type>(iv);
+		}
+		return res;
+	}
+};
+
+
+template < typename T >
+struct varint_enum_reader< T, false > {
 	typedef typename arg_type_helper<T>::base_type			base_type;
 	typedef typename arg_type_helper<T>::out_type			out_type;
 	typedef varint_mask< base_type >	mask_type;
@@ -175,6 +244,10 @@ struct varint_reader< T, false > {
 		return std::make_pair(begin, true);
 	}
 };
+
+template < typename T >
+struct varint_reader< T, false >
+	: varint_enum_reader< T, std::is_enum<T>::value > {};
 
 }  // namespace detail
 }  // namespace encoding
