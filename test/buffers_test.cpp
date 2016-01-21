@@ -8,7 +8,9 @@
 #include <gtest/gtest.h>
 #include <wire/encoding/buffers.hpp>
 #include <wire/encoding/detail/fixed_size_io.hpp>
+
 #include <vector>
+#include <type_traits>
 
 namespace wire {
 namespace encoding {
@@ -36,8 +38,10 @@ TEST_P(the_type##_io_test, IOTest) \
 \
 	writer_type::write(std::back_inserter(buffer), v); \
 	std::cerr << "Value " << v << " Buffer size " << buffer.size() << "\n"; \
-	reader_type::read(buffer.begin(), buffer.end(), e); \
+	auto begin = buffer.begin(); \
+	reader_type::read(begin, buffer.end(), e); \
 	EXPECT_EQ(v, e); \
+	EXPECT_EQ(begin, buffer.end()); \
 } \
 INSTANTIATE_TEST_CASE_P(BufferIO, the_type##_io_test, generator)
 

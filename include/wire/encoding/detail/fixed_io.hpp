@@ -10,7 +10,10 @@
 
 #include <wire/encoding/types.hpp>
 #include <wire/encoding/detail/helpers.hpp>
+#include <wire/errors/exceptions.hpp>
+
 #include <boost/endian/arithmetic.hpp>
+
 #include <algorithm>
 
 namespace wire {
@@ -65,21 +68,20 @@ struct fixed_size_reader {
 	};
 
 	template < typename InputIterator >
-	static std::pair< InputIterator, bool >
-	read(InputIterator begin, InputIterator end, out_type v)
+	static void
+	read(InputIterator& begin, InputIterator end, out_type v)
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
-		typedef typename input_iterator_check::result_type		result_type;
 
 		auto start = begin;
 		base_type tmp;
 		char* p = reinterpret_cast<char*>(&tmp);
 		if (copy_max(begin, end, p, byte_count)) {
 			std::swap(v, tmp);
-			return std::make_pair(begin, true);
+			return;
 		}
 
-		return std::make_pair(start, false);
+		throw errors::unmarshal_error("Failed to unmarshal fixed type");
 	}
 };
 
@@ -93,21 +95,20 @@ struct fixed_size_reader<fixed_size< T >> {
 	};
 
 	template < typename InputIterator >
-	static std::pair< InputIterator, bool >
-	read(InputIterator begin, InputIterator end, out_type v)
+	static void
+	read(InputIterator& begin, InputIterator end, out_type v)
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
-		typedef typename input_iterator_check::result_type		result_type;
 
 		auto start = begin;
 		fundamental_type tmp;
 		char* p = reinterpret_cast<char*>(&tmp);
 		if (copy_max(begin, end, p, byte_count)) {
 			v.value = boost::endian::little_to_native(tmp);
-			return std::make_pair(begin, true);
+			return;
 		}
 
-		return std::make_pair(start, false);
+		throw errors::unmarshal_error("Failed to unmarshal fixed type");
 	}
 };
 

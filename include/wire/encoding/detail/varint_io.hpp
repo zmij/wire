@@ -311,20 +311,19 @@ struct varint_reader< T, true > {
 	 * @return Pair of iterator and boolean flag if the operation was successful
 	 */
 	template < typename InputIterator >
-	static std::pair< InputIterator, bool >
-	read(InputIterator begin, InputIterator end, type& v)
+	static void
+	read(InputIterator& begin, InputIterator end, type& v)
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
-		typedef typename input_iterator_check::result_type		result_type;
 
 		unsigned_type tmp;
-		result_type res = unsigned_reader::read(begin, end, tmp);
-		if (res.second) {
+		try {
+			unsigned_reader::read(begin, end, tmp);
 			v = static_cast<type>(tmp >> 1) ^
 					(static_cast<type>(tmp) << shift_bits >> shift_bits);
-			return res;
+		} catch (errors::unmarshal_error const&) {
+			throw errors::unmarshal_error("Failed to read signed value");
 		}
-		return std::make_pair(begin, false);
 	}
 };
 
@@ -354,18 +353,18 @@ struct varint_enum_reader< T, true > {
 	 * @return Pair of iterator and boolean flag if the operation was successful
 	 */
 	template < typename InputIterator >
-	static std::pair< InputIterator, bool >
-	read(InputIterator begin, InputIterator end, out_type v)
+	static void
+	read(InputIterator& begin, InputIterator end, out_type v)
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
-		typedef typename input_iterator_check::result_type		result_type;
 
 		integral_type iv;
-		result_type res = reader_type::read(begin, end, iv);
-		if (res.second) {
+		try {
+			reader_type::read(begin, end, iv);
 			v = static_cast<base_type>(iv);
+		} catch (errors::unmarshal_error const&) {
+			throw errors::unmarshal_error("Failed to read enumeration value");
 		}
-		return res;
 	}
 };
 
@@ -395,11 +394,10 @@ struct varint_enum_reader< T, false > {
 	 * @return Pair of iterator and boolean flag if the operation was successful
 	 */
 	template < typename InputIterator >
-	static std::pair< InputIterator, bool >
-	read(InputIterator begin, InputIterator end, out_type v)
+	static void
+	read(InputIterator& begin, InputIterator end, out_type v)
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
-		typedef typename input_iterator_check::result_type		result_type;
 
 		auto start = begin;
 		base_type tmp = 0;
@@ -410,10 +408,9 @@ struct varint_enum_reader< T, false > {
 			more = curr_byte & eighth_bit;
 		}
 		if (more) {
-			return std::make_pair(start, false);
+			throw errors::unmarshal_error("Failed to read unsigned integral value");
 		}
 		v = boost::endian::little_to_native(tmp);
-		return std::make_pair(begin, true);
 	}
 };
 

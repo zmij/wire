@@ -92,6 +92,11 @@ template <>
 struct wire_type< uint64_t > : std::integral_constant< wire_types, SCALAR_VARINT > {};
 
 template <>
+struct wire_type< long > : std::integral_constant< wire_types, SCALAR_VARINT > {};
+template <>
+struct wire_type< unsigned long > : std::integral_constant< wire_types, SCALAR_VARINT > {};
+
+template <>
 struct wire_type< std::string > : std::integral_constant< wire_types, SCALAR_WITH_SIZE > {};
 
 template < typename T, std::size_t N >

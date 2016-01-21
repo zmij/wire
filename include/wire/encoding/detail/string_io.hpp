@@ -38,23 +38,19 @@ struct string_reader {
 	typedef varint_reader< std::size_t, false >			size_reader;
 
 	template < typename InputIterator >
-	static std::pair< InputIterator, bool >
-	read(InputIterator begin, InputIterator end, out_type v)
+	static void
+	read(InputIterator& begin, InputIterator end, out_type v)
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
-		typedef typename input_iterator_check::result_type		result_type;
 
 		std::size_t str_size;
-		result_type res = size_reader::read(begin, end, str_size);
-		if (res.second) {
-			base_type val;
-			val.resize(str_size);
-			if (!copy_max(res.first, end, val.begin(), str_size)) {
-				return std::make_pair(begin, false);
-			}
-			std::swap(v, val);
+		size_reader::read(begin, end, str_size);
+		base_type val;
+		val.resize(str_size);
+		if (!copy_max(begin, end, val.begin(), str_size)) {
+			throw errors::unmarshal_error("Failed to read string contents");
 		}
-		return res;
+		std::swap(v, val);
 	}
 };
 

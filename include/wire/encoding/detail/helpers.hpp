@@ -79,7 +79,6 @@ struct octet_input_iterator_concept {
 	typedef InputIterator							iterator_type;
 	typedef std::iterator_traits< iterator_type >	iterator_traits;
 	typedef typename iterator_traits::value_type	value_type;
-	typedef std::pair< InputIterator, bool >		result_type;
 	static_assert(sizeof(value_type) == 1,
 			"Input iterator should be octet-based");
 };

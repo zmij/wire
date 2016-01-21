@@ -16,19 +16,95 @@ namespace wire {
 namespace encoding {
 
 struct message {
-	static constexpr uint32_fixed_t	magic_numer =
+	enum message_flags {
+		request		= 0,
+		reply		= 2,
+		validate	= 3,
+		close		= 4,
+		type_bits	= reply | validate | close,
+		flag_gits	= ~type_bits,
+	};
+	static constexpr uint32_t MAGIC_NUMBER =
 			('w' << 24) | ('i' << 16) | ('r' << 8) | ('e');
-	static constexpr uint8_t version_major = VERSION_MAJOR;
-	static constexpr uint8_t version_minor = VERSION_MINOR;
+
+	uint8_t			version_major	= ::wire::PROTOCOL_MAJOR;
+	uint8_t			version_minor	= ::wire::PROTOCOL_MINOR;
+
+	message_flags	flags			= request;
+	std::size_t		size			= 0;
+
+	message() = default;
+	message(message_flags flags, std::size_t size)
+		: flags(flags), size(size)
+	{}
+
+	bool
+	operator == (message const& rhs) const
+	{
+		return version_major == rhs.version_major
+				&& version_minor == rhs.version_minor
+				&& flags == rhs.flags
+				&& size == rhs.size;
+	}
+
+	void
+	swap(message& rhs)
+	{
+		using std::swap;
+		swap(version_major, rhs.version_major);
+		swap(version_minor, rhs.version_minor);
+		swap(flags, rhs.flags);
+		swap(size, rhs.size);
+	}
+
+	message_flags
+	type() const
+	{
+		return static_cast<message_flags>(flags & type_bits);
+	}
 };
+
+}  // namespace encoding
+}  // namespace wire
+
+namespace std {
+void
+swap(wire::encoding::message& lhs, wire::encoding::message& rhs)
+{
+	lhs.swap(rhs);
+}
+
+}
+
+namespace wire {
+namespace encoding {
 
 template < typename OutputIterator >
 void
 write(OutputIterator o, message const& v)
 {
-	detail::write(o, message::magic_numer);
-	detail::write(o, message::version_major);
-	detail::write(o, message::version_minor);
+	detail::write(o, int32_fixed_t(message::MAGIC_NUMBER));
+	detail::write(o, PROTOCOL_MAJOR);
+	detail::write(o, PROTOCOL_MINOR);
+	detail::write(o, v.flags);
+	detail::write(o, v.size);
+}
+
+template < typename InputIterator >
+void
+read(InputIterator& begin, InputIterator end, message& v)
+{
+	int32_fixed_t magic;
+	detail::read(begin, end, magic);
+	if (magic != message::MAGIC_NUMBER) {
+		throw errors::invalid_magic_number("Invalid magic number in message header");
+	}
+	message tmp;
+	detail::read(begin, end, tmp.version_major);
+	detail::read(begin, end, tmp.version_minor);
+	detail::read(begin, end, tmp.flags);
+	detail::read(begin, end, tmp.size);
+	v.swap(tmp);
 }
 
 }  // namespace encoding

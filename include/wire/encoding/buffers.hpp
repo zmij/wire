@@ -63,6 +63,14 @@ write(OutputIterator o, T v)
 	writer_type::write(o, v);
 }
 
+template < typename InputIterator, typename T >
+void
+read(InputIterator& begin, InputIterator end, T& value)
+{
+	typedef reader< typename std::decay< T >::type > reader_type;
+	reader_type::read(begin, end, value);
+}
+
 }  // namespace detail
 
 template < typename OutputIterator >

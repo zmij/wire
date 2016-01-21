@@ -10,8 +10,8 @@
 
 namespace wire {
 
-const uint32_t VERSION_MAJOR = 0;
-const uint32_t VERSION_MINOR = 1;
+const uint32_t PROTOCOL_MAJOR = 0;
+const uint32_t PROTOCOL_MINOR = 1;
 
 }  // namespace wire
 
