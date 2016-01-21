@@ -58,6 +58,10 @@ static_assert( wire_type< uint32_t >::value == SCALAR_VARINT,
 static_assert( wire_type< uint64_t >::value == SCALAR_VARINT,
 		"uint64 wire type");
 //@}
+//@{
+static_assert( wire_type< std::string >::value == SCALAR_WITH_SIZE,
+		"std::string wire type");
+//@}
 //@}
 
 //@{
@@ -75,6 +79,8 @@ static_assert(varint_mask< uint64_t >::value == static_cast< uint64_t >(0xffffff
 //@{
 /** @name Argument types calculation */
 static_assert(std::is_same< arg_type_helper< uint8_t >::in_type, uint8_t >::value,
+		"Fundamental type is passed by value for writing");
+static_assert(std::is_same< arg_type_helper< uint8_t& >::in_type, uint8_t >::value,
 		"Fundamental type is passed by value for writing");
 static_assert(std::is_same< arg_type_helper< uint8_t >::out_type, uint8_t& >::value,
 		"Fundamental type is passed by reference for reading");

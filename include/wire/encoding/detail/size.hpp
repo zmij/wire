@@ -11,7 +11,6 @@
 #include <wire/encoding/types.hpp>
 #include <wire/encoding/detail/bits.hpp>
 
-namespace tip {
 namespace wire {
 
 template < typename T >
@@ -77,7 +76,6 @@ wire_size(T const& v)
 }
 
 }  // namespace wire
-}  // namespace tip
 
 
 #endif /* TIP_WIRE_DETAIL_SIZE_HPP_ */

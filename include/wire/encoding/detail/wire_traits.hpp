@@ -37,10 +37,21 @@ enum wire_types {
 };
 
 template < typename T, bool >
+struct wire_polymorphic_type;
+
+template < typename T >
+struct wire_polymorphic_type< T, true > : std::integral_constant< wire_types, CLASS > {};
+
+template < typename T >
+struct wire_polymorphic_type< T, false > : std::integral_constant< wire_types, STRUCT > {};
+
+template < typename T, bool >
 struct wire_enum_type;
 
 template < typename T >
 struct wire_enum_type< T, true > : std::integral_constant< wire_types, SCALAR_VARINT > {};
+template < typename T >
+struct wire_enum_type< T, false > : wire_polymorphic_type< T, std::is_polymorphic<T>::value  >{};
 
 template < typename T >
 struct wire_type : wire_enum_type< T, std::is_enum<T>::value > {};
