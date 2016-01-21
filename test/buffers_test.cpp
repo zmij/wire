@@ -77,6 +77,24 @@ BUFFER_IO_TEST(wire_types_enum,
 		detail::SCALAR_VARINT, detail::SCALAR_FIXED)
 );
 
+enum class test_enumeration {
+	val0, val2 = 2, val3
+};
+std::ostream&
+operator << (std::ostream& os, test_enumeration val)
+{
+	std::ostream::sentry s(os);
+	if (s) {
+		os << static_cast<std::underlying_type<test_enumeration>::type>(val);
+	}
+	return os;
+}
+
+BUFFER_IO_TEST(test_enumeration,
+	::testing::Values(
+		test_enumeration::val0, test_enumeration::val2, test_enumeration::val3)
+);
+
 //@}
 
 //@{
