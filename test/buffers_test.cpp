@@ -124,7 +124,8 @@ typedef std::string std_string;
 BUFFER_IO_TEST(std_string,
 	::testing::Values(
 			"", " ", "abcdABCD", "+-!@#%^&", "абвгАБВГ",
-			"こんにちはテスト",  "メッセージ",  "안녕하세요 테스트", "你好测试"
+			"こんにちはテスト",  "メッセージ",  "안녕하세요 테스트", "你好测试",
+			"Waſſerschloſʒ", "Wasserschloß"
 	)
 );
 //@}
