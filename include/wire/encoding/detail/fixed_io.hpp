@@ -50,8 +50,8 @@ struct fixed_size_writer<fixed_size< T >> {
 		typedef octet_output_iterator_concept< OutputIterator > output_iterator_check;
 
 		v.value = boost::endian::native_to_little(v.value);
-		char* p = reinterpret_cast<char*>(&v.value);
-		char* e = p + byte_count;
+		char const* p = reinterpret_cast<char const*>(&v.value);
+		char const* e = p + byte_count;
 		std::copy(p, e, o);
 	}
 };

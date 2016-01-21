@@ -35,8 +35,9 @@ struct fixed_size
 
 	typedef fixed_size_base< T, std::is_integral<T>::value >	base_type;
 	typedef typename base_type::type							type;
-	fixed_size() : base_type{0} {}
-	fixed_size(type v) : base_type{v} {}
+
+	constexpr fixed_size() : base_type{0} {}
+	constexpr fixed_size(type v) : base_type{v} {}
 	fixed_size(fixed_size const&) = default;
 
 	fixed_size&

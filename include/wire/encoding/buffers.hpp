@@ -55,6 +55,14 @@ struct writer : writer_impl< T, wire_type<T>::value> {};
 template < typename T >
 struct reader : reader_impl< T, wire_type<T>::value> {};
 
+template < typename OutputIterator, typename T >
+void
+write(OutputIterator o, T v)
+{
+	typedef writer< typename std::decay< T >::type > writer_type;
+	writer_type::write(o, v);
+}
+
 }  // namespace detail
 
 template < typename OutputIterator >
