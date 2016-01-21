@@ -5,7 +5,7 @@
  *      Author: zmij
  */
 
-#include <wire/detail/bits.hpp>
+#include <wire/encoding/detail/bits.hpp>
 
 namespace wire {
 namespace bits {

@@ -8,8 +8,8 @@
 #ifndef TIP_WIRE_DETAIL_SIZE_HPP_
 #define TIP_WIRE_DETAIL_SIZE_HPP_
 
-#include <tip/wire/types.hpp>
-#include <tip/wire/detail/bits.hpp>
+#include <wire/encoding/types.hpp>
+#include <wire/encoding/detail/bits.hpp>
 
 namespace tip {
 namespace wire {

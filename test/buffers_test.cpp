@@ -6,11 +6,12 @@
  */
 
 #include <gtest/gtest.h>
-#include <wire/buffers.hpp>
-#include <wire/detail/fixed_size_io.hpp>
+#include <wire/encoding/buffers.hpp>
+#include <wire/encoding/detail/fixed_size_io.hpp>
 #include <vector>
 
 namespace wire {
+namespace encoding {
 namespace test {
 
 template< typename T >
@@ -112,4 +113,5 @@ BUFFER_IO_TEST(int64_fixed_t,
 		std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::min()));
 
 }  // namespace test
+}  // namespace encoding
 }  // namespace wire

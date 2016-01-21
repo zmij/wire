@@ -8,12 +8,13 @@
 #ifndef WIRE_DETAIL_FIXED_IO_HPP_
 #define WIRE_DETAIL_FIXED_IO_HPP_
 
-#include <wire/types.hpp>
-#include <wire/detail/helpers.hpp>
+#include <wire/encoding/types.hpp>
+#include <wire/encoding/detail/helpers.hpp>
 #include <boost/endian/arithmetic.hpp>
 #include <algorithm>
 
 namespace wire {
+namespace encoding {
 namespace detail {
 
 template < typename T >
@@ -127,6 +128,7 @@ struct fixed_size_reader<fixed_size< T >> {
 };
 
 }  // namespace detail
+}  // namespace encoding
 }  // namespace wire
 
 

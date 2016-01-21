@@ -6,7 +6,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <wire/detail/bits.hpp>
+#include <wire/encoding/detail/bits.hpp>
 
 TEST(Bits, SignificantBits32)
 {

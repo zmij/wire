@@ -8,7 +8,7 @@
 #ifndef WIRE_DETAIL_WIRE_TRAITS_HPP_
 #define WIRE_DETAIL_WIRE_TRAITS_HPP_
 
-#include <wire/types.hpp>
+#include <wire/encoding/types.hpp>
 
 #include <string>
 #include <vector>
@@ -22,6 +22,7 @@
 #include <unordered_map>
 
 namespace wire {
+namespace encoding {
 namespace detail {
 
 enum wire_types {
@@ -106,6 +107,7 @@ template < typename K, typename V >
 struct wire_type< std::unordered_multimap< K, V > > : std::integral_constant< wire_types, DICTIONARY > {};
 
 }  // namespace detail
+}  // namespace encoding
 }  // namespace wire
 
 

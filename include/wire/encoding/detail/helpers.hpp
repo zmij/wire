@@ -8,9 +8,10 @@
 #ifndef WIRE_DETAIL_HELPERS_HPP_
 #define WIRE_DETAIL_HELPERS_HPP_
 
-#include <wire/types.hpp>
+#include <wire/encoding/types.hpp>
 
 namespace wire {
+namespace encoding {
 namespace detail {
 
 template < typename T, bool is_fundamental >
@@ -55,6 +56,7 @@ copy_max(InputIterator& p, InputIterator e, OutputIterator o, std::size_t max)
 }
 
 }  // namespace detail
+}  // namespace encoding
 }  // namespace wire
 
 

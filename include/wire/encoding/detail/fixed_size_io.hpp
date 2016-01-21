@@ -8,10 +8,11 @@
 #ifndef WIRE_DETAIL_FIXED_SIZE_IO_HPP_
 #define WIRE_DETAIL_FIXED_SIZE_IO_HPP_
 
-#include <wire/types.hpp>
+#include <wire/encoding/types.hpp>
 #include <iostream>
 
 namespace wire {
+namespace encoding {
 namespace detail {
 
 template < typename T >
@@ -37,6 +38,7 @@ operator >> (std::istream& is, fixed_size< T >& v)
 }
 
 }  // namespace detail
+}  // namespace encoding
 }  // namespace wire
 
 

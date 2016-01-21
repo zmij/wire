@@ -10,16 +10,16 @@
 
 #include <type_traits>
 #include <iterator>
-#include <wire/detail/wire_traits.hpp>
-#include <wire/detail/helpers.hpp>
-#include <wire/detail/fixed_io.hpp>
-#include <wire/detail/varint_io.hpp>
+#include <wire/encoding/detail/wire_traits.hpp>
+#include <wire/encoding/detail/helpers.hpp>
+#include <wire/encoding/detail/fixed_io.hpp>
+#include <wire/encoding/detail/varint_io.hpp>
 
 #include <bitset>
 #include <iostream>
 
 namespace wire {
-
+namespace encoding {
 namespace detail {
 
 template < typename T, wire_types >
@@ -122,6 +122,7 @@ private:
 	iterator_type end_;
 };
 
+}  // namespace encoding
 }  // namespace wire
 
 

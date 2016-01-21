@@ -8,10 +8,11 @@
 #ifndef WIRE_DETAIL_VARINT_IO_HPP_
 #define WIRE_DETAIL_VARINT_IO_HPP_
 
-#include <wire/detail/helpers.hpp>
+#include <wire/encoding/detail/helpers.hpp>
 #include <boost/endian/arithmetic.hpp>
 
 namespace wire {
+namespace encoding {
 namespace detail {
 
 template < typename T, size_t byte >
@@ -181,6 +182,7 @@ struct varint_reader< T, false > {
 };
 
 }  // namespace detail
+}  // namespace encoding
 }  // namespace wire
 
 

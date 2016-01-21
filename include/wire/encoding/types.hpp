@@ -12,7 +12,7 @@
 #include <type_traits>
 
 namespace wire {
-
+namespace encoding {
 namespace detail {
 
 template < typename T, bool is_integral >
@@ -58,6 +58,7 @@ typedef detail::fixed_size< uint32_t > uint32_fixed_t;
 typedef detail::fixed_size< int64_t > int64_fixed_t;
 typedef detail::fixed_size< uint64_t > uint64_fixed_t;
 
+}  // namespace encoding
 }  // namespace wire
 
 

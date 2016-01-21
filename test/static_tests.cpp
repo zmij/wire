@@ -6,10 +6,11 @@
  */
 
 #include <type_traits>
-#include <wire/detail/wire_traits.hpp>
-#include <wire/buffers.hpp>
+#include <wire/encoding/detail/wire_traits.hpp>
+#include <wire/encoding/buffers.hpp>
 
 namespace wire {
+namespace encoding {
 namespace detail {
 
 //@{
@@ -80,4 +81,5 @@ static_assert(std::is_same< arg_type_helper< std::string >::type, std::string co
 //@}
 
 }  // namespace detail
+}  // namespace encoding
 }  // namespace wire
