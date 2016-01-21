@@ -14,6 +14,7 @@
 #include <wire/encoding/detail/helpers.hpp>
 #include <wire/encoding/detail/fixed_io.hpp>
 #include <wire/encoding/detail/varint_io.hpp>
+#include <wire/encoding/detail/string_io.hpp>
 
 #include <bitset>
 #include <iostream>
@@ -24,25 +25,29 @@ namespace detail {
 
 template < typename T, wire_types >
 struct writer_impl;
+template < typename T, wire_types >
+struct reader_impl;
 
 template < typename T >
 struct writer_impl< T, SCALAR_FIXED >
 	: fixed_size_writer< T > {};
-
-template < typename T >
-struct writer_impl<T, SCALAR_VARINT >
-	: varint_writer< T, std::is_signed< typename std::decay<T>::type >::value > {};
-
-template < typename T, wire_types >
-struct reader_impl;
-
 template < typename T >
 struct reader_impl< T, SCALAR_FIXED >
 	: fixed_size_reader< T > {};
 
 template < typename T >
+struct writer_impl<T, SCALAR_VARINT >
+	: varint_writer< T, std::is_signed< typename std::decay<T>::type >::value > {};
+template < typename T >
 struct reader_impl< T, SCALAR_VARINT >
 	: varint_reader< T, std::is_signed< typename std::decay<T>::type >::value > {};
+
+template <>
+struct writer_impl< std::string, SCALAR_WITH_SIZE >
+	: string_writer {};
+template <>
+struct reader_impl< std::string, SCALAR_WITH_SIZE >
+	: string_reader {};
 
 template < typename T >
 struct writer : writer_impl< T, wire_type<T>::value> {};

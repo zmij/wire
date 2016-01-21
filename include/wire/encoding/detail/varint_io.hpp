@@ -41,42 +41,46 @@ struct varint_writer;
  */
 template < typename T >
 struct varint_writer < T, true > {
-	typedef typename arg_type_helper<T>::type		type;
-	typedef typename std::make_unsigned<type>::type	unsigned_type;
-	typedef varint_writer< unsigned_type, false >	unsigned_writer;
+	typedef typename arg_type_helper<T>::in_type			in_type;
+	typedef typename arg_type_helper<T>::base_type			base_type;
+	typedef typename std::make_unsigned<base_type>::type	unsigned_type;
+	typedef varint_writer< unsigned_type, false >			unsigned_writer;
 
 	enum {
-		shift_bits = sizeof(type) * 8 - 1
+		shift_bits = sizeof(in_type) * 8 - 1
 	};
 
 
 	template < typename OutputIterator >
 	static void
-	write( OutputIterator o, type v)
+	write( OutputIterator o, in_type v)
 	{
+		typedef octet_output_iterator_concept< OutputIterator > output_iterator_check;
+		typedef typename output_iterator_check::value_type		value_type;
+
 		unsigned_writer::write(o,
 			static_cast< unsigned_type >( (v << 1) ^ (v >> shift_bits) ));
 	}
 };
 
+/**
+ * Implementation of varint writer for unsigned types
+ */
 template < typename T >
 struct varint_writer < T, false > {
-	typedef typename arg_type_helper<T>::type type;
+	typedef typename arg_type_helper<T>::base_type	base_type;
+	typedef typename arg_type_helper<T>::in_type	in_type;
 	typedef varint_mask< T >	mask_type;
 
-	static constexpr type seven_bits = static_cast<type>(0x7f); // 0b01111111
-	static constexpr type eighth_bit = static_cast<type>(1 << 7); // 0b10000000
+	static constexpr base_type seven_bits = static_cast<base_type>(0x7f); // 0b01111111
+	static constexpr base_type eighth_bit = static_cast<base_type>(1 << 7); // 0b10000000
 
 	template < typename OutputIterator >
 	static void
-	write( OutputIterator o, type v)
+	write( OutputIterator o, in_type v)
 	{
-		typedef OutputIterator							iterator_type;
-		typedef output_iterator_traits< iterator_type >	iterator_traits;
-		typedef typename iterator_traits::value_type	value_type;
-
-		static_assert(sizeof(value_type) == 1,
-			"Output iterator should be octet-based");
+		typedef octet_output_iterator_concept< OutputIterator >	output_iterator_check;
+		typedef typename output_iterator_check::value_type		value_type;
 
 		v = boost::endian::native_to_little(v);
 		value_type current = v & seven_bits;
@@ -126,13 +130,8 @@ struct varint_reader< T, true > {
 	static std::pair< InputIterator, bool >
 	read(InputIterator begin, InputIterator end, type& v)
 	{
-		typedef InputIterator							iterator_type;
-		typedef std::iterator_traits< iterator_type >	iterator_traits;
-		typedef typename iterator_traits::value_type	value_type;
-		typedef std::pair< InputIterator, bool >		result_type;
-
-		static_assert(sizeof(value_type) == 1,
-			"Input iterator should be octet-based");
+		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
+		typedef typename input_iterator_check::result_type		result_type;
 
 		unsigned_type tmp;
 		result_type res = unsigned_reader::read(begin, end, tmp);
@@ -147,29 +146,25 @@ struct varint_reader< T, true > {
 
 template < typename T >
 struct varint_reader< T, false > {
-	typedef typename std::decay<T>::type			type;
-	typedef varint_mask< type >	mask_type;
+	typedef typename arg_type_helper<T>::base_type			base_type;
+	typedef typename arg_type_helper<T>::out_type			out_type;
+	typedef varint_mask< base_type >	mask_type;
 
-	static constexpr type seven_bits = static_cast<type>(0x7f); // 0b01111111
-	static constexpr type eighth_bit = static_cast<type>(1 << 7); // 0b10000000
+	static constexpr base_type seven_bits = static_cast<base_type>(0x7f); // 0b01111111
+	static constexpr base_type eighth_bit = static_cast<base_type>(1 << 7); // 0b10000000
 
 	template < typename InputIterator >
 	static std::pair< InputIterator, bool >
-	read(InputIterator begin, InputIterator end, type& v)
+	read(InputIterator begin, InputIterator end, out_type v)
 	{
-		typedef InputIterator							iterator_type;
-		typedef std::iterator_traits< iterator_type >	iterator_traits;
-		typedef typename iterator_traits::value_type	value_type;
-		typedef std::pair< InputIterator, bool >		result_type;
-
-		static_assert(sizeof(value_type) == 1,
-			"Input iterator should be octet-based");
+		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
+		typedef typename input_iterator_check::result_type		result_type;
 
 		auto start = begin;
-		type tmp = 0;
+		base_type tmp = 0;
 		bool more = true;
 		for (uint32_t n = 0; more && begin != end; ++n) {
-			type curr_byte = *begin++;
+			base_type curr_byte = *begin++;
 			tmp |= (curr_byte & seven_bits) << (7 * n);
 			more = curr_byte & eighth_bit;
 		}

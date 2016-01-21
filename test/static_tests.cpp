@@ -74,10 +74,15 @@ static_assert(varint_mask< uint64_t >::value == static_cast< uint64_t >(0xffffff
 
 //@{
 /** @name Argument types calculation */
-static_assert(std::is_same< arg_type_helper< uint8_t >::type, uint8_t >::value,
-		"Fundamental type is passed by value");
-static_assert(std::is_same< arg_type_helper< std::string >::type, std::string const&>::value,
-		"Class type is passed by const reference");
+static_assert(std::is_same< arg_type_helper< uint8_t >::in_type, uint8_t >::value,
+		"Fundamental type is passed by value for writing");
+static_assert(std::is_same< arg_type_helper< uint8_t >::out_type, uint8_t& >::value,
+		"Fundamental type is passed by reference for reading");
+
+static_assert(std::is_same< arg_type_helper< std::string >::in_type, std::string const&>::value,
+		"Class type is passed by const reference for writing");
+static_assert(std::is_same< arg_type_helper< std::string >::out_type, std::string&>::value,
+		"Class type is passed by reference for reading");
 //@}
 
 }  // namespace detail

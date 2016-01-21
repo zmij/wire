@@ -41,6 +41,8 @@ TEST_P(the_type##_io_test, IOTest) \
 } \
 INSTANTIATE_TEST_CASE_P(BufferIO, the_type##_io_test, generator)
 
+//@{
+/** @name Varint io */
 BUFFER_IO_TEST(uint16_t,
 	::testing::Values(0, 1, 2, 4, 8, 16, 100, 1024, 4096,
 		std::numeric_limits<uint16_t>::max())
@@ -68,7 +70,10 @@ BUFFER_IO_TEST(int64_t,
 	::testing::Values(0, 1, 2, -1, -5, 16, 100, -1800, 4096,
 		std::numeric_limits<int32_t>::max(), std::numeric_limits<int32_t>::min(),
 		std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::min()));
+//@}
 
+//@{
+/** @name Fixed size values */
 BUFFER_IO_TEST(bool, ::testing::Values(true, false));
 BUFFER_IO_TEST(char, ::testing::Values(0, '0', 'a', 'B', '=', '*'));
 typedef unsigned char uchar;
@@ -111,6 +116,18 @@ BUFFER_IO_TEST(int64_fixed_t,
 	::testing::Values(0, 1, 2, -1, -5, 16, 100, -1800, 4096,
 		std::numeric_limits<int32_t>::max(), std::numeric_limits<int32_t>::min(),
 		std::numeric_limits<int64_t>::max(), std::numeric_limits<int64_t>::min()));
+//@}
+
+//@{
+/** @name string io */
+typedef std::string std_string;
+BUFFER_IO_TEST(std_string,
+	::testing::Values(
+			"", " ", "abcdABCD", "+-!@#%^&", "абвгАБВГ",
+			"こんにちはテスト",  "メッセージ",  "안녕하세요 테스트", "你好测试"
+	)
+);
+//@}
 
 }  // namespace test
 }  // namespace encoding

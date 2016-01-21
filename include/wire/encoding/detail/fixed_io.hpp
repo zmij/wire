@@ -19,21 +19,16 @@ namespace detail {
 
 template < typename T >
 struct fixed_size_writer {
-	typedef typename arg_type_helper< T >::type				type;
+	typedef typename arg_type_helper< T >::in_type		in_type;
 	enum {
 		byte_count = sizeof(T)
 	};
 
 	template < typename OutputIterator >
 	static void
-	write(OutputIterator o, type v)
+	write(OutputIterator o, in_type v)
 	{
-		typedef OutputIterator							iterator_type;
-		typedef output_iterator_traits< iterator_type >	iterator_traits;
-		typedef typename iterator_traits::value_type	value_type;
-
-		static_assert(sizeof(value_type) == 1,
-			"Output iterator should be octet-based");
+		typedef octet_output_iterator_concept< OutputIterator > output_iterator_check;
 
 		char* p = reinterpret_cast<char*>(&v);
 		char* e = p + byte_count;
@@ -43,21 +38,16 @@ struct fixed_size_writer {
 
 template < typename T >
 struct fixed_size_writer<fixed_size< T >> {
-	typedef typename arg_type_helper<fixed_size< T >>::type type;
+	typedef typename arg_type_helper<fixed_size< T >>::in_type in_type;
 	enum {
-		byte_count = type::size
+		byte_count = in_type::size
 	};
 
 	template < typename OutputIterator >
 	static void
-	write(OutputIterator o, type v)
+	write(OutputIterator o, in_type v)
 	{
-		typedef OutputIterator							iterator_type;
-		typedef output_iterator_traits< iterator_type >	iterator_traits;
-		typedef typename iterator_traits::value_type	value_type;
-
-		static_assert(sizeof(value_type) == 1,
-			"Output iterator should be octet-based");
+		typedef octet_output_iterator_concept< OutputIterator > output_iterator_check;
 
 		v.value = boost::endian::native_to_little(v.value);
 		char* p = reinterpret_cast<char*>(&v.value);
@@ -68,27 +58,24 @@ struct fixed_size_writer<fixed_size< T >> {
 
 template < typename T >
 struct fixed_size_reader {
-	typedef typename arg_type_helper< T >::type type;
+	typedef typename arg_type_helper< T >::base_type	base_type;
+	typedef typename arg_type_helper< T >::out_type		out_type;
 	enum {
-		byte_count = sizeof(type)
+		byte_count = sizeof(base_type)
 	};
 
 	template < typename InputIterator >
 	static std::pair< InputIterator, bool >
-	read(InputIterator begin, InputIterator end, type& v)
+	read(InputIterator begin, InputIterator end, out_type v)
 	{
-		typedef InputIterator							iterator_type;
-		typedef std::iterator_traits< iterator_type >	iterator_traits;
-		typedef typename iterator_traits::value_type	value_type;
-
-		static_assert(sizeof(value_type) == 1,
-			"Input iterator should be octet-based");
+		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
+		typedef typename input_iterator_check::result_type		result_type;
 
 		auto start = begin;
-		type tmp;
+		base_type tmp;
 		char* p = reinterpret_cast<char*>(&tmp);
 		if (copy_max(begin, end, p, byte_count)) {
-			v = tmp;
+			std::swap(v, tmp);
 			return std::make_pair(begin, true);
 		}
 
@@ -98,25 +85,22 @@ struct fixed_size_reader {
 
 template < typename T >
 struct fixed_size_reader<fixed_size< T >> {
-	typedef typename arg_type_helper<fixed_size< T >>::type type;
-	typedef typename type::type								base_type;
+	typedef typename arg_type_helper<fixed_size< T >>::base_type	base_type;
+	typedef typename arg_type_helper<fixed_size< T >>::out_type		out_type;
+	typedef typename base_type::type								fundamental_type;
 	enum {
-		byte_count = type::size
+		byte_count = base_type::size
 	};
 
 	template < typename InputIterator >
 	static std::pair< InputIterator, bool >
-	read(InputIterator begin, InputIterator end, type& v)
+	read(InputIterator begin, InputIterator end, out_type v)
 	{
-		typedef InputIterator							iterator_type;
-		typedef std::iterator_traits< iterator_type >	iterator_traits;
-		typedef typename iterator_traits::value_type	value_type;
-
-		static_assert(sizeof(value_type) == 1,
-			"Input iterator should be octet-based");
+		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
+		typedef typename input_iterator_check::result_type		result_type;
 
 		auto start = begin;
-		base_type tmp;
+		fundamental_type tmp;
 		char* p = reinterpret_cast<char*>(&tmp);
 		if (copy_max(begin, end, p, byte_count)) {
 			v.value = boost::endian::little_to_native(tmp);

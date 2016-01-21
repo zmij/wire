@@ -32,6 +32,7 @@ struct fixed_size_base < T, true > {
 template < typename T >
 struct fixed_size
 	: fixed_size_base< T, std::is_integral<T>::value > {
+
 	typedef fixed_size_base< T, std::is_integral<T>::value >	base_type;
 	typedef typename base_type::type							type;
 	fixed_size() : base_type{0} {}

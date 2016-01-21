@@ -28,7 +28,7 @@ namespace detail {
 enum wire_types {
 	SCALAR_FIXED,
 	SCALAR_VARINT,
-	SCALAR_LENGTH_DELIM,
+	SCALAR_WITH_SIZE,
 	ARRAY_FIXED,
 	ARRAY_VARLEN,
 	DICTIONARY,
@@ -75,7 +75,7 @@ template <>
 struct wire_type< uint64_t > : std::integral_constant< wire_types, SCALAR_VARINT > {};
 
 template <>
-struct wire_type< std::string > : std::integral_constant< wire_types, SCALAR_LENGTH_DELIM > {};
+struct wire_type< std::string > : std::integral_constant< wire_types, SCALAR_WITH_SIZE > {};
 
 template < typename T, std::size_t N >
 struct wire_type< std::array< T, N > > : std::integral_constant< wire_types, ARRAY_FIXED > {};
