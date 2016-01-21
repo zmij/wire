@@ -1,0 +1,29 @@
+language: cpp
+os:
+  - linux
+  - osx
+compiler:
+  - clang
+  - gcc
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -qq libboost-all-dev libgtest-dev
+  - "cd /usr/src/gtest && sudo cmake . && sudo cmake --build . && sudo mv libg* /usr/local/lib/ ; cd -"
+before_script:
+  - pwd
+  - mkdir -p build/debug
+  - cd build/debug
+script:
+  - cmake ../.. -DBUILD_TESTS=ON
+  - make
+  - make test
+notifications:
+  recepients:
+    - sergei.a.fedorov@gmail.com
+  email:
+    on_success: change
+    on_failure: always 
+branches:
+  except:
+    - legacy
+  
