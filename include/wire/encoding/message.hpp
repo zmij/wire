@@ -29,6 +29,8 @@ struct message {
 
 	uint8_t			version_major	= ::wire::PROTOCOL_MAJOR;
 	uint8_t			version_minor	= ::wire::PROTOCOL_MINOR;
+	uint8_t			encoding_major	= ::wire::ENCODING_MAJOR;
+	uint8_t			encoding_minor	= ::wire::ENCODING_MINOR;
 
 	message_flags	flags			= request;
 	std::size_t		size			= 0;
@@ -43,6 +45,8 @@ struct message {
 	{
 		return version_major == rhs.version_major
 				&& version_minor == rhs.version_minor
+				&& encoding_major == rhs.encoding_major
+				&& encoding_minor == rhs.encoding_minor
 				&& flags == rhs.flags
 				&& size == rhs.size;
 	}
@@ -53,6 +57,8 @@ struct message {
 		using std::swap;
 		swap(version_major, rhs.version_major);
 		swap(version_minor, rhs.version_minor);
+		swap(encoding_major, rhs.encoding_major);
+		swap(encoding_minor, rhs.encoding_minor);
 		swap(flags, rhs.flags);
 		swap(size, rhs.size);
 	}
@@ -86,6 +92,8 @@ write(OutputIterator o, message const& v)
 	detail::write(o, int32_fixed_t(message::MAGIC_NUMBER));
 	detail::write(o, PROTOCOL_MAJOR);
 	detail::write(o, PROTOCOL_MINOR);
+	detail::write(o, v.encoding_major);
+	detail::write(o, v.encoding_minor);
 	detail::write(o, v.flags);
 	detail::write(o, v.size);
 }
@@ -102,6 +110,8 @@ read(InputIterator& begin, InputIterator end, message& v)
 	message tmp;
 	detail::read(begin, end, tmp.version_major);
 	detail::read(begin, end, tmp.version_minor);
+	detail::read(begin, end, tmp.encoding_major);
+	detail::read(begin, end, tmp.encoding_minor);
 	detail::read(begin, end, tmp.flags);
 	detail::read(begin, end, tmp.size);
 	v.swap(tmp);
