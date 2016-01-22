@@ -91,10 +91,18 @@ struct wire_type< uint32_t > : std::integral_constant< wire_types, SCALAR_VARINT
 template <>
 struct wire_type< uint64_t > : std::integral_constant< wire_types, SCALAR_VARINT > {};
 
+const bool __WIRE__NEED_LONG_TRAIT__ = !std::is_same< long, int64_t >::value;
+const bool __WIRE__NEED_ULONG_TRAIT__ = !std::is_same< unsigned long, uint64_t >::value;
+
+#if __WIRE__NEED_LONG_TRAIT__
 template <>
 struct wire_type< long > : std::integral_constant< wire_types, SCALAR_VARINT > {};
+#endif
+
+#if __WIRE__NEED_ULONG_TRAIT__
 template <>
 struct wire_type< unsigned long > : std::integral_constant< wire_types, SCALAR_VARINT > {};
+#endif
 
 template <>
 struct wire_type< std::string > : std::integral_constant< wire_types, SCALAR_WITH_SIZE > {};
