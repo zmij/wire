@@ -117,9 +117,15 @@ public:
 		operator -= (difference_type n);
 		out_buff_iterator
 		operator - (difference_type n) const;
+		template < typename _P >
+		difference_type
+		operator - (out_buff_iterator<_P> const&) const;
 		//@}
 	private:
 		friend class impl;
+		template < typename T >
+		friend class out_buff_iterator;
+
 		out_buff_iterator(container_pointer c, buffer_iterator_type buff, value_iterator_type curr)
 			: container_(c), buffer_(buff), current_(curr), position_(normal) {}
 		out_buff_iterator(container_pointer c, iter_position pos)
@@ -240,7 +246,7 @@ public:
 
 	//@{
 	/** @name Encapsulated data */
-	encapsulation&&
+	encapsulation
 	begin_encapsulation();
 	//@}
 private:
@@ -252,6 +258,11 @@ private:
 	advance(iterator& iter, difference_type diff) const;
 	void
 	advance(const_iterator& iter, difference_type diff) const;
+
+	difference_type
+	difference(iterator const& a, iterator const& b) const;
+	difference_type
+	difference(const_iterator const& a, const_iterator const& b) const;
 private:
 	typedef std::shared_ptr<impl> pimpl;
 	pimpl pimpl_;
@@ -259,10 +270,13 @@ private:
 
 class outgoing::encapsulation {
 public:
-	~encapsulation();
 	encapsulation(encapsulation&& rhs);
+	~encapsulation();
 	encapsulation&
 	operator = (encapsulation&& rhs);
+
+	size_type
+	size() const;
 private:
 	friend class outgoing;
 	encapsulation(outgoing* o);
@@ -270,7 +284,9 @@ private:
 	encapsulation&
 	operator = (encapsulation const&) = delete;
 private:
-	outgoing* out_;
+	struct impl;
+	typedef std::shared_ptr<impl> pimpl;
+	pimpl pimpl_;
 };
 
 inline void

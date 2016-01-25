@@ -6,11 +6,25 @@
  */
 
 #include <wire/encoding/buffers.hpp>
+#include <numeric>
+#include <iostream>
 
 namespace wire {
 namespace encoding {
 
+template < typename Impl >
+struct impl_traits {
+	typedef outgoing::pointer					pointer;
+	typedef outgoing::iterator					iterator_type;
+};
+template <typename Impl>
+struct impl_traits<const Impl> {
+	typedef outgoing::const_pointer		pointer;
+	typedef outgoing::const_iterator	iterator_type;
+};
+
 struct outgoing::impl {
+
 	outgoing*				container_;
 	buffer_sequence_type	buffers_;
 
@@ -54,11 +68,15 @@ struct outgoing::impl {
 	iterator
 	begin()
 	{
+		if (empty())
+			return end();
 		return iterator{ container_, buffers_.begin(), buffers_.front().begin() };
 	}
 	const_iterator
 	cbegin() const
 	{
+		if (empty())
+			return cend();
 		return const_iterator{ container_, buffers_.cbegin(), buffers_.front().cbegin() };
 	}
 
@@ -73,59 +91,174 @@ struct outgoing::impl {
 		return const_iterator{ container_, after_end };
 	}
 
+	reverse_iterator
+	rbegin()
+	{
+		return reverse_iterator{ end() };
+	}
+	const_reverse_iterator
+	crbegin() const
+	{
+		return const_reverse_iterator{ cend() };
+	}
+
+	reverse_iterator
+	rend()
+	{
+		return reverse_iterator{ begin() };
+	}
+	const_reverse_iterator
+	crend() const
+	{
+		return const_reverse_iterator{ cbegin() };
+	}
+
 	template < typename _pointer >
-	size_type
+	difference_type
 	index_of(out_buff_iterator< _pointer > const& iter) const
 	{
-		size_type prev_buffers = std::accumulate(
+		if (iter.position_ == before_begin)
+			return -1;
+		if (iter.position_ == after_end)
+			return size();
+		difference_type prev_buffers = std::accumulate(
 				buffers_.cbegin(), buffer_sequence_type::const_iterator(iter.buffer_),
-				size_type(0),
-				[](size_type sz, buffer_type const& buff)
+				difference_type(0),
+				[](difference_type sz, buffer_type const& buff)
 				{
 					return sz + buff.size();
 				});
 		return prev_buffers + (iter.current_ - iter.buffer_->begin());
 	}
 
-	template < typename _pointer >
-	void
-	do_advance( out_buff_iterator< _pointer >& iter, difference_type n) const
+	/**
+	 * @pre n is in bounds of [0,size())
+	 * @param impl
+	 * @param n
+	 * @return
+	 */
+	template < typename Impl >
+	static typename impl_traits< Impl >::iterator_type
+	iter_at_index( Impl* impl, difference_type n )
 	{
-		typedef out_buff_iterator< _pointer > iter_type;
+		typedef typename impl_traits< Impl >::iterator_type iterator_type;
+		typedef typename iterator_type::buffer_iterator_type buffer_iterator_type;
+		for ( buffer_iterator_type b = impl->buffers_.begin(); b != impl->buffers_.end() && n >= 0; ++b) {
+			if (n < b->size()) {
+				return iterator_type{impl->container_, b, b->begin() + n};
+			}
+			n -= b->size();
+		}
+		return iterator_type{impl->container_, after_end};
+	}
+
+	template < typename Impl >
+	static void
+	advance( Impl* impl, typename impl_traits< Impl >::iterator_type& iter, difference_type n)
+	{
+		assert(impl->container_ == iter.container_ && "Iterator belongs to container");
+		typedef typename impl_traits< Impl >::iterator_type iter_type;
 		if (n != 0) {
 			if (iter.position_ == normal) {
-				size_type index = index_of(iter);
+				difference_type index = impl->index_of(iter);
 				if (n > 0) {
-					size_type sz = size();
+					size_type sz = impl->size();
 					if (index + n > sz) {
-						iter_type(container_, after_end).swap(iter);
+						iter_type(impl->container_, after_end).swap(iter);
 					} else {
-
+						// TODO Check if in same buffer
+						iter_at_index(impl, index + n).swap(iter);
 					}
 				} else { // n < 0
 					if (n + index < 0) {
-						iter_type(container_, before_begin).swap(iter);
+						iter_type(impl->container_, before_begin).swap(iter);
 					} else {
-
+						// TODO Check if in same buffer
+						iter_at_index(impl, index - n).swap(iter);
 					}
 				}
 			} else if (iter.position_ == after_end && n < 0) {
-				// Move n-1 from end
+				difference_type sz = impl->size();
+				if (n + sz < 0) {
+					iter_type(impl->container_, before_begin).swap(iter);
+				} else {
+					// Move n-1 from end
+					iter_at_index(impl, impl->size() + n).swap(iter);
+				}
 			} else if (iter.position_ == before_begin && n > 0) {
 				// Move n-1 from start
+				difference_type sz = impl->size();
+				if (n >= sz) {
+					iter_type(impl->container_, after_end).swap(iter);
+				} else {
+					iter_at_index(impl, n).swap(iter);
+				}
 			}
 		} // else do nothing
 	}
 	void
-	advance(iterator& iter, difference_type diff) const
+	advance(iterator& iter, difference_type diff)
 	{
-		do_advance(iter, diff);
+		advance(this, iter, diff);
 	}
 
 	void
 	advance(const_iterator& iter, difference_type diff) const
 	{
-		do_advance(iter, diff);
+		advance(this, iter, diff);
+	}
+
+	template < typename Impl >
+	static difference_type
+	difference(Impl* impl, typename impl_traits< Impl >::iterator_type const& a, typename impl_traits< Impl >::iterator_type const& b)
+	{
+		assert(impl->container_ == a.container_ && "Iterator belongs to container");
+		assert(impl->container_ == b.container_ && "Iterator belongs to container");
+		if (a.buffer_ == b.buffer_) {
+			return a.current_ - b.current_;
+		}
+		return impl->index_of(a) - impl->index_of(b);
+	}
+
+	difference_type
+	difference(iterator const& a, iterator const& b)
+	{
+		return difference(this, a, b);
+	}
+	difference_type
+	cdifference(const_iterator const& a, const_iterator const& b) const
+	{
+		return difference(this, a, b);
+	}
+
+	void
+	push_back(value_type v)
+	{
+		buffers_.back().push_back(v);
+	}
+	void
+	pop_back()
+	{
+		buffers_.back().pop_back();
+		if (buffers_.back().empty() && buffers_.size() > 1) {
+			buffers_.pop_back();
+		}
+	}
+
+	buffer_sequence_type::iterator
+	last_buffer()
+	{
+		return buffers_.end() - 1;
+	}
+	iterator
+	last_iterator()
+	{
+		return iterator{ container_, last_buffer(), buffers_.back().end() - 1 };
+	}
+	void
+	start_buffer()
+	{
+		buffers_.push_back({});
 	}
 };
 
@@ -186,7 +319,6 @@ outgoing::begin()
 {
 	return pimpl_->begin();
 }
-
 outgoing::const_iterator
 outgoing::cbegin() const
 {
@@ -198,17 +330,32 @@ outgoing::end()
 {
 	return pimpl_->end();
 }
-
 outgoing::const_iterator
 outgoing::cend() const
 {
 	return pimpl_->cend();
 }
 
-outgoing::encapsulation&&
-outgoing::begin_encapsulation()
+outgoing::reverse_iterator
+outgoing::rbegin()
 {
-	return std::move(encapsulation{this});
+	return pimpl_->rbegin();
+}
+outgoing::const_reverse_iterator
+outgoing::crbegin() const
+{
+	return pimpl_->crbegin();
+}
+
+outgoing::reverse_iterator
+outgoing::rend()
+{
+	return pimpl_->rend();
+}
+outgoing::const_reverse_iterator
+outgoing::crend() const
+{
+	return pimpl_->crend();
 }
 
 void
@@ -223,23 +370,95 @@ outgoing::advance(const_iterator& iter, difference_type diff) const
 	pimpl_->advance(iter, diff);
 }
 
-outgoing::encapsulation::encapsulation(outgoing* o)
-	: out_(o)
+outgoing::difference_type
+outgoing::difference(iterator const& a, iterator const& b) const
 {
-	// Start encapsulation here
+	return pimpl_->difference(a, b);
+}
+outgoing::difference_type
+outgoing::difference(const_iterator const& a, const_iterator const& b) const
+{
+	return pimpl_->cdifference(a, b);
+}
+
+void
+outgoing::push_back(value_type v)
+{
+	pimpl_->push_back(v);
+}
+
+void
+outgoing::pop_back()
+{
+	pimpl_->pop_back();
+}
+
+outgoing::encapsulation
+outgoing::begin_encapsulation()
+{
+	return std::move(encapsulation{this});
+}
+
+//----------------------------------------------------------------------------
+//	encapsulation implementation
+//----------------------------------------------------------------------------
+struct outgoing::encapsulation::impl {
+	typedef outgoing::buffer_sequence_type::iterator 	buffer_iterator;
+	outgoing* out_;
+	buffer_iterator buffer_before_;
+	iterator		iterator_before_;
+
+	impl(outgoing* o) :
+		out_(o),
+		buffer_before_(out_->pimpl_->last_buffer()),
+		iterator_before_(out_->pimpl_->last_iterator())
+	{
+		std::cerr << "Construct encaps impl\n";
+		out_->pimpl_->start_buffer();
+	}
+	~impl()
+	{
+		std::cerr << "Destroy encaps impl\n";
+		if (out_) {
+			size_type sz = size();
+			std::cerr << "Encaps size " << sz << "\n";
+			detail::write(std::back_inserter( *buffer_before_), sz);
+			out_->pimpl_->start_buffer();
+		}
+		std::cerr << "Destroy encaps impl OK\n";
+	}
+
+	size_type
+	size() const
+	{
+		assert(out_ && "outgoing buffer for encapsulation");
+		assert(out_->pimpl_ && "outgoing buffer pimpl for encapsulation");
+		return out_->pimpl_->last_iterator() - iterator_before_;
+	}
+};
+
+outgoing::encapsulation::encapsulation(outgoing* o)
+	: pimpl_(std::make_shared<impl>(o))
+{
+	std::cerr << "Construct new encaps\n";
 }
 
 outgoing::encapsulation::encapsulation(encapsulation&& rhs)
-	: out_(rhs.out_)
+	: pimpl_(rhs.pimpl_)
 {
-	rhs.out_ = nullptr;
+	rhs.pimpl_.reset();
+	std::cerr << "Move construct encaps\n";
 }
 
 outgoing::encapsulation::~encapsulation()
 {
-	if (out_) {
-		// finish encapsulation here
-	}
+	std::cerr << "Destroy encaps\n";
+}
+
+outgoing::size_type
+outgoing::encapsulation::size() const
+{
+	return pimpl_->size();
 }
 
 }  // namespace encoding

@@ -93,6 +93,7 @@ template < typename _pointer >
 typename outgoing::out_buff_iterator< _pointer >::reference
 outgoing::out_buff_iterator< _pointer >::operator *() const
 {
+	assert(position_ == normal && container_ && "Iterator is valid");
 	return *current_;
 }
 
@@ -100,6 +101,7 @@ template < typename _pointer >
 typename outgoing::out_buff_iterator< _pointer >::pointer
 outgoing::out_buff_iterator< _pointer >::operator -> () const
 {
+	assert(position_ == normal && container_ && "Iterator is valid");
 	return current_.operator -> ();
 }
 
@@ -107,7 +109,7 @@ template < typename _pointer >
 outgoing::out_buff_iterator< _pointer >&
 outgoing::out_buff_iterator< _pointer >::operator ++()
 {
-	container_->advance(buffer_, current_, 1);
+	container_->advance(*this, 1);
 	return *this;
 }
 
@@ -124,7 +126,7 @@ template < typename _pointer >
 outgoing::out_buff_iterator< _pointer >&
 outgoing::out_buff_iterator< _pointer >::operator --()
 {
-	container_->advance(buffer_, current_, -1);
+	container_->advance(*this, -1);
 	return *this;
 }
 
@@ -141,7 +143,7 @@ template < typename _pointer >
 outgoing::out_buff_iterator< _pointer >&
 outgoing::out_buff_iterator< _pointer >::operator +=( difference_type n )
 {
-	container_->advance(buffer_, current_, n);
+	container_->advance(*this, n);
 	return *this;
 }
 
@@ -157,7 +159,7 @@ template < typename _pointer >
 outgoing::out_buff_iterator< _pointer >&
 outgoing::out_buff_iterator< _pointer >::operator -=( difference_type n )
 {
-	container_->advance(buffer_, current_, -n);
+	container_->advance(*this, -n);
 	return *this;
 }
 
@@ -167,6 +169,14 @@ outgoing::out_buff_iterator< _pointer >::operator - ( difference_type n ) const
 {
 	out_buff_iterator res(*this);
 	return (res -= n);
+}
+
+template < typename _pointer >
+template < typename _P >
+outgoing::difference_type
+outgoing::out_buff_iterator< _pointer >::operator -(out_buff_iterator<_P> const& rhs) const
+{
+	return container_->difference(*this, rhs);
 }
 
 }  // namespace encoding

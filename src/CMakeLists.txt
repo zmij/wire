@@ -9,4 +9,9 @@ set(wire_lib_SRCS
     bits.cpp
     encoding/buffers.cpp
 )
-add_library(${WIRE_LIB} ${wire_lib_SRCS})
+add_library(${WIRE_LIB} SHARED ${wire_lib_SRCS})
+set_target_properties(
+    ${WIRE_LIB} PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION 1
+)

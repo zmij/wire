@@ -21,7 +21,7 @@ struct out_buffer_traits;
 
 template <>
 struct out_buffer_traits< uint8_t* > {
-	typedef outgoing const*					container_pointer;
+	typedef outgoing*						container_pointer;
 	typedef std::vector<uint8_t>			buffer_type;
 	typedef std::vector<buffer_type>		buffers_sequence_type;
 
