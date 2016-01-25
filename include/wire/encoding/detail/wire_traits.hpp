@@ -10,6 +10,7 @@
 
 #include <wire/encoding/types.hpp>
 
+#include <type_traits>
 #include <string>
 #include <vector>
 #include <list>

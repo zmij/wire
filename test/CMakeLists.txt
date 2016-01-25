@@ -11,8 +11,9 @@ include_directories(${GTEST_INCLUDE_DIRS})
 set(test_SRCS
     static_tests.cpp
     bits_tests.cpp
-    buffers_test.cpp
+    encoding_test.cpp
     message_io_test.cpp
+    outgoing_buffer_test.cpp
 )
 
 add_executable(test-wire ${test_SRCS})

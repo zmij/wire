@@ -9,7 +9,7 @@
 #define WIRE_ENCODING_MESSAGE_HPP_
 
 #include <wire/encoding/types.hpp>
-#include <wire/encoding/buffers.hpp>
+#include <wire/encoding/detail/wire_io.hpp>
 #include <wire/version.hpp>
 
 namespace wire {
