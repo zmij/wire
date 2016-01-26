@@ -48,6 +48,7 @@
  */
 
 #include <wire/encoding/detail/helpers.hpp>
+#include <wire/errors/exceptions.hpp>
 #include <boost/endian/arithmetic.hpp>
 
 namespace wire {
@@ -153,12 +154,12 @@ struct varint_writer < T, true > {
 	 */
 	template < typename OutputIterator >
 	static void
-	write( OutputIterator o, in_type v)
+	output( OutputIterator o, in_type v)
 	{
 		typedef octet_output_iterator_concept< OutputIterator > output_iterator_check;
 		typedef typename output_iterator_check::value_type		value_type;
 
-		unsigned_writer::write(o,
+		unsigned_writer::output(o,
 			static_cast< unsigned_type >( (v << 1) ^ (v >> shift_bits) ));
 	}
 };
@@ -193,11 +194,11 @@ struct varint_enum_writer< T, true > {
 	 */
 	template < typename OutputIterator >
 	static void
-	write( OutputIterator o, in_type v)
+	output( OutputIterator o, in_type v)
 	{
 		typedef octet_output_iterator_concept< OutputIterator >	output_iterator_check;
 		typedef typename output_iterator_check::value_type		value_type;
-		writer_type::write(o, static_cast<integral_type>(v));
+		writer_type::output(o, static_cast<integral_type>(v));
 	}
 };
 
@@ -229,7 +230,7 @@ struct varint_enum_writer < T, false > {
 	 */
 	template < typename OutputIterator >
 	static void
-	write( OutputIterator o, in_type v)
+	output( OutputIterator o, in_type v)
 	{
 		typedef octet_output_iterator_concept< OutputIterator >	output_iterator_check;
 		typedef typename output_iterator_check::value_type		value_type;
@@ -312,13 +313,13 @@ struct varint_reader< T, true > {
 	 */
 	template < typename InputIterator >
 	static void
-	read(InputIterator& begin, InputIterator end, type& v)
+	input(InputIterator& begin, InputIterator end, type& v)
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
 
 		unsigned_type tmp;
 		try {
-			unsigned_reader::read(begin, end, tmp);
+			unsigned_reader::input(begin, end, tmp);
 			v = static_cast<type>(tmp >> 1) ^
 					(static_cast<type>(tmp) << shift_bits >> shift_bits);
 		} catch (errors::unmarshal_error const&) {
@@ -354,13 +355,13 @@ struct varint_enum_reader< T, true > {
 	 */
 	template < typename InputIterator >
 	static void
-	read(InputIterator& begin, InputIterator end, out_type v)
+	input(InputIterator& begin, InputIterator end, out_type v)
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
 
 		integral_type iv;
 		try {
-			reader_type::read(begin, end, iv);
+			reader_type::input(begin, end, iv);
 			v = static_cast<base_type>(iv);
 		} catch (errors::unmarshal_error const&) {
 			throw errors::unmarshal_error("Failed to read enumeration value");
@@ -395,7 +396,7 @@ struct varint_enum_reader< T, false > {
 	 */
 	template < typename InputIterator >
 	static void
-	read(InputIterator& begin, InputIterator end, out_type v)
+	input(InputIterator& begin, InputIterator end, out_type v)
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
 

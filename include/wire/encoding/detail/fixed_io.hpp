@@ -29,7 +29,7 @@ struct fixed_size_writer {
 
 	template < typename OutputIterator >
 	static void
-	write(OutputIterator o, in_type v)
+	output(OutputIterator o, in_type v)
 	{
 		typedef octet_output_iterator_concept< OutputIterator > output_iterator_check;
 
@@ -48,7 +48,7 @@ struct fixed_size_writer<fixed_size< T >> {
 
 	template < typename OutputIterator >
 	static void
-	write(OutputIterator o, in_type v)
+	output(OutputIterator o, in_type v)
 	{
 		typedef octet_output_iterator_concept< OutputIterator > output_iterator_check;
 
@@ -69,7 +69,7 @@ struct fixed_size_reader {
 
 	template < typename InputIterator >
 	static void
-	read(InputIterator& begin, InputIterator end, out_type v)
+	input(InputIterator& begin, InputIterator end, out_type v)
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
 
@@ -96,7 +96,7 @@ struct fixed_size_reader<fixed_size< T >> {
 
 	template < typename InputIterator >
 	static void
-	read(InputIterator& begin, InputIterator end, out_type v)
+	input(InputIterator& begin, InputIterator end, out_type v)
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
 

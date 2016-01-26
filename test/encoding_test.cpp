@@ -36,10 +36,10 @@ TEST_P(the_type##_io_test, IOTest) \
 	ParamType v = GetParam(); \
 	ParamType e; \
 \
-	writer_type::write(std::back_inserter(buffer), v); \
+	writer_type::output(std::back_inserter(buffer), v); \
 	std::cerr << "Value " << v << " Buffer size " << buffer.size() << "\n"; \
 	auto begin = buffer.begin(); \
-	reader_type::read(begin, buffer.end(), e); \
+	reader_type::input(begin, buffer.end(), e); \
 	EXPECT_EQ(v, e); \
 	EXPECT_EQ(begin, buffer.end()); \
 } \

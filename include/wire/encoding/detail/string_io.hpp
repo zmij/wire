@@ -22,12 +22,12 @@ struct string_writer {
 
 	template < typename OutputIterator >
 	static void
-	write(OutputIterator o, in_type v)
+	output(OutputIterator o, in_type v)
 	{
 		typedef octet_output_iterator_concept< OutputIterator >	output_iterator_check;
 		typedef typename output_iterator_check::value_type		value_type;
 
-		size_writer::write(o, v.size());
+		size_writer::output(o, v.size());
 		std::copy(v.begin(), v.end(), o);
 	}
 };
@@ -39,12 +39,12 @@ struct string_reader {
 
 	template < typename InputIterator >
 	static void
-	read(InputIterator& begin, InputIterator end, out_type v)
+	input(InputIterator& begin, InputIterator end, out_type v)
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
 
 		std::size_t str_size;
-		size_reader::read(begin, end, str_size);
+		size_reader::input(begin, end, str_size);
 		base_type val;
 		val.resize(str_size);
 		if (!copy_max(begin, end, val.begin(), str_size)) {

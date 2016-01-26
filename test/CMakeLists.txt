@@ -12,8 +12,10 @@ set(test_SRCS
     static_tests.cpp
     bits_tests.cpp
     encoding_test.cpp
+    variant_io_test.cpp
     message_io_test.cpp
     outgoing_buffer_test.cpp
+    endpoints_io_test.cpp
 )
 
 add_executable(test-wire ${test_SRCS})
