@@ -102,6 +102,40 @@ TEST(OutgoingBuffer, Encapsulation)
 	EXPECT_EQ(INSERT_CHARS*2 + 3, out.size()); // After encapsulation is closed, size of 100 fits into one byte, 2 bytes are encaps header
 }
 
+TEST(OutgoingBuffer, NestedEncapsulation)
+{
+	outgoing out;
+	for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
+		out.push_back(i);
+	}
+	EXPECT_EQ(INSERT_CHARS, out.size());
+	{
+		outgoing::encapsulation outer(out.begin_encapsulation());
+		for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
+			out.push_back(i);
+		}
+		EXPECT_EQ(INSERT_CHARS, outer.size());
+		EXPECT_EQ(INSERT_CHARS*2, out.size()); // Before encapsulation is closed
+		{
+			outgoing::encapsulation inner(out.begin_encapsulation());
+			for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
+				out.push_back(i);
+			}
+			EXPECT_EQ(INSERT_CHARS, inner.size());
+			EXPECT_EQ(INSERT_CHARS*2, outer.size());
+			EXPECT_EQ(INSERT_CHARS*3, out.size()); // Before encapsulation is closed
+		}
+		EXPECT_EQ(INSERT_CHARS*2 + 3, outer.size());
+		EXPECT_EQ(INSERT_CHARS*3 + 3, out.size()); // Before encapsulation is closed
+		for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
+			out.push_back(i);
+		}
+		EXPECT_EQ(INSERT_CHARS*3 + 3, outer.size());
+		EXPECT_EQ(INSERT_CHARS*4 + 3, out.size()); // Before encapsulation is closed
+	}
+	EXPECT_EQ(INSERT_CHARS*4 + 7, out.size()); // After encapsulation is closed, size of 200 fits into two bytes, 2 bytes per encaps header
+}
+
 }  // namespace test
 }  // namespace encoding
 }  // namespace wire
