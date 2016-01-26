@@ -18,6 +18,7 @@ namespace wire {
 namespace core {
 
 enum class transport_type {
+	empty,
 	tcp,
 	ssl,
 	udp,
@@ -26,11 +27,38 @@ enum class transport_type {
 
 namespace detail {
 
+struct empty_endpoint {
+	bool
+	operator == (empty_endpoint const&) const
+	{ return true; }
+	bool
+	operator != (empty_endpoint const&) const
+	{ return false; }
+};
+
+std::ostream&
+operator << (std::ostream& os, empty_endpoint const& val);
+
+template < typename OutputIterator >
+void
+wire_write(OutputIterator o, empty_endpoint const& v)
+{
+}
+
+template < typename InputIterator >
+void
+wire_read(InputIterator& begin, InputIterator read, empty_endpoint& v)
+{
+}
+
 struct inet_endpoint_data {
 	std::string		host = "";
 	uint16_t		port = 0;
 
-	inet_endpoint_data() = default;
+	inet_endpoint_data()
+		: host(), port(0)
+	{
+	}
 	inet_endpoint_data(std::string const& host, uint16_t port)
 		: host(host), port(port)
 	{
@@ -48,9 +76,12 @@ struct inet_endpoint_data {
 	}
 };
 
+std::ostream&
+operator << (std::ostream& os, inet_endpoint_data const& val);
+
 template < typename OutputIterator >
 void
-write(OutputIterator o, inet_endpoint_data const& v)
+wire_write(OutputIterator o, inet_endpoint_data const& v)
 {
 	encoding::write(o, v.host);
 	encoding::write(o, v.port);
@@ -58,7 +89,7 @@ write(OutputIterator o, inet_endpoint_data const& v)
 
 template < typename InputIterator >
 void
-read(InputIterator& begin, InputIterator& end, inet_endpoint_data& v)
+wire_read(InputIterator& begin, InputIterator& end, inet_endpoint_data& v)
 {
 	encoding::read(begin, end, v.host);
 	encoding::read(begin, end, v.port);
@@ -67,7 +98,7 @@ read(InputIterator& begin, InputIterator& end, inet_endpoint_data& v)
 struct controlled_endpoint_data : inet_endpoint_data {
 	uint32_t		timeout = 0;
 
-	controlled_endpoint_data() = default;
+	controlled_endpoint_data() : inet_endpoint_data{}, timeout(0) {}
 	controlled_endpoint_data( std::string const& host, uint16_t port,
 			uint32_t timeout = 0)
 		: inet_endpoint_data{ host, port }, timeout(timeout)
@@ -87,19 +118,22 @@ struct controlled_endpoint_data : inet_endpoint_data {
 	}
 };
 
+std::ostream&
+operator << (std::ostream& os, controlled_endpoint_data const& val);
+
 template < typename OutputIterator >
 void
-write(OutputIterator o, controlled_endpoint_data const& v)
+wire_write(OutputIterator o, controlled_endpoint_data const& v)
 {
-	write(o, static_cast< inet_endpoint_data const& >(v));
+	wire_write(o, static_cast< inet_endpoint_data const& >(v));
 	encoding::write(o, v.timeout);
 }
 
 template < typename InputIterator >
 void
-read(InputIterator& begin, InputIterator& end, controlled_endpoint_data& v)
+wire_read(InputIterator& begin, InputIterator& end, controlled_endpoint_data& v)
 {
-	read(begin, end, static_cast< inet_endpoint_data& >(v));
+	wire_read(begin, end, static_cast< inet_endpoint_data& >(v));
 	encoding::read(begin, end, v.timeout);
 }
 
@@ -144,16 +178,19 @@ struct socket_endpoint_data {
 	}
 };
 
+std::ostream&
+operator << (std::ostream& os, socket_endpoint_data const& val);
+
 template < typename OutputIterator >
 void
-write(OutputIterator o, socket_endpoint_data const& v)
+wire_write(OutputIterator o, socket_endpoint_data const& v)
 {
 	encoding::write(o, v.path);
 }
 
 template < typename InputIterator >
 void
-read(InputIterator& begin, InputIterator end, socket_endpoint_data& v)
+wire_read(InputIterator& begin, InputIterator end, socket_endpoint_data& v)
 {
 	encoding::read(begin, end, v.path);
 }
@@ -163,20 +200,42 @@ read(InputIterator& begin, InputIterator end, socket_endpoint_data& v)
 class endpoint {
 public:
 	typedef boost::variant<
+		detail::empty_endpoint,
 		detail::tcp_endpoint_data,
 		detail::ssl_endpoint_data,
 		detail::udp_endpoint_data,
 		detail::socket_endpoint_data
 	> endpoint_data;
 public:
+	endpoint() : endpoint_data_{ detail::empty_endpoint{} } {}
+	endpoint(endpoint const& rhs) : endpoint_data_{ rhs.endpoint_data_ } {}
+	endpoint(endpoint&& rhs) : endpoint_data_{ std::move(rhs.endpoint_data_) } {}
 	template < typename T >
-	endpoint( T&& data ) : endpoint_data_(std::forward<T&&>(data)) {}
+	endpoint( T&& data ) : endpoint_data_{ std::forward<T&&>(data) } {}
+
+	bool
+	operator == (endpoint const& rhs) const
+	{
+		return endpoint_data_ == rhs.endpoint_data_;
+	}
+	bool
+	operator != (endpoint const& rhs) const
+	{
+		return !(*this == rhs);
+	}
 
 	transport_type
 	transport() const
 	{
 		return static_cast<transport_type>(endpoint_data_.which());
 	}
+
+	endpoint_data&
+	data()
+	{ return endpoint_data_; }
+	endpoint_data const&
+	data() const
+	{ return endpoint_data_; }
 
 	template < typename OutputIterator >
 	void
@@ -196,14 +255,14 @@ private:
 
 template < typename OutputIterator >
 void
-write(OutputIterator o, endpoint const& v)
+wire_write(OutputIterator o, endpoint const& v)
 {
 	v.write(o);
 }
 
 template < typename InputIterator >
 void
-read(InputIterator& begin, InputIterator end, endpoint& v)
+wire_read(InputIterator& begin, InputIterator end, endpoint& v)
 {
 	v.read(begin, end);
 }

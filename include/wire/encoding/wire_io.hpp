@@ -16,7 +16,15 @@ namespace encoding {
 
 template < typename OutputIterator, typename T >
 void
-write(OutputIterator o, T v)
+write(OutputIterator o, T v, typename std::enable_if< std::is_fundamental<T>::value, T >::type*)
+{
+	typedef detail::writer< typename std::decay< T >::type > writer_type;
+	writer_type::output(o, v);
+}
+
+template < typename OutputIterator, typename T >
+void
+write(OutputIterator o, T const& v, typename std::enable_if< !std::is_fundamental<T>::value, T >::type*)
 {
 	typedef detail::writer< typename std::decay< T >::type > writer_type;
 	writer_type::output(o, v);

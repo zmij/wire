@@ -24,7 +24,20 @@ struct struct_writer {
 	output(OutputIterator o, in_type v)
 	{
 		typedef octet_output_iterator_concept< OutputIterator >	output_iterator_check;
-		write(o, v);
+		wire_write(o, v);
+	}
+};
+
+template < typename T >
+struct struct_reader {
+	typedef typename arg_type_helper<T>::out_type	out_type;
+
+	template < typename InputIterator >
+	static void
+	input(InputIterator& begin, InputIterator end, out_type v)
+	{
+		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
+		wire_read(begin, end, v);
 	}
 };
 

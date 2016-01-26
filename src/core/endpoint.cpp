@@ -35,12 +35,14 @@ static_assert(
 
 namespace {
 	const std::map< transport_type, std::string > CLASS_TO_STRING {
+		{ transport_type::empty, "empty" },
 		{ transport_type::tcp, "tcp" },
 		{ transport_type::ssl, "ssl" },
 		{ transport_type::udp, "udp" },
 		{ transport_type::socket, "socket" },
 	}; // CLASS_TO_STRING
 	const std::map< std::string, transport_type > STRING_TO_CLASS {
+		{ "empty", transport_type::empty },
 		{ "tcp", transport_type::tcp },
 		{ "ssl", transport_type::ssl },
 		{ "udp", transport_type::udp },
@@ -81,6 +83,55 @@ operator >> (std::istream& in, transport_type& val)
 	}
 	return in;
 }
+
+namespace detail {
+
+std::ostream&
+operator << (std::ostream& os, empty_endpoint const& val)
+{
+//	std::ostream::sentry s (os);
+//	if (s) {
+//		os << "";
+//	}
+	return os;
+}
+
+
+std::ostream&
+operator << (std::ostream& os, inet_endpoint_data const& val)
+{
+	std::ostream::sentry s (os);
+	if (s) {
+		os << val.host << ':' << val.port;
+	}
+	return os;
+}
+
+std::ostream&
+operator << (std::ostream& os, controlled_endpoint_data const& val)
+{
+	std::ostream::sentry s (os);
+	if (s) {
+		os << static_cast<inet_endpoint_data const&>(val);
+		if (val.timeout > 0) {
+			os << " --timeout " << val.timeout;
+		}
+	}
+	return os;
+}
+
+std::ostream&
+operator << (std::ostream& os, socket_endpoint_data const& val)
+{
+	std::ostream::sentry s (os);
+	if (s) {
+		os << val.path;
+	}
+	return os;
+}
+
+
+}  // namespace detail
 
 }  // namespace core
 }  // namespace wire

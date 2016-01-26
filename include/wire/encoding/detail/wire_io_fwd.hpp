@@ -24,7 +24,10 @@ struct reader_impl;
 
 template < typename OutputIterator, typename T >
 void
-write(OutputIterator o, T v);
+write(OutputIterator o, T v, typename std::enable_if< std::is_fundamental<T>::value, T >::type* = nullptr);
+template < typename OutputIterator, typename T >
+void
+write(OutputIterator o, T const& v, typename std::enable_if< !std::is_fundamental<T>::value, T >::type* = nullptr);
 
 template < typename InputIterator, typename T >
 void

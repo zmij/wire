@@ -24,6 +24,59 @@ namespace detail {
 template < typename ... T >
 struct wire_type< boost::variant< T ... > > : std::integral_constant< wire_types, VARIANT > {};
 
+template < typename OutputIterator, typename VariantType, size_t num, typename T >
+struct write_nth_type {
+	typedef OutputIterator										iterator_type;
+	typedef T													value_type;
+	typedef writer_impl< value_type,
+			wire_type<value_type>::value >						writer_type;
+	typedef VariantType											variant_type;
+	typedef typename arg_type_helper< variant_type >::in_type	in_type;
+
+	static void
+	output(iterator_type out, in_type v)
+	{
+		value_type const& val = boost::get<value_type>(v);
+		writer_type::output(out, val);
+	}
+};
+
+template < typename OutputIterator, typename IndexesTuple, typename ... T >
+struct variant_write_unwrapper_base;
+
+template < typename OutputIterator, std::size_t ... Indexes, typename ... T >
+struct variant_write_unwrapper_base< OutputIterator, util::indexes_tuple< Indexes ... >, T ... > {
+	typedef boost::variant< T ... >								variant_type;
+	typedef typename arg_type_helper< variant_type >::in_type	in_type;
+	typedef OutputIterator										iterator_type;
+	typedef std::function< void( iterator_type, in_type ) >		write_func_type;
+	enum {
+		size = sizeof ... (T)
+	};
+	typedef std::array< write_func_type, size >					func_table_type;
+
+	static func_table_type&
+	functions()
+	{
+		static func_table_type table_{
+			&write_nth_type< iterator_type, variant_type, Indexes, T >::output ...
+		};
+		return table_;
+	}
+
+	static void
+	output_nth(iterator_type out, in_type v, std::size_t type_idx)
+	{
+		assert(type_idx < size && "Variant type index is in bounds of type list");
+		functions()[type_idx](out, v);
+	}
+};
+
+template < typename OutputIterator, typename ... T >
+struct variant_write_unwrapper :
+	variant_write_unwrapper_base< OutputIterator, typename util::index_builder< sizeof ... (T) >::type, T ... > {};
+
+
 template < typename ... T >
 struct variant_writer {
 	typedef boost::variant< T ... >								variant_type;
@@ -31,34 +84,14 @@ struct variant_writer {
 	typedef varint_writer< std::size_t, false >					type_writer;
 
 	template < typename OutputIterator >
-	struct write_visitor : boost::static_visitor<> {
-		OutputIterator out;
-
-		write_visitor(OutputIterator o) : out(o) {}
-
-		template < typename U >
-		void
-		operator() (U const& v) const
-		{
-			encoding::write(out, v);
-		}
-	};
-
-	template < typename OutputIterator >
-	static write_visitor< OutputIterator >
-	create_visitor(OutputIterator o)
-	{
-		return write_visitor< OutputIterator >{ o };
-	}
-
-	template < typename OutputIterator >
 	static void
 	output(OutputIterator o, in_type v)
 	{
 		typedef octet_output_iterator_concept< OutputIterator >	output_iterator_check;
+		typedef variant_write_unwrapper< OutputIterator, T ... > write_unwrapper;
 
 		type_writer::output(o, v.which());
-		boost::apply_visitor( create_visitor(o), v );
+		write_unwrapper::output_nth(o, v, v.which());
 	}
 };
 

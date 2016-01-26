@@ -44,6 +44,10 @@ struct writer_impl < T, STRUCT >
 	: struct_writer< T > {};
 
 template < typename T >
+struct reader_impl < T, STRUCT >
+	: struct_reader< T > {};
+
+template < typename T >
 struct writer : writer_impl< T, wire_type<T>::value> {};
 
 template < typename T >
