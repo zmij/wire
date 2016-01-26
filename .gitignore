@@ -34,3 +34,7 @@
 .project
 .cproject
 *.settings
+
+# MacOS stuff
+.DS_Store
+

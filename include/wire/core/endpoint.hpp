@@ -13,6 +13,7 @@
 #include <boost/variant.hpp>
 
 #include <wire/encoding/wire_io.hpp>
+#include <wire/encoding/detail/variant_io.hpp>
 
 namespace wire {
 namespace core {

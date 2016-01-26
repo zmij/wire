@@ -20,6 +20,12 @@ struct writer_impl;
 template < typename T, wire_types >
 struct reader_impl;
 
+template < typename T >
+struct writer : writer_impl< T, wire_type<T>::value> {};
+
+template < typename T >
+struct reader : reader_impl< T, wire_type<T>::value> {};
+
 }  // namespace detail
 
 template < typename OutputIterator, typename T >

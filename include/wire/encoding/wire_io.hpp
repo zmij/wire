@@ -9,7 +9,6 @@
 #define WIRE_ENCODING_WIRE_IO_HPP_
 
 #include <wire/encoding/detail/wire_io_detail.hpp>
-#include <wire/encoding/detail/variant_io.hpp>
 
 namespace wire {
 namespace encoding {

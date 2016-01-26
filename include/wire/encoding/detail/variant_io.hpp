@@ -78,7 +78,7 @@ struct variant_write_unwrapper :
 
 
 template < typename ... T >
-struct variant_writer {
+struct writer< boost::variant< T ... > > {
 	typedef boost::variant< T ... >								variant_type;
 	typedef typename arg_type_helper< variant_type >::in_type	in_type;
 	typedef varint_writer< std::size_t, false >					type_writer;
@@ -94,9 +94,6 @@ struct variant_writer {
 		write_unwrapper::output_nth(o, v, v.which());
 	}
 };
-
-template < typename ... T >
-struct writer_impl< boost::variant< T ... >, VARIANT > : variant_writer< T ... > {};
 
 template < typename InputIterator, typename VariantType, size_t num, typename T >
 struct read_nth_type {
@@ -153,7 +150,7 @@ struct variant_read_unwrapper :
 	variant_read_unwrapper_base< InputIterator, typename util::index_builder< sizeof ... (T) >::type, T ... > {};
 
 template < typename ... T >
-struct variant_reader {
+struct reader< boost::variant< T ... > > {
 	typedef boost::variant< T ... >								variant_type;
 	typedef typename arg_type_helper< variant_type >::out_type	out_type;
 	typedef varint_reader< std::size_t, false >					type_reader;
@@ -170,9 +167,6 @@ struct variant_reader {
 		read_unwrapper::input_nth(begin, end, v, type_idx);
 	}
 };
-
-template < typename ... T >
-struct reader_impl< boost::variant< T ... >, VARIANT > : variant_reader< T ... > {};
 
 }  // namespace detail
 }  // namespace encoding
