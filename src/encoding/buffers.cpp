@@ -423,9 +423,9 @@ struct outgoing::encapsulation::impl {
 			size_type sz = size();
 			buffer_type& b = out_->pimpl_->buffers_[buffer_before_];
 			auto o = std::back_inserter(b);
-			detail::write(o, ENCODING_MAJOR);
-			detail::write(o, ENCODING_MINOR);
-			detail::write(o, sz);
+			write(o, ENCODING_MAJOR);
+			write(o, ENCODING_MINOR);
+			write(o, sz);
 			out_->pimpl_->end_encaps();
 		}
 	}

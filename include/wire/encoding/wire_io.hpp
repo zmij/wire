@@ -50,11 +50,13 @@ struct writer : writer_impl< T, wire_type<T>::value> {};
 template < typename T >
 struct reader : reader_impl< T, wire_type<T>::value> {};
 
+}  // namespace detail
+
 template < typename OutputIterator, typename T >
 void
 write(OutputIterator o, T v)
 {
-	typedef writer< typename std::decay< T >::type > writer_type;
+	typedef detail::writer< typename std::decay< T >::type > writer_type;
 	writer_type::write(o, v);
 }
 
@@ -62,11 +64,10 @@ template < typename InputIterator, typename T >
 void
 read(InputIterator& begin, InputIterator end, T& value)
 {
-	typedef reader< typename std::decay< T >::type > reader_type;
+	typedef detail::reader< typename std::decay< T >::type > reader_type;
 	reader_type::read(begin, end, value);
 }
 
-}  // namespace detail
 }  // namespace encoding
 }  // namespace wire
 

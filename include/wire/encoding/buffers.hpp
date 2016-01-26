@@ -8,7 +8,7 @@
 #ifndef TIP_WIRE_BUFFERS_HPP_
 #define TIP_WIRE_BUFFERS_HPP_
 
-#include <wire/encoding/detail/wire_io.hpp>
+#include <wire/encoding/wire_io.hpp>
 #include <wire/encoding/detail/out_buffer_traits.hpp>
 
 #include <memory>

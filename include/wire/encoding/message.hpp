@@ -9,7 +9,7 @@
 #define WIRE_ENCODING_MESSAGE_HPP_
 
 #include <wire/encoding/types.hpp>
-#include <wire/encoding/detail/wire_io.hpp>
+#include <wire/encoding/wire_io.hpp>
 #include <wire/version.hpp>
 
 namespace wire {
@@ -89,13 +89,13 @@ template < typename OutputIterator >
 void
 write(OutputIterator o, message const& v)
 {
-	detail::write(o, int32_fixed_t(message::MAGIC_NUMBER));
-	detail::write(o, PROTOCOL_MAJOR);
-	detail::write(o, PROTOCOL_MINOR);
-	detail::write(o, v.encoding_major);
-	detail::write(o, v.encoding_minor);
-	detail::write(o, v.flags);
-	detail::write(o, v.size);
+	write(o, int32_fixed_t(message::MAGIC_NUMBER));
+	write(o, PROTOCOL_MAJOR);
+	write(o, PROTOCOL_MINOR);
+	write(o, v.encoding_major);
+	write(o, v.encoding_minor);
+	write(o, v.flags);
+	write(o, v.size);
 }
 
 template < typename InputIterator >
@@ -103,17 +103,17 @@ void
 read(InputIterator& begin, InputIterator end, message& v)
 {
 	int32_fixed_t magic;
-	detail::read(begin, end, magic);
+	read(begin, end, magic);
 	if (magic != message::MAGIC_NUMBER) {
 		throw errors::invalid_magic_number("Invalid magic number in message header");
 	}
 	message tmp;
-	detail::read(begin, end, tmp.version_major);
-	detail::read(begin, end, tmp.version_minor);
-	detail::read(begin, end, tmp.encoding_major);
-	detail::read(begin, end, tmp.encoding_minor);
-	detail::read(begin, end, tmp.flags);
-	detail::read(begin, end, tmp.size);
+	read(begin, end, tmp.version_major);
+	read(begin, end, tmp.version_minor);
+	read(begin, end, tmp.encoding_major);
+	read(begin, end, tmp.encoding_minor);
+	read(begin, end, tmp.flags);
+	read(begin, end, tmp.size);
 	v.swap(tmp);
 }
 
