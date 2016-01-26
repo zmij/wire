@@ -84,7 +84,7 @@ TEST(OutgoingBuffer, DISABLED_ReverseIterators)
 	EXPECT_EQ(INSERT_CHARS, steps);
 }
 
-TEST(OutgoingBuffer, DISABLED_Encapsulation)
+TEST(OutgoingBuffer, Encapsulation)
 {
 	outgoing out;
 	for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
@@ -93,15 +93,13 @@ TEST(OutgoingBuffer, DISABLED_Encapsulation)
 	EXPECT_EQ(INSERT_CHARS, out.size());
 	{
 		outgoing::encapsulation encaps(out.begin_encapsulation());
-		std::cerr << "Start filling encaps\n";
 		for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
 			out.push_back(i);
 		}
-		std::cerr << "End filling encaps\n";
 		EXPECT_EQ(INSERT_CHARS, encaps.size());
 		EXPECT_EQ(INSERT_CHARS*2, out.size()); // Before encapsulation is closed
 	}
-	EXPECT_EQ(INSERT_CHARS*2 + 1, out.size()); // After encapsulation is closed, size of 100 fits into one byte
+	EXPECT_EQ(INSERT_CHARS*2 + 3, out.size()); // After encapsulation is closed, size of 100 fits into one byte, 2 bytes are encaps header
 }
 
 }  // namespace test

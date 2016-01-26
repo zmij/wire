@@ -6,6 +6,7 @@
  */
 
 #include <wire/encoding/buffers.hpp>
+#include <wire/version.hpp>
 #include <numeric>
 #include <iostream>
 
@@ -39,10 +40,10 @@ struct outgoing::impl {
 	{
 	}
 
-	buffer_sequence_type::iterator
+	buffer_type&
 	back_buffer()
 	{
-		return buffers_.begin() + (buffers_.size() - 1);
+		return buffers_.back();
 	}
 
 	size_type
@@ -245,20 +246,21 @@ struct outgoing::impl {
 		}
 	}
 
-	buffer_sequence_type::iterator
-	last_buffer()
-	{
-		return buffers_.end() - 1;
-	}
-	iterator
-	last_iterator()
-	{
-		return iterator{ container_, last_buffer(), buffers_.back().end() - 1 };
-	}
 	void
 	start_buffer()
 	{
 		buffers_.push_back({});
+	}
+
+	void
+	begin_encaps()
+	{
+		start_buffer();
+	}
+	void
+	end_encaps()
+	{
+		start_buffer();
 	}
 };
 
@@ -405,54 +407,49 @@ outgoing::begin_encapsulation()
 struct outgoing::encapsulation::impl {
 	typedef outgoing::buffer_sequence_type::iterator 	buffer_iterator;
 	outgoing* out_;
-	buffer_iterator buffer_before_;
-	iterator		iterator_before_;
+	size_type		size_before_;
+	size_type		buffer_before_;
 
 	impl(outgoing* o) :
 		out_(o),
-		buffer_before_(out_->pimpl_->last_buffer()),
-		iterator_before_(out_->pimpl_->last_iterator())
+		size_before_(out_->size()),
+		buffer_before_(out_->pimpl_->buffers_.size())
 	{
-		std::cerr << "Construct encaps impl\n";
-		out_->pimpl_->start_buffer();
+		out_->pimpl_->begin_encaps();
 	}
 	~impl()
 	{
-		std::cerr << "Destroy encaps impl\n";
 		if (out_) {
 			size_type sz = size();
-			std::cerr << "Encaps size " << sz << "\n";
-			detail::write(std::back_inserter( *buffer_before_), sz);
-			out_->pimpl_->start_buffer();
+			buffer_type& b = out_->pimpl_->buffers_[buffer_before_];
+			auto o = std::back_inserter(b);
+			detail::write(o, ENCODING_MAJOR);
+			detail::write(o, ENCODING_MINOR);
+			detail::write(o, sz);
+			out_->pimpl_->end_encaps();
 		}
-		std::cerr << "Destroy encaps impl OK\n";
 	}
 
 	size_type
 	size() const
 	{
-		assert(out_ && "outgoing buffer for encapsulation");
-		assert(out_->pimpl_ && "outgoing buffer pimpl for encapsulation");
-		return out_->pimpl_->last_iterator() - iterator_before_;
+		return out_->size() - size_before_;
 	}
 };
 
 outgoing::encapsulation::encapsulation(outgoing* o)
 	: pimpl_(std::make_shared<impl>(o))
 {
-	std::cerr << "Construct new encaps\n";
 }
 
 outgoing::encapsulation::encapsulation(encapsulation&& rhs)
 	: pimpl_(rhs.pimpl_)
 {
 	rhs.pimpl_.reset();
-	std::cerr << "Move construct encaps\n";
 }
 
 outgoing::encapsulation::~encapsulation()
 {
-	std::cerr << "Destroy encaps\n";
 }
 
 outgoing::size_type
