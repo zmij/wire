@@ -29,6 +29,7 @@ set(test_sparring_SRCS
     sparring_options.cpp
     tcp_sparring.cpp
     ssl_sparring.cpp
+    udp_sparring.cpp
 )
 add_executable(transport-sparring ${test_sparring_SRCS})
 target_link_libraries(transport-sparring
