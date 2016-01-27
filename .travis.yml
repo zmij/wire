@@ -19,7 +19,6 @@ before_install:
   - pwd
   - ls
   - if [ "$CXX" = "g++" ]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-4.9; fi
-  - $CXX -v
   - sudo apt-get update
   - sudo apt-get install libgtest-dev
   - "pushd /usr/src/gtest && sudo cmake . && sudo cmake --build . && sudo mv libg* /usr/local/lib/ && popd"
