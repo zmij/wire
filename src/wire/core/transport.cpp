@@ -45,6 +45,13 @@ tcp_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
 }
 
 void
+tcp_transport::close()
+{
+	if (socket_.is_open())
+		socket_.close();
+}
+
+void
 tcp_transport::handle_resolve(asio_config::error_code const& ec,
 		asio_config::tcp::resolver::iterator endpoint_iterator,
 		asio_config::asio_callback cb)

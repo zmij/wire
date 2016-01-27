@@ -22,6 +22,8 @@ struct tcp_transport {
 
 	void
 	connect_async(endpoint const& ep, asio_config::asio_callback);
+	void
+	close();
 
 	template < typename BufferType, typename HandlerType >
 	void

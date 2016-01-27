@@ -5,6 +5,13 @@
 
 cmake_minimum_required(VERSION 2.6)
 
+set(
+    BOOST_COMPONENTS
+    program_options
+    iostreams
+)
+find_package(Boost 1.55 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
+
 set(client_SRCS
     ssl-client.cpp
 )

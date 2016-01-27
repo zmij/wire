@@ -13,6 +13,12 @@ if (NOT CMAKE_THREAD_LIBS_INIT)
 endif()
 
 # Add your package dependencies for test here
+set(
+    BOOST_COMPONENTS
+    program_options
+    iostreams
+)
+find_package(Boost 1.55 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 
@@ -28,12 +34,17 @@ target_link_libraries(transport-sparring
 )
 
 set(test_transport_SRCS
+    transport_test_main.cpp
+    options.cpp
+    sparring_test.cpp
     tcp_transport_test.cpp
 )
 
 add_executable(test-wire-transport ${test_transport_SRCS})
 target_link_libraries(test-wire-transport
-    ${GTEST_BOTH_LIBRARIES}
+    ${GTEST_LIBRARIES}
+    ${Boost_PROGRAM_OPTIONS_LIBRARIES}
+    ${Boost_IOSTREAMS_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     ${WIRE_LIB}
 )
@@ -47,5 +58,6 @@ endif()
 
 add_test(
     NAME test-wire-transport
-    COMMAND test-wire-transport ${TEST_ARGS}
+    COMMAND test-wire-transport --sparring-partner $<TARGET_FILE:transport-sparring> ${TEST_ARGS}
 )
+

@@ -15,7 +15,7 @@ addons:
       - gcc-4.9
       - g++-4.9
       - clang-3.6
-      - libboost1.58-all-dev
+      - libboost1.55-all-dev
       - libgtest-dev
 before_install:
   - "cd /usr/src/gtest && sudo cmake . && sudo cmake --build . && sudo mv libg* /usr/local/lib/ ; cd -"

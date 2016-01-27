@@ -30,9 +30,8 @@ set(
     BOOST_COMPONENTS
     system
     thread 
-    program_options
 )
-find_package(Boost 1.58 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
+find_package(Boost 1.55 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 
@@ -50,6 +49,15 @@ add_subdirectory(experiments)
 add_subdirectory(src/wire)
 if(BUILD_TESTS)
     enable_testing()
+    if (NOT BOOST_PROCESS_INCLUDE_DIRS)
+        message(STATUS "Use bundled boost::process")
+        set(BUILD_TESTS OFF)
+        set(BUILD_EXAMPLES OFF)
+        add_subdirectory(lib/process)
+        set(BUILD_TESTS ON)
+    endif()
+    message(STATUS "Boost process includes ${BOOST_PROCESS_INCLUDE_DIRS}")
+    include_directories(${BOOST_PROCESS_INCLUDE_DIRS})
     add_subdirectory(test)
 endif()
 

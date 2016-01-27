@@ -133,5 +133,26 @@ operator << (std::ostream& os, socket_endpoint_data const& val)
 
 }  // namespace detail
 
+void
+endpoint::swap(endpoint& rhs)
+{
+	using std::swap;
+	swap(endpoint_data_, rhs.endpoint_data_);
+}
+
+endpoint&
+endpoint::operator =(endpoint const& rhs)
+{
+	endpoint(rhs).swap(*this);
+	return *this;
+}
+
+endpoint&
+endpoint::operator =(endpoint&& rhs)
+{
+	endpoint(std::move(rhs)).swap(*this);
+	return *this;
+}
+
 }  // namespace core
 }  // namespace wire

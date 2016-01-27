@@ -212,7 +212,15 @@ public:
 	endpoint(endpoint const& rhs) : endpoint_data_{ rhs.endpoint_data_ } {}
 	endpoint(endpoint&& rhs) : endpoint_data_{ std::move(rhs.endpoint_data_) } {}
 	template < typename T >
-	endpoint( T&& data ) : endpoint_data_{ std::forward<T&&>(data) } {}
+	explicit endpoint( T&& data ) : endpoint_data_{ std::forward<T&&>(data) } {}
+
+	void
+	swap(endpoint& rhs);
+
+	endpoint&
+	operator = ( endpoint const& );
+	endpoint&
+	operator = ( endpoint&& );
 
 	bool
 	operator == (endpoint const& rhs) const

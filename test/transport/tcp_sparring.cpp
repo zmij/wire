@@ -58,7 +58,7 @@ server::server(asio_config::io_service& svc, std::size_t connections, std::size_
 	  requests_(requests)
 {
 	asio_config::tcp::endpoint ep = acceptor_.local_endpoint();
-	std::cout << ep.port()		<< "\n";
+	std::cout << ep.port() << std::endl;
 	start_accept();
 }
 
