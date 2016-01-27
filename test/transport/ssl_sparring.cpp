@@ -101,9 +101,9 @@ server::server(asio_config::io_service& svc)
 {
 	sparring_options& opts = sparring_options::instance();
 	context_.set_options(
-		ASIO_NS::ssl::context::default_workarounds |
-		ASIO_NS::ssl::context::no_sslv2 |
-		ASIO_NS::ssl::context::single_dh_use
+		asio_config::ssl_context::default_workarounds |
+		asio_config::ssl_context::no_sslv2 |
+		asio_config::ssl_context::single_dh_use
 	);
 	if (!opts.verify_file.empty()) {
 		context_.load_verify_file(opts.verify_file);

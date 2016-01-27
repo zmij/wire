@@ -24,6 +24,7 @@ main(int argc, char* argv[])
 
 		po::options_description options("Sparring server options");
 		options.add_options()
+			("help,h", "Show help message")
 			("transport,t",
 				po::value<wire::core::transport_type>(&opts.transport)->required(),
 				"Start server for transport [tcp, ssl, udp, socket]")
@@ -43,6 +44,8 @@ main(int argc, char* argv[])
 				po::value< std::string >(&opts.key_file), "Private key file")
 			("verify-file,v",
 				po::value< std::string >(&opts.verify_file), "Verify file")
+			("verify-client",
+				po::bool_switch(&opts.require_peer_cert), "Verify client")
 		;
 
 		po::options_description cmd_line;
@@ -50,8 +53,12 @@ main(int argc, char* argv[])
 
 		po::variables_map vm;
 		po::store(po::parse_command_line(argc, argv, cmd_line), vm);
+		if (vm.count("help")) {
+			std::cerr << "Usage:\n" << argv[0] << " <options>\n"
+					<< cmd_line << "\n";
+			return 0;
+		}
 		po::notify(vm);
-		
 
 		wire::asio_config::io_service io_service;
 
@@ -72,6 +79,7 @@ main(int argc, char* argv[])
 				break;
 			}
 			default:
+				std::cerr << "Usage\n" << cmd_line << "\n";
 				break;
 		}
 

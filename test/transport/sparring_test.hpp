@@ -12,6 +12,7 @@
 #include <boost/process.hpp>
 #include <boost/process/mitigate.hpp>
 #include <boost/iostreams/stream.hpp>
+#include <wire/asio_config.hpp>
 
 namespace wire {
 namespace test {
@@ -35,14 +36,15 @@ public:
 	}
 protected:
 	void
-	SetUp() override;
-	void
 	TearDown() override;
 
 	void
+	StartPartner();
+	void
 	StopPartner();
 
-	bp::child		child_;
+	bp::child					child_;
+	asio_config::io_service_ptr io_svc;
 
 	virtual void
 	SetupArgs(args_type&) = 0;

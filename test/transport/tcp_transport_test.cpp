@@ -7,9 +7,6 @@
 
 #include <gtest/gtest.h>
 #include <wire/core/transport.hpp>
-#include <boost/process.hpp>
-#include <boost/process/mitigate.hpp>
-#include <boost/iostreams/stream.hpp>
 
 #include "sparring_test.hpp"
 
@@ -17,14 +14,15 @@ namespace wire {
 namespace core {
 namespace test {
 
-namespace bp = boost::process;
-namespace bpi = boost::process::initializers;
-namespace bio = boost::iostreams;
-
 class TCP : public wire::test::transport::SparringTest {
 protected:
 	void
-	SetupArgs(args_type& args)
+	SetUp() override
+	{
+		StartPartner();
+	}
+	void
+	SetupArgs(args_type& args) override
 	{
 		args.insert(args.end(), {
 			"--transport", "tcp",
@@ -32,7 +30,7 @@ protected:
 		});
 	}
 	void
-	ReadSparringOutput(std::istream& is)
+	ReadSparringOutput(std::istream& is) override
 	{
 		detail::tcp_endpoint_data tcp_data{ "127.0.0.1", 0 };
 		is >> tcp_data.port;
@@ -47,8 +45,6 @@ TEST_F(TCP, Connect)
 	ASSERT_NE(0, child_.pid);
 	ASSERT_EQ(transport_type::tcp, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::tcp_endpoint_data>(endpoint_.data()).port);
-	asio_config::io_service_ptr io_svc =
-			std::make_shared< asio_config::io_service >();
 	tcp_transport tcp(io_svc);
 	bool connected = false;
 	tcp.connect_async(endpoint_,
@@ -68,8 +64,6 @@ TEST_F(TCP, ConnectFail)
 	ASSERT_EQ(transport_type::tcp, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::tcp_endpoint_data>(endpoint_.data()).port);
 	StopPartner();
-	asio_config::io_service_ptr io_svc =
-			std::make_shared< asio_config::io_service >();
 	tcp_transport tcp(io_svc);
 	bool connected = false;
 	tcp.connect_async(endpoint_,
@@ -89,8 +83,6 @@ TEST_F(TCP, ReadWrite)
 	ASSERT_EQ(transport_type::tcp, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::tcp_endpoint_data>(endpoint_.data()).port);
 
-	asio_config::io_service_ptr io_svc =
-			std::make_shared< asio_config::io_service >();
 	tcp_transport tcp(io_svc);
 
 	bool connected = false;

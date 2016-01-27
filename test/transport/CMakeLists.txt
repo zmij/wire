@@ -20,7 +20,7 @@ set(
 )
 find_package(Boost 1.55 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 
-include_directories(${GTEST_INCLUDE_DIRS})
+include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR})
 
 configure_file(config.in.hpp config.hpp)
 
@@ -43,6 +43,7 @@ set(test_transport_SRCS
     options.cpp
     sparring_test.cpp
     tcp_transport_test.cpp
+    ssl_transport_test.cpp
 )
 
 add_executable(test-wire-transport ${test_transport_SRCS})
