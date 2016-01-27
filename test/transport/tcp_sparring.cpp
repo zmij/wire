@@ -6,6 +6,7 @@
  */
 
 #include "tcp_sparring.hpp"
+#include "sparring_options.hpp"
 #include <iostream>
 
 namespace wire {
@@ -52,10 +53,11 @@ session::handle_write(asio_config::error_code const& ec, size_t bytes_transferre
 	delete this;
 }
 
-server::server(asio_config::io_service& svc, std::size_t connections, std::size_t requests)
-	: io_service_(svc), acceptor_{svc, asio_config::tcp::endpoint{ asio_config::tcp::v4(), 0 }},
-	  connections_(connections), limit_connections_(connections_ > 0),
-	  requests_(requests)
+server::server(asio_config::io_service& svc)
+	: io_service_(svc),
+	  acceptor_{svc, asio_config::tcp::endpoint{ asio_config::tcp::v4(), 0 }},
+	  connections_(sparring_options::instance().connections), limit_connections_(connections_ > 0),
+	  requests_(sparring_options::instance().requests)
 {
 	asio_config::tcp::endpoint ep = acceptor_.local_endpoint();
 	std::cout << ep.port() << std::endl;

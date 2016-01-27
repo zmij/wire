@@ -22,14 +22,19 @@ find_package(Boost 1.55 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 
+configure_file(config.in.hpp config.hpp)
+
 set(test_sparring_SRCS
     sparring_partner.cpp
+    sparring_options.cpp
     tcp_sparring.cpp
+    ssl_sparring.cpp
 )
 add_executable(transport-sparring ${test_sparring_SRCS})
 target_link_libraries(transport-sparring
     ${Boost_PROGRAM_OPTIONS_LIBRARIES}
     ${Boost_SYSTEM_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
     ${WIRE_LIB}
 )
 

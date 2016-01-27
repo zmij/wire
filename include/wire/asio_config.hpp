@@ -9,6 +9,7 @@
 #define WIRE_ASIO_CONFIG_HPP_
 
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <memory>
 #include <functional>
 

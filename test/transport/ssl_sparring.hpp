@@ -5,42 +5,45 @@
  *      Author: zmij
  */
 
-#ifndef TRANSPORT_TCP_SPARRING_HPP_
-#define TRANSPORT_TCP_SPARRING_HPP_
+#ifndef TRANSPORT_SSL_SPARRING_HPP_
+#define TRANSPORT_SSL_SPARRING_HPP_
 
 #include <wire/asio_config.hpp>
 
 namespace wire {
 namespace test {
-namespace tcp {
+namespace ssl {
 
 class session {
 public:
-	typedef asio_config::tcp::socket socket_type;
+	typedef ASIO_NS::ssl::context				ssl_context;
+	typedef asio_config::tcp::socket			socket_type;
+	typedef ASIO_NS::ssl::stream< socket_type >	ssl_socket_type;
 	enum {
 		max_length = 1024
 	};
 public:
-	session(asio_config::io_service& svc, std::size_t requests)
-		: socket_(svc), requests_(requests), limit_requests_(requests_ > 0)
-	{
-	}
+	session(asio_config::io_service& svc, ssl_context& ctx);
 
-	socket_type&
+	ssl_socket_type::lowest_layer_type&
 	socket()
 	{
-		return socket_;
+		return socket_.lowest_layer();
 	}
 
 	void
 	start();
 private:
+	bool
+	verify_certificate(bool preverified, ASIO_NS::ssl::verify_context& ctx);
+	void
+	handle_handshake(asio_config::error_code const& ec);
 	void
 	handle_read(asio_config::error_code const& ec, size_t bytes_transferred);
 	void
 	handle_write(asio_config::error_code const& ec, size_t bytes_transferred);
 private:
-	socket_type	socket_;
+	ssl_socket_type	socket_;
 	char data_[ max_length ];
 	std::size_t	requests_;
 	bool limit_requests_;
@@ -57,13 +60,14 @@ private:
 private:
 	asio_config::io_service&	io_service_;
 	asio_config::tcp::acceptor	acceptor_;
+	ASIO_NS::ssl::context		context_;
 	std::size_t					connections_;
 	bool						limit_connections_;
 	std::size_t					requests_;
 };
 
-}  // namespace tcp
+}  // namespace ssl
 }  // namespace test
 }  // namespace wire
 
-#endif /* TRANSPORT_TCP_SPARRING_HPP_ */
+#endif /* TRANSPORT_SSL_SPARRING_HPP_ */
