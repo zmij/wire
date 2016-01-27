@@ -12,7 +12,7 @@ set(BOOST_COMPONENTS
     program_options
     iostreams
 )
-find_package(Boost 1.58 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
+find_package(Boost 1.55 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 
 set(
     example_SRCS

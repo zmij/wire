@@ -13,7 +13,7 @@ set(BOOST_COMPONENTS
     iostreams
     unit_test_framework
 )
-find_package(Boost 1.58 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
+find_package(Boost 1.55 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 find_package (Threads REQUIRED)
 
 add_executable(sparring_partner sparring_partner.cpp)
