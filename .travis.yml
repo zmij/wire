@@ -19,7 +19,7 @@ addons:
 before_install:
   - pwd
   - ls
-  - "cd /usr/src/gtest && sudo cmake . && sudo cmake --build . && sudo mv libg* /usr/local/lib/ ; cd -"
+  - "pushd /usr/src/gtest && sudo cmake . && sudo cmake --build . && sudo mv libg* /usr/local/lib/ && popd"
 before_script:
   - pwd
   - mkdir -p build/debug
