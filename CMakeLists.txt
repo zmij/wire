@@ -38,6 +38,7 @@ find_package(OpenSSL REQUIRED)
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${Boost_INCLUDE_DIRS}
 )
 add_definitions("-std=c++11")

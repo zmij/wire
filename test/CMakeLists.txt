@@ -6,11 +6,12 @@
 cmake_minimum_required(VERSION 2.6)
 
 find_package(GTest REQUIRED)
-include_directories(${GTEST_INCLUDE_DIRS})
+include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(test_SRCS
     static_tests.cpp
     bits_tests.cpp
+    concatenate_test.cpp
     encoding_test.cpp
     variant_io_test.cpp
     message_io_test.cpp
@@ -29,12 +30,13 @@ target_link_libraries(test-wire
 
 if (GTEST_XML_OUTPUT)
     set (
-        TEST_ARGS --gtest_output=xml:test-wire.xml
+        BASE_TEST_ARGS --gtest_output=xml:test-wire.xml
     )
 endif()
 
 add_test(
     NAME test-wire
-    COMMAND test-wire ${TEST_ARGS}
+    COMMAND test-wire ${BASE_TEST_ARGS}
 )
- 
+
+add_subdirectory(transport)
