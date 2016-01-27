@@ -46,7 +46,7 @@ set(${LIB_NAME}_LIB ${lib_name})
 
 # Add subdirectories here
 add_subdirectory(experiments)
-add_subdirectory(src)
+add_subdirectory(src/wire)
 if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
