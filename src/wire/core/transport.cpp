@@ -24,13 +24,9 @@ tcp_transport::tcp_transport(asio_config::io_service_ptr io_svc)
 void
 tcp_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
 {
-	ep.check(transport_type::tcp);
-
-	detail::tcp_endpoint_data const& tcp_data =
-			ep.get< detail::tcp_endpoint_data >();
-
-	asio_config::tcp::resolver::query query( tcp_data.host,
-			std::to_string(tcp_data.port) );
+	ep.check(traits::value);
+	traits::endpoint_data const& tcp_data = ep.get< traits::endpoint_data >();
+	resolver_type::query query( tcp_data.host, std::to_string(tcp_data.port) );
 	resolver_.async_resolve(query,
 			std::bind( &tcp_transport::handle_resolve, this,
 					std::placeholders::_1, std::placeholders::_2, cb));
@@ -45,7 +41,7 @@ tcp_transport::close()
 
 void
 tcp_transport::handle_resolve(asio_config::error_code const& ec,
-		asio_config::tcp::resolver::iterator endpoint_iterator,
+		resolver_type::iterator endpoint_iterator,
 		asio_config::asio_callback cb)
 {
 	if (!ec) {
@@ -99,10 +95,8 @@ ssl_transport::verify_certificate(bool preverified, ASIO_NS::ssl::verify_context
 void
 ssl_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
 {
-	ep.check(transport_type::ssl);
-
-	detail::ssl_endpoint_data const& ssl_data =
-			ep.get< detail::ssl_endpoint_data >();
+	ep.check(traits::value);
+	traits::endpoint_data const& ssl_data = ep.get< traits::endpoint_data >();
 
 	socket_.set_verify_mode(ASIO_NS::ssl::verify_peer);
 	asio_config::tcp::resolver::query query( ssl_data.host,
@@ -174,12 +168,10 @@ udp_transport::udp_transport(asio_config::io_service_ptr io_svc)
 void
 udp_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
 {
-	ep.check(transport_type::udp);
-	detail::udp_endpoint_data const& udp_data =
-			ep.get< detail::udp_endpoint_data >();
+	ep.check(traits::value);
+	traits::endpoint_data const& udp_data = ep.get< traits::endpoint_data >();
 
-	asio_config::udp::resolver::query query(udp_data.host,
-			std::to_string(udp_data.port));
+	resolver_type::query query(udp_data.host, std::to_string(udp_data.port));
 	resolver_.async_resolve(query,
 		std::bind(&udp_transport::handle_resolve, this,
 				std::placeholders::_1, std::placeholders::_2, cb));
@@ -187,7 +179,7 @@ udp_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
 
 void
 udp_transport::handle_resolve(asio_config::error_code const& ec,
-		asio_config::udp::resolver::iterator endpoint_iterator,
+		resolver_type::iterator endpoint_iterator,
 		asio_config::asio_callback cb)
 {
 	if (!ec) {
@@ -224,9 +216,9 @@ socket_transport::socket_transport(asio_config::io_service_ptr io_svc)
 void
 socket_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
 {
-	ep.check(transport_type::socket);
-	detail::socket_endpoint_data const& socket_data =
-			ep.get< detail::socket_endpoint_data >();
+	ep.check(traits::value);
+	traits::endpoint_data const& socket_data = ep.get< traits::endpoint_data >();
+
 	socket_.async_connect( endpoint_type{ socket_data.path },
 			std::bind(&socket_transport::handle_connect, this,
 					std::placeholders::_1, cb));

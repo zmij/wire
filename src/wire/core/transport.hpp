@@ -15,8 +15,70 @@
 namespace wire {
 namespace core {
 
+struct tcp_transport;
+struct ssl_transport;
+struct udp_transport;
+struct socket_transport;
+
+template < transport_type >
+struct transport_type_traits;
+
+template<>
+struct transport_type_traits< transport_type::tcp > {
+	static const transport_type	value = transport_type::tcp;
+
+	typedef tcp_transport				type;
+	typedef detail::tcp_endpoint_data	endpoint_data;
+
+	typedef asio_config::tcp			protocol;
+	typedef protocol::socket			socket_type;
+	typedef protocol::endpoint			endpoint_type;
+	typedef protocol::resolver			resolver_type;
+};
+
+template<>
+struct transport_type_traits< transport_type::ssl > {
+	static const transport_type	value = transport_type::ssl;
+
+	typedef ssl_transport				type;
+	typedef detail::ssl_endpoint_data	endpoint_data;
+
+	typedef asio_config::tcp			protocol;
+	typedef ASIO_NS::ssl::stream< protocol::socket > socket_type;
+	typedef protocol::endpoint			endpoint_type;
+	typedef protocol::resolver			resolver_type;
+};
+
+template<>
+struct transport_type_traits< transport_type::udp > {
+	static const transport_type	value = transport_type::udp;
+
+	typedef udp_transport				type;
+	typedef detail::udp_endpoint_data	endpoint_data;
+
+	typedef asio_config::udp			protocol;
+	typedef protocol::socket			socket_type;
+	typedef protocol::endpoint			endpoint_type;
+	typedef protocol::resolver			resolver_type;
+};
+
+template<>
+struct transport_type_traits< transport_type::socket > {
+	static const transport_type	value = transport_type::socket;
+
+	typedef socket_transport			type;
+	typedef detail::socket_endpoint_data	endpoint_data;
+
+	typedef asio_config::local_socket	protocol;
+	typedef protocol::socket			socket_type;
+	typedef protocol::endpoint			endpoint_type;
+};
+
+
 struct tcp_transport {
-	typedef asio_config::tcp::socket	socket_type;
+	typedef transport_type_traits< transport_type::tcp >	traits;
+	typedef traits::socket_type								socket_type;
+	typedef traits::resolver_type							resolver_type;
 
 	tcp_transport(asio_config::io_service_ptr);
 
@@ -49,20 +111,21 @@ struct tcp_transport {
 private:
 	void
 	handle_resolve(asio_config::error_code const& ec,
-			asio_config::tcp::resolver::iterator endpoint_iterator,
+			resolver_type::iterator endpoint_iterator,
 			asio_config::asio_callback);
 	void
 	handle_connect(asio_config::error_code const& ec, asio_config::asio_callback);
 private:
-	asio_config::tcp::resolver		resolver_;
-	socket_type						socket_;
+	resolver_type	resolver_;
+	socket_type		socket_;
 
 	// TODO timeout settings
 };
 
 struct ssl_transport {
-	typedef asio_config::tcp::socket			tcp_socket;
-	typedef ASIO_NS::ssl::stream<tcp_socket>	socket_type;
+	typedef transport_type_traits< transport_type::ssl >	traits;
+	typedef traits::socket_type								socket_type;
+	typedef traits::resolver_type							resolver_type;
 
 	ssl_transport(asio_config::io_service_ptr, asio_config::ssl_context_ptr);
 
@@ -104,21 +167,23 @@ private:
 
 	void
 	handle_resolve(asio_config::error_code const& ec,
-			asio_config::tcp::resolver::iterator endpoint_iterator,
+			resolver_type::iterator endpoint_iterator,
 			asio_config::asio_callback);
 	void
 	handle_connect(asio_config::error_code const& ec, asio_config::asio_callback);
 	void
 	handle_handshake(asio_config::error_code const& ec, asio_config::asio_callback);
 private:
-	asio_config::tcp::resolver		resolver_;
-	socket_type						socket_;
+	resolver_type	resolver_;
+	socket_type		socket_;
 };
 
 struct udp_transport {
-	typedef asio_config::udp	protocol;
-	typedef protocol::socket	socket_type;
-	typedef protocol::endpoint	endpoint_type;
+	typedef transport_type_traits< transport_type::udp >	traits;
+	typedef traits::protocol								protocol;
+	typedef traits::socket_type								socket_type;
+	typedef traits::endpoint_type							endpoint_type;
+	typedef traits::resolver_type							resolver_type;
 
 	udp_transport(asio_config::io_service_ptr);
 	/**
@@ -147,19 +212,19 @@ struct udp_transport {
 private:
 	void
 	handle_resolve(asio_config::error_code const& ec,
-			asio_config::udp::resolver::iterator endpoint_iterator,
+			resolver_type::iterator endpoint_iterator,
 			asio_config::asio_callback);
 	void
 	handle_connect(asio_config::error_code const&, asio_config::asio_callback);
 private:
-	asio_config::udp::resolver		resolver_;
-	socket_type						socket_;
+	resolver_type	resolver_;
+	socket_type		socket_;
 };
 
 struct socket_transport {
-	typedef asio_config::local_socket	protocol;
-	typedef protocol::socket			socket_type;
-	typedef protocol::endpoint			endpoint_type;
+	typedef transport_type_traits< transport_type::socket >	traits;
+	typedef traits::socket_type			socket_type;
+	typedef traits::endpoint_type		endpoint_type;
 
 	socket_transport(asio_config::io_service_ptr);
 	/**
@@ -192,6 +257,7 @@ private:
 private:
 	socket_type						socket_;
 };
+
 
 }  // namespace core
 }  // namespace wire
