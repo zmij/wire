@@ -6,6 +6,11 @@
  */
 
 #include <wire/core/endpoint.hpp>
+#include <wire/core/grammar/endpoint_parse.hpp>
+
+#include <boost/spirit/include/support_istream_iterator.hpp>
+#include <boost/spirit/include/support_multi_pass.hpp>
+
 #include <iostream>
 
 namespace wire {
@@ -224,6 +229,50 @@ operator << (std::ostream& os, endpoint const& val)
 	return os;
 }
 
+std::istream&
+operator >> (std::istream& is, endpoint& val)
+{
+	typedef std::istreambuf_iterator<char> istreambuf_iterator;
+	typedef boost::spirit::multi_pass< istreambuf_iterator > stream_iterator;
+	typedef grammar::parse::endpoint_grammar< stream_iterator > endpoint_grammar;
+	static endpoint_grammar endpoint_parser;
+
+	std::istream::sentry s(is);
+	if (s) {
+		stream_iterator in = stream_iterator(istreambuf_iterator(is));
+		stream_iterator eos = stream_iterator(istreambuf_iterator());
+		endpoint tmp;
+		if (boost::spirit::qi::parse(in, eos, endpoint_parser, tmp)) {
+			tmp.swap(val);
+		} else {
+			is.setstate(std::ios_base::failbit);
+		}
+	}
+	return is;
+}
+
+
+endpoint
+endpoint::tcp(std::string const& host, uint16_t port, uint32_t timeout)
+{
+	return endpoint{ detail::tcp_endpoint_data{ host, port, timeout } };
+}
+
+endpoint
+endpoint::ssl(std::string const& host, uint16_t port, uint32_t timeout)
+{
+	return endpoint{ detail::ssl_endpoint_data{ host, port, timeout } };
+}
+endpoint
+endpoint::udp(std::string const& host, uint16_t port)
+{
+	return endpoint{ detail::udp_endpoint_data{ host, port } };
+}
+endpoint
+endpoint::socket(std::string const& path)
+{
+	return endpoint{ detail::socket_endpoint_data{ path } };
+}
 
 }  // namespace core
 }  // namespace wire

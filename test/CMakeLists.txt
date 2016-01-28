@@ -17,6 +17,7 @@ set(test_SRCS
     message_io_test.cpp
     outgoing_buffer_test.cpp
     endpoints_io_test.cpp
+    endpoints_grammar_test.cpp
     uuid_io_test.cpp
     identity_io_test.cpp
 )

@@ -105,11 +105,20 @@ struct controlled_endpoint_data : inet_endpoint_data {
 	uint32_t		timeout = 0;
 
 	controlled_endpoint_data() : inet_endpoint_data{}, timeout(0) {}
+	controlled_endpoint_data( std::string const& host, uint16_t port)
+		: inet_endpoint_data{ host, port }, timeout(0)
+	{
+	}
 	controlled_endpoint_data( std::string const& host, uint16_t port,
-			uint32_t timeout = 0)
+			uint32_t timeout)
 		: inet_endpoint_data{ host, port }, timeout(timeout)
 	{
 	}
+//	controlled_endpoint_data( std::string&& host, uint16_t port,
+//			uint32_t timeout = 0)
+//		: inet_endpoint_data{ std::move(host), port }, timeout(timeout)
+//	{
+//	}
 
 	bool
 	operator == (controlled_endpoint_data const& rhs) const
@@ -302,6 +311,15 @@ public:
 	{
 		encoding::read(begin, end, endpoint_data_);
 	}
+
+	static endpoint
+	tcp(std::string const& host, uint16_t port, uint32_t timeout = 0);
+	static endpoint
+	ssl(std::string const& host, uint16_t port, uint32_t timeout = 0);
+	static endpoint
+	udp(std::string const& host, uint16_t port);
+	static endpoint
+	socket(std::string const& path);
 private:
 	endpoint_data	endpoint_data_;
 };
@@ -327,6 +345,8 @@ std::istream&
 operator >> (std::istream& in, transport_type& val);
 std::ostream&
 operator << (std::ostream& os, endpoint const& val);
+std::istream&
+operator >> (std::istream& is, endpoint& val);
 }  // namespace core
 }  // namespace wire
 

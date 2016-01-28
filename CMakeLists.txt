@@ -37,6 +37,10 @@ find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 
+if (NOT TIP_IRI_INCLUDE_DIRS)
+    set(_TIP_IRI_SUBTREE ON)
+endif()
+
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -45,6 +49,12 @@ include_directories(
 add_definitions("-std=c++11")
 
 set(${LIB_NAME}_LIB ${lib_name})
+
+if(_TIP_IRI_SUBTREE)
+    add_subdirectory(lib/iri)
+endif()
+
+include_directories(${TIP_IRI_INCLUDE_DIRS})
 
 # Add subdirectories here
 add_subdirectory(experiments)
