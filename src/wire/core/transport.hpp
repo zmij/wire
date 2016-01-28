@@ -10,7 +10,9 @@
 
 #include <wire/asio_config.hpp>
 #include <wire/core/endpoint.hpp>
+
 #include <memory>
+#include <future>
 
 namespace wire {
 namespace core {
@@ -83,15 +85,24 @@ struct tcp_transport {
 	tcp_transport(asio_config::io_service_ptr);
 
 	void
+	connect(endpoint const& ep);
+	void
 	connect_async(endpoint const& ep, asio_config::asio_callback);
 	void
 	close();
 
 	template < typename BufferType, typename HandlerType >
 	void
-	async_write(BufferType const& buffer, HandlerType handler)
+	async_write(BufferType const& buffer, HandlerType const& handler)
 	{
 		ASIO_NS::async_write(socket_, buffer, handler);
+	}
+
+	template < typename BufferType >
+	std::future< std::size_t >
+	async_write(BufferType const& buffer)
+	{
+		return ASIO_NS::async_write(socket_, buffer, asio_config::use_future);
 	}
 
 	template < typename BufferType, typename HandlerType >
@@ -100,6 +111,14 @@ struct tcp_transport {
 	{
 		ASIO_NS::async_read(socket_, buffer,
 				ASIO_NS::transfer_at_least(1), handler);
+	}
+
+	template < typename BufferType >
+	std::future< std::size_t >
+	async_read(BufferType& buffer)
+	{
+		return ASIO_NS::async_read(socket_, buffer,
+				ASIO_NS::transfer_at_least(1), asio_config::use_future);
 	}
 
 	socket_type&

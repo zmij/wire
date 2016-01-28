@@ -37,7 +37,7 @@ protected:
 	endpoint		endpoint_;
 };
 
-TEST_F(TCP, Connect)
+TEST_F(TCP, ConnectAsync)
 {
 	ASSERT_NE(0, child_.pid);
 	ASSERT_EQ(transport_type::tcp, endpoint_.transport());
@@ -55,7 +55,17 @@ TEST_F(TCP, Connect)
 	EXPECT_TRUE(connected);
 }
 
-TEST_F(TCP, ConnectFail)
+TEST_F(TCP, Connect)
+{
+	ASSERT_NE(0, child_.pid);
+	ASSERT_EQ(transport_type::tcp, endpoint_.transport());
+	ASSERT_NE(0, boost::get<detail::tcp_endpoint_data>(endpoint_.data()).port);
+
+	tcp_transport tcp(io_svc);
+	EXPECT_NO_THROW(tcp.connect(endpoint_));
+}
+
+TEST_F(TCP, ConnectAsyncFail)
 {
 	ASSERT_NE(0, child_.pid);
 	ASSERT_EQ(transport_type::tcp, endpoint_.transport());
@@ -74,7 +84,18 @@ TEST_F(TCP, ConnectFail)
 	EXPECT_FALSE(connected);
 }
 
-TEST_F(TCP, ReadWrite)
+TEST_F(TCP, ConnectFail)
+{
+	ASSERT_NE(0, child_.pid);
+	ASSERT_EQ(transport_type::tcp, endpoint_.transport());
+	ASSERT_NE(0, boost::get<detail::tcp_endpoint_data>(endpoint_.data()).port);
+	StopPartner();
+
+	tcp_transport tcp(io_svc);
+	EXPECT_THROW(tcp.connect(endpoint_), errors::connection_failed);
+}
+
+TEST_F(TCP, ReadWriteAsync)
 {
 	ASSERT_NE(0, child_.pid);
 	ASSERT_EQ(transport_type::tcp, endpoint_.transport());
@@ -115,6 +136,27 @@ TEST_F(TCP, ReadWrite)
 
 	io_svc->run();
 	EXPECT_EQ(0, errors);
+	EXPECT_EQ(test_str, input_str);
+}
+
+TEST_F(TCP, ReadWrite)
+{
+	ASSERT_NE(0, child_.pid);
+	ASSERT_EQ(transport_type::tcp, endpoint_.transport());
+	ASSERT_NE(0, boost::get<detail::tcp_endpoint_data>(endpoint_.data()).port);
+
+	tcp_transport tcp(io_svc);
+	ASSERT_NO_THROW(tcp.connect(endpoint_));
+	const std::string test_str("TestFutureString");
+	ASIO_NS::streambuf in_buffer;
+	std::future< std::size_t > write_f = tcp.async_write(ASIO_NS::buffer(test_str));
+	std::future< std::size_t > read_f = tcp.async_read(in_buffer);
+	io_svc->run();
+	EXPECT_EQ(test_str.size(), write_f.get());
+	std::string input_str;
+	EXPECT_EQ(test_str.size(), read_f.get());
+	std::istream is(&in_buffer);
+	is >> input_str;
 	EXPECT_EQ(test_str, input_str);
 }
 

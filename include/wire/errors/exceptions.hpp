@@ -26,6 +26,11 @@ public:
 		: ::std::runtime_error( util::concatenate(args ...) ) {}
 };
 
+class connection_failed : public runtime_error {
+public:
+	connection_failed(std::string const& message) : runtime_error(message) {}
+};
+
 class invalid_magic_number : public runtime_error {
 public:
 	invalid_magic_number(std::string const& message) : runtime_error(message) {}

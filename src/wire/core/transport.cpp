@@ -22,6 +22,22 @@ tcp_transport::tcp_transport(asio_config::io_service_ptr io_svc)
 }
 
 void
+tcp_transport::connect(endpoint const& ep)
+{
+	ep.check(traits::value);
+	const traits::endpoint_data& tcp_data = ep.get<traits::endpoint_data>();
+	resolver_type::query query(tcp_data.host,
+			std::to_string(tcp_data.port));
+	try {
+		resolver_type::iterator iter = resolver_.resolve(query);
+		socket_.connect(*iter);
+	} catch (std::exception const& e) {
+		// FIXME connection_failed class
+		throw errors::connection_failed(e.what());
+	}
+}
+
+void
 tcp_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
 {
 	ep.check(traits::value);

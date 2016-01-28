@@ -10,6 +10,8 @@
 
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
+#include <boost/asio/use_future.hpp>
+
 #include <memory>
 #include <functional>
 
@@ -30,6 +32,8 @@ typedef std::function< void(error_code const&) >	asio_callback;
 
 typedef ASIO_NS::ssl::context						ssl_context;
 typedef std::shared_ptr< ssl_context >				ssl_context_ptr;
+
+constexpr ASIO_NS::use_future_t<>					use_future;
 
 }  // namespace asio_config
 }  // namespace wire
