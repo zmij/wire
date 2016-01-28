@@ -31,7 +31,9 @@ set(
     system
     thread 
 )
-find_package(Boost 1.55 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
+set(BOOST_VERSION 1.58) # We want endian library.
+
+find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 

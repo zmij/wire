@@ -10,7 +10,7 @@ set(
     program_options
     iostreams
 )
-find_package(Boost 1.55 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
+find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 
 set(client_SRCS
     ssl-client.cpp

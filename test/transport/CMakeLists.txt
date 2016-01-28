@@ -18,7 +18,7 @@ set(
     program_options
     iostreams
 )
-find_package(Boost 1.55 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
+find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 
 include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR})
 
