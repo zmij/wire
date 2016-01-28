@@ -214,5 +214,16 @@ endpoint::check(transport_type expected) const
 	boost::apply_visitor(detail::endpoint_data_check{ expected }, endpoint_data_);
 }
 
+std::ostream&
+operator << (std::ostream& os, endpoint const& val)
+{
+	std::ostream::sentry s(os);
+	if (s) {
+		os << val.transport() << "://" << val.data();
+	}
+	return os;
+}
+
+
 }  // namespace core
 }  // namespace wire

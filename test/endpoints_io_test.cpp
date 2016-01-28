@@ -173,6 +173,11 @@ TEST(Endpoint, Construction)
 		EXPECT_EQ(transport_type::socket, epo.transport());
 		EXPECT_EQ(ep, epo);
 	}
+	{
+		endpoint tcp{ detail::tcp_endpoint_data{ "127.0.0.1", 5678 } };
+		endpoint ssl{ detail::ssl_endpoint_data{ "127.0.0.1", 5678 } };
+		EXPECT_NE(tcp, ssl);
+	}
 }
 
 }  // namespace test
