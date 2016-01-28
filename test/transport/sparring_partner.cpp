@@ -13,6 +13,7 @@
 #include "tcp_sparring.hpp"
 #include "ssl_sparring.hpp"
 #include "udp_sparring.hpp"
+#include "socket_sparring.hpp"
 
 int
 main(int argc, char* argv[])
@@ -81,6 +82,11 @@ main(int argc, char* argv[])
 			}
 			case wire::core::transport_type::udp: {
 				wire::test::udp::server s(io_service);
+				io_service.run();
+				break;
+			}
+			case wire::core::transport_type::socket: {
+				wire::test::socket::server s(io_service);
 				io_service.run();
 				break;
 			}

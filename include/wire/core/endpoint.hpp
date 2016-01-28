@@ -75,6 +75,11 @@ struct inet_endpoint_data {
 	{
 		return !(*this == rhs);
 	}
+
+	void
+	check() const;
+	void
+	check(transport_type expected) const;
 };
 
 std::ostream&
@@ -177,6 +182,9 @@ struct socket_endpoint_data {
 	{
 		return !(*this == rhs);
 	}
+
+	void
+	check(transport_type expected) const;
 };
 
 std::ostream&
@@ -195,6 +203,26 @@ wire_read(InputIterator& begin, InputIterator end, socket_endpoint_data& v)
 {
 	encoding::read(begin, end, v.path);
 }
+
+template < typename T >
+struct endpoint_data_traits
+	: std::integral_constant< transport_type, transport_type::empty > {};
+
+template <>
+struct endpoint_data_traits< tcp_endpoint_data >
+	: std::integral_constant< transport_type, transport_type::tcp > {};
+
+template <>
+struct endpoint_data_traits< ssl_endpoint_data >
+	: std::integral_constant< transport_type, transport_type::ssl > {};
+
+template <>
+struct endpoint_data_traits< udp_endpoint_data >
+	: std::integral_constant< transport_type, transport_type::udp > {};
+
+template <>
+struct endpoint_data_traits< socket_endpoint_data >
+	: std::integral_constant< transport_type, transport_type::socket > {};
 
 }  // namespace detail
 
@@ -245,6 +273,22 @@ public:
 	endpoint_data const&
 	data() const
 	{ return endpoint_data_; }
+
+	template < typename T >
+	T&
+	get()
+	{
+		return boost::get< T >(endpoint_data_);
+	}
+	template < typename T >
+	T const&
+	get() const
+	{
+		return boost::get< T >(endpoint_data_);
+	}
+
+	void
+	check(transport_type expected) const;
 
 	template < typename OutputIterator >
 	void

@@ -13,6 +13,9 @@
 namespace wire {
 namespace core {
 
+//----------------------------------------------------------------------------
+//	TCP transport
+//----------------------------------------------------------------------------
 tcp_transport::tcp_transport(asio_config::io_service_ptr io_svc)
 	: resolver_(*io_svc), socket_(*io_svc)
 {
@@ -21,21 +24,10 @@ tcp_transport::tcp_transport(asio_config::io_service_ptr io_svc)
 void
 tcp_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
 {
-	// Check endpoint data
-	if (ep.transport() != transport_type::tcp) {
-		throw errors::logic_error(
-				"Invalid endpoint transport type ",
-				ep.transport(),
-				" for tcp_transport" );
-	}
+	ep.check(transport_type::tcp);
+
 	detail::tcp_endpoint_data const& tcp_data =
-			boost::get< detail::tcp_endpoint_data >(ep.data());
-	if (tcp_data.host.empty()) {
-		throw errors::logic_error("Empty host in an endpoint for tcp transport");
-	}
-	if (tcp_data.port == 0) {
-		throw errors::logic_error("Port is not set in an endpoint for tcp transport");
-	}
+			ep.get< detail::tcp_endpoint_data >();
 
 	asio_config::tcp::resolver::query query( tcp_data.host,
 			std::to_string(tcp_data.port) );
@@ -75,6 +67,8 @@ tcp_transport::handle_connect(asio_config::error_code const& ec,
 }
 
 //----------------------------------------------------------------------------
+//	SSL/TCP transport
+//----------------------------------------------------------------------------
 asio_config::ssl_context&
 from_ptr_or_default(asio_config::ssl_context_ptr ctx)
 {
@@ -105,21 +99,10 @@ ssl_transport::verify_certificate(bool preverified, ASIO_NS::ssl::verify_context
 void
 ssl_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
 {
-	// Check endpoint data
-	if (ep.transport() != transport_type::ssl) {
-		throw errors::logic_error(
-				"Invalid endpoint transport type ",
-				ep.transport(),
-				" for ssl_transport" );
-	}
+	ep.check(transport_type::ssl);
+
 	detail::ssl_endpoint_data const& ssl_data =
-			boost::get< detail::ssl_endpoint_data >(ep.data());
-	if (ssl_data.host.empty()) {
-		throw errors::logic_error("Empty host in an endpoint for ssl transport");
-	}
-	if (ssl_data.port == 0) {
-		throw errors::logic_error("Port is not set in an endpoint for ssl transport");
-	}
+			ep.get< detail::ssl_endpoint_data >();
 
 	socket_.set_verify_mode(ASIO_NS::ssl::verify_peer);
 	asio_config::tcp::resolver::query query( ssl_data.host,
@@ -178,6 +161,87 @@ ssl_transport::handle_handshake(asio_config::error_code const& ec,
 	if (cb) {
 		cb(ec);
 	}
+}
+
+//----------------------------------------------------------------------------
+//	UDP transport
+//----------------------------------------------------------------------------
+udp_transport::udp_transport(asio_config::io_service_ptr io_svc)
+	: resolver_(*io_svc), socket_(*io_svc)
+{
+}
+
+void
+udp_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
+{
+	ep.check(transport_type::udp);
+	detail::udp_endpoint_data const& udp_data =
+			ep.get< detail::udp_endpoint_data >();
+
+	asio_config::udp::resolver::query query(udp_data.host,
+			std::to_string(udp_data.port));
+	resolver_.async_resolve(query,
+		std::bind(&udp_transport::handle_resolve, this,
+				std::placeholders::_1, std::placeholders::_2, cb));
+}
+
+void
+udp_transport::handle_resolve(asio_config::error_code const& ec,
+		asio_config::udp::resolver::iterator endpoint_iterator,
+		asio_config::asio_callback cb)
+{
+	if (!ec) {
+		socket_.async_connect(*endpoint_iterator,
+			std::bind(&udp_transport::handle_connect, this,
+				std::placeholders::_1, cb));
+	} else {
+		if (cb) cb(ec);
+	}
+}
+
+void
+udp_transport::handle_connect(asio_config::error_code const& ec,
+		asio_config::asio_callback cb)
+{
+	if (cb) cb(ec);
+}
+
+void
+udp_transport::close()
+{
+	socket_.close();
+}
+
+//----------------------------------------------------------------------------
+//	UNIX socket transport
+//----------------------------------------------------------------------------
+
+socket_transport::socket_transport(asio_config::io_service_ptr io_svc)
+	: socket_(*io_svc)
+{
+}
+
+void
+socket_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
+{
+	ep.check(transport_type::socket);
+	detail::socket_endpoint_data const& socket_data =
+			ep.get< detail::socket_endpoint_data >();
+	socket_.async_connect( endpoint_type{ socket_data.path },
+			std::bind(&socket_transport::handle_connect, this,
+					std::placeholders::_1, cb));
+}
+
+void
+socket_transport::close()
+{
+	socket_.close();
+}
+
+void
+socket_transport::handle_connect(asio_config::error_code const& ec, asio_config::asio_callback cb)
+{
+	if (cb) cb(ec);
 }
 
 }  // namespace core

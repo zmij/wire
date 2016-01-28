@@ -30,11 +30,13 @@ set(test_sparring_SRCS
     tcp_sparring.cpp
     ssl_sparring.cpp
     udp_sparring.cpp
+    socket_sparring.cpp
 )
 add_executable(transport-sparring ${test_sparring_SRCS})
 target_link_libraries(transport-sparring
     ${Boost_PROGRAM_OPTIONS_LIBRARIES}
     ${Boost_SYSTEM_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
     ${OPENSSL_LIBRARIES}
     ${WIRE_LIB}
 )
@@ -45,6 +47,8 @@ set(test_transport_SRCS
     sparring_test.cpp
     tcp_transport_test.cpp
     ssl_transport_test.cpp
+    udp_transport_test.cpp
+    socket_transport_test.cpp
 )
 
 add_executable(test-wire-transport ${test_transport_SRCS})

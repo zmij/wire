@@ -9,10 +9,13 @@
 #define TRANSPORT_SPARRING_TEST_HPP_
 
 #include <gtest/gtest.h>
+
 #include <boost/process.hpp>
 #include <boost/process/mitigate.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <wire/asio_config.hpp>
+
+#include <wire/core/endpoint.hpp>
 
 namespace wire {
 namespace test {
@@ -50,6 +53,18 @@ protected:
 	SetupArgs(args_type&) = 0;
 	virtual void
 	ReadSparringOutput(std::istream&) = 0;
+
+	template < typename T >
+	T
+	ReadEnpointPort(std::istream& is)
+	{
+		T endpoint_data{ "127.0.0.1", 0 };
+		is >> endpoint_data.port;
+		std::cerr << "Sparring partner is listening to "
+			<< wire::core::detail::endpoint_data_traits< T >::value
+			<< " port " << endpoint_data.port << "\n";
+		return endpoint_data;
+	}
 private:
 	pipe			out_pipe_;
 	pipe_source		out_source_;

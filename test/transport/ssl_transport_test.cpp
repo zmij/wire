@@ -59,10 +59,7 @@ protected:
 	void
 	ReadSparringOutput(std::istream& is) override
 	{
-		detail::ssl_endpoint_data ssl_data{ "127.0.0.1", 0 };
-		is >> ssl_data.port;
-		std::cerr << "Sparring partner is listening to port " << ssl_data.port << "\n";
-		endpoint_ = endpoint{ ssl_data };
+		endpoint_ = endpoint{ ReadEnpointPort< detail::ssl_endpoint_data >(is) };
 	}
 
 	endpoint						endpoint_;

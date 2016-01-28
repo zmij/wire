@@ -1,7 +1,7 @@
 /*
- * tcp_transport_test.cpp
+ * socket_transport_test.cpp
  *
- *  Created on: Jan 27, 2016
+ *  Created on: Jan 28, 2016
  *      Author: zmij
  */
 
@@ -14,7 +14,7 @@ namespace wire {
 namespace core {
 namespace test {
 
-class TCP : public wire::test::transport::SparringTest {
+class Socket : public wire::test::transport::SparringTest {
 protected:
 	void
 	SetUp() override
@@ -25,62 +25,67 @@ protected:
 	SetupArgs(args_type& args) override
 	{
 		args.insert(args.end(), {
-			"--transport", "tcp",
+			"--transport", "socket",
 			"--connections", "1"
 		});
 	}
 	void
 	ReadSparringOutput(std::istream& is) override
 	{
-		endpoint_ = endpoint{ ReadEnpointPort< detail::tcp_endpoint_data >(is) };
+		detail::socket_endpoint_data endpoint_data;
+		is >> endpoint_data.path;
+		std::cerr << "Sparring partner is listening to local socket " << endpoint_data.path << "\n";
+		endpoint_ = endpoint{ endpoint_data };
 	}
 	endpoint		endpoint_;
 };
 
-TEST_F(TCP, Connect)
+TEST_F(Socket, Connect)
 {
 	ASSERT_NE(0, child_.pid);
-	ASSERT_EQ(transport_type::tcp, endpoint_.transport());
-	ASSERT_NE(0, boost::get<detail::tcp_endpoint_data>(endpoint_.data()).port);
-	tcp_transport tcp(io_svc);
+	ASSERT_EQ(transport_type::socket, endpoint_.transport());
+	ASSERT_FALSE(boost::get<detail::socket_endpoint_data>(endpoint_.data()).path.empty());
+
+	socket_transport sock(io_svc);
 	bool connected = false;
-	tcp.connect_async(endpoint_,
+	sock.connect_async(endpoint_,
 	[&]( asio_config::error_code const& ec ) {
 		if (!ec)
 			connected = true;
-		tcp.close();
+		sock.close();
 	});
 
 	io_svc->run();
 	EXPECT_TRUE(connected);
 }
 
-TEST_F(TCP, ConnectFail)
+TEST_F(Socket, ConnectFail)
 {
 	ASSERT_NE(0, child_.pid);
-	ASSERT_EQ(transport_type::tcp, endpoint_.transport());
-	ASSERT_NE(0, boost::get<detail::tcp_endpoint_data>(endpoint_.data()).port);
+	ASSERT_EQ(transport_type::socket, endpoint_.transport());
+	ASSERT_FALSE(endpoint_.get<detail::socket_endpoint_data>().path.empty());
 	StopPartner();
-	tcp_transport tcp(io_svc);
+
+	socket_transport sock(io_svc);
 	bool connected = false;
-	tcp.connect_async(endpoint_,
+	sock.connect_async(endpoint_,
 	[&]( asio_config::error_code const& ec ) {
 		if (!ec)
 			connected = true;
-		tcp.close();
+		sock.close();
 	});
 
 	io_svc->run();
 	EXPECT_FALSE(connected);
 }
 
-TEST_F(TCP, ReadWrite)
+TEST_F(Socket, ReadWrite)
 {
 	ASSERT_NE(0, child_.pid);
-	ASSERT_EQ(transport_type::tcp, endpoint_.transport());
-	ASSERT_NE(0, boost::get<detail::tcp_endpoint_data>(endpoint_.data()).port);
+	ASSERT_EQ(transport_type::socket, endpoint_.transport());
+	ASSERT_FALSE(endpoint_.get<detail::socket_endpoint_data>().path.empty());
 
-	tcp_transport tcp(io_svc);
+	socket_transport sock(io_svc);
 
 	bool connected = false;
 	size_t errors = 0;
@@ -88,14 +93,14 @@ TEST_F(TCP, ReadWrite)
 	ASIO_NS::streambuf in_buffer;
 	std::string input_str;
 
-	tcp.connect_async(endpoint_,
+	sock.connect_async(endpoint_,
 	[&]( asio_config::error_code const& ec ) {
 		if (!ec) {
 			connected = true;
-			tcp.async_write( ASIO_NS::buffer(test_str),
+			sock.async_write( ASIO_NS::buffer(test_str),
 			[&](asio_config::error_code const& ec, std::size_t bytes_transferred){
 				if (!ec) {
-					tcp.async_read(in_buffer,
+					sock.async_read(in_buffer,
 					[&](asio_config::error_code const& ec, std::size_t bytes_transferred) {
 						if (!ec) {
 							std::istream is(&in_buffer);
@@ -121,3 +126,4 @@ TEST_F(TCP, ReadWrite)
 }  // namespace test
 }  // namespace core
 }  // namespace wire
+

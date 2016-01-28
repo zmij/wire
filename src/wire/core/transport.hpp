@@ -116,21 +116,81 @@ private:
 };
 
 struct udp_transport {
+	typedef asio_config::udp	protocol;
+	typedef protocol::socket	socket_type;
+	typedef protocol::endpoint	endpoint_type;
+
+	udp_transport(asio_config::io_service_ptr);
+	/**
+	 * Client connect.
+	 * @param ep endpoint to connect to
+	 * @param cb callback that is called when the operation finishes
+	 */
+	void
+	connect_async(endpoint const& ep, asio_config::asio_callback);
+
+	void
+	close();
+
 	template < typename BufferType, typename HandlerType >
 	void
-	async_write(BufferType const& buffer, HandlerType handler);
+	async_write(BufferType const& buffer, HandlerType handler)
+	{
+		socket_.async_send(buffer, handler);
+	}
 	template < typename BufferType, typename HandlerType >
 	void
-	async_read(BufferType& buffer, HandlerType handler);
+	async_read(BufferType& buffer, HandlerType handler)
+	{
+		socket_.async_receive(buffer, handler);
+	}
+private:
+	void
+	handle_resolve(asio_config::error_code const& ec,
+			asio_config::udp::resolver::iterator endpoint_iterator,
+			asio_config::asio_callback);
+	void
+	handle_connect(asio_config::error_code const&, asio_config::asio_callback);
+private:
+	asio_config::udp::resolver		resolver_;
+	socket_type						socket_;
 };
 
 struct socket_transport {
+	typedef asio_config::local_socket	protocol;
+	typedef protocol::socket			socket_type;
+	typedef protocol::endpoint			endpoint_type;
+
+	socket_transport(asio_config::io_service_ptr);
+	/**
+	 * Client connect.
+	 * @param ep endpoint to connect to
+	 * @param cb callback that is called when the operation finishes
+	 */
+	void
+	connect_async(endpoint const& ep, asio_config::asio_callback);
+
+	void
+	close();
+
 	template < typename BufferType, typename HandlerType >
 	void
-	async_write(BufferType const& buffer, HandlerType handler);
+	async_write(BufferType const& buffer, HandlerType handler)
+	{
+		ASIO_NS::async_write(socket_, buffer, handler);
+	}
 	template < typename BufferType, typename HandlerType >
 	void
-	async_read(BufferType& buffer, HandlerType handler);
+	async_read(BufferType& buffer, HandlerType handler)
+	{
+		ASIO_NS::async_read(socket_, buffer,
+				ASIO_NS::transfer_at_least(1), handler);
+	}
+private:
+	void
+	handle_connect(asio_config::error_code const&, asio_config::asio_callback);
+private:
+	socket_type						socket_;
 };
 
 }  // namespace core

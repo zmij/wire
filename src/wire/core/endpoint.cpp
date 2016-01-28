@@ -86,13 +86,39 @@ operator >> (std::istream& in, transport_type& val)
 
 namespace detail {
 
+void
+inet_endpoint_data::check() const
+{
+	if (host.empty()) {
+		throw errors::logic_error("Empty host in an endpoint");
+	}
+	if (port == 0) {
+		throw errors::logic_error("Port is not set in an endpoint");
+	}
+}
+
+void
+inet_endpoint_data::check(transport_type t) const
+{
+	if (host.empty()) {
+		throw errors::logic_error("Empty host in ", t, " endpoint");
+	}
+	if (port == 0) {
+		throw errors::logic_error("Port is not set in ", t ," endpoint");
+	}
+}
+
+void
+socket_endpoint_data::check(transport_type t) const
+{
+	if (path.empty()) {
+		throw errors::logic_error("Empty socket path in ", t, " endpoint");
+	}
+}
+
 std::ostream&
 operator << (std::ostream& os, empty_endpoint const& val)
 {
-//	std::ostream::sentry s (os);
-//	if (s) {
-//		os << "";
-//	}
 	return os;
 }
 
@@ -152,6 +178,40 @@ endpoint::operator =(endpoint&& rhs)
 {
 	endpoint(std::move(rhs)).swap(*this);
 	return *this;
+}
+
+namespace detail {
+struct endpoint_data_check : boost::static_visitor<> {
+	transport_type expected_type;
+
+	endpoint_data_check( transport_type e) : expected_type{e} {}
+	void
+	operator()( empty_endpoint const& data ) const
+	{
+		throw errors::logic_error( "Empty endpoint is not connectible" );
+	}
+	void
+	operator()( inet_endpoint_data const& data ) const
+	{
+		data.check(expected_type);
+	}
+	void
+	operator()( socket_endpoint_data const& data ) const
+	{
+		data.check(expected_type);
+	}
+};
+}  // namespace detail
+
+void
+endpoint::check(transport_type expected) const
+{
+	if (transport() != expected) {
+		throw errors::logic_error("Invalid endpoint transport type ",
+				transport(),
+				" for ", expected, " transport");
+	}
+	boost::apply_visitor(detail::endpoint_data_check{ expected }, endpoint_data_);
 }
 
 }  // namespace core
