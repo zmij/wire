@@ -729,9 +729,10 @@ using ireg_name_grammar = ireg_name_grammar_base< InputIterator, sub_delims_gram
 
 
 template < typename InputIterator,
-	typename SubDelims = sub_delims_grammar<InputIterator> >
+	typename SubDelims = sub_delims_grammar<InputIterator>,
+	typename HostType = tip::iri::host >
 struct ihost_grammar_base :
-		boost::spirit::qi::grammar< InputIterator, tip::iri::host() > {
+		boost::spirit::qi::grammar< InputIterator, HostType() > {
 	typedef SubDelims sub_delims_type;
 	typedef ireg_name_grammar_base< InputIterator, sub_delims_type > ireg_name_type;
 
@@ -742,13 +743,22 @@ struct ihost_grammar_base :
 				ireg_name;
 	}
 
-	boost::spirit::qi::rule< InputIterator, tip::iri::host() > ihost;
+	boost::spirit::qi::rule< InputIterator, HostType() > ihost;
 	ip_literal_grammar< InputIterator > ip_literal;
 	ipv4_grammar< InputIterator, std::string() > ipv4_address;
 	ireg_name_type ireg_name;
 };
 template < typename InputIterator >
-using ihost_grammar = ihost_grammar_base< InputIterator, sub_delims_grammar< InputIterator > >;
+using ihost_grammar =
+		ihost_grammar_base< InputIterator,
+			sub_delims_grammar< InputIterator >,
+			tip::iri::host >;
+
+template < typename InputIterator >
+using ihost_str_grammar =
+		ihost_grammar_base< InputIterator,
+			sub_delims_grammar< InputIterator >,
+			std::string >;
 
 template < typename InputIterator >
 struct iuser_info_grammar :
