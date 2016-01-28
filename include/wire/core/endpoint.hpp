@@ -248,8 +248,8 @@ public:
 	endpoint() : endpoint_data_{ detail::empty_endpoint{} } {}
 	endpoint(endpoint const& rhs) : endpoint_data_{ rhs.endpoint_data_ } {}
 	endpoint(endpoint&& rhs) : endpoint_data_{ std::move(rhs.endpoint_data_) } {}
-	template < typename T >
-	explicit endpoint( T&& data ) : endpoint_data_{ std::forward<T&&>(data) } {}
+	endpoint(endpoint_data const& data) : endpoint_data_{ data } {}
+	endpoint(endpoint_data&& data) : endpoint_data_{ std::move(data) } {}
 
 	void
 	swap(endpoint& rhs);

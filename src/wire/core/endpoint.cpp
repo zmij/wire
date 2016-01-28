@@ -255,23 +255,23 @@ operator >> (std::istream& is, endpoint& val)
 endpoint
 endpoint::tcp(std::string const& host, uint16_t port, uint32_t timeout)
 {
-	return endpoint{ detail::tcp_endpoint_data{ host, port, timeout } };
+	return std::move(endpoint{ detail::tcp_endpoint_data{ host, port, timeout } });
 }
 
 endpoint
 endpoint::ssl(std::string const& host, uint16_t port, uint32_t timeout)
 {
-	return endpoint{ detail::ssl_endpoint_data{ host, port, timeout } };
+	return std::move(endpoint{ detail::ssl_endpoint_data{ host, port, timeout } });
 }
 endpoint
 endpoint::udp(std::string const& host, uint16_t port)
 {
-	return endpoint{ detail::udp_endpoint_data{ host, port } };
+	return std::move(endpoint{ detail::udp_endpoint_data{ host, port } });
 }
 endpoint
 endpoint::socket(std::string const& path)
 {
-	return endpoint{ detail::socket_endpoint_data{ path } };
+	return std::move(endpoint{ detail::socket_endpoint_data{ path } });
 }
 
 }  // namespace core
