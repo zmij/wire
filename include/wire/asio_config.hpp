@@ -29,6 +29,8 @@ typedef ASIO_NS::local::stream_protocol				local_socket;
 
 typedef boost::system::error_code					error_code;
 typedef std::function< void(error_code const&) >	asio_callback;
+typedef std::function< void(error_code const&,
+		std::size_t) >								asio_rw_callback;
 
 typedef ASIO_NS::ssl::context						ssl_context;
 typedef std::shared_ptr< ssl_context >				ssl_context_ptr;

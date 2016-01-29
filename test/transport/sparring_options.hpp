@@ -25,6 +25,7 @@ public:
 	std::string					key_file;
 	std::string					verify_file;
 
+	bool						validate_message	= false;
 	bool						require_peer_cert	= false;
 
 	static sparring_options&

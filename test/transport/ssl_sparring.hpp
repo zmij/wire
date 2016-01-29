@@ -34,6 +34,8 @@ public:
 	void
 	start();
 private:
+	void
+	start_read();
 	bool
 	verify_certificate(bool preverified, ASIO_NS::ssl::verify_context& ctx);
 	void

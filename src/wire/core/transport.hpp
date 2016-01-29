@@ -27,7 +27,8 @@ struct transport_type_traits;
 
 template<>
 struct transport_type_traits< transport_type::tcp > {
-	static const transport_type	value = transport_type::tcp;
+	static constexpr transport_type	value = transport_type::tcp;
+	static constexpr bool stream_oriented = true;
 
 	typedef tcp_transport				type;
 	typedef detail::tcp_endpoint_data	endpoint_data;
@@ -40,7 +41,8 @@ struct transport_type_traits< transport_type::tcp > {
 
 template<>
 struct transport_type_traits< transport_type::ssl > {
-	static const transport_type	value = transport_type::ssl;
+	static constexpr transport_type	value = transport_type::ssl;
+	static constexpr bool stream_oriented = true;
 
 	typedef ssl_transport				type;
 	typedef detail::ssl_endpoint_data	endpoint_data;
@@ -53,7 +55,8 @@ struct transport_type_traits< transport_type::ssl > {
 
 template<>
 struct transport_type_traits< transport_type::udp > {
-	static const transport_type	value = transport_type::udp;
+	static constexpr transport_type	value = transport_type::udp;
+	static constexpr bool stream_oriented = false;
 
 	typedef udp_transport				type;
 	typedef detail::udp_endpoint_data	endpoint_data;
@@ -66,7 +69,8 @@ struct transport_type_traits< transport_type::udp > {
 
 template<>
 struct transport_type_traits< transport_type::socket > {
-	static const transport_type	value = transport_type::socket;
+	static constexpr transport_type	value = transport_type::socket;
+	static constexpr bool stream_oriented = true;
 
 	typedef socket_transport			type;
 	typedef detail::socket_endpoint_data	endpoint_data;
@@ -107,17 +111,17 @@ struct tcp_transport {
 
 	template < typename BufferType, typename HandlerType >
 	void
-	async_read(BufferType& buffer, HandlerType handler)
+	async_read(BufferType&& buffer, HandlerType handler)
 	{
-		ASIO_NS::async_read(socket_, buffer,
+		ASIO_NS::async_read(socket_, std::forward< BufferType&& >(buffer),
 				ASIO_NS::transfer_at_least(1), handler);
 	}
 
 	template < typename BufferType >
 	std::future< std::size_t >
-	async_read(BufferType& buffer)
+	async_read(BufferType&& buffer)
 	{
-		return ASIO_NS::async_read(socket_, buffer,
+		return ASIO_NS::async_read(socket_, std::forward< BufferType&& >(buffer),
 				ASIO_NS::transfer_at_least(1), asio_config::use_future);
 	}
 

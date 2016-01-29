@@ -268,6 +268,8 @@ private:
 	pimpl pimpl_;
 };
 
+typedef std::shared_ptr< outgoing > outgoing_ptr;
+
 class outgoing::encapsulation {
 public:
 	encapsulation(encapsulation&& rhs);
@@ -294,21 +296,6 @@ swap(outgoing& lhs, outgoing& rhs)
 {
 	lhs.swap(rhs);
 }
-
-template < typename InputIterator >
-class incoming {
-public:
-	typedef InputIterator iterator_type;
-public:
-	incoming(iterator_type begin, iterator_type end);
-private:
-	incoming(incoming const&) = delete;
-	incoming&
-	operator = (incoming const&) = delete;
-private:
-	iterator_type current_;
-	iterator_type end_;
-};
 
 }  // namespace encoding
 }  // namespace wire

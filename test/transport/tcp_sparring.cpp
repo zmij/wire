@@ -8,13 +8,39 @@
 #include "tcp_sparring.hpp"
 #include "sparring_options.hpp"
 #include <iostream>
+#include <wire/encoding/message.hpp>
 
 namespace wire {
 namespace test {
 namespace tcp {
 
+session::~session()
+{
+}
+
 void
 session::start()
+{
+	using test::sparring_options;
+	sparring_options& opts = sparring_options::instance();
+	if (opts.validate_message) {
+		if (limit_requests_)
+			++requests_;
+		std::vector<char> b;
+
+		encoding::write(std::back_inserter(b),
+				encoding::message{ encoding::message::validate, 0 });
+		std::copy(b.begin(), b.end(), data_);
+		ASIO_NS::async_write(socket_, ASIO_NS::buffer(data_, b.size()),
+				std::bind(&session::handle_write, this,
+					std::placeholders::_1, std::placeholders::_2));
+	} else {
+		start_read();
+	}
+}
+
+void
+session::start_read()
 {
 	socket_.async_read_some(
 		ASIO_NS::buffer(data_, max_length),
@@ -39,12 +65,12 @@ session::handle_write(asio_config::error_code const& ec, size_t bytes_transferre
 {
 	if (!ec) {
 		if (!limit_requests_) {
-			start();
+			start_read();
 			return;
 		} else if (requests_ > 0){
 			--requests_;
 			if (requests_ > 0) {
-				start();
+				start_read();
 				return;
 			}
 		}

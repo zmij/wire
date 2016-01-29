@@ -36,6 +36,9 @@ main(int argc, char* argv[])
 			("requests,r",
 				po::value<std::size_t>(&opts.requests)->default_value(1),
 				"Number of reqests per connection to handle")
+			("validate-message",
+				po::bool_switch(&opts.validate_message),
+				"Send validate message after accepting connection")
 		;
 
 		po::options_description ssl_opts("SSL sparring options");

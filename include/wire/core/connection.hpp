@@ -8,9 +8,12 @@
 #ifndef WIRE_CORE_CONNECTION_HPP_
 #define WIRE_CORE_CONNECTION_HPP_
 
+#include <wire/asio_config.hpp>
+
 #include <wire/core/endpoint.hpp>
 #include <wire/core/identity.hpp>
 #include <wire/core/object_fwd.hpp>
+#include <wire/core/callbacks.hpp>
 
 #include <wire/encoding/buffers.hpp>
 
@@ -22,15 +25,25 @@ public:
 	/**
 	 * Create connection with no endpoint.
 	 */
-	connection();
+	connection(asio_config::io_service_ptr);
 	/**
 	 * Create connection and start asynchronous connect.
 	 * @param
 	 */
-	connection(endpoint const&);
+	connection(asio_config::io_service_ptr, endpoint const&,
+			callbacks::void_callback = nullptr,
+			callbacks::exception_callback = nullptr);
 
+	/**
+	 * Start asynchronous connect
+	 * @param endpoint
+	 * @param cb Connected callback
+	 * @param ecb Exception callback
+	 */
 	void
-	connect(endpoint const&);
+	connect_async(endpoint const&,
+			callbacks::void_callback = nullptr,
+			callbacks::exception_callback = nullptr);
 
 	endpoint const&
 	remote_endpoint() const;
@@ -39,18 +52,9 @@ public:
 	void
 	invoke(identity const&, std::string const& op, Handler, Args const ...);
 
-	/**
-	 * Add servant object with random identity
-	 */
 	void
-	add_object(object_ptr);
-	/**
-	 * Add servant object with identity
-	 * @param
-	 * @param
-	 */
-	void
-	add_object(object_ptr, identity const&);
+	invoke(identity const&, std::string const& op, encoding::outgoing const&);
+
 private:
 	connection(connection const&) = delete;
 	connection&

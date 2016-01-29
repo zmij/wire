@@ -22,7 +22,7 @@ struct message {
 		validate	= 3,
 		close		= 4,
 		type_bits	= reply | validate | close,
-		flag_gits	= ~type_bits,
+		flag_bits	= ~type_bits,
 	};
 	static constexpr uint32_t MAGIC_NUMBER =
 			('w' << 24) | ('i' << 16) | ('r' << 8) | ('e');
@@ -74,7 +74,7 @@ struct message {
 }  // namespace wire
 
 namespace std {
-void
+inline void
 swap(wire::encoding::message& lhs, wire::encoding::message& rhs)
 {
 	lhs.swap(rhs);

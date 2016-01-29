@@ -14,6 +14,11 @@ namespace wire {
 namespace core {
 
 class object {
+public:
+	virtual
+	~object();
+
+
 };
 
 }  // namespace core

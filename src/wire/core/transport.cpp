@@ -13,6 +13,18 @@
 namespace wire {
 namespace core {
 
+constexpr transport_type transport_type_traits< transport_type::tcp >::value;
+constexpr bool transport_type_traits< transport_type::tcp >::stream_oriented;
+
+constexpr transport_type transport_type_traits< transport_type::ssl >::value;
+constexpr bool transport_type_traits< transport_type::ssl >::stream_oriented;
+
+constexpr transport_type transport_type_traits< transport_type::udp >::value;
+constexpr bool transport_type_traits< transport_type::udp >::stream_oriented;
+
+constexpr transport_type transport_type_traits< transport_type::socket >::value;
+constexpr bool transport_type_traits< transport_type::socket >::stream_oriented;
+
 //----------------------------------------------------------------------------
 //	TCP transport
 //----------------------------------------------------------------------------

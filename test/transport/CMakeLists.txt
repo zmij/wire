@@ -49,6 +49,7 @@ set(test_transport_SRCS
     ssl_transport_test.cpp
     udp_transport_test.cpp
     socket_transport_test.cpp
+    client_connection_test.cpp
 )
 
 add_executable(test-wire-transport ${test_transport_SRCS})

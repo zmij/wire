@@ -25,6 +25,7 @@ public:
 		: socket_(svc), requests_(requests), limit_requests_(requests_ > 0)
 	{
 	}
+	~session();
 
 	socket_type&
 	socket()
@@ -35,6 +36,8 @@ public:
 	void
 	start();
 private:
+	void
+	start_read();
 	void
 	handle_read(asio_config::error_code const& ec, size_t bytes_transferred);
 	void
