@@ -13,6 +13,7 @@ set(BOOST_COMPONENTS
     iostreams
 )
 find_package(Boost 1.55 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
 
 set(
     example_SRCS

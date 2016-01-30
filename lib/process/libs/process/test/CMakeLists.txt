@@ -15,6 +15,7 @@ set(BOOST_COMPONENTS
 )
 find_package(Boost 1.55 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 find_package (Threads REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
 
 add_executable(sparring_partner sparring_partner.cpp)
 target_link_libraries(sparring_partner
