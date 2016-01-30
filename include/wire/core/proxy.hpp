@@ -38,7 +38,7 @@ public:
 	template< template< typename > class _Promise = std::promise >
 	auto
 	wire_ping_async(context_type const& ctx = no_context)
-		-> decltype(std::declval<_Promise<void>().get_future())
+		-> decltype(std::declval<_Promise<void>>().get_future())
 	{
 		auto promise = ::std::make_shared< _Promise<void> >();
 

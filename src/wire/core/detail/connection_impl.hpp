@@ -81,7 +81,7 @@ struct connection_impl : connection_impl_base {
 	virtual ~connection_impl() {}
 
 	bool
-	is_stream_oriented() const
+	is_stream_oriented() const override
 	{ return transport_traits::stream_oriented; }
 
 private:
