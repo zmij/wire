@@ -25,6 +25,8 @@ public:
 	std::string					key_file;
 	std::string					verify_file;
 
+	std::string					greet_message;
+
 	bool						validate_message	= false;
 	bool						require_peer_cert	= false;
 

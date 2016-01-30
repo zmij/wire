@@ -91,9 +91,9 @@ private:
 		transport_.connect_async(ep, cb);
 	}
 	void
-	do_write_async(encoding::outgoing_ptr, asio_config::asio_rw_callback) override
+	do_write_async(encoding::outgoing_ptr buffer, asio_config::asio_rw_callback cb) override
 	{
-
+		transport_.async_write( buffer->to_buffers(), cb );
 	}
 	void
 	do_read_async(incoming_buffer_ptr buffer, asio_config::asio_rw_callback cb) override

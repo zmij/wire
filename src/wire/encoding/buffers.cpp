@@ -246,6 +246,19 @@ struct outgoing::impl {
 		}
 	}
 
+	asio_buffers
+	to_buffers() const
+	{
+		// TODO close encaps and other stuff
+		asio_buffers buffs;
+		std::transform(buffers_.begin(), buffers_.end(),
+		std::back_inserter(buffs),
+		[](buffer_type b) {
+			return ASIO_NS::buffer(b);
+		});
+		return std::move(buffs);
+	}
+
 	void
 	start_buffer()
 	{
@@ -393,6 +406,12 @@ void
 outgoing::pop_back()
 {
 	pimpl_->pop_back();
+}
+
+outgoing::asio_buffers
+outgoing::to_buffers() const
+{
+	return std::move(pimpl_->to_buffers());
 }
 
 outgoing::encapsulation

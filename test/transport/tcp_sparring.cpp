@@ -23,7 +23,13 @@ session::start()
 {
 	using test::sparring_options;
 	sparring_options& opts = sparring_options::instance();
-	if (opts.validate_message) {
+	if (!opts.greet_message.empty()) {
+		if (limit_requests_)
+			++requests_;
+		ASIO_NS::async_write(socket_, ASIO_NS::buffer(opts.greet_message),
+				std::bind(&session::handle_write, this,
+					std::placeholders::_1, std::placeholders::_2));
+	} else if (opts.validate_message) {
 		if (limit_requests_)
 			++requests_;
 		std::vector<char> b;

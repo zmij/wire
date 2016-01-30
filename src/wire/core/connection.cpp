@@ -67,7 +67,8 @@ connection_impl_base::read_verify_message(callbacks::void_callback cb,
 					throw errors::connection_failed( "Validate message size is more than 0" );
 				}
 				/** @todo Validate versions */
-				if (cb) cb();
+				/** @todo Send validate message only if client */
+				shared_this->send_verify_message(cb, eb);
 			} catch (...) {
 				if (eb) {
 					eb(std::current_exception());

@@ -11,6 +11,8 @@
 #include <wire/encoding/wire_io.hpp>
 #include <wire/encoding/detail/out_buffer_traits.hpp>
 
+#include <wire/asio_config.hpp>
+
 #include <memory>
 #include <iterator>
 #include <vector>
@@ -24,6 +26,7 @@ public:
 	typedef std::vector<uint8_t>			buffer_type;
 	/** Sequence of internal buffers */
 	typedef std::vector<buffer_type>		buffer_sequence_type;
+	typedef std::vector< ASIO_NS::const_buffer > asio_buffers;
 	//@{
 	/**
 	 * @name Container concept
@@ -243,6 +246,13 @@ public:
 	const_reference
 	at(size_type) const;
 	//@}
+
+	/**
+	 * Get asio buffers for output
+	 * @return
+	 */
+	asio_buffers
+	to_buffers() const;
 
 	//@{
 	/** @name Encapsulated data */

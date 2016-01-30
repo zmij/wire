@@ -28,7 +28,6 @@ protected:
 		os << current_transport;
 		args.insert(args.end(), {
 			"--transport", os.str(),
-			"--validate-message"
 		});
 
 		if (!add_args.empty()) {
@@ -55,10 +54,14 @@ protected:
 	args_type		add_args;
 };
 
-TEST_F(Client, TCP)
+TEST_F(Client, TCPConnect)
 {
 	typedef transport_type_traits< transport_type::tcp > used_transport;
 	current_transport = used_transport::value;
+	add_args.insert(add_args.end(), {
+		"--validate-message",
+		"-r2"
+	});
 	StartPartner();
 
 	ASSERT_NE(0, child_.pid);
@@ -82,6 +85,67 @@ TEST_F(Client, TCP)
 
 	EXPECT_TRUE(connected);
 	EXPECT_FALSE(error);
+}
+
+TEST_F(Client, TCPConnectFail)
+{
+	typedef transport_type_traits< transport_type::tcp > used_transport;
+	current_transport = used_transport::value;
+	add_args.push_back("--validate-message");
+	StartPartner();
+
+	ASSERT_NE(0, child_.pid);
+	ASSERT_EQ(used_transport::value, endpoint_.transport());
+	ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
+	StopPartner();
+
+	connection c(io_svc);
+
+	bool connected = false;
+	bool error = false;
+
+	c.connect_async(endpoint_,
+	[&](){
+		connected = true;
+	},
+	[&](std::exception_ptr) {
+		error = true;
+	});
+
+	io_svc->run();
+
+	EXPECT_FALSE(connected);
+	EXPECT_TRUE(error);
+}
+
+TEST_F(Client, TCPConnectInvalidValidate)
+{
+	typedef transport_type_traits< transport_type::tcp > used_transport;
+	current_transport = used_transport::value;
+	add_args.insert(add_args.end(), {"--greet-message", "hello"});
+	StartPartner();
+
+	ASSERT_NE(0, child_.pid);
+	ASSERT_EQ(used_transport::value, endpoint_.transport());
+	ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
+
+	connection c(io_svc);
+
+	bool connected = false;
+	bool error = false;
+
+	c.connect_async(endpoint_,
+	[&](){
+		connected = true;
+	},
+	[&](std::exception_ptr) {
+		error = true;
+	});
+
+	io_svc->run();
+
+	EXPECT_FALSE(connected);
+	EXPECT_TRUE(error);
 }
 
 TEST_F(Client, DISABLED_SSL)
