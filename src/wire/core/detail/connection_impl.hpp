@@ -120,6 +120,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 		void
 		operator()(events::receive_request const&, fsm_type& fsm, SourceState&, TargetState&)
 		{
+			std::cerr << "Dispatch request\n";
 		}
 	};
 	struct dispatch_reply {
@@ -127,6 +128,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 		void
 		operator()(events::receive_reply const&, fsm_type& fsm, SourceState&, TargetState&)
 		{
+			std::cerr << "Dispatch reply\n";
 		}
 	};
 	//@}
@@ -155,7 +157,6 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 		void
 		on_exit(Event const&, fsm_type&)
 		{
-
 		}
 		void
 		on_exit( events::connected const&, fsm_type& )

@@ -104,6 +104,8 @@ TEST(OutgoingBuffer, Encapsulation)
 
 TEST(OutgoingBuffer, NestedEncapsulation)
 {
+	const size_t INNER_ENCAPS_HEADER = 3;
+	const size_t OUTER_ENCAPS_HEADER = 4;
 	outgoing out;
 	for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
 		out.push_back(i);
@@ -125,15 +127,25 @@ TEST(OutgoingBuffer, NestedEncapsulation)
 			EXPECT_EQ(INSERT_CHARS*2, outer.size());
 			EXPECT_EQ(INSERT_CHARS*3, out.size()); // Before encapsulation is closed
 		}
-		EXPECT_EQ(INSERT_CHARS*2 + 3, outer.size());
-		EXPECT_EQ(INSERT_CHARS*3 + 3, out.size()); // Before encapsulation is closed
+		EXPECT_EQ(INSERT_CHARS*2 + INNER_ENCAPS_HEADER, outer.size());
+		EXPECT_EQ(INSERT_CHARS*3 + INNER_ENCAPS_HEADER, out.size()); // Before encapsulation is closed
 		for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
 			out.push_back(i);
 		}
-		EXPECT_EQ(INSERT_CHARS*3 + 3, outer.size());
-		EXPECT_EQ(INSERT_CHARS*4 + 3, out.size()); // Before encapsulation is closed
+		EXPECT_EQ(INSERT_CHARS*3 + INNER_ENCAPS_HEADER, outer.size());
+		EXPECT_EQ(INSERT_CHARS*4 + INNER_ENCAPS_HEADER, out.size()); // Before encapsulation is closed
+
+		outgoing opaque;
+		for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
+			opaque.push_back(i);
+		}
+		EXPECT_EQ(INSERT_CHARS, opaque.size());
+		out.insert_encapsulation(std::move(opaque));
+
+		EXPECT_EQ(INSERT_CHARS*4 + INNER_ENCAPS_HEADER*2, outer.size());
+		EXPECT_EQ(INSERT_CHARS*5 + INNER_ENCAPS_HEADER*2, out.size()); // Before encapsulation is closed
 	}
-	EXPECT_EQ(INSERT_CHARS*4 + 7, out.size()); // After encapsulation is closed, size of 200 fits into two bytes, 2 bytes per encaps header
+	EXPECT_EQ(INSERT_CHARS*5 + INNER_ENCAPS_HEADER*2 + OUTER_ENCAPS_HEADER, out.size()); // After encapsulation is closed, size of 200 fits into two bytes, 2 bytes per encaps header
 }
 
 }  // namespace test

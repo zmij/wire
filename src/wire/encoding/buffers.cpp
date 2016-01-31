@@ -11,6 +11,7 @@
 
 #include <numeric>
 #include <iostream>
+#include <list>
 
 namespace wire {
 namespace encoding {
@@ -27,33 +28,98 @@ struct impl_traits<const Impl> {
 };
 
 struct outgoing::impl {
+	struct encaps_state {
+		outgoing* out_;
+		size_type		size_before_;
+		size_type		buffer_before_;
+		uint32_t		encoding_major = ENCODING_MAJOR;
+		uint32_t		encoding_minor = ENCODING_MINOR;
+
+		encaps_state(outgoing* o)
+			: out_(o),
+			  size_before_(out_ ? out_->size() : 0),
+			  buffer_before_(out_ ? out_->pimpl_->buffers_.size() - 1 : 0)
+		{
+		}
+		encaps_state(encaps_state const& rhs)
+			: out_(rhs.out_),
+			  size_before_(rhs.size_before_),
+			  buffer_before_(rhs.buffer_before_)
+		{
+		}
+		encaps_state(encaps_state&& rhs)
+			: out_(rhs.out_),
+			  size_before_(rhs.size_before_),
+			  buffer_before_(rhs.buffer_before_)
+		{
+			rhs.out_ = nullptr;
+		}
+		~encaps_state()
+		{
+			if (out_) {
+				size_type sz = size();
+				buffer_type& b = out_->pimpl_->buffers_[buffer_before_];
+				auto o = std::back_inserter(b);
+				write(o, encoding_major);
+				write(o, encoding_minor);
+				write(o, sz);
+			}
+		}
+
+		size_type
+		size() const
+		{
+			if (!out_)
+				return 0;
+			return out_->size() - size_before_;
+		}
+	};
+	typedef std::list< encaps_state > 		encapsulation_stack;
+	typedef encapsulation_stack::iterator	encaps_iterator;
+
 	outgoing*				container_;
 	message::message_flags	flags_;
 	buffer_sequence_type	buffers_;
+	encapsulation_stack		encapsulations_;
 
 	impl(outgoing* out)
 		: container_(out),
 		  flags_(message::request),
-		  buffers_(2, buffer_type{})
+		  buffers_(2, buffer_type{}),
+		  encapsulations_({encaps_state{ nullptr }})
 	{
 	}
 	impl(outgoing* out, message::message_flags flags)
 		: container_(out),
 		  flags_(flags),
-		  buffers_(2, buffer_type{})
+		  buffers_(2, buffer_type{}),
+		  encapsulations_({encaps_state{ nullptr }})
 	{
 	}
 	impl(impl const& rhs)
 		: container_(rhs.container_),
 		  flags_(rhs.flags_),
-		  buffers_(rhs.buffers_)
+		  buffers_(rhs.buffers_),
+		  encapsulations_(rhs.encapsulations_)
 	{
 	}
 	impl(outgoing* out, impl const& rhs)
 		: container_(out),
 		  flags_(rhs.flags_),
-		  buffers_(rhs.buffers_)
+		  buffers_(rhs.buffers_),
+		  encapsulations_({encaps_state{ nullptr }})
 	{
+		auto start = rhs.encapsulations_.begin();
+		std::transform(
+			++start, rhs.encapsulations_.end(),
+			std::back_inserter(encapsulations_),
+			[this](encaps_state const& encaps)
+			{
+				encaps_state tmp{encaps};
+				tmp.out_ = container_;
+				return std::move(tmp);
+			}
+		);
 	}
 
 	buffer_type&
@@ -291,14 +357,34 @@ struct outgoing::impl {
 		buffers_.push_back({});
 	}
 
-	void
+	encaps_iterator
 	begin_encaps()
 	{
+		//std::cerr << "begin encaps\n";
+		encapsulations_.emplace_back(container_);
+		start_buffer();
+		return --encapsulations_.end();
+	}
+	void
+	end_encaps(encaps_iterator iter)
+	{
+		if (encapsulations_.end() == ++iter) {
+			//std::cerr << "end encaps\n";
+			encapsulations_.pop_back();
+		}
 		start_buffer();
 	}
 	void
-	end_encaps()
+	insert_encaps(outgoing&& encaps)
 	{
+		encapsulations_.emplace_back(container_);
+		buffer_sequence_type buffers = std::move(encaps.pimpl_->buffers_);
+		for( auto p = buffers.begin() + 1; p != buffers.end(); ++p) {
+			if (p->size() > 0) {
+				buffers_.push_back( std::move(*p) );
+			}
+		}
+		encapsulations_.pop_back();
 		start_buffer();
 	}
 };
@@ -444,6 +530,12 @@ outgoing::to_buffers() const
 	return std::move(pimpl_->to_buffers());
 }
 
+void
+outgoing::insert_encapsulation(outgoing&& encaps)
+{
+	pimpl_->insert_encaps(std::move(encaps));
+}
+
 outgoing::encapsulation
 outgoing::begin_encapsulation()
 {
@@ -454,35 +546,28 @@ outgoing::begin_encapsulation()
 //	encapsulation implementation
 //----------------------------------------------------------------------------
 struct outgoing::encapsulation::impl {
-	typedef outgoing::buffer_sequence_type::iterator 	buffer_iterator;
-	outgoing* out_;
-	size_type		size_before_;
-	size_type		buffer_before_;
+	typedef outgoing::impl::encaps_state		encaps_state;
+	typedef outgoing::impl::encaps_iterator		encaps_iter;
+
+	outgoing*		out_;
+	encaps_iter		encaps_iter_;
 
 	impl(outgoing* o) :
 		out_(o),
-		size_before_(out_->size()),
-		buffer_before_(out_->pimpl_->buffers_.size())
+		encaps_iter_(out_ ? out_->pimpl_->begin_encaps() : encaps_iter{})
 	{
-		out_->pimpl_->begin_encaps();
 	}
 	~impl()
 	{
 		if (out_) {
-			size_type sz = size();
-			buffer_type& b = out_->pimpl_->buffers_[buffer_before_];
-			auto o = std::back_inserter(b);
-			write(o, ENCODING_MAJOR);
-			write(o, ENCODING_MINOR);
-			write(o, sz);
-			out_->pimpl_->end_encaps();
+			out_->pimpl_->end_encaps(encaps_iter_);
 		}
 	}
 
 	size_type
 	size() const
 	{
-		return out_->size() - size_before_;
+		return out_ ? encaps_iter_->size() : 0;
 	}
 };
 

@@ -258,6 +258,8 @@ public:
 
 	//@{
 	/** @name Encapsulated data */
+	void
+	insert_encapsulation(outgoing&&);
 	encapsulation
 	begin_encapsulation();
 	//@}
