@@ -10,6 +10,8 @@
 
 #include <wire/encoding/types.hpp>
 #include <wire/encoding/wire_io.hpp>
+#include <wire/core/identity.hpp>
+#include <wire/core/context.hpp>
 #include <wire/version.hpp>
 
 namespace wire {
@@ -89,13 +91,11 @@ template < typename OutputIterator >
 void
 write(OutputIterator o, message const& v)
 {
-	write(o, int32_fixed_t(message::MAGIC_NUMBER));
-	write(o, PROTOCOL_MAJOR);
-	write(o, PROTOCOL_MINOR);
-	write(o, v.encoding_major);
-	write(o, v.encoding_minor);
-	write(o, v.flags);
-	write(o, v.size);
+	write(o,
+		int32_fixed_t(message::MAGIC_NUMBER),
+		PROTOCOL_MAJOR, PROTOCOL_MINOR,
+		v.encoding_major, v.encoding_minor,
+		v.flags, v.size);
 }
 
 template < typename InputIterator >
@@ -108,12 +108,96 @@ read(InputIterator& begin, InputIterator end, message& v)
 		throw errors::invalid_magic_number("Invalid magic number in message header");
 	}
 	message tmp;
-	read(begin, end, tmp.version_major);
-	read(begin, end, tmp.version_minor);
-	read(begin, end, tmp.encoding_major);
-	read(begin, end, tmp.encoding_minor);
-	read(begin, end, tmp.flags);
-	read(begin, end, tmp.size);
+	read(begin, end,
+		tmp.version_major, tmp.version_minor,
+		tmp.encoding_major, tmp.encoding_minor,
+		tmp.flags, tmp.size);
+	v.swap(tmp);
+}
+
+struct request {
+	typedef boost::variant< int32_t, std::string > operation_id;
+	enum request_mode {
+		normal
+	};
+	int32_t				number;
+	core::identity		identity;
+	std::string			facet;
+	operation_id		operation;
+	request_mode		mode;
+
+	void
+	swap(request& rhs)
+	{
+		using std::swap;
+		swap(number, rhs.number);
+		swap(identity, rhs.identity);
+		swap(facet, rhs.facet);
+		swap(operation, rhs.operation);
+		swap(mode, rhs.mode);
+	}
+};
+
+template < typename OutputIterator >
+void
+wire_write(OutputIterator o, request const& v)
+{
+	write(o,
+		v.number,
+		v.identity, v.facet,
+		v.operation, v.mode
+	);
+}
+
+template < typename InputIterator >
+void
+wire_read(InputIterator& begin, InputIterator end, request& v)
+{
+	request tmp;
+	read(begin, end,
+		tmp.number,
+		tmp.identity, tmp.facet,
+		tmp.operation, tmp.mode
+	);
+	v.swap(tmp);
+}
+
+struct reply {
+	enum reply_status {
+		success,
+		user_exception,
+		no_object,
+		no_facet,
+		no_operation,
+		unknown_wire_exception,
+		unknown_user_exception,
+		unknown_exception
+	};
+	int32_t			number;
+	reply_status	status;
+
+	void
+	swap(reply& rhs)
+	{
+		using std::swap;
+		swap(number, rhs.number);
+		swap(status, rhs.status);
+	}
+};
+
+template < typename OutputIterator >
+void
+wire_write(OutputIterator o, reply const& v)
+{
+	write(o, v.number, v.status);
+}
+
+template < typename InputIterator >
+void
+wire_read(InputIterator& begin, InputIterator end, reply& v)
+{
+	reply tmp;
+	read(begin, end, tmp.number, tmp.status);
 	v.swap(tmp);
 }
 
