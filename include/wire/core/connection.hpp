@@ -51,12 +51,35 @@ public:
 	endpoint const&
 	remote_endpoint() const;
 
-	template < typename Handler, typename ... Args >
+	template < typename ... T, typename ... Args >
 	void
-	invoke(identity const&, std::string const& op, Handler, Args const ...);
+	invoke_async(identity const& id, std::string const& op,
+			callbacks::callback<  T const& ... > response,
+			callbacks::exception_callback exception,
+			callbacks::callback< bool > sent,
+			Args const& ... params)
+	{
+		encoding::outgoing out;
+		write(std::back_inserter(out), params ...);
+		invoke_async(id, op, std::move(out) /** @todo invocation handlers */);
+	}
+
+	template < typename ... Args >
+	void
+	invoke_async(identity const& id, std::string const& op,
+			callbacks::void_callback response,
+			callbacks::exception_callback exception,
+			callbacks::callback< bool > sent,
+			Args const& ... params)
+	{
+		encoding::outgoing out;
+		write(std::back_inserter(out), params ...);
+		invoke_async(id, op, std::move(out) /** @todo invocation handlers */);
+	}
 
 	void
-	invoke(identity const&, std::string const& op, encoding::outgoing const&);
+	invoke_async(identity const&, std::string const& op,
+			encoding::outgoing&& /** @todo invocation handlers */);
 
 private:
 	connection(connection const&) = delete;

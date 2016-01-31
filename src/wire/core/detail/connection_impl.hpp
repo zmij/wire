@@ -317,6 +317,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 	static connection_impl_ptr
 	create_connection( asio_config::io_service_ptr io_svc, transport_type _type );
 
+	connection_impl_base() {}
 	virtual ~connection_impl_base() {}
 
 	virtual bool
@@ -357,6 +358,11 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 	handle_read(asio_config::error_code const& ec, std::size_t bytes,
 			incoming_buffer_ptr);
 
+	void
+	invoke_async(identity const&, std::string const& op,
+			encoding::outgoing&& /** @todo invocation handlers */);
+
+	uint32_t request_no_	= 0;
 };
 
 template < transport_type _type >

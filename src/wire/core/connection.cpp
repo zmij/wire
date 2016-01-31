@@ -154,6 +154,24 @@ connection_impl_base::handle_read(asio_config::error_code const& ec, std::size_t
 	}
 }
 
+void
+connection_impl_base::invoke_async(identity const& id, std::string const& op,
+		encoding::outgoing&& params/** @todo invocation handlers */)
+{
+	using encoding::request;
+	encoding::outgoing_ptr out = std::make_shared<encoding::outgoing>(encoding::message::request);
+	request r{
+		++request_no_,
+		encoding::operation_specs{ id, "", op },
+		request::normal
+	};
+	write(std::back_inserter(*out), r);
+	out->insert_encapsulation(std::move(params));
+	/** @todo register invocation handlers */
+	write_async(out);
+}
+
+
 }  // namespace detail
 
 struct connection::impl {
@@ -183,6 +201,15 @@ struct connection::impl {
 			connection_->close();
 		} /** @todo Throw exception */
 	}
+
+	void
+	invoke_async(identity const& id, std::string const& op,
+			encoding::outgoing&& params/** @todo invocation handlers */)
+	{
+		if (connection_) {
+			connection_->invoke_async(id, op, std::move(params));
+		} /** @todo Throw exception */
+	}
 };
 
 connection::connection(asio_config::io_service_ptr io_svc)
@@ -209,6 +236,14 @@ connection::close()
 {
 	pimpl_->close();
 }
+
+void
+connection::invoke_async(identity const& id, std::string const& op,
+		encoding::outgoing&& params/** @todo invocation handlers */)
+{
+	pimpl_->invoke_async(id, op, std::move(params));
+}
+
 
 }  // namespace core
 }  // namespace wire

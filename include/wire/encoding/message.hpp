@@ -154,7 +154,7 @@ struct request {
 	enum request_mode {
 		normal
 	};
-	int32_t				number;
+	uint32_t			number;
 	operation_specs		operation;
 	request_mode		mode;
 
@@ -195,7 +195,7 @@ struct reply {
 		unknown_user_exception,
 		unknown_exception
 	};
-	int32_t			number;
+	uint32_t		number;
 	reply_status	status;
 
 	void
