@@ -9,6 +9,7 @@
 #define TIP_WIRE_BUFFERS_HPP_
 
 #include <wire/encoding/wire_io.hpp>
+#include <wire/encoding/message.hpp>
 #include <wire/encoding/detail/out_buffer_traits.hpp>
 
 #include <wire/asio_config.hpp>
@@ -152,6 +153,7 @@ public:
 	class encapsulation;
 public:
 	outgoing();
+	outgoing(message::message_flags);
 	/** Copy construct */
 	outgoing(outgoing const&);
 	/** Move construct */

@@ -7,6 +7,8 @@
 
 #include <wire/encoding/buffers.hpp>
 #include <wire/version.hpp>
+#include <wire/encoding/message.hpp>
+
 #include <numeric>
 #include <iostream>
 
@@ -25,18 +27,32 @@ struct impl_traits<const Impl> {
 };
 
 struct outgoing::impl {
-
 	outgoing*				container_;
+	message::message_flags	flags_;
 	buffer_sequence_type	buffers_;
 
-	impl(outgoing* out) : container_(out), buffers_(1, buffer_type{})
+	impl(outgoing* out)
+		: container_(out),
+		  flags_(message::request),
+		  buffers_(2, buffer_type{})
 	{
 	}
-
-	impl(impl const& rhs) : container_(rhs.container_), buffers_(rhs.buffers_)
+	impl(outgoing* out, message::message_flags flags)
+		: container_(out),
+		  flags_(flags),
+		  buffers_(2, buffer_type{})
 	{
 	}
-	impl(outgoing* out, impl const& rhs) : container_(out), buffers_(rhs.buffers_)
+	impl(impl const& rhs)
+		: container_(rhs.container_),
+		  flags_(rhs.flags_),
+		  buffers_(rhs.buffers_)
+	{
+	}
+	impl(outgoing* out, impl const& rhs)
+		: container_(out),
+		  flags_(rhs.flags_),
+		  buffers_(rhs.buffers_)
 	{
 	}
 
@@ -44,6 +60,12 @@ struct outgoing::impl {
 	back_buffer()
 	{
 		return buffers_.back();
+	}
+
+	buffer_type&
+	message_header_buffer()
+	{
+		return buffers_.front();
 	}
 
 	size_type
@@ -241,21 +263,25 @@ struct outgoing::impl {
 	pop_back()
 	{
 		buffers_.back().pop_back();
-		if (buffers_.back().empty() && buffers_.size() > 1) {
+		if (buffers_.back().empty() && buffers_.size() > 2) {
 			buffers_.pop_back();
 		}
 	}
 
 	asio_buffers
-	to_buffers() const
+	to_buffers()
 	{
 		// TODO close encaps and other stuff
+		if (message_header_buffer().empty()) {
+			message m { flags_, size() };
+			write(std::back_inserter(message_header_buffer()), m);
+		}
 		asio_buffers buffs;
-		std::transform(buffers_.begin(), buffers_.end(),
-		std::back_inserter(buffs),
-		[](buffer_type b) {
-			return ASIO_NS::buffer(b);
-		});
+		for (auto const& b : buffers_) {
+			if (!b.empty()) {
+				buffs.push_back(ASIO_NS::buffer(b));
+			}
+		}
 		return std::move(buffs);
 	}
 
@@ -279,6 +305,10 @@ struct outgoing::impl {
 
 outgoing::outgoing()
 	: pimpl_(std::make_shared<impl>(this))
+{
+}
+outgoing::outgoing(message::message_flags flags)
+	: pimpl_(std::make_shared<impl>(this, flags))
 {
 }
 
