@@ -34,10 +34,16 @@ write(OutputIterator o, T v, typename std::enable_if< std::is_fundamental<T>::va
 template < typename OutputIterator, typename T >
 void
 write(OutputIterator o, T const& v, typename std::enable_if< !std::is_fundamental<T>::value, T >::type* = nullptr);
+template < typename OutputIterator, typename ... T >
+void
+write(OutputIterator o, T const& ... args);
 
 template < typename InputIterator, typename T >
 void
 read(InputIterator& begin, InputIterator end, T& value);
+template < typename InputIterator, typename ... T >
+void
+read(InputIterator& begin, InputIterator end, T& ... args);
 
 }  // namespace encoding
 }  // namespace wire
