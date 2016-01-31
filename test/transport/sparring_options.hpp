@@ -29,6 +29,7 @@ public:
 
 	bool						validate_message	= false;
 	bool						require_peer_cert	= false;
+	bool						ping_pong			= false;
 
 	static sparring_options&
 	instance();

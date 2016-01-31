@@ -42,6 +42,9 @@ main(int argc, char* argv[])
 			("validate-message",
 				po::bool_switch(&opts.validate_message),
 				"Send validate message after accepting connection (incompatible with greet-message)")
+			("ping-pong",
+				po::bool_switch(&opts.ping_pong),
+				"Read request message and send encapsulated data back")
 		;
 
 		po::options_description ssl_opts("SSL sparring options");

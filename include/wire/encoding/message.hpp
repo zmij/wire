@@ -115,15 +115,47 @@ read(InputIterator& begin, InputIterator end, message& v)
 	v.swap(tmp);
 }
 
-struct request {
+struct operation_specs {
 	typedef boost::variant< int32_t, std::string > operation_id;
+	core::identity		identity;
+	std::string			facet;
+	operation_id		operation;
+
+	void
+	swap(operation_specs& rhs)
+	{
+		using std::swap;
+		swap(identity, rhs.identity);
+		swap(facet, rhs.facet);
+		swap(operation, rhs.operation);
+	}
+};
+
+template < typename OutputIterator >
+void
+wire_write(OutputIterator o, operation_specs const& v)
+{
+	write(o,
+		v.identity, v.facet, v.operation
+	);
+}
+
+template < typename InputIterator >
+void
+wire_read(InputIterator& begin, InputIterator end, operation_specs& v)
+{
+	operation_specs tmp;
+	read(begin, end, tmp.identity, tmp.facet, tmp.operation);
+	v.swap(tmp);
+}
+
+
+struct request {
 	enum request_mode {
 		normal
 	};
 	int32_t				number;
-	core::identity		identity;
-	std::string			facet;
-	operation_id		operation;
+	operation_specs		operation;
 	request_mode		mode;
 
 	void
@@ -131,8 +163,6 @@ struct request {
 	{
 		using std::swap;
 		swap(number, rhs.number);
-		swap(identity, rhs.identity);
-		swap(facet, rhs.facet);
 		swap(operation, rhs.operation);
 		swap(mode, rhs.mode);
 	}
@@ -142,11 +172,7 @@ template < typename OutputIterator >
 void
 wire_write(OutputIterator o, request const& v)
 {
-	write(o,
-		v.number,
-		v.identity, v.facet,
-		v.operation, v.mode
-	);
+	write(o, v.number, v.operation, v.mode);
 }
 
 template < typename InputIterator >
@@ -154,11 +180,7 @@ void
 wire_read(InputIterator& begin, InputIterator end, request& v)
 {
 	request tmp;
-	read(begin, end,
-		tmp.number,
-		tmp.identity, tmp.facet,
-		tmp.operation, tmp.mode
-	);
+	read(begin, end, tmp.number, tmp.operation, tmp.mode);
 	v.swap(tmp);
 }
 

@@ -45,6 +45,9 @@ public:
 			callbacks::void_callback = nullptr,
 			callbacks::exception_callback = nullptr);
 
+	void
+	close();
+
 	endpoint const&
 	remote_endpoint() const;
 

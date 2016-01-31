@@ -9,6 +9,7 @@
 #include "sparring_options.hpp"
 #include <iostream>
 #include <wire/encoding/message.hpp>
+#include <wire/encoding/buffers.hpp>
 
 namespace wire {
 namespace test {
@@ -58,6 +59,35 @@ void
 session::handle_read(asio_config::error_code const& ec, size_t bytes_transferred)
 {
 	if (!ec) {
+		if (sparring_options::instance().ping_pong) {
+			try {
+				encoding::message m;
+				char* b = data_;
+				char* e = data_ + bytes_transferred;
+				read(b, e, m);
+				if (m.type() != encoding::message::request) {
+					throw std::runtime_error("Unexpected message type");
+				}
+				if (e - b < m.size) {
+					throw std::runtime_error("Data is not enough");
+				}
+				e = b + m.size;
+				encoding::request req;
+				read(b, e, req);
+
+				encoding::outgoing out;
+				encoding::reply rep{ req.number, encoding::reply::success };
+				write(std::back_inserter(out), rep);
+				std::copy(b, e, std::back_inserter(out));
+				out.to_buffers();
+				std::copy(out.begin(), out.end(), data_);
+				bytes_transferred = out.size();
+			} catch (std::runtime_error const& e) {
+
+			} catch (...) {
+				// TODO send some error here
+			}
+		}
 		ASIO_NS::async_write(socket_, ASIO_NS::buffer(data_, bytes_transferred),
 				std::bind(&session::handle_write, this,
 					std::placeholders::_1, std::placeholders::_2));

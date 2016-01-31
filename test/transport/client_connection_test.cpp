@@ -76,6 +76,7 @@ TEST_F(Client, TCPConnect)
 	c.connect_async(endpoint_,
 	[&](){
 		connected = true;
+		c.close();
 	},
 	[&](std::exception_ptr) {
 		error = true;
@@ -107,6 +108,7 @@ TEST_F(Client, TCPConnectFail)
 	c.connect_async(endpoint_,
 	[&](){
 		connected = true;
+		c.close();
 	},
 	[&](std::exception_ptr) {
 		error = true;
@@ -137,6 +139,7 @@ TEST_F(Client, TCPConnectInvalidValidate)
 	c.connect_async(endpoint_,
 	[&](){
 		connected = true;
+		c.close();
 	},
 	[&](std::exception_ptr) {
 		error = true;
