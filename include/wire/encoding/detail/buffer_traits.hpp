@@ -12,7 +12,7 @@
 
 namespace wire {
 namespace encoding {
-class buffer;
+class outgoing;
 
 namespace detail {
 
@@ -21,7 +21,7 @@ struct buffer_traits;
 
 template <>
 struct buffer_traits< uint8_t* > {
-	typedef buffer*						container_pointer;
+	typedef outgoing*						container_pointer;
 	typedef std::vector<uint8_t>			buffer_type;
 	typedef std::vector<buffer_type>		buffers_sequence_type;
 
@@ -34,7 +34,7 @@ struct buffer_traits< uint8_t* > {
 
 template <>
 struct buffer_traits< uint8_t const* > {
-	typedef buffer const*					container_pointer;
+	typedef outgoing const*					container_pointer;
 	typedef std::vector<uint8_t>			buffer_type;
 	typedef std::vector<buffer_type>		buffers_sequence_type;
 

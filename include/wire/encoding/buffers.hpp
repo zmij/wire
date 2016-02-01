@@ -20,7 +20,7 @@
 namespace wire {
 namespace encoding {
 
-class buffer {
+class outgoing {
 public:
 	/** Internal buffers storage type */
 	typedef std::vector<uint8_t>			buffer_type;
@@ -151,23 +151,23 @@ public:
 
 	class encapsulation;
 public:
-	buffer();
-	buffer(message::message_flags);
+	outgoing();
+	outgoing(message::message_flags);
 	/** Copy construct */
-	buffer(buffer const&);
+	outgoing(outgoing const&);
 	/** Move construct */
-	buffer(buffer&&);
+	outgoing(outgoing&&);
 
 	/** Swap contents */
 	void
-	swap(buffer&);
+	swap(outgoing&);
 
 	/** Copy assign */
-	buffer&
-	operator = (buffer const&);
+	outgoing&
+	operator = (outgoing const&);
 	/** Move assign */
-	buffer&
-	operator = (buffer&&);
+	outgoing&
+	operator = (outgoing&&);
 	//@{
 	/**
 	 * @name Container concept
@@ -258,7 +258,7 @@ public:
 	//@{
 	/** @name Encapsulated data */
 	void
-	insert_encapsulation(buffer&&);
+	insert_encapsulation(outgoing&&);
 	encapsulation
 	begin_encapsulation();
 	//@}
@@ -281,9 +281,9 @@ private:
 	pimpl pimpl_;
 };
 
-typedef std::shared_ptr< buffer > buffer_ptr;
+typedef std::shared_ptr< outgoing > outgoing_ptr;
 
-class buffer::encapsulation {
+class outgoing::encapsulation {
 public:
 	encapsulation(encapsulation&& rhs);
 	~encapsulation();
@@ -293,8 +293,8 @@ public:
 	size_type
 	size() const;
 private:
-	friend class buffer;
-	encapsulation(buffer* o);
+	friend class outgoing;
+	encapsulation(outgoing* o);
 	encapsulation(encapsulation const&) = delete;
 	encapsulation&
 	operator = (encapsulation const&) = delete;
@@ -305,7 +305,7 @@ private:
 };
 
 inline void
-swap(buffer& lhs, buffer& rhs)
+swap(outgoing& lhs, outgoing& rhs)
 {
 	lhs.swap(rhs);
 }

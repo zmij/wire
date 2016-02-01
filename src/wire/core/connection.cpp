@@ -53,7 +53,7 @@ connection_impl_base::handle_connected(asio_config::error_code const& ec)
 void
 connection_impl_base::send_validate_message()
 {
-	encoding::buffer_ptr out = ::std::make_shared<encoding::buffer>(encoding::message::validate);
+	encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(encoding::message::validate);
 	write_async(out);
 }
 
@@ -67,12 +67,12 @@ connection_impl_base::close()
 void
 connection_impl_base::send_close_message()
 {
-	encoding::buffer_ptr out = ::std::make_shared<encoding::buffer>(encoding::message::close);
+	encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(encoding::message::close);
 	write_async(out);
 }
 
 void
-connection_impl_base::write_async(encoding::buffer_ptr out,
+connection_impl_base::write_async(encoding::outgoing_ptr out,
 		callbacks::void_callback cb)
 {
 	do_write_async( out,
@@ -82,7 +82,7 @@ connection_impl_base::write_async(encoding::buffer_ptr out,
 
 void
 connection_impl_base::handle_write(asio_config::error_code const& ec, std::size_t bytes,
-		callbacks::void_callback cb, encoding::buffer_ptr out)
+		callbacks::void_callback cb, encoding::outgoing_ptr out)
 {
 	if (!ec) {
 		if (cb) cb();
@@ -114,39 +114,8 @@ connection_impl_base::handle_read(asio_config::error_code const& ec, std::size_t
 		incoming_buffer_ptr buffer)
 {
 	if (!ec) {
-		using encoding::message;
-		message m;
-		auto b = buffer->begin();
-		auto e = b + bytes;
-		try {
-			read(b, e, m);
-			switch (m.type()) {
-				case message::request:
-					// Read request and dispatch it
-					break;
-				case message::reply:
-					// Read reply, find outstanding request and dispatch it
-					break;
-				case message::validate: {
-					if (m.size > 0) {
-						throw errors::connection_failed("Invalid validate message");
-					}
-					process_event(events::receive_validate{});
-					break;
-				}
-				case message::close:
-					process_event(events::receive_close{});
-					break;
-				default:
-					break;
-			}
-			start_read();
-		} catch (...) {
-			/** TODO Make in a protocol error? Can we handle it */
-			process_event(events::connection_failure{
-				::std::current_exception()
-			});
-		}
+		read_incoming_message(buffer, bytes);
+		start_read();
 	} else {
 		process_event(events::connection_failure{
 			::std::make_exception_ptr(errors::connection_failed(ec.message()))
@@ -155,11 +124,57 @@ connection_impl_base::handle_read(asio_config::error_code const& ec, std::size_t
 }
 
 void
+connection_impl_base::read_incoming_message(incoming_buffer_ptr buffer, std::size_t bytes)
+{
+	using encoding::message;
+
+	auto b = buffer->begin();
+	auto e = b + bytes;
+	try {
+		if (incoming_) {
+
+		} else {
+			incoming_message_ptr incoming = ::std::make_shared< incoming_message >();
+			read(b, e, incoming->header);
+			bytes -= b - buffer->begin();
+
+			switch(incoming->header.type()) {
+				case message::validate: {
+					if (incoming->header.size > 0) {
+						throw errors::connection_failed("Invalid validate message");
+					}
+					process_event(events::receive_validate{});
+					break;
+				}
+				case message::close : {
+					if (incoming->header.size > 0) {
+						throw errors::connection_failed("Invalid close message");
+					}
+					process_event(events::receive_close{});
+					break;
+				}
+				default: {
+					if (incoming->header.size == 0) {
+						throw errors::connection_failed(
+								"Zero sized ", incoming->header.type(), " message");
+					}
+				}
+			}
+		}
+	} catch (...) {
+		/** TODO Make it a protocol error? Can we handle it? */
+		process_event(events::connection_failure{
+			::std::current_exception()
+		});
+	}
+}
+
+void
 connection_impl_base::invoke_async(identity const& id, std::string const& op,
-		encoding::buffer&& params/** @todo invocation handlers */)
+		encoding::outgoing&& params/** @todo invocation handlers */)
 {
 	using encoding::request;
-	encoding::buffer_ptr out = std::make_shared<encoding::buffer>(encoding::message::request);
+	encoding::outgoing_ptr out = std::make_shared<encoding::outgoing>(encoding::message::request);
 	request r{
 		++request_no_,
 		encoding::operation_specs{ id, "", op },
@@ -204,7 +219,7 @@ struct connection::impl {
 
 	void
 	invoke_async(identity const& id, std::string const& op,
-			encoding::buffer&& params/** @todo invocation handlers */)
+			encoding::outgoing&& params/** @todo invocation handlers */)
 	{
 		if (connection_) {
 			connection_->invoke_async(id, op, std::move(params));
@@ -239,7 +254,7 @@ connection::close()
 
 void
 connection::invoke_async(identity const& id, std::string const& op,
-		encoding::buffer&& params/** @todo invocation handlers */)
+		encoding::outgoing&& params/** @todo invocation handlers */)
 {
 	pimpl_->invoke_async(id, op, std::move(params));
 }

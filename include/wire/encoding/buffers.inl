@@ -14,13 +14,13 @@ namespace wire {
 namespace encoding {
 
 template < typename _pointer >
-buffer::buffer_iterator< _pointer >::buffer_iterator()
+outgoing::buffer_iterator< _pointer >::buffer_iterator()
 	: container_(nullptr), buffer_(), current_(), position_(after_end)
 {
 }
 
 template < typename _pointer >
-buffer::buffer_iterator< _pointer >::buffer_iterator(buffer_iterator const& rhs)
+outgoing::buffer_iterator< _pointer >::buffer_iterator(buffer_iterator const& rhs)
 	: container_(rhs.container_), buffer_(rhs.buffer_),
 	  current_(rhs.current_), position_(rhs.position_)
 {
@@ -28,7 +28,7 @@ buffer::buffer_iterator< _pointer >::buffer_iterator(buffer_iterator const& rhs)
 
 template < typename _pointer >
 template < typename T >
-buffer::buffer_iterator< _pointer >::buffer_iterator(buffer_iterator<T> const& rhs)
+outgoing::buffer_iterator< _pointer >::buffer_iterator(buffer_iterator<T> const& rhs)
 	: container_(rhs.container_), buffer_(rhs.buffer_),
 	  current_(rhs.current_), position_(rhs.position_)
 {
@@ -36,7 +36,7 @@ buffer::buffer_iterator< _pointer >::buffer_iterator(buffer_iterator<T> const& r
 
 template < typename _pointer >
 void
-buffer::buffer_iterator< _pointer >::swap(buffer_iterator& rhs)
+outgoing::buffer_iterator< _pointer >::swap(buffer_iterator& rhs)
 {
 	using std::swap;
 	swap(container_, rhs.container_);
@@ -46,8 +46,8 @@ buffer::buffer_iterator< _pointer >::swap(buffer_iterator& rhs)
 }
 
 template <typename _pointer >
-buffer::buffer_iterator< _pointer >&
-buffer::buffer_iterator< _pointer >::operator =(buffer_iterator const& rhs)
+outgoing::buffer_iterator< _pointer >&
+outgoing::buffer_iterator< _pointer >::operator =(buffer_iterator const& rhs)
 {
 	buffer_iterator tmp(rhs);
 	swap(tmp);
@@ -56,8 +56,8 @@ buffer::buffer_iterator< _pointer >::operator =(buffer_iterator const& rhs)
 
 template <typename _pointer >
 template <typename T >
-buffer::buffer_iterator< _pointer >&
-buffer::buffer_iterator< _pointer >::operator =(buffer_iterator<T> const& rhs)
+outgoing::buffer_iterator< _pointer >&
+outgoing::buffer_iterator< _pointer >::operator =(buffer_iterator<T> const& rhs)
 {
 	buffer_iterator tmp(rhs);
 	swap(tmp);
@@ -66,7 +66,7 @@ buffer::buffer_iterator< _pointer >::operator =(buffer_iterator<T> const& rhs)
 
 template < typename _pointer >
 bool
-buffer::buffer_iterator< _pointer >::operator ==(buffer_iterator const& rhs) const
+outgoing::buffer_iterator< _pointer >::operator ==(buffer_iterator const& rhs) const
 {
 	if (container_ != rhs.container_) {
 		return false;
@@ -84,38 +84,38 @@ buffer::buffer_iterator< _pointer >::operator ==(buffer_iterator const& rhs) con
 
 template < typename _pointer >
 bool
-buffer::buffer_iterator< _pointer >::operator !=(buffer_iterator const& rhs) const
+outgoing::buffer_iterator< _pointer >::operator !=(buffer_iterator const& rhs) const
 {
 	return !(*this == rhs);
 }
 
 template < typename _pointer >
-typename buffer::buffer_iterator< _pointer >::reference
-buffer::buffer_iterator< _pointer >::operator *() const
+typename outgoing::buffer_iterator< _pointer >::reference
+outgoing::buffer_iterator< _pointer >::operator *() const
 {
 	assert(position_ == normal && container_ && "Iterator is valid");
 	return *current_;
 }
 
 template < typename _pointer >
-typename buffer::buffer_iterator< _pointer >::pointer
-buffer::buffer_iterator< _pointer >::operator -> () const
+typename outgoing::buffer_iterator< _pointer >::pointer
+outgoing::buffer_iterator< _pointer >::operator -> () const
 {
 	assert(position_ == normal && container_ && "Iterator is valid");
 	return current_.operator -> ();
 }
 
 template < typename _pointer >
-buffer::buffer_iterator< _pointer >&
-buffer::buffer_iterator< _pointer >::operator ++()
+outgoing::buffer_iterator< _pointer >&
+outgoing::buffer_iterator< _pointer >::operator ++()
 {
 	container_->advance(*this, 1);
 	return *this;
 }
 
 template < typename _pointer >
-buffer::buffer_iterator< _pointer >
-buffer::buffer_iterator< _pointer >::operator ++(int)
+outgoing::buffer_iterator< _pointer >
+outgoing::buffer_iterator< _pointer >::operator ++(int)
 {
 	buffer_iterator prev(*this);
 	++(*this);
@@ -123,16 +123,16 @@ buffer::buffer_iterator< _pointer >::operator ++(int)
 }
 
 template < typename _pointer >
-buffer::buffer_iterator< _pointer >&
-buffer::buffer_iterator< _pointer >::operator --()
+outgoing::buffer_iterator< _pointer >&
+outgoing::buffer_iterator< _pointer >::operator --()
 {
 	container_->advance(*this, -1);
 	return *this;
 }
 
 template < typename _pointer >
-buffer::buffer_iterator< _pointer >
-buffer::buffer_iterator< _pointer >::operator --(int)
+outgoing::buffer_iterator< _pointer >
+outgoing::buffer_iterator< _pointer >::operator --(int)
 {
 	buffer_iterator prev(*this);
 	--(*this);
@@ -140,32 +140,32 @@ buffer::buffer_iterator< _pointer >::operator --(int)
 }
 
 template < typename _pointer >
-buffer::buffer_iterator< _pointer >&
-buffer::buffer_iterator< _pointer >::operator +=( difference_type n )
+outgoing::buffer_iterator< _pointer >&
+outgoing::buffer_iterator< _pointer >::operator +=( difference_type n )
 {
 	container_->advance(*this, n);
 	return *this;
 }
 
 template < typename _pointer >
-buffer::buffer_iterator< _pointer >
-buffer::buffer_iterator< _pointer >::operator + ( difference_type n ) const
+outgoing::buffer_iterator< _pointer >
+outgoing::buffer_iterator< _pointer >::operator + ( difference_type n ) const
 {
 	buffer_iterator res(*this);
 	return (res += n);
 }
 
 template < typename _pointer >
-buffer::buffer_iterator< _pointer >&
-buffer::buffer_iterator< _pointer >::operator -=( difference_type n )
+outgoing::buffer_iterator< _pointer >&
+outgoing::buffer_iterator< _pointer >::operator -=( difference_type n )
 {
 	container_->advance(*this, -n);
 	return *this;
 }
 
 template < typename _pointer >
-buffer::buffer_iterator< _pointer >
-buffer::buffer_iterator< _pointer >::operator - ( difference_type n ) const
+outgoing::buffer_iterator< _pointer >
+outgoing::buffer_iterator< _pointer >::operator - ( difference_type n ) const
 {
 	buffer_iterator res(*this);
 	return (res -= n);
@@ -173,8 +173,8 @@ buffer::buffer_iterator< _pointer >::operator - ( difference_type n ) const
 
 template < typename _pointer >
 template < typename _P >
-buffer::difference_type
-buffer::buffer_iterator< _pointer >::operator -(buffer_iterator<_P> const& rhs) const
+outgoing::difference_type
+outgoing::buffer_iterator< _pointer >::operator -(buffer_iterator<_P> const& rhs) const
 {
 	return container_->difference(*this, rhs);
 }

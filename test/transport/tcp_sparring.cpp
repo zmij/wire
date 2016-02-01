@@ -75,7 +75,7 @@ session::handle_read(asio_config::error_code const& ec, size_t bytes_transferred
 				encoding::request req;
 				read(b, e, req);
 
-				encoding::buffer out;
+				encoding::outgoing out;
 				encoding::reply rep{ req.number, encoding::reply::success };
 				write(std::back_inserter(out), rep);
 				std::copy(b, e, std::back_inserter(out));

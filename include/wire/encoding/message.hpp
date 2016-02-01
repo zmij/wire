@@ -18,6 +18,7 @@ namespace wire {
 namespace encoding {
 
 struct message {
+	typedef uint64_t	size_type;
 	enum message_flags {
 		request		= 0,
 		reply		= 2,
@@ -35,10 +36,10 @@ struct message {
 	uint8_t			encoding_minor	= ::wire::ENCODING_MINOR;
 
 	message_flags	flags			= request;
-	std::size_t		size			= 0;
+	size_type		size			= 0;
 
 	message() = default;
-	message(message_flags flags, std::size_t size)
+	message(message_flags flags, size_type size)
 		: flags(flags), size(size)
 	{}
 
@@ -71,6 +72,9 @@ struct message {
 		return static_cast<message_flags>(flags & type_bits);
 	}
 };
+
+std::ostream&
+operator << (std::ostream& out, message::message_flags val);
 
 }  // namespace encoding
 }  // namespace wire

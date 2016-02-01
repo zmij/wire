@@ -18,24 +18,24 @@ namespace encoding {
 
 template < typename Impl >
 struct impl_traits {
-	typedef buffer::pointer					pointer;
-	typedef buffer::iterator					iterator_type;
+	typedef outgoing::pointer					pointer;
+	typedef outgoing::iterator					iterator_type;
 };
 template <typename Impl>
 struct impl_traits<const Impl> {
-	typedef buffer::const_pointer		pointer;
-	typedef buffer::const_iterator	iterator_type;
+	typedef outgoing::const_pointer		pointer;
+	typedef outgoing::const_iterator	iterator_type;
 };
 
-struct buffer::impl {
+struct outgoing::impl {
 	struct encaps_state {
-		buffer* out_;
+		outgoing* out_;
 		size_type		size_before_;
 		size_type		buffer_before_;
 		uint32_t		encoding_major = ENCODING_MAJOR;
 		uint32_t		encoding_minor = ENCODING_MINOR;
 
-		encaps_state(buffer* o)
+		encaps_state(outgoing* o)
 			: out_(o),
 			  size_before_(out_ ? out_->size() : 0),
 			  buffer_before_(out_ ? out_->pimpl_->buffers_.size() - 1 : 0)
@@ -77,19 +77,19 @@ struct buffer::impl {
 	typedef std::list< encaps_state > 		encapsulation_stack;
 	typedef encapsulation_stack::iterator	encaps_iterator;
 
-	buffer*				container_;
+	outgoing*				container_;
 	message::message_flags	flags_;
 	buffer_sequence_type	buffers_;
 	encapsulation_stack		encapsulations_;
 
-	impl(buffer* out)
+	impl(outgoing* out)
 		: container_(out),
 		  flags_(message::request),
 		  buffers_(2, buffer_type{}),
 		  encapsulations_({encaps_state{ nullptr }})
 	{
 	}
-	impl(buffer* out, message::message_flags flags)
+	impl(outgoing* out, message::message_flags flags)
 		: container_(out),
 		  flags_(flags),
 		  buffers_(2, buffer_type{}),
@@ -103,7 +103,7 @@ struct buffer::impl {
 		  encapsulations_(rhs.encapsulations_)
 	{
 	}
-	impl(buffer* out, impl const& rhs)
+	impl(outgoing* out, impl const& rhs)
 		: container_(out),
 		  flags_(rhs.flags_),
 		  buffers_(rhs.buffers_),
@@ -249,16 +249,25 @@ struct buffer::impl {
 		typedef typename impl_traits< Impl >::iterator_type iter_type;
 		if (n != 0) {
 			if (iter.position_ == normal) {
-				difference_type index = impl->index_of(iter);
 				if (n > 0) {
-					size_type sz = impl->size();
-					if (index + n > sz) {
-						iter_type(impl->container_, after_end).swap(iter);
+					difference_type in_buffer = iter.current_ - iter.buffer_->begin();
+					if ( in_buffer + n < iter.buffer_->size() ) {
+						// Same buffer
+						iter.current_ += n;
 					} else {
-						// TODO Check if in same buffer
-						iter_at_index(impl, index + n).swap(iter);
+						difference_type margin = iter.buffer_->size() - in_buffer;
+						++iter.buffer_;
+						for(; (iter.buffer_ != impl->buffers_.end()) &&
+								iter.buffer_->empty(); ++iter.buffer_);
+						if (iter.buffer_ == impl->buffers_.end()) {
+							iter_type(impl->container_, after_end).swap(iter);
+						} else {
+							iter.current_ = iter.buffer_->begin();
+							advance(impl, iter, n - margin);
+						}
 					}
 				} else { // n < 0
+					difference_type index = impl->index_of(iter);
 					if (n + index < 0) {
 						iter_type(impl->container_, before_begin).swap(iter);
 					} else {
@@ -375,7 +384,7 @@ struct buffer::impl {
 		start_buffer();
 	}
 	void
-	insert_encaps(buffer&& encaps)
+	insert_encaps(outgoing&& encaps)
 	{
 		encapsulations_.emplace_back(container_);
 		buffer_sequence_type buffers = std::move(encaps.pimpl_->buffers_);
@@ -389,155 +398,155 @@ struct buffer::impl {
 	}
 };
 
-buffer::buffer()
+outgoing::outgoing()
 	: pimpl_(std::make_shared<impl>(this))
 {
 }
-buffer::buffer(message::message_flags flags)
+outgoing::outgoing(message::message_flags flags)
 	: pimpl_(std::make_shared<impl>(this, flags))
 {
 }
 
-buffer::buffer(buffer const& rhs)
+outgoing::outgoing(outgoing const& rhs)
 	: pimpl_(std::make_shared<impl>(this, *rhs.pimpl_))
 {
 }
 
-buffer::buffer(buffer&& rhs)
+outgoing::outgoing(outgoing&& rhs)
 	: pimpl_(std::move(rhs.pimpl_))
 {
 	pimpl_->container_ = this;
 }
 
 void
-buffer::swap(buffer& rhs)
+outgoing::swap(outgoing& rhs)
 {
 	using std::swap;
 	swap(pimpl_, rhs.pimpl_);
 	swap(pimpl_->container_, rhs.pimpl_->container_);
 }
 
-buffer&
-buffer::operator =(buffer const& rhs)
+outgoing&
+outgoing::operator =(outgoing const& rhs)
 {
-	buffer tmp(rhs);
+	outgoing tmp(rhs);
 	swap(tmp);
 	return *this;
 }
 
-buffer&
-buffer::operator =(buffer&& rhs)
+outgoing&
+outgoing::operator =(outgoing&& rhs)
 {
 	pimpl_ = std::move(rhs.pimpl_);
 	rhs.pimpl_.reset();
 	return *this;
 }
 
-buffer::size_type
-buffer::size() const
+outgoing::size_type
+outgoing::size() const
 {
 	return pimpl_->size();
 }
 
 bool
-buffer::empty() const
+outgoing::empty() const
 {
 	return pimpl_->empty();
 }
 
-buffer::iterator
-buffer::begin()
+outgoing::iterator
+outgoing::begin()
 {
 	return pimpl_->begin();
 }
-buffer::const_iterator
-buffer::cbegin() const
+outgoing::const_iterator
+outgoing::cbegin() const
 {
 	return pimpl_->cbegin();
 }
 
-buffer::iterator
-buffer::end()
+outgoing::iterator
+outgoing::end()
 {
 	return pimpl_->end();
 }
-buffer::const_iterator
-buffer::cend() const
+outgoing::const_iterator
+outgoing::cend() const
 {
 	return pimpl_->cend();
 }
 
-buffer::reverse_iterator
-buffer::rbegin()
+outgoing::reverse_iterator
+outgoing::rbegin()
 {
 	return pimpl_->rbegin();
 }
-buffer::const_reverse_iterator
-buffer::crbegin() const
+outgoing::const_reverse_iterator
+outgoing::crbegin() const
 {
 	return pimpl_->crbegin();
 }
 
-buffer::reverse_iterator
-buffer::rend()
+outgoing::reverse_iterator
+outgoing::rend()
 {
 	return pimpl_->rend();
 }
-buffer::const_reverse_iterator
-buffer::crend() const
+outgoing::const_reverse_iterator
+outgoing::crend() const
 {
 	return pimpl_->crend();
 }
 
 void
-buffer::advance(iterator& iter, difference_type diff) const
+outgoing::advance(iterator& iter, difference_type diff) const
 {
 	pimpl_->advance(iter, diff);
 }
 
 void
-buffer::advance(const_iterator& iter, difference_type diff) const
+outgoing::advance(const_iterator& iter, difference_type diff) const
 {
 	pimpl_->advance(iter, diff);
 }
 
-buffer::difference_type
-buffer::difference(iterator const& a, iterator const& b) const
+outgoing::difference_type
+outgoing::difference(iterator const& a, iterator const& b) const
 {
 	return pimpl_->difference(a, b);
 }
-buffer::difference_type
-buffer::difference(const_iterator const& a, const_iterator const& b) const
+outgoing::difference_type
+outgoing::difference(const_iterator const& a, const_iterator const& b) const
 {
 	return pimpl_->cdifference(a, b);
 }
 
 void
-buffer::push_back(value_type v)
+outgoing::push_back(value_type v)
 {
 	pimpl_->push_back(v);
 }
 
 void
-buffer::pop_back()
+outgoing::pop_back()
 {
 	pimpl_->pop_back();
 }
 
-buffer::asio_buffers
-buffer::to_buffers() const
+outgoing::asio_buffers
+outgoing::to_buffers() const
 {
 	return std::move(pimpl_->to_buffers());
 }
 
 void
-buffer::insert_encapsulation(buffer&& encaps)
+outgoing::insert_encapsulation(outgoing&& encaps)
 {
 	pimpl_->insert_encaps(std::move(encaps));
 }
 
-buffer::encapsulation
-buffer::begin_encapsulation()
+outgoing::encapsulation
+outgoing::begin_encapsulation()
 {
 	return std::move(encapsulation{this});
 }
@@ -545,14 +554,14 @@ buffer::begin_encapsulation()
 //----------------------------------------------------------------------------
 //	encapsulation implementation
 //----------------------------------------------------------------------------
-struct buffer::encapsulation::impl {
-	typedef buffer::impl::encaps_state		encaps_state;
-	typedef buffer::impl::encaps_iterator		encaps_iter;
+struct outgoing::encapsulation::impl {
+	typedef outgoing::impl::encaps_state		encaps_state;
+	typedef outgoing::impl::encaps_iterator		encaps_iter;
 
-	buffer*		out_;
+	outgoing*		out_;
 	encaps_iter		encaps_iter_;
 
-	impl(buffer* o) :
+	impl(outgoing* o) :
 		out_(o),
 		encaps_iter_(out_ ? out_->pimpl_->begin_encaps() : encaps_iter{})
 	{
@@ -571,23 +580,23 @@ struct buffer::encapsulation::impl {
 	}
 };
 
-buffer::encapsulation::encapsulation(buffer* o)
+outgoing::encapsulation::encapsulation(outgoing* o)
 	: pimpl_(std::make_shared<impl>(o))
 {
 }
 
-buffer::encapsulation::encapsulation(encapsulation&& rhs)
+outgoing::encapsulation::encapsulation(encapsulation&& rhs)
 	: pimpl_(rhs.pimpl_)
 {
 	rhs.pimpl_.reset();
 }
 
-buffer::encapsulation::~encapsulation()
+outgoing::encapsulation::~encapsulation()
 {
 }
 
-buffer::size_type
-buffer::encapsulation::size() const
+outgoing::size_type
+outgoing::encapsulation::size() const
 {
 	return pimpl_->size();
 }

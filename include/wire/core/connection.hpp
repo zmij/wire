@@ -59,7 +59,7 @@ public:
 			callbacks::callback< bool > sent,
 			Args const& ... params)
 	{
-		encoding::buffer out;
+		encoding::outgoing out;
 		write(std::back_inserter(out), params ...);
 		invoke_async(id, op, std::move(out) /** @todo invocation handlers */);
 	}
@@ -72,14 +72,14 @@ public:
 			callbacks::callback< bool > sent,
 			Args const& ... params)
 	{
-		encoding::buffer out;
+		encoding::outgoing out;
 		write(std::back_inserter(out), params ...);
 		invoke_async(id, op, std::move(out) /** @todo invocation handlers */);
 	}
 
 	void
 	invoke_async(identity const&, std::string const& op,
-			encoding::buffer&& /** @todo invocation handlers */);
+			encoding::outgoing&& /** @todo invocation handlers */);
 
 private:
 	connection(connection const&) = delete;

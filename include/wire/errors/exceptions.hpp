@@ -29,6 +29,8 @@ public:
 class connection_failed : public runtime_error {
 public:
 	connection_failed(std::string const& message) : runtime_error(message) {}
+	template < typename ... T >
+	connection_failed(T const& ... args) : runtime_error(args ...) {}
 };
 
 class invalid_magic_number : public runtime_error {
