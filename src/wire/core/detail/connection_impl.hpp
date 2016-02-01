@@ -341,12 +341,12 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 	send_close_message();
 
 	void
-	write_async(encoding::outgoing_ptr, callbacks::void_callback cb = nullptr);
+	write_async(encoding::buffer_ptr, callbacks::void_callback cb = nullptr);
 	virtual void
-	do_write_async(encoding::outgoing_ptr, asio_config::asio_rw_callback) = 0;
+	do_write_async(encoding::buffer_ptr, asio_config::asio_rw_callback) = 0;
 	void
 	handle_write(asio_config::error_code const& ec, std::size_t bytes,
-			callbacks::void_callback cb, encoding::outgoing_ptr);
+			callbacks::void_callback cb, encoding::buffer_ptr);
 
 	void
 	start_read();
@@ -360,7 +360,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 
 	void
 	invoke_async(identity const&, std::string const& op,
-			encoding::outgoing&& /** @todo invocation handlers */);
+			encoding::buffer&& /** @todo invocation handlers */);
 
 	uint32_t request_no_	= 0;
 };
@@ -392,7 +392,7 @@ private:
 		transport_.close();
 	}
 	void
-	do_write_async(encoding::outgoing_ptr buffer, asio_config::asio_rw_callback cb) override
+	do_write_async(encoding::buffer_ptr buffer, asio_config::asio_rw_callback cb) override
 	{
 		transport_.async_write( buffer->to_buffers(), cb );
 	}

@@ -10,9 +10,8 @@
 
 #include <wire/encoding/wire_io.hpp>
 #include <wire/encoding/message.hpp>
-#include <wire/encoding/detail/out_buffer_traits.hpp>
-
 #include <wire/asio_config.hpp>
+#include <wire/encoding/detail/buffer_traits.hpp>
 
 #include <memory>
 #include <iterator>
@@ -21,7 +20,7 @@
 namespace wire {
 namespace encoding {
 
-class outgoing {
+class buffer {
 public:
 	/** Internal buffers storage type */
 	typedef std::vector<uint8_t>			buffer_type;
@@ -53,12 +52,12 @@ public:
 	 * Outgoing buffer iterator template
 	 */
 	template < typename _pointer >
-	class out_buff_iterator : public std::iterator< std::random_access_iterator_tag,
+	class buffer_iterator : public std::iterator< std::random_access_iterator_tag,
 		value_type, difference_type,
-		typename detail::out_buffer_traits<_pointer>::pointer,
-		typename detail::out_buffer_traits<_pointer>::reference > {
+		typename detail::buffer_traits<_pointer>::pointer,
+		typename detail::buffer_traits<_pointer>::reference > {
 	public:
-		typedef detail::out_buffer_traits<_pointer>					out_buffer_traits;
+		typedef detail::buffer_traits<_pointer>					out_buffer_traits;
 		typedef typename out_buffer_traits::container_pointer		container_pointer;
 		typedef typename out_buffer_traits::buffer_iterator_type	buffer_iterator_type;
 		typedef typename out_buffer_traits::value_iterator_type		value_iterator_type;
@@ -69,24 +68,24 @@ public:
 		typedef typename iterator_type::pointer						pointer;
 		typedef typename iterator_type::reference					reference;
 	public:
-		out_buff_iterator();
-		out_buff_iterator(out_buff_iterator const&);
+		buffer_iterator();
+		buffer_iterator(buffer_iterator const&);
 		template< typename T >
-		out_buff_iterator(out_buff_iterator<T> const&);
+		buffer_iterator(buffer_iterator<T> const&);
 
 		void
-		swap(out_buff_iterator&);
+		swap(buffer_iterator&);
 
-		out_buff_iterator&
-		operator = (out_buff_iterator const&);
+		buffer_iterator&
+		operator = (buffer_iterator const&);
 		template< typename T >
-		out_buff_iterator&
-		operator = (out_buff_iterator<T> const&);
+		buffer_iterator&
+		operator = (buffer_iterator<T> const&);
 
 		bool
-		operator == (out_buff_iterator const&) const;
+		operator == (buffer_iterator const&) const;
 		bool
-		operator != (out_buff_iterator const&) const;
+		operator != (buffer_iterator const&) const;
 
 		//@{
 		/** @name Forward iterator requirements */
@@ -95,44 +94,44 @@ public:
 		pointer
 		operator ->() const;
 
-		out_buff_iterator&
+		buffer_iterator&
 		operator ++();
-		out_buff_iterator
+		buffer_iterator
 		operator ++(int);
 		//@}
 
 		//@{
 		/** @name Bidirectional iterator requirements */
-		out_buff_iterator&
+		buffer_iterator&
 		operator --();
-		out_buff_iterator
+		buffer_iterator
 		operator --(int);
 		//@}
 
 		//@{
 		/** @name Random access iterator requirements */
 		/** @TODO Random access operator */
-		out_buff_iterator&
+		buffer_iterator&
 		operator += (difference_type n);
-		out_buff_iterator
+		buffer_iterator
 		operator + (difference_type n) const;
 
-		out_buff_iterator&
+		buffer_iterator&
 		operator -= (difference_type n);
-		out_buff_iterator
+		buffer_iterator
 		operator - (difference_type n) const;
 		template < typename _P >
 		difference_type
-		operator - (out_buff_iterator<_P> const&) const;
+		operator - (buffer_iterator<_P> const&) const;
 		//@}
 	private:
 		friend class impl;
 		template < typename T >
-		friend class out_buff_iterator;
+		friend class buffer_iterator;
 
-		out_buff_iterator(container_pointer c, buffer_iterator_type buff, value_iterator_type curr)
+		buffer_iterator(container_pointer c, buffer_iterator_type buff, value_iterator_type curr)
 			: container_(c), buffer_(buff), current_(curr), position_(normal) {}
-		out_buff_iterator(container_pointer c, iter_position pos)
+		buffer_iterator(container_pointer c, iter_position pos)
 			: container_(c), buffer_(), current_(), position_(pos) {}
 	private:
 		container_pointer		container_;
@@ -142,9 +141,9 @@ public:
 	};
 
 	/** Normal input iterator for output buffer */
-	typedef out_buff_iterator< pointer >				iterator;
+	typedef buffer_iterator< pointer >				iterator;
 	/** Constant input iterator for output buffer */
-	typedef out_buff_iterator< const_pointer >			const_iterator;
+	typedef buffer_iterator< const_pointer >			const_iterator;
 	/** Reverse input iterator */
 	typedef std::reverse_iterator< iterator >			reverse_iterator;
 	/** Constant reverse input iterator */
@@ -152,23 +151,23 @@ public:
 
 	class encapsulation;
 public:
-	outgoing();
-	outgoing(message::message_flags);
+	buffer();
+	buffer(message::message_flags);
 	/** Copy construct */
-	outgoing(outgoing const&);
+	buffer(buffer const&);
 	/** Move construct */
-	outgoing(outgoing&&);
+	buffer(buffer&&);
 
 	/** Swap contents */
 	void
-	swap(outgoing&);
+	swap(buffer&);
 
 	/** Copy assign */
-	outgoing&
-	operator = (outgoing const&);
+	buffer&
+	operator = (buffer const&);
 	/** Move assign */
-	outgoing&
-	operator = (outgoing&&);
+	buffer&
+	operator = (buffer&&);
 	//@{
 	/**
 	 * @name Container concept
@@ -259,13 +258,13 @@ public:
 	//@{
 	/** @name Encapsulated data */
 	void
-	insert_encapsulation(outgoing&&);
+	insert_encapsulation(buffer&&);
 	encapsulation
 	begin_encapsulation();
 	//@}
 private:
 	template < typename _pointer >
-	friend class out_buff_iterator;
+	friend class buffer_iterator;
 	friend class encapsulation;
 
 	void
@@ -282,9 +281,9 @@ private:
 	pimpl pimpl_;
 };
 
-typedef std::shared_ptr< outgoing > outgoing_ptr;
+typedef std::shared_ptr< buffer > buffer_ptr;
 
-class outgoing::encapsulation {
+class buffer::encapsulation {
 public:
 	encapsulation(encapsulation&& rhs);
 	~encapsulation();
@@ -294,8 +293,8 @@ public:
 	size_type
 	size() const;
 private:
-	friend class outgoing;
-	encapsulation(outgoing* o);
+	friend class buffer;
+	encapsulation(buffer* o);
 	encapsulation(encapsulation const&) = delete;
 	encapsulation&
 	operator = (encapsulation const&) = delete;
@@ -306,7 +305,7 @@ private:
 };
 
 inline void
-swap(outgoing& lhs, outgoing& rhs)
+swap(buffer& lhs, buffer& rhs)
 {
 	lhs.swap(rhs);
 }

@@ -20,7 +20,7 @@ const int INSERT_CHARS = 100;
 
 TEST(OutgoingBuffer, Construction)
 {
-	outgoing out;
+	buffer out;
 	EXPECT_TRUE(out.empty());
 	EXPECT_EQ(0, out.size());
 
@@ -36,11 +36,11 @@ TEST(OutgoingBuffer, Construction)
 
 TEST(OutgoingBuffer, ForwardIterators)
 {
-	outgoing out;
-	outgoing::iterator b = out.begin();
-	outgoing::iterator e = out.end();
-	outgoing::const_iterator cb = out.begin();
-	outgoing::const_iterator ce = out.end();
+	buffer out;
+	buffer::iterator b = out.begin();
+	buffer::iterator e = out.end();
+	buffer::const_iterator cb = out.begin();
+	buffer::const_iterator ce = out.end();
 
 	EXPECT_EQ(e, b);
 	EXPECT_EQ(0, b - e);
@@ -57,42 +57,42 @@ TEST(OutgoingBuffer, ForwardIterators)
 	EXPECT_EQ(-INSERT_CHARS, b - e);
 	{
 		int steps = 0;
-		for (outgoing::iterator p = b; p != e; ++p, ++steps) {}
+		for (buffer::iterator p = b; p != e; ++p, ++steps) {}
 		EXPECT_EQ(INSERT_CHARS, steps);
 	}
 	{
 		int steps = 0;
-		for (outgoing::const_iterator p = b; p != e; ++p, ++steps) {}
+		for (buffer::const_iterator p = b; p != e; ++p, ++steps) {}
 		EXPECT_EQ(INSERT_CHARS, steps);
 	}
 
 	{
-		outgoing out1;
+		buffer out1;
 		EXPECT_DEATH({ out.begin() - out1.begin(); }, "Iterator belongs to container");
 	}
 }
 
 TEST(OutgoingBuffer, DISABLED_ReverseIterators)
 {
-	outgoing out;
+	buffer out;
 	for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
 		out.push_back(i);
 	}
 	EXPECT_EQ(INSERT_CHARS, out.size());
 	int steps = 0;
-	for (outgoing::reverse_iterator p = out.rbegin(); p != out.rend(); ++p, ++steps) {}
+	for (buffer::reverse_iterator p = out.rbegin(); p != out.rend(); ++p, ++steps) {}
 	EXPECT_EQ(INSERT_CHARS, steps);
 }
 
 TEST(OutgoingBuffer, Encapsulation)
 {
-	outgoing out;
+	buffer out;
 	for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
 		out.push_back(i);
 	}
 	EXPECT_EQ(INSERT_CHARS, out.size());
 	{
-		outgoing::encapsulation encaps(out.begin_encapsulation());
+		buffer::encapsulation encaps(out.begin_encapsulation());
 		for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
 			out.push_back(i);
 		}
@@ -106,20 +106,20 @@ TEST(OutgoingBuffer, NestedEncapsulation)
 {
 	const size_t INNER_ENCAPS_HEADER = 3;
 	const size_t OUTER_ENCAPS_HEADER = 4;
-	outgoing out;
+	buffer out;
 	for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
 		out.push_back(i);
 	}
 	EXPECT_EQ(INSERT_CHARS, out.size());
 	{
-		outgoing::encapsulation outer(out.begin_encapsulation());
+		buffer::encapsulation outer(out.begin_encapsulation());
 		for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
 			out.push_back(i);
 		}
 		EXPECT_EQ(INSERT_CHARS, outer.size());
 		EXPECT_EQ(INSERT_CHARS*2, out.size()); // Before encapsulation is closed
 		{
-			outgoing::encapsulation inner(out.begin_encapsulation());
+			buffer::encapsulation inner(out.begin_encapsulation());
 			for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
 				out.push_back(i);
 			}
@@ -135,7 +135,7 @@ TEST(OutgoingBuffer, NestedEncapsulation)
 		EXPECT_EQ(INSERT_CHARS*3 + INNER_ENCAPS_HEADER, outer.size());
 		EXPECT_EQ(INSERT_CHARS*4 + INNER_ENCAPS_HEADER, out.size()); // Before encapsulation is closed
 
-		outgoing opaque;
+		buffer opaque;
 		for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
 			opaque.push_back(i);
 		}

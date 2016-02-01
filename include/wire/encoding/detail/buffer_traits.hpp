@@ -5,23 +5,23 @@
  *      Author: zmij
  */
 
-#ifndef WIRE_ENCODING_DETAIL_OUT_BUFFER_TRAITS_HPP_
-#define WIRE_ENCODING_DETAIL_OUT_BUFFER_TRAITS_HPP_
+#ifndef WIRE_ENCODING_DETAIL_BUFFER_TRAITS_HPP_
+#define WIRE_ENCODING_DETAIL_BUFFER_TRAITS_HPP_
 
 #include <vector>
 
 namespace wire {
 namespace encoding {
-class outgoing;
+class buffer;
 
 namespace detail {
 
 template < typename T >
-struct out_buffer_traits;
+struct buffer_traits;
 
 template <>
-struct out_buffer_traits< uint8_t* > {
-	typedef outgoing*						container_pointer;
+struct buffer_traits< uint8_t* > {
+	typedef buffer*						container_pointer;
 	typedef std::vector<uint8_t>			buffer_type;
 	typedef std::vector<buffer_type>		buffers_sequence_type;
 
@@ -33,8 +33,8 @@ struct out_buffer_traits< uint8_t* > {
 };
 
 template <>
-struct out_buffer_traits< uint8_t const* > {
-	typedef outgoing const*					container_pointer;
+struct buffer_traits< uint8_t const* > {
+	typedef buffer const*					container_pointer;
 	typedef std::vector<uint8_t>			buffer_type;
 	typedef std::vector<buffer_type>		buffers_sequence_type;
 
@@ -50,4 +50,4 @@ struct out_buffer_traits< uint8_t const* > {
 }  // namespace wire
 
 
-#endif /* WIRE_ENCODING_DETAIL_OUT_BUFFER_TRAITS_HPP_ */
+#endif /* WIRE_ENCODING_DETAIL_BUFFER_TRAITS_HPP_ */

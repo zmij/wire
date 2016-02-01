@@ -53,7 +53,7 @@ connection_impl_base::handle_connected(asio_config::error_code const& ec)
 void
 connection_impl_base::send_validate_message()
 {
-	encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(encoding::message::validate);
+	encoding::buffer_ptr out = ::std::make_shared<encoding::buffer>(encoding::message::validate);
 	write_async(out);
 }
 
@@ -67,12 +67,12 @@ connection_impl_base::close()
 void
 connection_impl_base::send_close_message()
 {
-	encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(encoding::message::close);
+	encoding::buffer_ptr out = ::std::make_shared<encoding::buffer>(encoding::message::close);
 	write_async(out);
 }
 
 void
-connection_impl_base::write_async(encoding::outgoing_ptr out,
+connection_impl_base::write_async(encoding::buffer_ptr out,
 		callbacks::void_callback cb)
 {
 	do_write_async( out,
@@ -82,7 +82,7 @@ connection_impl_base::write_async(encoding::outgoing_ptr out,
 
 void
 connection_impl_base::handle_write(asio_config::error_code const& ec, std::size_t bytes,
-		callbacks::void_callback cb, encoding::outgoing_ptr out)
+		callbacks::void_callback cb, encoding::buffer_ptr out)
 {
 	if (!ec) {
 		if (cb) cb();
@@ -156,10 +156,10 @@ connection_impl_base::handle_read(asio_config::error_code const& ec, std::size_t
 
 void
 connection_impl_base::invoke_async(identity const& id, std::string const& op,
-		encoding::outgoing&& params/** @todo invocation handlers */)
+		encoding::buffer&& params/** @todo invocation handlers */)
 {
 	using encoding::request;
-	encoding::outgoing_ptr out = std::make_shared<encoding::outgoing>(encoding::message::request);
+	encoding::buffer_ptr out = std::make_shared<encoding::buffer>(encoding::message::request);
 	request r{
 		++request_no_,
 		encoding::operation_specs{ id, "", op },
@@ -204,7 +204,7 @@ struct connection::impl {
 
 	void
 	invoke_async(identity const& id, std::string const& op,
-			encoding::outgoing&& params/** @todo invocation handlers */)
+			encoding::buffer&& params/** @todo invocation handlers */)
 	{
 		if (connection_) {
 			connection_->invoke_async(id, op, std::move(params));
@@ -239,7 +239,7 @@ connection::close()
 
 void
 connection::invoke_async(identity const& id, std::string const& op,
-		encoding::outgoing&& params/** @todo invocation handlers */)
+		encoding::buffer&& params/** @todo invocation handlers */)
 {
 	pimpl_->invoke_async(id, op, std::move(params));
 }
