@@ -177,8 +177,9 @@ connection_impl_base::read_incoming_message(incoming_buffer_ptr buffer, std::siz
 				}
 			}
 		}
-	} catch (...) {
+	} catch (std::exception const& e) {
 		/** TODO Make it a protocol error? Can we handle it? */
+		std::cerr << "Protocol read exception: " << e.what() << "\n";
 		process_event(events::connection_failure{
 			::std::current_exception()
 		});
@@ -219,12 +220,9 @@ connection_impl_base::invoke_async(identity const& id, std::string const& op,
 	};
 	write(std::back_inserter(*out), r);
 	out->insert_encapsulation(std::move(params));
+	callbacks::void_callback write_cb = sent ? [sent](){sent(true);} : callbacks::void_callback{};
 	/** @todo register invocation handlers */
-	if (sent) {
-		write_async(out, [sent](){sent(true);});
-	} else {
-		write_async(out);
-	}
+	process_event(events::send_request{ out, write_cb });
 }
 
 

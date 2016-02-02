@@ -49,7 +49,10 @@ struct receive_reply{
 };
 struct receive_close{};
 
-struct send_request{};
+struct send_request{
+	encoding::outgoing_ptr			outgoing;
+	callbacks::void_callback		sent;
+};
 struct send_reply{};
 
 }  // namespace events
@@ -108,6 +111,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 		void
 		operator()(Event const&, fsm_type& fsm, SourceState&, TargetState&)
 		{
+			std::cerr << "send validate action\n";
 			fsm->send_validate_message();
 		}
 	};
@@ -117,6 +121,14 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 		operator()(events::close const&, fsm_type& fsm, SourceState&, TargetState&)
 		{
 			fsm->send_close_message();
+		}
+	};
+	struct send_request {
+		template < typename SourceState, typename TargetState >
+		void
+		operator()(events::send_request const& req, fsm_type& fsm, SourceState&, TargetState&)
+		{
+			fsm->write_async(req.outgoing, req.sent);
 		}
 	};
 	struct dispatch_request {
@@ -221,6 +233,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 	struct connected : ::boost::msm::front::state<> {
 		struct internal_transition_table : ::boost::mpl::vector<
 			/*			Event 						Action				Guard	*/
+			Internal<	events::send_request,		send_request,		none	>,
 			Internal<	events::receive_request,	dispatch_request,	none	>,
 			Internal<	events::receive_reply,		dispatch_reply,		none	>,
 			Internal<	events::receive_validate,	none,				none	>

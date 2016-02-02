@@ -67,6 +67,10 @@ session::handle_read(asio_config::error_code const& ec, size_t bytes_transferred
 				read(b, e, m);
 				std::cerr << "[SPARRING] Incoming message type "
 						<< m.type() << " size " << m.size << "\n";
+				if (m.type() == encoding::message::validate) {
+					start_read();
+					return;
+				}
 				if (m.type() != encoding::message::request) {
 					throw std::runtime_error("Unexpected message type");
 				}
