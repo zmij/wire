@@ -32,6 +32,7 @@ TEST(OutgoingBuffer, Construction)
 	EXPECT_EQ(INSERT_CHARS + 1, out.size());
 	out.pop_back();
 	EXPECT_EQ(INSERT_CHARS, out.size());
+	EXPECT_FALSE(out.empty());
 }
 
 TEST(OutgoingBuffer, ForwardIterators)
@@ -39,8 +40,8 @@ TEST(OutgoingBuffer, ForwardIterators)
 	outgoing out;
 	outgoing::iterator b = out.begin();
 	outgoing::iterator e = out.end();
-	outgoing::const_iterator cb = out.begin();
-	outgoing::const_iterator ce = out.end();
+	outgoing::const_iterator cb = out.cbegin();
+	outgoing::const_iterator ce = out.cend();
 
 	EXPECT_EQ(e, b);
 	EXPECT_EQ(0, b - e);
@@ -52,6 +53,8 @@ TEST(OutgoingBuffer, ForwardIterators)
 	}
 	b = out.begin();
 	e = out.end();
+	EXPECT_EQ(INSERT_CHARS, out.size());
+	EXPECT_FALSE(out.empty());
 	ASSERT_NE(b, e);
 	EXPECT_EQ(INSERT_CHARS, e - b);
 	EXPECT_EQ(-INSERT_CHARS, b - e);

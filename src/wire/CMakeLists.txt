@@ -7,6 +7,7 @@ cmake_minimum_required(VERSION 2.6)
 
 set(wire_lib_SRCS
     bits.cpp
+    encoding/buffer_iterator.cpp
     encoding/buffers.cpp
     encoding/message.cpp
     core/constants.cpp
