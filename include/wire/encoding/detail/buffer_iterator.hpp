@@ -9,6 +9,7 @@
 #define WIRE_ENCODING_DETAIL_BUFFER_ITERATOR_HPP_
 
 #include <vector>
+#include <cstdint>
 
 namespace wire {
 namespace encoding {
@@ -258,6 +259,17 @@ struct buffer_sequence {
 	at(size_type) const;
 	//@}
 
+	//@{
+	iterator
+	last();
+	inline const_iterator
+	last() const
+	{ return clast(); };
+	const_iterator
+	clast() const;
+	//@}
+	//@{
+	/** @name Buffers */
 	inline size_type
 	buffers_size() const
 	{ return buffers_.size(); }
@@ -282,6 +294,7 @@ struct buffer_sequence {
 	inline buffer_type const&
 	buffer_at(size_type index) const
 	{ return buffers_[index]; }
+	//@}
 private:
 	friend class buffer_iterator<buffer_sequence, pointer>;
 	friend class buffer_iterator<buffer_sequence, const_pointer>;
@@ -289,23 +302,6 @@ private:
 	template < typename P, typename This >
 	static buffer_iterator< typename std::remove_const< This >::type, P >
 	iter_at_index(This* _this, size_type n);
-
-	template < typename This, typename P >
-	static void
-	increment(This* _this,
-			buffer_iterator< typename std::remove_const< This >::type, P>& iter);
-	void
-	increment(iterator& iter) const;
-	void
-	increment(const_iterator& iter) const;
-	template < typename This, typename P >
-	static void
-	decrement(This* _this,
-			buffer_iterator< typename std::remove_const< This >::type, P>& iter);
-	void
-	decrement(iterator& iter) const;
-	void
-	decrement(const_iterator& iter) const;
 
 	template < typename This, typename P >
 	static void

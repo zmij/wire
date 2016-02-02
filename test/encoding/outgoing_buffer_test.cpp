@@ -60,12 +60,17 @@ TEST(OutgoingBuffer, ForwardIterators)
 	EXPECT_EQ(-INSERT_CHARS, b - e);
 	{
 		int steps = 0;
-		for (outgoing::iterator p = b; p != e; ++p, ++steps) {}
+		for (outgoing::iterator p = b; p != e; ++p, ++steps);
 		EXPECT_EQ(INSERT_CHARS, steps);
 	}
 	{
 		int steps = 0;
-		for (outgoing::const_iterator p = b; p != e; ++p, ++steps) {}
+		for (outgoing::const_iterator p = b; p != e; ++p, ++steps);
+		EXPECT_EQ(INSERT_CHARS, steps);
+	}
+	{
+		int steps = 0;
+		for (outgoing::iterator p = e; p != b; --p, ++steps);
 		EXPECT_EQ(INSERT_CHARS, steps);
 	}
 
@@ -75,7 +80,7 @@ TEST(OutgoingBuffer, ForwardIterators)
 	}
 }
 
-TEST(OutgoingBuffer, DISABLED_ReverseIterators)
+TEST(OutgoingBuffer, ReverseIterators)
 {
 	outgoing out;
 	for (uint8_t i = 0; i < INSERT_CHARS; ++i) {

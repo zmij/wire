@@ -110,7 +110,20 @@ template < typename Container, typename Pointer >
 buffer_iterator< Container, Pointer >&
 buffer_iterator< Container, Pointer >::operator ++()
 {
-	container_->advance(*this, 1);
+	assert(container_ && "Iterator is bound to a container");
+	if (position_ == normal) {
+		++current_;
+		while (current_ == buffer_->end()) {
+			++buffer_;
+			if (buffer_ == container_->buffers_.end()) {
+				container_->end().swap(*this);
+				break;
+			}
+			current_ = buffer_->begin();
+		}
+	} else if (position_ == before_begin) {
+		container_->begin().swap(*this);
+	}
 	return *this;
 }
 
@@ -127,7 +140,27 @@ template < typename Container, typename Pointer >
 buffer_iterator< Container, Pointer >&
 buffer_iterator< Container, Pointer >::operator --()
 {
-	container_->advance(*this, -1);
+	assert(container_ && "Iterator is bound to a container");
+	if (position_ == normal) {
+		if (current_ == buffer_->begin()) {
+			if (buffer_ == container_->buffers_.begin()) {
+				buffer_iterator{ container_, before_begin }.swap(*this);
+			} else {
+				--buffer_;
+				for (; buffer_ != container_->buffers_.begin() && buffer_->empty(); --buffer_);
+				if (buffer_ == container_->buffers_.begin() && buffer_->empty()) {
+					buffer_iterator{ container_, before_begin }.swap(*this);
+				} else {
+					current_ = buffer_->end() - 1;
+				}
+			}
+
+		} else {
+			--current_;
+		}
+	} else if (position_ == after_end) {
+		container_->last().swap(*this);
+	}
 	return *this;
 }
 

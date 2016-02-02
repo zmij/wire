@@ -11,10 +11,10 @@
 #include <wire/encoding/wire_io.hpp>
 #include <wire/encoding/message.hpp>
 #include <wire/asio_config.hpp>
+#include <wire/encoding/detail/buffer_iterator.hpp>
 #include <memory>
 #include <iterator>
 #include <vector>
-#include "detail/buffer_iterator.hpp"
 
 namespace wire {
 namespace encoding {

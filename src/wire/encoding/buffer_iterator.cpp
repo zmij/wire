@@ -90,7 +90,11 @@ buffer_sequence::begin()
 {
 	if (empty())
 		return end();
-	return iterator{ this, buffers_.begin(), buffers_.front().begin() };
+	auto b = buffers_.begin();
+	for (; b != buffers_.end() && b->empty(); ++b);
+	if (b == buffers_.end())
+		return end();
+	return iterator{ this, b, b->begin() };
 }
 
 buffer_sequence::const_iterator
@@ -98,7 +102,11 @@ buffer_sequence::cbegin() const
 {
 	if (empty())
 		return cend();
-	return const_iterator{ this, buffers_.begin(), buffers_.front().begin() };
+	auto b = buffers_.begin();
+	for (; b != buffers_.end() && b->empty(); ++b);
+	if (b == buffers_.end())
+		return end();
+	return const_iterator{ this, b, b->begin() };
 }
 
 buffer_sequence::iterator
@@ -111,6 +119,30 @@ buffer_sequence::const_iterator
 buffer_sequence::cend() const
 {
 	return const_iterator{ this, after_end };
+}
+
+buffer_sequence::iterator
+buffer_sequence::last()
+{
+	if (empty())
+		return end();
+	auto b = buffers_.end() - 1;
+	for (; b != buffers_.begin() && b->empty(); --b);
+	if (b == buffers_.begin() && b->empty())
+		return end();
+	return iterator{ this, b, b->end() - 1 };
+}
+
+buffer_sequence::const_iterator
+buffer_sequence::clast() const
+{
+	if (empty())
+		return end();
+	auto b = buffers_.end() - 1;
+	for (; b != buffers_.begin() && b->empty(); --b);
+	if (b == buffers_.begin() && b->empty())
+		return end();
+	return const_iterator{ this, b, b->end() - 1 };
 }
 
 buffer_sequence::reference
@@ -161,39 +193,6 @@ buffer_sequence::iter_at_index(This* _this, size_type n)
 		n -= b->size();
 	}
 	return iterator_type{ _this, after_end };
-}
-
-template < typename This, typename P >
-void
-buffer_sequence::increment(This* _this,
-	buffer_iterator< typename std::remove_const< This >::type, P>& iter)
-{
-	assert(_this == iter.container_ && "Iterator belongs to container");
-	typedef buffer_iterator< typename std::remove_const< This >::type, P> iter_type;
-	if (iter.position_ == normal) {
-		++iter.current_;
-		while (iter.current_ == iter.buffer_->end()) {
-			++iter.buffer_;
-			if (iter.buffer_ == _this->buffers_.end()) {
-				iter_type{ _this, after_end }.swap(iter);
-				break;
-			}
-			iter.current_ = iter.buffer_->begin();
-		}
-	} else if (iter.position_ == before_begin) {
-		_this->begin().swap(iter);
-	}
-}
-
-void
-buffer_sequence::increment(iterator& iter) const
-{
-	increment(iter.container_, iter);
-}
-void
-buffer_sequence::increment(const_iterator& iter) const
-{
-	increment(iter.container_, iter);
 }
 
 template < typename This, typename P >
@@ -302,7 +301,8 @@ buffer_sequence::difference(This* _this,
 {
 	assert(_this == a.container_ && "Iterator belongs to container");
 	assert(_this == b.container_ && "Iterator belongs to container");
-	if (a.buffer_ == b.buffer_ && a.buffer_ != _this->buffers_.end()) {
+	if (a.position_ == normal && b.position_ == normal
+			&& a.buffer_ == b.buffer_ && a.buffer_ != _this->buffers_.end()) {
 		return a.current_ - b.current_;
 	}
 	return index_of(_this, a) - index_of(_this, b);
