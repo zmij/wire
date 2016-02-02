@@ -14,8 +14,11 @@
 #include <wire/core/identity.hpp>
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/callbacks.hpp>
+#include <wire/util/function_traits.hpp>
 
 #include <wire/encoding/buffers.hpp>
+
+#include <tuple>
 
 namespace wire {
 namespace core {
@@ -51,17 +54,33 @@ public:
 	endpoint const&
 	remote_endpoint() const;
 
-	template < typename ... T, typename ... Args >
-	void
+	template < typename Handler, typename ... Args >
+	typename std::enable_if< (util::function_traits< Handler >::arity > 0), void >::type
 	invoke_async(identity const& id, std::string const& op,
-			callbacks::callback<  T const& ... > response,
+			Handler response,
 			callbacks::exception_callback exception,
 			callbacks::callback< bool > sent,
-			Args const& ... params)
+			Args const& ... args)
 	{
+		typedef util::function_traits<Handler>	handler_traits;
+		typedef typename handler_traits::decayed_args_tuple_type args_tuple;
+
+		using encoding::incoming;
 		encoding::outgoing out;
-		write(std::back_inserter(out), params ...);
-		invoke_async(id, op, std::move(out) /** @todo invocation handlers */);
+		write(std::back_inserter(out), args ...);
+		invoke_async(id, op, std::move(out),
+			[response, exception](incoming::const_iterator begin, incoming::const_iterator end){
+				try {
+					args_tuple args;
+					encoding::read(begin, end, args);
+					util::invoke(response, args);
+				} catch(...) {
+					if (exception) {
+						exception(std::current_exception());
+					}
+				}
+			},
+			exception, sent);
 	}
 
 	template < typename ... Args >
@@ -70,16 +89,26 @@ public:
 			callbacks::void_callback response,
 			callbacks::exception_callback exception,
 			callbacks::callback< bool > sent,
-			Args const& ... params)
+			Args const& ... args)
 	{
+		using encoding::incoming;
 		encoding::outgoing out;
-		write(std::back_inserter(out), params ...);
-		invoke_async(id, op, std::move(out) /** @todo invocation handlers */);
+		write(std::back_inserter(out), args ...);
+		invoke_async(id, op, std::move(out),
+			[response](incoming::const_iterator, incoming::const_iterator){
+				if (response) {
+					response();
+				}
+			},
+			exception, sent);
 	}
 
 	void
 	invoke_async(identity const&, std::string const& op,
-			encoding::outgoing&& /** @todo invocation handlers */);
+			encoding::outgoing&&,
+			encoding::reply_callback,
+			callbacks::exception_callback exception,
+			callbacks::callback< bool > sent);
 
 private:
 	connection(connection const&) = delete;

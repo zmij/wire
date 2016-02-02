@@ -41,8 +41,12 @@ struct connection_failure {
 };
 
 struct receive_validate{};
-struct receive_request{};
-struct receive_reply{};
+struct receive_request{
+	encoding::incoming_ptr			incoming;
+};
+struct receive_reply{
+	encoding::incoming_ptr			incoming;
+};
 struct receive_close{};
 
 struct send_request{};
@@ -373,13 +377,18 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 
 	void
 	read_incoming_message(incoming_buffer_ptr, std::size_t bytes);
+	void
+	dispatch_incoming(encoding::incoming_ptr);
 
 	void
 	invoke_async(identity const&, std::string const& op,
-			encoding::outgoing&& /** @todo invocation handlers */);
+			encoding::outgoing&&,
+			encoding::reply_callback reply,
+			callbacks::exception_callback exception,
+			callbacks::callback< bool > sent);
 
 	uint32_t 				request_no_	= 0;
-	incoming_message_ptr	incoming_;
+	encoding::incoming_ptr	incoming_;
 };
 
 template < transport_type _type >

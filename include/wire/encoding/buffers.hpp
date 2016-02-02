@@ -8,10 +8,11 @@
 #ifndef TIP_WIRE_BUFFERS_HPP_
 #define TIP_WIRE_BUFFERS_HPP_
 
+#include <wire/asio_config.hpp>
 #include <wire/encoding/wire_io.hpp>
 #include <wire/encoding/message.hpp>
-#include <wire/asio_config.hpp>
 #include <wire/encoding/detail/buffer_iterator.hpp>
+
 #include <memory>
 #include <iterator>
 #include <vector>
@@ -45,9 +46,9 @@ public:
 	/** Constant input iterator for output buffer */
 	typedef detail::buffer_sequence::const_iterator		const_iterator;
 	/** Reverse input iterator */
-	typedef std::reverse_iterator< iterator >					reverse_iterator;
+	typedef detail::buffer_sequence::reverse_iterator		reverse_iterator;
 	/** Constant reverse input iterator */
-	typedef std::reverse_iterator< const_iterator >				const_reverse_iterator;
+	typedef detail::buffer_sequence::const_reverse_iterator	const_reverse_iterator;
 
 	class encapsulation;
 public:
@@ -68,6 +69,9 @@ public:
 	/** Move assign */
 	outgoing&
 	operator = (outgoing&&);
+
+	message::message_flags
+	type() const;
 	//@{
 	/**
 	 * @name Container concept
@@ -75,8 +79,6 @@ public:
 	 */
 	size_type
 	size() const;
-	size_type
-	max_size() const;
 	bool
 	empty() const;
 
@@ -219,24 +221,94 @@ public:
 	typedef buffer_type::size_type			size_type;
 	//@}
 public:
+	/** Normal input iterator for input buffer */
+	typedef detail::buffer_sequence::iterator				iterator;
+	/** Constant input iterator for input buffer */
+	typedef detail::buffer_sequence::const_iterator			const_iterator;
+	/** Reverse input iterator */
+	typedef detail::buffer_sequence::reverse_iterator		reverse_iterator;
+	/** Constant reverse input iterator */
+	typedef detail::buffer_sequence::const_reverse_iterator	const_reverse_iterator;
+public:
 	incoming(message const&);
 	template < typename InputIterator >
-	incoming(message const&, InputIterator begin, InputIterator end);
+	incoming(message const&, InputIterator& begin, InputIterator end);
 	incoming(message const&, buffer_type const&);
 	incoming(message const&, buffer_type&&);
 
+	message const&
+	header() const;
+	message::message_flags
+	type() const;
+
 	template < typename InputIterator >
 	void
-	insert_back(InputIterator begin, InputIterator end);
+	insert_back(InputIterator& begin, InputIterator end);
 	void
 	insert_back(buffer_type const&);
 	void
 	insert_back(buffer_type&&);
 
+	/**
+	 * Check if the message has been read from network buffers.
+	 * @return
+	 */
 	bool
-	empty() const;
+	complete() const;
+	/**
+	 * How many bytes is left to read from network buffers
+	 * @return
+	 */
+	size_type
+	want_bytes() const;
+
+	//@{
+	/**
+	 * @name Container concept
+	 * http://en.cppreference.com/w/cpp/concept/Container
+	 */
 	size_type
 	size() const;
+	bool
+	empty() const;
+
+	iterator
+	begin();
+	inline const_iterator
+	begin() const
+	{ return cbegin(); }
+	const_iterator
+	cbegin() const;
+
+	iterator
+	end();
+	inline const_iterator
+	end() const
+	{ return cend(); }
+
+	const_iterator
+	cend() const;
+	//@}
+
+	//@{
+	/** @name ReversibleContainer concept */
+	reverse_iterator
+	rbegin();
+	inline const_reverse_iterator
+	rbegin() const
+	{ return crbegin(); }
+	const_reverse_iterator
+	crbegin() const;
+
+	reverse_iterator
+	rend();
+	inline const_reverse_iterator
+	rend() const
+	{ return crend(); }
+	const_reverse_iterator
+	crend() const;
+	//@}
+
 private:
 	void
 	create_pimpl(message const&);
@@ -248,6 +320,11 @@ private:
 	typedef std::shared_ptr<impl> pimpl;
 	pimpl pimpl_;
 };
+
+typedef std::shared_ptr<incoming> incoming_ptr;
+
+typedef std::function< void(incoming::const_iterator, incoming::const_iterator) >
+	reply_callback;
 
 }  // namespace encoding
 }  // namespace wire

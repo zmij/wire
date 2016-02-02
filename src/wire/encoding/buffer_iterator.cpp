@@ -121,6 +121,30 @@ buffer_sequence::cend() const
 	return const_iterator{ this, after_end };
 }
 
+buffer_sequence::reverse_iterator
+buffer_sequence::rbegin()
+{
+	return reverse_iterator{ end() };
+}
+
+buffer_sequence::const_reverse_iterator
+buffer_sequence::crbegin() const
+{
+	return const_reverse_iterator{ cend() };
+}
+
+buffer_sequence::reverse_iterator
+buffer_sequence::rend()
+{
+	return reverse_iterator{ begin() };
+}
+
+buffer_sequence::const_reverse_iterator
+buffer_sequence::crend() const
+{
+	return const_reverse_iterator{ cbegin() };
+}
+
 buffer_sequence::iterator
 buffer_sequence::last()
 {
@@ -301,9 +325,10 @@ buffer_sequence::difference(This* _this,
 {
 	assert(_this == a.container_ && "Iterator belongs to container");
 	assert(_this == b.container_ && "Iterator belongs to container");
-	if (a.position_ == normal && b.position_ == normal
-			&& a.buffer_ == b.buffer_ && a.buffer_ != _this->buffers_.end()) {
-		return a.current_ - b.current_;
+	if (a.position_ == normal && b.position_ == normal) {
+		if (a.buffer_ == b.buffer_ && a.buffer_ != _this->buffers_.end())
+			return a.current_ - b.current_;
+
 	}
 	return index_of(_this, a) - index_of(_this, b);
 }

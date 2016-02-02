@@ -116,28 +116,6 @@ struct outgoing::impl : detail::buffer_sequence {
 		return buffers_.front();
 	}
 
-	reverse_iterator
-	rbegin()
-	{
-		return reverse_iterator{ end() };
-	}
-	const_reverse_iterator
-	crbegin() const
-	{
-		return const_reverse_iterator{ cend() };
-	}
-
-	reverse_iterator
-	rend()
-	{
-		return reverse_iterator{ begin() };
-	}
-	const_reverse_iterator
-	crend() const
-	{
-		return const_reverse_iterator{ cbegin() };
-	}
-
 	asio_buffers
 	to_buffers()
 	{
@@ -235,6 +213,12 @@ outgoing::operator =(outgoing&& rhs)
 	pimpl_ = std::move(rhs.pimpl_);
 	rhs.pimpl_.reset();
 	return *this;
+}
+
+message::message_flags
+outgoing::type() const
+{
+	return static_cast<message::message_flags>(pimpl_->flags_ & message::type_bits);
 }
 
 outgoing::size_type
@@ -377,7 +361,7 @@ outgoing::encapsulation::size() const
 //	incoming implementation
 //----------------------------------------------------------------------------
 struct incoming::impl : detail::buffer_sequence {
-	message					message_;
+	encoding::message			message_;
 
 	impl(message const& m)
 		: buffer_sequence{},
@@ -413,6 +397,16 @@ struct incoming::impl : detail::buffer_sequence {
 		}
 	}
 
+	size_type
+	want_bytes()
+	{
+		return message_.size - size();
+	}
+	bool
+	complete()
+	{
+		return message_.size <= size();
+	}
 };
 
 incoming::incoming(message const& m)
@@ -428,6 +422,18 @@ incoming::incoming(message const& m, buffer_type const& b)
 incoming::incoming(message const& m, buffer_type&& b)
 	: pimpl_(::std::make_shared<impl>( m, std::move(b) ))
 {
+}
+
+message const&
+incoming::header() const
+{
+	return pimpl_->message_;
+}
+
+message::message_flags
+incoming::type() const
+{
+	return pimpl_->message_.type();
 }
 
 void
@@ -464,6 +470,66 @@ incoming::size_type
 incoming::size() const
 {
 	return pimpl_->size();
+}
+
+bool
+incoming::complete() const
+{
+	return pimpl_->complete();
+}
+
+incoming::size_type
+incoming::want_bytes() const
+{
+	return pimpl_->want_bytes();
+}
+
+incoming::iterator
+incoming::begin()
+{
+	return pimpl_->begin();
+}
+
+incoming::const_iterator
+incoming::cbegin() const
+{
+	return pimpl_->cbegin();
+}
+
+incoming::iterator
+incoming::end()
+{
+	return pimpl_->end();
+}
+
+incoming::const_iterator
+incoming::cend() const
+{
+	return pimpl_->cend();
+}
+
+incoming::reverse_iterator
+incoming::rbegin()
+{
+	return pimpl_->rbegin();
+}
+
+incoming::const_reverse_iterator
+incoming::crbegin() const
+{
+	return pimpl_->crbegin();
+}
+
+incoming::reverse_iterator
+incoming::rend()
+{
+	return pimpl_->rend();
+}
+
+incoming::const_reverse_iterator
+incoming::crend() const
+{
+	return pimpl_->crend();
 }
 
 }  // namespace encoding

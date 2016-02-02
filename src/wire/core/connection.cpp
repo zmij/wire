@@ -75,6 +75,7 @@ void
 connection_impl_base::write_async(encoding::outgoing_ptr out,
 		callbacks::void_callback cb)
 {
+	std::cerr << "Send message " << out->type() << " size " << out->size() << "\n";
 	do_write_async( out,
 		std::bind(&connection_impl_base::handle_write, shared_from_this(),
 				std::placeholders::_1, std::placeholders::_2, cb, out));
@@ -97,7 +98,6 @@ void
 connection_impl_base::start_read()
 {
 	incoming_buffer_ptr buffer = ::std::make_shared< incoming_buffer >();
-	auto shared_this = shared_from_this();
 	read_async(buffer);
 }
 
@@ -131,32 +131,48 @@ connection_impl_base::read_incoming_message(incoming_buffer_ptr buffer, std::siz
 	auto b = buffer->begin();
 	auto e = b + bytes;
 	try {
-		if (incoming_) {
-
-		} else {
-			incoming_message_ptr incoming = ::std::make_shared< incoming_message >();
-			read(b, e, incoming->header);
-			bytes -= b - buffer->begin();
-
-			switch(incoming->header.type()) {
-				case message::validate: {
-					if (incoming->header.size > 0) {
-						throw errors::connection_failed("Invalid validate message");
-					}
-					process_event(events::receive_validate{});
-					break;
+		while (b != e) {
+			if (incoming_) {
+				incoming_->insert_back(b, e);
+				if (incoming_->complete()) {
+					dispatch_incoming(incoming_);
+					incoming_.reset();
 				}
-				case message::close : {
-					if (incoming->header.size > 0) {
-						throw errors::connection_failed("Invalid close message");
+			} else {
+				message m;
+				read(b, e, m);
+				bytes -= b - buffer->begin();
+
+				switch(m.type()) {
+					case message::validate: {
+						if (m.size > 0) {
+							throw errors::connection_failed("Invalid validate message");
+						}
+						process_event(events::receive_validate{});
+						break;
 					}
-					process_event(events::receive_close{});
-					break;
-				}
-				default: {
-					if (incoming->header.size == 0) {
-						throw errors::connection_failed(
-								"Zero sized ", incoming->header.type(), " message");
+					case message::close : {
+						if (m.size > 0) {
+							throw errors::connection_failed("Invalid close message");
+						}
+						process_event(events::receive_close{});
+						break;
+					}
+					default: {
+						if (m.size == 0) {
+							throw errors::connection_failed(
+									"Zero sized ", m.type(), " message");
+							std::cerr << "Receive message " << m.type()
+									<< " size " << m.size << "\n";
+
+							encoding::incoming_ptr incoming =
+								std::make_shared< encoding::incoming >( m, b, e );
+							if (!incoming->complete()) {
+								incoming_ = incoming;
+							} else {
+								dispatch_incoming(incoming);
+							}
+						}
 					}
 				}
 			}
@@ -170,8 +186,29 @@ connection_impl_base::read_incoming_message(incoming_buffer_ptr buffer, std::siz
 }
 
 void
+connection_impl_base::dispatch_incoming(encoding::incoming_ptr incoming)
+{
+	using encoding::message;
+	switch (incoming->type()) {
+		case message::request:
+			process_event(events::receive_request{ incoming });
+			break;
+		case message::reply:
+			process_event(events::receive_reply{ incoming });
+			break;
+		default:
+			process_event(events::connection_failure{
+				std::make_exception_ptr(errors::unmarshal_error{ "Unknown message type ", incoming->type() })
+			});
+	}
+}
+
+void
 connection_impl_base::invoke_async(identity const& id, std::string const& op,
-		encoding::outgoing&& params/** @todo invocation handlers */)
+		encoding::outgoing&& params,
+		encoding::reply_callback reply,
+		callbacks::exception_callback exception,
+		callbacks::callback< bool > sent)
 {
 	using encoding::request;
 	encoding::outgoing_ptr out = std::make_shared<encoding::outgoing>(encoding::message::request);
@@ -183,7 +220,11 @@ connection_impl_base::invoke_async(identity const& id, std::string const& op,
 	write(std::back_inserter(*out), r);
 	out->insert_encapsulation(std::move(params));
 	/** @todo register invocation handlers */
-	write_async(out);
+	if (sent) {
+		write_async(out, [sent](){sent(true);});
+	} else {
+		write_async(out);
+	}
 }
 
 
@@ -219,10 +260,13 @@ struct connection::impl {
 
 	void
 	invoke_async(identity const& id, std::string const& op,
-			encoding::outgoing&& params/** @todo invocation handlers */)
+			encoding::outgoing&& params,
+			encoding::reply_callback reply,
+			callbacks::exception_callback exception,
+			callbacks::callback< bool > sent)
 	{
 		if (connection_) {
-			connection_->invoke_async(id, op, std::move(params));
+			connection_->invoke_async(id, op, std::move(params), reply, exception, sent);
 		} /** @todo Throw exception */
 	}
 };
@@ -254,9 +298,12 @@ connection::close()
 
 void
 connection::invoke_async(identity const& id, std::string const& op,
-		encoding::outgoing&& params/** @todo invocation handlers */)
+		encoding::outgoing&& params,
+		encoding::reply_callback reply,
+		callbacks::exception_callback exception,
+		callbacks::callback< bool > sent)
 {
-	pimpl_->invoke_async(id, op, std::move(params));
+	pimpl_->invoke_async(id, op, std::move(params), reply, exception, sent);
 }
 
 

@@ -175,6 +175,8 @@ struct buffer_sequence {
 	/** @name Iterator types */
 	typedef buffer_iterator< buffer_sequence, pointer >			iterator;
 	typedef buffer_iterator< buffer_sequence, const_pointer >	const_iterator;
+	typedef std::reverse_iterator< iterator >					reverse_iterator;
+	typedef std::reverse_iterator< const_iterator >				const_reverse_iterator;
 	//@}
 
 	//@{
@@ -227,6 +229,24 @@ struct buffer_sequence {
 
 	const_iterator
 	cend() const;
+	//@}
+	//@{
+	/** @name ReversibleContainer concept */
+	reverse_iterator
+	rbegin();
+	inline const_reverse_iterator
+	rbegin() const
+	{ return crbegin(); }
+	const_reverse_iterator
+	crbegin() const;
+
+	reverse_iterator
+	rend();
+	inline const_reverse_iterator
+	rend() const
+	{ return crend(); }
+	const_reverse_iterator
+	crend() const;
 	//@}
 	//@{
 	/**

@@ -18,7 +18,7 @@ class session {
 public:
 	typedef asio_config::tcp::socket socket_type;
 	enum {
-		max_length = 1024
+		max_length = 4096
 	};
 public:
 	session(asio_config::io_service& svc, std::size_t requests)

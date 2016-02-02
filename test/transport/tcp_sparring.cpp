@@ -65,6 +65,8 @@ session::handle_read(asio_config::error_code const& ec, size_t bytes_transferred
 				char* b = data_;
 				char* e = data_ + bytes_transferred;
 				read(b, e, m);
+				std::cerr << "[SPARRING] Incoming message type "
+						<< m.type() << " size " << m.size << "\n";
 				if (m.type() != encoding::message::request) {
 					throw std::runtime_error("Unexpected message type");
 				}
@@ -83,9 +85,9 @@ session::handle_read(asio_config::error_code const& ec, size_t bytes_transferred
 				std::copy(out.begin(), out.end(), data_);
 				bytes_transferred = out.size();
 			} catch (std::runtime_error const& e) {
-
+				std::cerr << "[SPARRING] Error: " << e.what() << "\n";
 			} catch (...) {
-				// TODO send some error here
+				std::cerr << "[SPARRING] Error\n";
 			}
 		}
 		ASIO_NS::async_write(socket_, ASIO_NS::buffer(data_, bytes_transferred),

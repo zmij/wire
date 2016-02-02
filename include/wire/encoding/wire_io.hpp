@@ -9,6 +9,8 @@
 #define WIRE_ENCODING_WIRE_IO_HPP_
 
 #include <wire/encoding/detail/wire_io_detail.hpp>
+#include <wire/util/meta_helpers.hpp>
+#include <tuple>
 
 namespace wire {
 namespace encoding {
@@ -69,6 +71,14 @@ read_impl(InputIterator& begin, InputIterator end, T& arg, Y& ... args)
 	read_impl(begin, end, args ...);
 }
 
+template < typename InputIterator, size_t ... Indexes, typename ... T >
+void
+read_impl(InputIterator& begin, InputIterator end,
+		util::indexes_tuple< Indexes ... >, std::tuple< T ... >& args)
+{
+	read_impl(begin, end, std::get<Indexes>(args) ... );
+}
+
 }  // namespace detail
 
 template < typename OutputIterator, typename ... T >
@@ -83,6 +93,14 @@ void
 read(InputIterator& begin, InputIterator end, T& ... args)
 {
 	detail::read_impl(begin, end, args ...);
+}
+
+template < typename InputIterator, typename ... T >
+void
+read(InputIterator& begin, InputIterator end, std::tuple< T ... >& tuple)
+{
+	typedef typename util::index_builder< sizeof ... (T) >::type index_type;
+	detail::read_impl(begin, end, index_type(), tuple);
 }
 
 }  // namespace encoding

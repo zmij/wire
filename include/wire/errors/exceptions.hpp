@@ -46,6 +46,8 @@ public:
 class unmarshal_error : public runtime_error {
 public:
 	unmarshal_error(std::string const& message) : runtime_error(message) {}
+	template < typename ... T >
+	unmarshal_error(T const& ... args) : runtime_error(args ...) {}
 };
 
 class logic_error : public ::std::logic_error {

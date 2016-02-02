@@ -9,6 +9,8 @@
 #include <wire/encoding/detail/wire_traits.hpp>
 #include <wire/encoding/buffers.hpp>
 
+#include <wire/util/function_traits.hpp>
+
 namespace wire {
 namespace encoding {
 namespace detail {
@@ -90,6 +92,35 @@ static_assert(std::is_same< arg_type_helper< std::string >::in_type, std::string
 static_assert(std::is_same< arg_type_helper< std::string >::out_type, std::string&>::value,
 		"Class type is passed by reference for reading");
 //@}
+
+void
+test_lambda_traits()
+{
+	auto lambda = [](int i, std::string const&){ return uint64_t(i * 42); };
+	typedef util::function_traits< decltype(lambda) > lambda_traits;
+
+	static_assert(std::is_same< uint64_t, lambda_traits::result_type >::value,
+		"Correct deduced return type");
+	static_assert(std::is_same< std::tuple< int, std::string const& >,
+			lambda_traits::args_tuple_type >::value,
+		"Correct deduced args type");
+	static_assert(std::is_same< int, lambda_traits::arg<0>::type>::value,
+		"Correct deduced first arg type");
+	static_assert(std::is_same< std::string const&, lambda_traits::arg<1>::type>::value,
+		"Correct deduced second arg type");
+}
+
+typedef std::function< void(std::string const&, bool, int32_t) > test_function_type;
+typedef util::function_traits<test_function_type> test_function_traits;
+
+static_assert(std::is_same< void, test_function_traits::result_type >::value,
+		"Correct deduced return type");
+static_assert(std::is_same<
+		std::tuple<std::string const&, bool, int32_t>,
+		test_function_traits::args_tuple_type >::value,
+		"Correct deduced args type");
+static_assert(std::is_same< std::string const&, test_function_traits::arg<0>::type>::value,
+	"Correct deduced second arg type");
 
 }  // namespace detail
 }  // namespace encoding
