@@ -55,7 +55,8 @@ public:
 	remote_endpoint() const;
 
 	template < typename Handler, typename ... Args >
-	typename std::enable_if< (util::function_traits< Handler >::arity > 0), void >::type
+	typename std::enable_if< (util::is_callable<Handler>::value &&
+			util::function_traits< Handler >::arity > 0), void >::type
 	invoke_async(identity const& id, std::string const& op,
 			Handler response,
 			callbacks::exception_callback exception,

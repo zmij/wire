@@ -14,8 +14,44 @@
 namespace wire {
 namespace util {
 
+namespace detail {
+
+template <typename T>
+struct has_call_operator {
+private:
+    struct _fallback { void operator()(); };
+    struct _derived : T, _fallback {};
+
+    template<typename U, U> struct _check;
+
+    template<typename>
+    static std::true_type test(...);
+
+    template<typename C>
+    static std::false_type test(
+    		_check<void (_fallback::*)(), &C::operator()>*);
+
+public:
+    static const bool value =
+    		std::is_same< decltype(test<_derived>(0)), std::true_type >::value;
+};
+
+}  // namespace detail
+
+template < typename T >
+struct is_callable : std::conditional<
+	std::is_class< T >::value,
+	detail::has_call_operator< T >,
+	std::is_function<T> >::type {
+};
+
 template < typename ... T >
 struct function_traits;
+
+template < typename T >
+struct not_a_function {
+	static const int arity = -1;
+};
 
 template < typename Class, typename Return, typename ... Args >
 struct function_traits< Return(Class::*)(Args...) const> {
@@ -47,7 +83,14 @@ struct function_traits< Return(Class::*)() const> {
 };
 
 template < typename T >
-struct function_traits<T> : function_traits< decltype(&T::operator()) > {};
+struct call_operator_traits : function_traits< decltype(&T::operator()) > {};
+
+template < typename T >
+struct function_traits<T> :
+	std::conditional<
+		is_callable< T >::value,
+		call_operator_traits< T >,
+		not_a_function<T> >::type {};
 
 namespace detail {
 

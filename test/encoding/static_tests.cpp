@@ -97,7 +97,18 @@ void
 test_lambda_traits()
 {
 	auto lambda = [](int i, std::string const&){ return uint64_t(i * 42); };
-	typedef util::function_traits< decltype(lambda) > lambda_traits;
+	typedef decltype(lambda) lambda_type;
+	typedef util::function_traits< lambda_type > lambda_traits;
+
+	typedef decltype(test_lambda_traits) func_type;
+	static_assert(!std::is_class<func_type>::value, "Function is not class");
+	static_assert(std::is_function<func_type>::value, "Function is function");
+	static_assert(util::is_callable<func_type>::value, "Function is callable");
+
+	static_assert(util::detail::has_call_operator<lambda_type>::value,
+			"Lambda has call operator");
+	static_assert(std::is_class<lambda_type>::value, "Lambda is class");
+	static_assert(util::is_callable<lambda_type>::value, "Lambda is callable");
 
 	static_assert(std::is_same< uint64_t, lambda_traits::result_type >::value,
 		"Correct deduced return type");
@@ -113,6 +124,7 @@ test_lambda_traits()
 typedef std::function< void(std::string const&, bool, int32_t) > test_function_type;
 typedef util::function_traits<test_function_type> test_function_traits;
 
+static_assert(util::is_callable<test_function_type>::value, "Functor is callable");
 static_assert(std::is_same< void, test_function_traits::result_type >::value,
 		"Correct deduced return type");
 static_assert(std::is_same<
@@ -121,6 +133,16 @@ static_assert(std::is_same<
 		"Correct deduced args type");
 static_assert(std::is_same< std::string const&, test_function_traits::arg<0>::type>::value,
 	"Correct deduced second arg type");
+
+static_assert(!util::detail::has_call_operator<std::string>::value,
+		"String doesn't have a call operator");
+static_assert(!util::is_callable<std::string>::value,
+		"String is not callable");
+static_assert(!util::detail::has_call_operator<outgoing>::value,
+		"Outgoing buffer doesn't have a call operator");
+static_assert(!util::is_callable<outgoing>::value,
+		"Outgoing buffer is not callable");
+
 
 }  // namespace detail
 }  // namespace encoding
