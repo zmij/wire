@@ -32,6 +32,30 @@ struct version {
 	{
 		return !(*this == rhs);
 	}
+
+	bool
+	operator < (version const& rhs) const
+	{
+		return major < rhs.major || (major == rhs.major && minor < rhs.minor);
+	}
+	bool
+	operator <= (version const& rhs) const
+	{
+		return major <= rhs.major || (major == rhs.major && minor <= rhs.minor);
+	}
+
+	bool
+	operator > (version const& rhs) const
+	{
+		return rhs < *this;
+	}
+	bool
+	operator >= (version const& rhs) const
+	{
+		return rhs <= *this;
+	}
+
+
 	void
 	swap(version& rhs)
 	{
@@ -61,14 +85,20 @@ wire_read(InputIterator& begin, InputIterator end, version& v)
 struct message {
 	typedef uint64_t	size_type;
 	enum message_flags {
+		// Types
 		request				= 0,
 		reply				= 2,
 		validate			= 3,
 		close				= 4,
-		type_bits			= reply | validate | close,
-		flag_bits			= ~type_bits,
+		// Flags
 		protocol			= 8,		/**< Message header contains protocol version */
 		encoding			= 0x10,		/**< Message header contains encoding version */
+
+		// Combinations
+		validate_flags		= validate | protocol | encoding,
+		// Masks
+		type_bits			= reply | validate | close,
+		flag_bits			= ~type_bits,
 	};
 	static constexpr uint32_t MAGIC_NUMBER =
 			('w') | ('i' << 8) | ('r' << 16) | ('e' << 24);
@@ -135,7 +165,11 @@ wire_write(OutputIterator o, message const& v)
 	write(o, int32_fixed_t(message::MAGIC_NUMBER));
 	write(o, v.flags);
 	// write this info depending on flags
-	write(o, PROTOCOL_MAJOR, PROTOCOL_MINOR, v.encoding_version);
+	if (v.flags & message::protocol)
+		write(o, PROTOCOL_MAJOR, PROTOCOL_MINOR);
+	if (v.flags & message::encoding)
+		write(o, v.encoding_version);
+
 	write(o, v.size);
 }
 
@@ -151,7 +185,11 @@ read(InputIterator& begin, InputIterator end, message& v)
 	message tmp;
 	read(begin, end, tmp.flags);
 	// read this info depending on message flags
-	read(begin, end, tmp.protocol_version, tmp.encoding_version);
+	if (tmp.flags & message::protocol)
+		read(begin, end, tmp.protocol_version);
+	if (tmp.flags & message::encoding)
+		read(begin, end, tmp.encoding_version);
+
 	read(begin, end, tmp.size);
 	v.swap(tmp);
 }

@@ -19,7 +19,8 @@ namespace errors {
  */
 class runtime_error : public ::std::runtime_error {
 public:
-	runtime_error(std::string const& message ) : ::std::runtime_error(message) {}
+	runtime_error(std::string const& msg ) : ::std::runtime_error(msg) {}
+	runtime_error(char const* msg) : ::std::runtime_error{msg} {}
 
 	template < typename ... T >
 	runtime_error(T const& ... args)
@@ -57,6 +58,15 @@ public:
 	logic_error(T const& ... args)
 		: ::std::logic_error( util::concatenate(args ...) ) {}
 };
+
+class user_exception : public runtime_error {
+public:
+	user_exception(std::string const& msg) : runtime_error{msg} {}
+	user_exception(char const* msg) : runtime_error{msg} {}
+	template < typename ... T >
+	user_exception(T const& ... args) : runtime_error(args ...) {}
+};
+
 
 }  // namespace errors
 }  // namespace wire

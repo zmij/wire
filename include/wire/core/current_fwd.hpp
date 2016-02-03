@@ -13,7 +13,7 @@
 namespace wire {
 namespace core {
 
-class current;
+struct current;
 
 }  // namespace core
 }  // namespace wire

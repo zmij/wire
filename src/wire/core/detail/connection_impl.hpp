@@ -136,9 +136,10 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 	struct dispatch_request {
 		template < typename SourceState, typename TargetState >
 		void
-		operator()(events::receive_request const&, fsm_type& fsm, SourceState&, TargetState&)
+		operator()(events::receive_request const& req, fsm_type& fsm, SourceState&, TargetState&)
 		{
 			std::cerr << "Dispatch request\n";
+			fsm->dispatch_request(req.incoming);
 		}
 	};
 	struct dispatch_reply {
@@ -391,6 +392,8 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 
 	void
 	dispatch_reply(encoding::incoming_ptr);
+	void
+	dispatch_request(encoding::incoming_ptr);
 
 	void
 	invoke_async(identity const&, std::string const& op,

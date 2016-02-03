@@ -98,15 +98,19 @@ session::handle_read(asio_config::error_code const& ec, size_t bytes_transferred
 					o = std::copy(bdata, bdata + sz, o);
 				}
 				bytes_transferred = o - data_;
+				ASIO_NS::async_write(socket_, ASIO_NS::buffer(data_, bytes_transferred),
+						std::bind(&session::handle_write, this,
+							std::placeholders::_1, std::placeholders::_2));
 			} catch (std::runtime_error const& e) {
 				std::cerr << "[SPARRING] Error: " << e.what() << "\n";
 			} catch (...) {
 				std::cerr << "[SPARRING] Error\n";
 			}
+		} else {
+			ASIO_NS::async_write(socket_, ASIO_NS::buffer(data_, bytes_transferred),
+					std::bind(&session::handle_write, this,
+						std::placeholders::_1, std::placeholders::_2));
 		}
-		ASIO_NS::async_write(socket_, ASIO_NS::buffer(data_, bytes_transferred),
-				std::bind(&session::handle_write, this,
-					std::placeholders::_1, std::placeholders::_2));
 	} else {
 		delete this;
 	}

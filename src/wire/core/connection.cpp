@@ -53,7 +53,9 @@ connection_impl_base::handle_connected(asio_config::error_code const& ec)
 void
 connection_impl_base::send_validate_message()
 {
-	encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(encoding::message::validate);
+	encoding::outgoing_ptr out =
+		::std::make_shared<encoding::outgoing>(
+				encoding::message::validate_flags);
 	write_async(out);
 }
 
@@ -268,6 +270,20 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
 	}
 }
 
+void
+connection_impl_base::dispatch_request(encoding::incoming_ptr buffer)
+{
+	using namespace encoding;
+	try {
+		request req;
+		incoming::const_iterator b = buffer->begin();
+		incoming::const_iterator e = buffer->end();
+		read(b, e, req);
+		//Find invocation by req.operation.identity
+	} catch (...) {
+		process_event(events::connection_failure{ std::current_exception() });
+	}
+}
 
 }  // namespace detail
 

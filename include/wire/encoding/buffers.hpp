@@ -325,6 +325,7 @@ typedef std::shared_ptr<incoming> incoming_ptr;
 
 typedef std::function< void(incoming::const_iterator, incoming::const_iterator) >
 	reply_callback;
+typedef std::function< void(outgoing&&) > request_result_callback;
 
 }  // namespace encoding
 }  // namespace wire

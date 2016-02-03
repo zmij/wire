@@ -14,6 +14,7 @@ set(wire_lib_SRCS
     core/endpoint.cpp
     core/transport.cpp
     core/connection.cpp
+    core/object.cpp
     core/proxy.cpp
 )
 add_library(${WIRE_LIB} SHARED ${wire_lib_SRCS})
