@@ -17,6 +17,7 @@ namespace test {
 class sparring_options {
 public:
 	wire::core::transport_type	transport = wire::core::transport_type::empty;
+	uint16_t					port				= 0;
 
 	std::size_t					connections			= 0;
 	std::size_t					requests			= 1;

@@ -71,6 +71,11 @@ session::handle_read(asio_config::error_code const& ec, size_t bytes_transferred
 					start_read();
 					return;
 				}
+				if (m.type() == encoding::message::close) {
+					std::cerr << "[SPARRING] Received close connection\n";
+					delete this;
+					return;
+				}
 				if (m.type() != encoding::message::request) {
 					throw std::runtime_error("Unexpected message type");
 				}
@@ -81,13 +86,18 @@ session::handle_read(asio_config::error_code const& ec, size_t bytes_transferred
 				encoding::request req;
 				read(b, e, req);
 
-				encoding::outgoing out;
+				encoding::outgoing out(encoding::message::reply);
 				encoding::reply rep{ req.number, encoding::reply::success };
 				write(std::back_inserter(out), rep);
 				std::copy(b, e, std::back_inserter(out));
-				out.to_buffers();
-				std::copy(out.begin(), out.end(), data_);
-				bytes_transferred = out.size();
+				auto buffers = out.to_buffers();
+				auto o = data_;
+				for (auto const& buff : buffers) {
+					char const* bdata = reinterpret_cast<char const*>(ASIO_NS::detail::buffer_cast_helper(buff));
+					std::size_t sz = ASIO_NS::detail::buffer_size_helper(buff);
+					o = std::copy(bdata, bdata + sz, o);
+				}
+				bytes_transferred = o - data_;
 			} catch (std::runtime_error const& e) {
 				std::cerr << "[SPARRING] Error: " << e.what() << "\n";
 			} catch (...) {
@@ -123,7 +133,7 @@ session::handle_write(asio_config::error_code const& ec, size_t bytes_transferre
 
 server::server(asio_config::io_service& svc)
 	: io_service_(svc),
-	  acceptor_{svc, asio_config::tcp::endpoint{ asio_config::tcp::v4(), 0 }},
+	  acceptor_{svc, asio_config::tcp::endpoint{ asio_config::tcp::v4(), sparring_options::instance().port }},
 	  connections_(sparring_options::instance().connections), limit_connections_(connections_ > 0),
 	  requests_(sparring_options::instance().requests)
 {

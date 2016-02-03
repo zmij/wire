@@ -17,6 +17,8 @@
 #include <boost/msm/front/euml/operator.hpp>
 
 #include <iostream>
+#include <atomic>
+#include <map>
 
 namespace wire {
 namespace core {
@@ -142,9 +144,10 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 	struct dispatch_reply {
 		template < typename SourceState, typename TargetState >
 		void
-		operator()(events::receive_reply const&, fsm_type& fsm, SourceState&, TargetState&)
+		operator()(events::receive_reply const& rep, fsm_type& fsm, SourceState&, TargetState&)
 		{
 			std::cerr << "Dispatch reply\n";
+			fsm->dispatch_reply(rep.incoming);
 		}
 	};
 	//@}
@@ -328,26 +331,19 @@ typedef ::boost::msm::back::state_machine< connection_fsm_< connection_impl_base
 
 struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_base>,
 		connection_fsm {
-	typedef std::array< char, 1024 > incoming_buffer;
-	typedef std::shared_ptr< incoming_buffer > incoming_buffer_ptr;
-
-	struct incoming_message {
-		encoding::message		header;
-		encoding::outgoing_ptr	buffer;
-
-		bool
-		complete() const
-		{
-			return header.size == buffer->size();
-		}
+	struct pending_reply {
+		encoding::reply_callback		reply;
+		callbacks::exception_callback	error;
 	};
-	typedef std::shared_ptr< incoming_message > incoming_message_ptr;
+	typedef std::map< uint32_t, pending_reply >	pending_replies_type;
 
+	typedef std::array< unsigned char, 1024 > incoming_buffer;
+	typedef std::shared_ptr< incoming_buffer > incoming_buffer_ptr;
 
 	static connection_impl_ptr
 	create_connection( asio_config::io_service_ptr io_svc, transport_type _type );
 
-	connection_impl_base() {}
+	connection_impl_base() : request_no_{0} {}
 	virtual ~connection_impl_base() {}
 
 	virtual bool
@@ -394,14 +390,18 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 	dispatch_incoming(encoding::incoming_ptr);
 
 	void
+	dispatch_reply(encoding::incoming_ptr);
+
+	void
 	invoke_async(identity const&, std::string const& op,
 			encoding::outgoing&&,
 			encoding::reply_callback reply,
 			callbacks::exception_callback exception,
 			callbacks::callback< bool > sent);
 
-	uint32_t 				request_no_	= 0;
+	std::atomic<uint32_t>	request_no_;
 	encoding::incoming_ptr	incoming_;
+	pending_replies_type	pending_replies_;
 };
 
 template < transport_type _type >

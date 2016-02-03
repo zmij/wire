@@ -17,23 +17,64 @@
 namespace wire {
 namespace encoding {
 
+struct version {
+	uint32_t	major;
+	uint32_t	minor;
+
+	bool
+	operator == (version const& rhs) const
+	{
+		return major == rhs.major && minor == rhs.minor;
+	}
+
+	bool
+	operator != (version const& rhs) const
+	{
+		return !(*this == rhs);
+	}
+	void
+	swap(version& rhs)
+	{
+		using std::swap;
+		swap(major, rhs.major);
+		swap(minor, rhs.minor);
+	}
+};
+
+template < typename OutputIterator >
+void
+wire_write(OutputIterator o, version const& v)
+{
+	write(o, v.major, v.minor);
+}
+
+template < typename InputIterator >
+void
+wire_read(InputIterator& begin, InputIterator end, version& v)
+{
+	version tmp;
+	read(begin, end, tmp.major, tmp.minor);
+	v.swap(tmp);
+}
+
+
 struct message {
 	typedef uint64_t	size_type;
 	enum message_flags {
-		request		= 0,
-		reply		= 2,
-		validate	= 3,
-		close		= 4,
-		type_bits	= reply | validate | close,
-		flag_bits	= ~type_bits,
+		request				= 0,
+		reply				= 2,
+		validate			= 3,
+		close				= 4,
+		type_bits			= reply | validate | close,
+		flag_bits			= ~type_bits,
+		protocol			= 8,		/**< Message header contains protocol version */
+		encoding			= 0x10,		/**< Message header contains encoding version */
 	};
 	static constexpr uint32_t MAGIC_NUMBER =
-			('w' << 24) | ('i' << 16) | ('r' << 8) | ('e');
+			('w') | ('i' << 8) | ('r' << 16) | ('e' << 24);
 
-	uint8_t			version_major	= ::wire::PROTOCOL_MAJOR;
-	uint8_t			version_minor	= ::wire::PROTOCOL_MINOR;
-	uint8_t			encoding_major	= ::wire::ENCODING_MAJOR;
-	uint8_t			encoding_minor	= ::wire::ENCODING_MINOR;
+	version			protocol_version = version{ ::wire::PROTOCOL_MAJOR, ::wire::PROTOCOL_MINOR };
+	version			encoding_version = version{ ::wire::ENCODING_MAJOR, ::wire::ENCODING_MINOR };
 
 	message_flags	flags			= request;
 	size_type		size			= 0;
@@ -46,10 +87,8 @@ struct message {
 	bool
 	operator == (message const& rhs) const
 	{
-		return version_major == rhs.version_major
-				&& version_minor == rhs.version_minor
-				&& encoding_major == rhs.encoding_major
-				&& encoding_minor == rhs.encoding_minor
+		return protocol_version == rhs.protocol_version
+				&& encoding_version == rhs.encoding_version
 				&& flags == rhs.flags
 				&& size == rhs.size;
 	}
@@ -58,10 +97,8 @@ struct message {
 	swap(message& rhs)
 	{
 		using std::swap;
-		swap(version_major, rhs.version_major);
-		swap(version_minor, rhs.version_minor);
-		swap(encoding_major, rhs.encoding_major);
-		swap(encoding_minor, rhs.encoding_minor);
+		swap(protocol_version, rhs.protocol_version);
+		swap(encoding_version, rhs.encoding_version);
 		swap(flags, rhs.flags);
 		swap(size, rhs.size);
 	}
@@ -93,13 +130,13 @@ namespace encoding {
 
 template < typename OutputIterator >
 void
-write(OutputIterator o, message const& v)
+wire_write(OutputIterator o, message const& v)
 {
-	write(o,
-		int32_fixed_t(message::MAGIC_NUMBER),
-		PROTOCOL_MAJOR, PROTOCOL_MINOR,
-		v.encoding_major, v.encoding_minor,
-		v.flags, v.size);
+	write(o, int32_fixed_t(message::MAGIC_NUMBER));
+	write(o, v.flags);
+	// write this info depending on flags
+	write(o, PROTOCOL_MAJOR, PROTOCOL_MINOR, v.encoding_version);
+	write(o, v.size);
 }
 
 template < typename InputIterator >
@@ -112,10 +149,10 @@ read(InputIterator& begin, InputIterator end, message& v)
 		throw errors::invalid_magic_number("Invalid magic number in message header");
 	}
 	message tmp;
-	read(begin, end,
-		tmp.version_major, tmp.version_minor,
-		tmp.encoding_major, tmp.encoding_minor,
-		tmp.flags, tmp.size);
+	read(begin, end, tmp.flags);
+	// read this info depending on message flags
+	read(begin, end, tmp.protocol_version, tmp.encoding_version);
+	read(begin, end, tmp.size);
 	v.swap(tmp);
 }
 
@@ -132,6 +169,18 @@ struct operation_specs {
 		swap(identity, rhs.identity);
 		swap(facet, rhs.facet);
 		swap(operation, rhs.operation);
+	}
+
+	bool
+	operator == (operation_specs const& rhs) const
+	{
+		return identity == rhs.identity && facet == rhs.facet && operation == rhs.operation;
+	}
+
+	bool
+	operator != (operation_specs const& rhs) const
+	{
+		return !(*this == rhs);
 	}
 };
 
@@ -169,6 +218,18 @@ struct request {
 		swap(number, rhs.number);
 		swap(operation, rhs.operation);
 		swap(mode, rhs.mode);
+	}
+
+	bool
+	operator == (request const& rhs) const
+	{
+		return number == rhs.number && operation == rhs.operation && mode == rhs.mode;
+	}
+
+	bool
+	operator != (request const& rhs) const
+	{
+		return !(*this == rhs);
 	}
 };
 
@@ -209,6 +270,20 @@ struct reply {
 		swap(number, rhs.number);
 		swap(status, rhs.status);
 	}
+
+
+	bool
+	operator == (reply const& rhs) const
+	{
+		return number == rhs.number && status == rhs.status;
+	}
+
+	bool
+	operator != (reply const& rhs) const
+	{
+		return !(*this == rhs);
+	}
+
 };
 
 template < typename OutputIterator >

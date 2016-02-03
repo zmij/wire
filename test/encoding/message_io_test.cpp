@@ -36,6 +36,30 @@ TEST(Message, IOTest)
 	EXPECT_THROW(read(begin, buffer.end(), m2), errors::invalid_magic_number);
 }
 
+TEST(Message, RequestIOTest)
+{
+	typedef std::vector<uint8_t>						buffer_type;
+	typedef buffer_type::const_iterator					input_iterator;
+	typedef std::back_insert_iterator<buffer_type>		output_iterator;
+
+	buffer_type buffer;
+	message m{ message::request, 2291 };
+	request req{ 0,
+		operation_specs{  core::identity::random(), "", "pewpew" },
+		request::normal };
+	EXPECT_NO_THROW(write(std::back_inserter(buffer), m));
+	EXPECT_NO_THROW(write(std::back_inserter(buffer), req));
+
+	message m1;
+	request req1;
+	auto begin = buffer.begin();
+	auto end = buffer.end();
+	EXPECT_NO_THROW(read(begin, end, m1));
+	EXPECT_EQ(m, m1);
+	EXPECT_NO_THROW(read(begin, end, req1));
+	EXPECT_EQ(req, req1);
+}
+
 }  // namespace test
 }  // namespace encoding
 }  // namespace wire

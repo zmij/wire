@@ -30,6 +30,8 @@ main(int argc, char* argv[])
 			("transport,t",
 				po::value<wire::core::transport_type>(&opts.transport)->required(),
 				"Start server for transport [tcp, ssl, udp, socket]")
+			("port,p",
+				po::value<uint16_t>(&opts.port), "Fixed port value")
 			("connections,c",
 				po::value<std::size_t>(&opts.connections)->default_value(0),
 				"Number of connections to accept")

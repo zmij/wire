@@ -54,6 +54,8 @@ struct fixed_size
 
 }  // namespace detail
 
+typedef uint8_t byte;
+
 typedef detail::fixed_size< int32_t > int32_fixed_t;
 typedef detail::fixed_size< uint32_t > uint32_fixed_t;
 

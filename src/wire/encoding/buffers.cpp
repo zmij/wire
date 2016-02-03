@@ -21,8 +21,7 @@ struct outgoing::impl : detail::buffer_sequence {
 		outgoing* out_;
 		size_type		size_before_;
 		size_type		buffer_before_;
-		uint32_t		encoding_major = ENCODING_MAJOR;
-		uint32_t		encoding_minor = ENCODING_MINOR;
+		version			encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
 
 		encaps_state(outgoing* o)
 			: out_(o),
@@ -49,8 +48,7 @@ struct outgoing::impl : detail::buffer_sequence {
 				size_type sz = size();
 				buffer_type& b = out_->pimpl_->buffer_at(buffer_before_);
 				auto o = std::back_inserter(b);
-				write(o, encoding_major);
-				write(o, encoding_minor);
+				write(o, encoding_version);
 				write(o, sz);
 			}
 		}
@@ -66,19 +64,20 @@ struct outgoing::impl : detail::buffer_sequence {
 	typedef std::list< encaps_state > 		encapsulation_stack;
 	typedef encapsulation_stack::iterator	encaps_iterator;
 
+	buffer_type				header_;
 	outgoing*				container_;
 	message::message_flags	flags_;
 	encapsulation_stack		encapsulations_;
 
 	impl(outgoing* out)
-		: buffer_sequence{2},
+		: buffer_sequence{1},
 		  container_(out),
 		  flags_(message::request),
 		  encapsulations_({encaps_state{ nullptr }})
 	{
 	}
 	impl(outgoing* out, message::message_flags flags)
-		: buffer_sequence{2},
+		: buffer_sequence{1},
 		  container_(out),
 		  flags_(flags),
 		  encapsulations_({encaps_state{ nullptr }})
@@ -113,7 +112,7 @@ struct outgoing::impl : detail::buffer_sequence {
 	buffer_type&
 	message_header_buffer()
 	{
-		return buffers_.front();
+		return header_;
 	}
 
 	asio_buffers
@@ -125,6 +124,7 @@ struct outgoing::impl : detail::buffer_sequence {
 			write(std::back_inserter(message_header_buffer()), m);
 		}
 		asio_buffers buffs;
+		buffs.push_back(ASIO_NS::buffer(message_header_buffer()));
 		for (auto const& b : buffers_) {
 			if (!b.empty()) {
 				buffs.push_back(ASIO_NS::buffer(b));
@@ -161,7 +161,7 @@ struct outgoing::impl : detail::buffer_sequence {
 	{
 		encapsulations_.emplace_back(container_);
 		buffer_sequence_type buffers = std::move(encaps.pimpl_->buffers_);
-		for( auto p = buffers.begin() + 1; p != buffers.end(); ++p) {
+		for( auto p = buffers.begin(); p != buffers.end(); ++p) {
 			if (p->size() > 0) {
 				buffers_.push_back( std::move(*p) );
 			}

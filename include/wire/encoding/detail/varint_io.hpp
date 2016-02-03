@@ -404,7 +404,7 @@ struct varint_enum_reader< T, false > {
 		base_type tmp = 0;
 		bool more = true;
 		for (uint32_t n = 0; more && begin != end; ++n) {
-			base_type curr_byte = *begin++;
+			base_type curr_byte = (byte)*begin++;
 			tmp |= (curr_byte & seven_bits) << (7 * n);
 			more = curr_byte & eighth_bit;
 		}

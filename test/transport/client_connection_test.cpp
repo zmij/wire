@@ -197,6 +197,7 @@ TEST_F(Client, TCPSendRequest)
 	current_transport = used_transport::value;
 	add_args.insert(add_args.end(), {
 		"--validate-message",
+		"-p44332",
 		"--ping-pong",
 		"-r2"
 	});
@@ -210,32 +211,51 @@ TEST_F(Client, TCPSendRequest)
 
 	std::bitset< 5 > tests;
 
+	std::string test_str;
+	bool test_flag = false;
+	uint32_t test_int = 0;
+
 	c.connect_async(endpoint_,
 	[&](){
 		tests[0] = true;
 		c.invoke_async(identity::random("test"), std::string("ping_pong"),
-		[&](std::string const&, bool, uint32_t) {
-			std::cerr << "Responce received\n";
+		[&](std::string const& str, bool flag, uint32_t i) {
+			std::cerr << "Response received\n";
+
 			tests[1] = true;
+			test_str = str;
+			test_flag = flag;
+			test_int = i;
+
+			c.close();
 		},
 		[&](std::exception_ptr){
 			std::cerr << "Exception received\n";
 			tests[2] = true;
+			c.close();
 		},
 		[&](bool ){
 			std::cerr << "Request sent\n";
 			tests[3] = true;
 		},
-		LIPSUM_TEST_STRING, false, uint32_t(42));
+		LIPSUM_TEST_STRING, true, uint32_t(42));
 	},
 	[&](std::exception_ptr) {
 		tests[4] = true;
+		c.close();
 	});
 
 	io_svc->run();
 
-	EXPECT_TRUE(tests[0]);
-	EXPECT_FALSE(tests[4]);
+	EXPECT_TRUE(tests[0]);	// Connected
+	EXPECT_TRUE(tests[1]);	// Response received
+	EXPECT_FALSE(tests[2]);	// No wire exceptions
+	EXPECT_TRUE(tests[3]);	// Request sent
+	EXPECT_FALSE(tests[4]);	// No connection exceptions
+
+	EXPECT_EQ(LIPSUM_TEST_STRING, test_str);
+	EXPECT_TRUE(test_flag);
+	EXPECT_EQ(42, test_int);
 }
 
 TEST_F(Client, DISABLED_SSL)

@@ -6,6 +6,14 @@
 cmake_minimum_required(VERSION 2.6)
 
 find_package(GTest REQUIRED)
+set(
+    BOOST_COMPONENTS
+    program_options
+    iostreams
+)
+find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
+
+
 include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(test_SRCS
@@ -39,3 +47,10 @@ add_test(
     NAME test-wire
     COMMAND test-wire ${BASE_TEST_ARGS}
 )
+
+add_executable(varint-decode varint-decode.cpp)
+target_link_libraries(varint-decode
+    ${Boost_PROGRAM_OPTIONS_LIBRARIES}
+    ${WIRE_LIB}
+)
+

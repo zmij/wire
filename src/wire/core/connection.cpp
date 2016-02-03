@@ -127,7 +127,6 @@ void
 connection_impl_base::read_incoming_message(incoming_buffer_ptr buffer, std::size_t bytes)
 {
 	using encoding::message;
-
 	auto b = buffer->begin();
 	auto e = b + bytes;
 	try {
@@ -162,16 +161,16 @@ connection_impl_base::read_incoming_message(incoming_buffer_ptr buffer, std::siz
 						if (m.size == 0) {
 							throw errors::connection_failed(
 									"Zero sized ", m.type(), " message");
-							std::cerr << "Receive message " << m.type()
-									<< " size " << m.size << "\n";
+						}
+						std::cerr << "Receive message " << m.type()
+								<< " size " << m.size << "\n";
 
-							encoding::incoming_ptr incoming =
-								std::make_shared< encoding::incoming >( m, b, e );
-							if (!incoming->complete()) {
-								incoming_ = incoming;
-							} else {
-								dispatch_incoming(incoming);
-							}
+						encoding::incoming_ptr incoming =
+							std::make_shared< encoding::incoming >( m, b, e );
+						if (!incoming->complete()) {
+							incoming_ = incoming;
+						} else {
+							dispatch_incoming(incoming);
 						}
 					}
 				}
@@ -221,8 +220,52 @@ connection_impl_base::invoke_async(identity const& id, std::string const& op,
 	write(std::back_inserter(*out), r);
 	out->insert_encapsulation(std::move(params));
 	callbacks::void_callback write_cb = sent ? [sent](){sent(true);} : callbacks::void_callback{};
-	/** @todo register invocation handlers */
+	pending_replies_.insert(std::make_pair( r.number, pending_reply{ reply, exception } ));
 	process_event(events::send_request{ out, write_cb });
+}
+
+void
+connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
+{
+	using namespace encoding;
+	try {
+		reply rep;
+		incoming::const_iterator b = buffer->begin();
+		incoming::const_iterator e = buffer->end();
+		read(b, e, rep);
+		auto f = pending_replies_.find(rep.number);
+		if (f != pending_replies_.end()) {
+			version ever;
+			read(b, e, ever);
+			uint64_t esize;
+			read(b, e, esize);
+			std::cerr << "Reply encaps v" << ever.major << "." << ever.minor
+					<< " size " << esize << "\n";
+			switch (rep.status) {
+				case reply::success: {
+					if (f->second.reply) {
+						try {
+							f->second.reply(b, e);
+						} catch (...) {
+
+						}
+					}
+					break;
+				}
+				default:
+					if (f->second.error) {
+						try {
+							f->second.error(std::make_exception_ptr( errors::runtime_error("Wire exception") ));
+						} catch (...) {
+
+						}
+					}
+					break;
+			}
+		} // else discard the reply (it can be timed out)
+	} catch (...) {
+		process_event(events::connection_failure{ std::current_exception() });
+	}
 }
 
 

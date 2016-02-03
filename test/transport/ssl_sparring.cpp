@@ -116,7 +116,7 @@ session::handle_write(asio_config::error_code const& ec, size_t bytes_transferre
 
 server::server(asio_config::io_service& svc)
 	: io_service_(svc),
-	  acceptor_{svc, asio_config::tcp::endpoint{ asio_config::tcp::v4(), 0 }},
+	  acceptor_{svc, asio_config::tcp::endpoint{ asio_config::tcp::v4(), sparring_options::instance().port }},
 	  context_{ ASIO_NS::ssl::context::sslv23 },
 	  connections_(sparring_options::instance().connections), limit_connections_(connections_ > 0),
 	  requests_(sparring_options::instance().requests)

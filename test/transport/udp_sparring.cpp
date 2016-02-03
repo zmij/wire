@@ -15,7 +15,7 @@ namespace udp {
 
 server::server(asio_config::io_service& svc)
 	: io_service_(svc),
-	  socket_{ io_service_, asio_config::udp::endpoint{ asio_config::udp::v4(), 0 } },
+	  socket_{ io_service_, asio_config::udp::endpoint{ asio_config::udp::v4(), sparring_options::instance().port } },
 	  requests_(sparring_options::instance().requests),
 	  limit_requests_(requests_ > 0)
 {

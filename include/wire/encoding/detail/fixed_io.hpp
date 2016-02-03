@@ -33,8 +33,8 @@ struct fixed_size_writer {
 	{
 		typedef octet_output_iterator_concept< OutputIterator > output_iterator_check;
 
-		char* p = reinterpret_cast<char*>(&v);
-		char* e = p + byte_count;
+		byte* p = reinterpret_cast<byte*>(&v);
+		byte* e = p + byte_count;
 		std::copy(p, e, o);
 	}
 };
@@ -53,8 +53,8 @@ struct fixed_size_writer<fixed_size< T >> {
 		typedef octet_output_iterator_concept< OutputIterator > output_iterator_check;
 
 		v.value = boost::endian::native_to_little(v.value);
-		char const* p = reinterpret_cast<char const*>(&v.value);
-		char const* e = p + byte_count;
+		byte const* p = reinterpret_cast<byte const*>(&v.value);
+		byte const* e = p + byte_count;
 		std::copy(p, e, o);
 	}
 };
@@ -75,7 +75,7 @@ struct fixed_size_reader {
 
 		auto start = begin;
 		base_type tmp;
-		char* p = reinterpret_cast<char*>(&tmp);
+		byte* p = reinterpret_cast<byte*>(&tmp);
 		if (copy_max(begin, end, p, byte_count)) {
 			std::swap(v, tmp);
 			return;
@@ -102,7 +102,7 @@ struct fixed_size_reader<fixed_size< T >> {
 
 		auto start = begin;
 		fundamental_type tmp;
-		char* p = reinterpret_cast<char*>(&tmp);
+		byte* p = reinterpret_cast<byte*>(&tmp);
 		if (copy_max(begin, end, p, byte_count)) {
 			v.value = boost::endian::little_to_native(tmp);
 			return;
