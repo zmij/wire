@@ -195,6 +195,10 @@ read(InputIterator& begin, InputIterator end, message& v)
 }
 
 struct operation_specs {
+	enum operation_type {
+		name_hash,
+		name_string
+	};
 	typedef boost::variant< int32_t, std::string > operation_id;
 	core::identity		identity;
 	std::string			facet;
@@ -219,6 +223,18 @@ struct operation_specs {
 	operator != (operation_specs const& rhs) const
 	{
 		return !(*this == rhs);
+	}
+
+	operation_type
+	type() const
+	{
+		return static_cast<operation_type>(operation.which());
+	}
+
+	std::string const&
+	name() const
+	{
+		return ::boost::get<std::string>(operation);
 	}
 };
 

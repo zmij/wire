@@ -18,6 +18,7 @@ namespace core {
 struct dispatch_request {
 	encoding::incoming_ptr 				buffer;
 	encoding::incoming::const_iterator	encaps_start;
+	encoding::incoming::const_iterator	encaps_end;
 	encoding::incoming::size_type		encaps_size;
 
 	encoding::request_result_callback	result;

@@ -11,7 +11,6 @@
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/current.hpp>
 #include <wire/core/dispatch_request_fwd.hpp>
-#include <unordered_map>
 
 namespace wire {
 namespace core {
@@ -40,9 +39,21 @@ public:
 	void
 	__wire_ping(dispatch_request const&, current const&);
 
+	virtual ::std::string const&
+	wire_type(current const& = no_current) const;
+	void
+	__wire_type(dispatch_request const&, current const&);
+
+	virtual ::std::vector< ::std::string > const&
+	wire_types(current const& = no_current) const;
+	void
+	__wire_types(dispatch_request const&, current const&);
 
 	virtual void
 	__dispatch(dispatch_request const&, current const&);
+
+	static constexpr ::std::string const&
+	wire_static_type();
 private:
 };
 
