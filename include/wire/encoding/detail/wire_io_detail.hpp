@@ -13,6 +13,7 @@
 #include <wire/encoding/detail/varint_io.hpp>
 #include <wire/encoding/detail/string_io.hpp>
 #include <wire/encoding/detail/struct_io.hpp>
+#include <wire/encoding/detail/arrays_io.hpp>
 
 namespace wire {
 namespace encoding {
@@ -46,6 +47,14 @@ struct writer_impl < T, STRUCT >
 template < typename T >
 struct reader_impl < T, STRUCT >
 	: struct_reader< T > {};
+
+template < typename T >
+struct writer_impl< T, ARRAY_VARLEN >
+	: container_writer< T > {};
+
+template < typename T >
+struct reader_impl< T, ARRAY_VARLEN >
+	: container_reader< T > {};
 
 }  // namespace detail
 }  // namespace encoding

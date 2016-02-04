@@ -28,6 +28,7 @@ set(test_SRCS
     endpoints_grammar_test.cpp
     uuid_io_test.cpp
     identity_io_test.cpp
+    arrays_io_test.cpp
 )
 
 add_executable(test-wire ${test_SRCS})
