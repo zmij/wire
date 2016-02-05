@@ -109,8 +109,6 @@ struct wire_type< std::vector< T > > : std::integral_constant< wire_types, ARRAY
 template < typename T >
 struct wire_type< std::list< T > > : std::integral_constant< wire_types, ARRAY_VARLEN > {};
 template < typename T >
-struct wire_type< std::queue< T > > : std::integral_constant< wire_types, ARRAY_VARLEN > {};
-template < typename T >
 struct wire_type< std::deque< T > > : std::integral_constant< wire_types, ARRAY_VARLEN > {};
 template < typename T >
 struct wire_type< std::set< T > > : std::integral_constant< wire_types, ARRAY_VARLEN > {};
