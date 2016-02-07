@@ -14,6 +14,8 @@ set(wire_lib_SRCS
     core/endpoint.cpp
     core/transport.cpp
     core/connection.cpp
+    core/adapter.cpp
+    core/identity.cpp
     core/object.cpp
     core/proxy.cpp
 )

@@ -9,6 +9,7 @@
 #define WIRE_CORE_DETAIL_CONNECTION_IMPL_HPP_
 
 #include <wire/core/transport.hpp>
+#include <wire/core/adapter.hpp>
 #include <wire/encoding/buffers.hpp>
 
 #include <boost/msm/back/state_machine.hpp>
@@ -139,7 +140,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 		operator()(events::receive_request const& req, fsm_type& fsm, SourceState&, TargetState&)
 		{
 			std::cerr << "Dispatch request\n";
-			fsm->dispatch_request(req.incoming);
+			fsm->dispatch_incoming_request(req.incoming);
 		}
 	};
 	struct dispatch_reply {
@@ -393,7 +394,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 	void
 	dispatch_reply(encoding::incoming_ptr);
 	void
-	dispatch_request(encoding::incoming_ptr);
+	dispatch_incoming_request(encoding::incoming_ptr);
 
 	void
 	invoke_async(identity const&, std::string const& op,
@@ -402,9 +403,10 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 			callbacks::exception_callback exception,
 			callbacks::callback< bool > sent);
 
-	std::atomic<uint32_t>	request_no_;
+	::std::atomic<uint32_t>	request_no_;
 	encoding::incoming_ptr	incoming_;
 	pending_replies_type	pending_replies_;
+	adapter_weak_ptr		adapter_;
 };
 
 template < transport_type _type >

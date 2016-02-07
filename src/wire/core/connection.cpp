@@ -6,7 +6,11 @@
  */
 
 #include <wire/core/connection.hpp>
+#include <wire/core/adapter.hpp>
 #include <wire/core/detail/connection_impl.hpp>
+#include <wire/core/dispatch_request.hpp>
+#include <wire/core/current.hpp>
+#include <wire/core/object.hpp>
 #include <wire/encoding/message.hpp>
 
 #include <iterator>
@@ -249,7 +253,7 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
 						try {
 							f->second.reply(b, e);
 						} catch (...) {
-
+							// Ignore handler error
 						}
 					}
 					break;
@@ -259,7 +263,7 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
 						try {
 							f->second.error(std::make_exception_ptr( errors::runtime_error("Wire exception") ));
 						} catch (...) {
-
+							// Ignore handler error
 						}
 					}
 					break;
@@ -271,7 +275,7 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
 }
 
 void
-connection_impl_base::dispatch_request(encoding::incoming_ptr buffer)
+connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
 {
 	using namespace encoding;
 	try {
@@ -280,6 +284,59 @@ connection_impl_base::dispatch_request(encoding::incoming_ptr buffer)
 		incoming::const_iterator e = buffer->end();
 		read(b, e, req);
 		//Find invocation by req.operation.identity
+		adapter_ptr adp = adapter_.lock();
+		if (adp) {
+			// TODO Use facet
+			auto disp = adp->find_object(req.operation.identity);
+			if (disp) {
+				// TODO Read context
+				version ev;
+				read(b, e, ev);
+				incoming::size_type sz;
+				read(b, e, sz);
+				auto _this = shared_from_this();
+				dispatch_request r{
+					buffer,
+					b,
+					e,
+					sz,
+					[_this, req](outgoing&& res) mutable {
+						outgoing_ptr out =
+								::std::make_shared<outgoing>(message::reply);
+						reply rep {
+							req.number,
+							reply::success
+						};
+						write(std::back_inserter(*out), rep);
+						out->insert_encapsulation(std::move(res));
+						_this->write_async(out);
+					},
+					[_this, req](::std::exception_ptr ex) mutable {
+
+					}
+				};
+				current curr {
+					req.operation,
+					/* FIXME add context */
+					/* FIXME add endpoint */
+				};
+				disp->__dispatch(r, curr);
+				return;
+			}
+		}
+		// TODO Send no object error
+		outgoing_ptr out =
+				::std::make_shared<outgoing>(message::reply);
+		reply rep {
+			req.number,
+			reply::no_object
+		};
+		write(std::back_inserter(*out), rep);
+		{
+			auto encaps = out->begin_encapsulation();
+			write(std::back_inserter(*out), req.operation);
+		}
+		write_async(out);
 	} catch (...) {
 		process_event(events::connection_failure{ std::current_exception() });
 	}
@@ -289,6 +346,7 @@ connection_impl_base::dispatch_request(encoding::incoming_ptr buffer)
 
 struct connection::impl {
 	asio_config::io_service_ptr	io_service_;
+	adapter_weak_ptr			adapter_;
 	detail::connection_impl_ptr connection_;
 
 	impl(asio_config::io_service_ptr io_service)
@@ -304,7 +362,14 @@ struct connection::impl {
 			// Or throw exception
 		}
 		connection_ = detail::connection_impl_base::create_connection(io_service_, ep.transport());
+		connection_->adapter_ = adapter_;
 		connection_->connect_async(ep, cb, eb);
+	}
+
+	void
+	start_accept(endpoint const& ep)
+	{
+
 	}
 
 	void
@@ -326,6 +391,15 @@ struct connection::impl {
 			connection_->invoke_async(id, op, std::move(params), reply, exception, sent);
 		} /** @todo Throw exception */
 	}
+
+	void
+	set_adapter(adapter_ptr adp)
+	{
+		adapter_ = adp;
+		if (connection_) {
+			connection_->adapter_ = adp;
+		}
+	}
 };
 
 connection::connection(asio_config::io_service_ptr io_svc)
@@ -340,11 +414,39 @@ connection::connection(asio_config::io_service_ptr io_svc, endpoint const& ep,
 	pimpl_->connect_async(ep, cb, eb);
 }
 
+connection::connection(adapter_ptr adp, endpoint const& ep)
+	: pimpl_(::std::make_shared<impl>(adp->io_service()))
+{
+	pimpl_->set_adapter(adp);
+	pimpl_->start_accept(ep);
+}
+
+connection::connection(connection&& rhs)
+	: pimpl_(rhs.pimpl_)
+{
+	rhs.pimpl_.reset();
+}
+
+connection&
+connection::operator =(connection&& rhs)
+{
+	// TODO Close existing connection if any
+	pimpl_ = rhs.pimpl_;
+	rhs.pimpl_.reset();
+	return *this;
+}
+
 void
 connection::connect_async(endpoint const& ep,
 		callbacks::void_callback cb, callbacks::exception_callback eb)
 {
 	pimpl_->connect_async(ep, cb, eb);
+}
+
+void
+connection::set_adapter(adapter_ptr adp)
+{
+	pimpl_->set_adapter(adp);
 }
 
 void

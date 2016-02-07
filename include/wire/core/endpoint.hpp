@@ -10,6 +10,7 @@
 
 #include <string>
 #include <iosfwd>
+#include <unordered_set>
 #include <boost/variant.hpp>
 
 #include <wire/encoding/wire_io.hpp>
@@ -35,10 +36,17 @@ struct empty_endpoint {
 	bool
 	operator != (empty_endpoint const&) const
 	{ return false; }
+	bool
+	operator < (empty_endpoint const&) const
+	{ return false; }
 };
 
 std::ostream&
 operator << (std::ostream& os, empty_endpoint const& val);
+
+inline ::std::size_t
+hash_value(empty_endpoint const&)
+{ return 0; }
 
 template < typename OutputIterator >
 void
@@ -75,6 +83,11 @@ struct inet_endpoint_data {
 	{
 		return !(*this == rhs);
 	}
+	bool
+	operator < (inet_endpoint_data const& rhs) const
+	{
+		return host < rhs.host || (host == rhs.host && port < rhs.port);
+	}
 
 	void
 	check() const;
@@ -84,6 +97,9 @@ struct inet_endpoint_data {
 
 std::ostream&
 operator << (std::ostream& os, inet_endpoint_data const& val);
+
+std::size_t
+hash_value(inet_endpoint_data const& val);
 
 template < typename OutputIterator >
 void
@@ -135,6 +151,9 @@ struct controlled_endpoint_data : inet_endpoint_data {
 
 std::ostream&
 operator << (std::ostream& os, controlled_endpoint_data const& val);
+
+::std::size_t
+hash_value(controlled_endpoint_data const&);
 
 template < typename OutputIterator >
 void
@@ -191,6 +210,11 @@ struct socket_endpoint_data {
 	{
 		return !(*this == rhs);
 	}
+	bool
+	operator < (socket_endpoint_data const& rhs) const
+	{
+		return path < rhs.path;
+	}
 
 	void
 	check(transport_type expected) const;
@@ -198,6 +222,9 @@ struct socket_endpoint_data {
 
 std::ostream&
 operator << (std::ostream& os, socket_endpoint_data const& val);
+
+::std::size_t
+hash_value(socket_endpoint_data const&);
 
 template < typename OutputIterator >
 void
@@ -270,6 +297,28 @@ public:
 		return !(*this == rhs);
 	}
 
+	bool
+	operator < (endpoint const& rhs) const
+	{
+		return endpoint_data_ < rhs.endpoint_data_;
+	}
+	bool
+	operator <= (endpoint const& rhs) const
+	{
+		return endpoint_data_ <= rhs.endpoint_data_;
+	}
+	bool
+	operator > (endpoint const& rhs) const
+	{
+		return endpoint_data_ > rhs.endpoint_data_;
+	}
+	bool
+	operator >= (endpoint const& rhs) const
+	{
+		return endpoint_data_ >= rhs.endpoint_data_;
+	}
+
+
 	transport_type
 	transport() const
 	{
@@ -324,6 +373,8 @@ private:
 	endpoint_data	endpoint_data_;
 };
 
+typedef ::std::unordered_set<endpoint> endpoints;
+
 template < typename OutputIterator >
 void
 wire_write(OutputIterator o, endpoint const& v)
@@ -338,6 +389,9 @@ wire_read(InputIterator& begin, InputIterator end, endpoint& v)
 	v.read(begin, end);
 }
 
+::std::size_t
+hash_value(endpoint const&);
+
 //----------------------------------------------------------------------------
 std::ostream&
 operator << (std::ostream& os, transport_type val);
@@ -349,5 +403,20 @@ std::istream&
 operator >> (std::istream& is, endpoint& val);
 }  // namespace core
 }  // namespace wire
+
+namespace std {
+
+template <>
+struct hash< ::wire::core::endpoint > {
+	typedef ::wire::core::endpoint	argument_type;
+	typedef ::std::size_t			result_type;
+	result_type
+	operator()(argument_type const& v) const
+	{
+		return hash_value(v);
+	}
+};
+
+}  // namespace std
 
 #endif /* WIRE_CORE_ENDPOINT_HPP_ */

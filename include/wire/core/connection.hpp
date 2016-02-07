@@ -14,6 +14,7 @@
 #include <wire/core/identity.hpp>
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/callbacks.hpp>
+#include <wire/core/adapter_fwd.hpp>
 #include <wire/util/function_traits.hpp>
 
 #include <wire/encoding/buffers.hpp>
@@ -38,6 +39,18 @@ public:
 			callbacks::exception_callback = nullptr);
 
 	/**
+	 * Create a connection and start accepting at specified
+	 * endpoint
+	 * @param adapter shared pointer to adapter
+	 * @param endpoint endpoint to listen
+	 */
+	connection(adapter_ptr, endpoint const&);
+
+	connection(connection&&);
+	connection&
+	operator = (connection&&);
+
+	/**
 	 * Start asynchronous connect
 	 * @param endpoint
 	 * @param cb Connected callback
@@ -51,8 +64,8 @@ public:
 	void
 	close();
 
-	endpoint const&
-	remote_endpoint() const;
+	void
+	set_adapter(adapter_ptr);
 
 	template < typename Handler, typename ... Args >
 	typename std::enable_if< (util::is_callable<Handler>::value &&

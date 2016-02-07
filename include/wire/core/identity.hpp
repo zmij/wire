@@ -81,8 +81,26 @@ wire_read(InputIterator& begin, InputIterator end, identity& v)
 	encoding::read(begin, end, v.id);
 }
 
+::std::size_t
+hash(identity const&);
+
 }  // namespace core
 }  // namespace wire
+
+namespace std {
+
+template <>
+struct hash< ::wire::core::identity > {
+	typedef ::wire::core::identity	argument_type;
+	typedef ::std::size_t			result_type;
+	result_type
+	operator()(argument_type const& v) const
+	{
+		return ::wire::core::hash(v);
+	}
+};
+
+}  // namespace std
 
 
 #endif /* WIRE_CORE_IDENTITY_HPP_ */

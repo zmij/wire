@@ -161,6 +161,24 @@ operator << (std::ostream& os, socket_endpoint_data const& val)
 	return os;
 }
 
+::std::size_t
+hash_value(inet_endpoint_data const& val)
+{
+	return ::std::hash<::std::string>()(val.host) ^
+			(::std::hash<uint16_t>()(val.port) << 1);
+}
+::std::size_t
+hash_value(controlled_endpoint_data const& val)
+{
+	return hash_value(static_cast< inet_endpoint_data const& >(val)) ^
+			(::std::hash<uint32_t>()(val.timeout) << 1);
+}
+
+::std::size_t
+hash_value(socket_endpoint_data const& val)
+{
+	return ::std::hash<::std::string>()(val.path);
+}
 
 }  // namespace detail
 
@@ -272,6 +290,23 @@ endpoint
 endpoint::socket(std::string const& path)
 {
 	return std::move(endpoint{ detail::socket_endpoint_data{ path } });
+}
+
+namespace detail {
+struct endpoint_hash_visitor : boost::static_visitor<::std::size_t> {
+	template < typename E >
+	::std::size_t
+	operator()( E const& data ) const
+	{
+		return hash_value(data);
+	}
+};
+}  // namespace detail
+
+::std::size_t
+hash_value(endpoint const& val)
+{
+	return ::boost::apply_visitor(detail::endpoint_hash_visitor{}, val.data());
 }
 
 }  // namespace core
