@@ -91,16 +91,19 @@ object::__wire_types(dispatch_request const& req, current const& c)
 void
 object::__dispatch(dispatch_request const& req, current const& c)
 {
-	if (c.operation.type() == encoding::operation_specs::name_string) {
-		auto f = object_dispatch_map.find(c.operation.name());
-		if (f != object_dispatch_map.end()) {
-			try {
+	try {
+		if (c.operation.type() == encoding::operation_specs::name_string) {
+			auto f = object_dispatch_map.find(c.operation.name());
+			if (f != object_dispatch_map.end()) {
 				(this->*f->second)(req, c);
-			} catch (...) {
-				if (req.exception) {
-					req.exception(::std::current_exception());
-				}
 			}
+		} else {
+			throw errors::no_operation(
+					wire_static_type(), "::", c.operation.name());
+		}
+	} catch (...) {
+		if (req.exception) {
+			req.exception(::std::current_exception());
 		}
 	}
 }

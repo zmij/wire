@@ -397,6 +397,10 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 	dispatch_incoming_request(encoding::incoming_ptr);
 
 	void
+	send_not_found(uint32_t req_num, errors::not_found::subject,
+			encoding::operation_specs const&);
+
+	void
 	invoke_async(identity const&, std::string const& op,
 			encoding::outgoing&&,
 			encoding::reply_callback reply,

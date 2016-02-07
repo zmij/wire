@@ -275,6 +275,26 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
 }
 
 void
+connection_impl_base::send_not_found(
+		uint32_t req_num, errors::not_found::subject subj,
+		encoding::operation_specs const& op)
+{
+	using namespace encoding;
+	outgoing_ptr out =
+			::std::make_shared<outgoing>(message::reply);
+	reply::reply_status status =
+			static_cast<reply::reply_status>(reply::no_object + subj);
+	reply rep { req_num, status };
+	write(std::back_inserter(*out), rep);
+	{
+		auto encaps = out->begin_encapsulation();
+		write(std::back_inserter(*out), op);
+	}
+	write_async(out);
+}
+
+
+void
 connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
 {
 	using namespace encoding;
@@ -295,11 +315,8 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
 				incoming::size_type sz;
 				read(b, e, sz);
 				auto _this = shared_from_this();
-				dispatch_request r{
-					buffer,
-					b,
-					e,
-					sz,
+				core::dispatch_request r{
+					buffer, b, e, sz,
 					[_this, req](outgoing&& res) mutable {
 						outgoing_ptr out =
 								::std::make_shared<outgoing>(message::reply);
@@ -312,7 +329,19 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
 						_this->write_async(out);
 					},
 					[_this, req](::std::exception_ptr ex) mutable {
-
+						try {
+							::std::rethrow_exception(ex);
+						} catch (errors::not_found const& e) {
+							_this->send_not_found(req.number, e.subj(), req.operation);
+						} catch (errors::user_exception const& e) {
+							// FIXME Send error
+						} catch (errors::runtime_error const& e) {
+							// FIXME Send error
+						} catch (::std::exception const& e) {
+							// FIXME Send error
+						} catch (...) {
+							// FIXME Send error
+						}
 					}
 				};
 				current curr {
@@ -324,19 +353,7 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
 				return;
 			}
 		}
-		// TODO Send no object error
-		outgoing_ptr out =
-				::std::make_shared<outgoing>(message::reply);
-		reply rep {
-			req.number,
-			reply::no_object
-		};
-		write(std::back_inserter(*out), rep);
-		{
-			auto encaps = out->begin_encapsulation();
-			write(std::back_inserter(*out), req.operation);
-		}
-		write_async(out);
+		send_not_found(req.number, errors::not_found::object, req.operation);
 	} catch (...) {
 		process_event(events::connection_failure{ std::current_exception() });
 	}
