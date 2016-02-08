@@ -37,6 +37,10 @@ struct transport_type_traits< transport_type::tcp > {
 	typedef protocol::socket			socket_type;
 	typedef protocol::endpoint			endpoint_type;
 	typedef protocol::resolver			resolver_type;
+	typedef protocol::acceptor			acceptor_type;
+
+	static endpoint_type
+	create_endpoint(asio_config::io_service_ptr svc, endpoint const&);
 };
 
 template<>
@@ -51,6 +55,10 @@ struct transport_type_traits< transport_type::ssl > {
 	typedef ASIO_NS::ssl::stream< protocol::socket > socket_type;
 	typedef protocol::endpoint			endpoint_type;
 	typedef protocol::resolver			resolver_type;
+	typedef protocol::acceptor			acceptor_type;
+
+	static endpoint_type
+	create_endpoint(asio_config::io_service_ptr svc, endpoint const&);
 };
 
 template<>
@@ -65,6 +73,9 @@ struct transport_type_traits< transport_type::udp > {
 	typedef protocol::socket			socket_type;
 	typedef protocol::endpoint			endpoint_type;
 	typedef protocol::resolver			resolver_type;
+
+	static endpoint_type
+	create_endpoint(asio_config::io_service_ptr svc, endpoint const&);
 };
 
 template<>
@@ -78,6 +89,10 @@ struct transport_type_traits< transport_type::socket > {
 	typedef asio_config::local_socket	protocol;
 	typedef protocol::socket			socket_type;
 	typedef protocol::endpoint			endpoint_type;
+	typedef protocol::acceptor			acceptor_type;
+
+	static endpoint_type
+	create_endpoint(asio_config::io_service_ptr svc, endpoint const&);
 };
 
 
@@ -139,6 +154,10 @@ private:
 	void
 	handle_connect(asio_config::error_code const& ec, asio_config::asio_callback);
 private:
+	tcp_transport(tcp_transport const&) = delete;
+	tcp_transport&
+	operator = (tcp_transport const&) = delete;
+private:
 	resolver_type	resolver_;
 	socket_type		socket_;
 
@@ -197,6 +216,10 @@ private:
 	void
 	handle_handshake(asio_config::error_code const& ec, asio_config::asio_callback);
 private:
+	ssl_transport(ssl_transport const&) = delete;
+	ssl_transport&
+	operator = (ssl_transport const&) = delete;
+private:
 	resolver_type	resolver_;
 	socket_type		socket_;
 };
@@ -240,6 +263,10 @@ private:
 	void
 	handle_connect(asio_config::error_code const&, asio_config::asio_callback);
 private:
+	udp_transport(udp_transport const&) = delete;
+	udp_transport&
+	operator = (udp_transport const&) = delete;
+protected:
 	resolver_type	resolver_;
 	socket_type		socket_;
 };
@@ -278,13 +305,70 @@ private:
 	void
 	handle_connect(asio_config::error_code const&, asio_config::asio_callback);
 private:
+	socket_transport(socket_transport const&) = delete;
+	socket_transport&
+	operator = (socket_transport const&) = delete;
+private:
 	socket_type						socket_;
 };
 
+template< typename Session, transport_type Type >
+struct transport_listener {
+	typedef transport_type_traits< Type >	traits;
+	typedef typename traits::acceptor_type	acceptor_type;
+	typedef typename traits::endpoint_type	endpoint_type;
+	typedef typename traits::endpoint_data	endpoint_data;
+	typedef Session							session_type;
+	typedef std::shared_ptr<Session>		session_ptr;
+
+	transport_listener(asio_config::io_service_ptr);
+
+	void
+	open(endpoint const&);
+
+	endpoint_type
+	local_endpoint() const;
+private:
+	void
+	start_accept();
+
+	session_ptr
+	create_session();
+	void
+	handle_accept(session_ptr session, asio_config::error_code const& ec);
+private:
+	transport_listener(transport_listener const&) = delete;
+	transport_listener&
+	operator = (transport_listener const&) = delete;
+private:
+	asio_config::io_service_ptr	io_service_;
+	acceptor_type				acceptor_;
+};
+
+template <>
+struct transport_listener< void, transport_type::udp > : udp_transport {
+	typedef transport_type_traits< transport_type::udp >	traits;
+	typedef traits::endpoint_type							endpoint_type;
+	typedef traits::endpoint_data							endpoint_data;
+
+	transport_listener(asio_config::io_service_ptr);
+
+	void
+	open(endpoint const&);
+
+	endpoint_type
+	local_endpoint() const;
+private:
+	transport_listener(transport_listener const&) = delete;
+	transport_listener&
+	operator = (transport_listener const&) = delete;
+private:
+	asio_config::io_service_ptr	io_service_;
+};
 
 }  // namespace core
 }  // namespace wire
 
-
+#include <wire/core/transport.inl>
 
 #endif /* WIRE_CORE_TRANSPORT_HPP_ */

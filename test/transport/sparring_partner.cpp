@@ -11,6 +11,7 @@
 
 #include "sparring_options.hpp"
 #include "tcp_sparring.hpp"
+#include "tcp_sparring_client.hpp"
 #include "ssl_sparring.hpp"
 #include "udp_sparring.hpp"
 #include "socket_sparring.hpp"
@@ -47,6 +48,8 @@ main(int argc, char* argv[])
 			("ping-pong",
 				po::bool_switch(&opts.ping_pong),
 				"Read request message and send encapsulated data back")
+			("client",
+				po::bool_switch(&opts.client), "")
 		;
 
 		po::options_description ssl_opts("SSL sparring options");
@@ -77,7 +80,11 @@ main(int argc, char* argv[])
 
 		switch (opts.transport) {
 			case wire::core::transport_type::tcp: {
-				wire::test::tcp::server s(io_service);
+				if (opts.client) {
+					wire::test::tcp::client c(io_service);
+				} else {
+					wire::test::tcp::server s(io_service);
+				}
 				io_service.run();
 				break;
 			}

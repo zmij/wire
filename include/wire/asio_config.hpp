@@ -27,6 +27,8 @@ typedef ASIO_NS::ip::tcp							tcp;
 typedef ASIO_NS::ip::udp							udp;
 typedef ASIO_NS::local::stream_protocol				local_socket;
 
+typedef ASIO_NS::ip::address						address;
+
 typedef boost::system::error_code					error_code;
 typedef std::function< void(error_code const&) >	asio_callback;
 typedef std::function< void(error_code const&,

@@ -26,6 +26,54 @@ constexpr transport_type transport_type_traits< transport_type::socket >::value;
 constexpr bool transport_type_traits< transport_type::socket >::stream_oriented;
 
 //----------------------------------------------------------------------------
+//	Transport traits implementation
+//----------------------------------------------------------------------------
+transport_type_traits< transport_type::tcp >::endpoint_type
+transport_type_traits< transport_type::tcp >::create_endpoint(
+		asio_config::io_service_ptr svc, endpoint const& ep)
+{
+	// TODO System-assigned endpoint from an empty enpoint
+	endpoint_data const& ed = ep.get< endpoint_data >();
+	resolver_type resolver(*svc);
+	resolver_type::query query(ed.host, ::std::to_string(ed.port));
+	endpoint_type proto_ep = *resolver.resolve(query);
+	return ::std::move(proto_ep);
+}
+
+transport_type_traits< transport_type::ssl >::endpoint_type
+transport_type_traits< transport_type::ssl >::create_endpoint(
+		asio_config::io_service_ptr svc, endpoint const& ep)
+{
+	// TODO System-assigned endpoint from an empty enpoint
+	endpoint_data const& ed = ep.get< endpoint_data >();
+	resolver_type resolver(*svc);
+	resolver_type::query query(ed.host, ::std::to_string(ed.port));
+	endpoint_type proto_ep = *resolver.resolve(query);
+	return ::std::move(proto_ep);
+}
+
+transport_type_traits< transport_type::udp >::endpoint_type
+transport_type_traits< transport_type::udp >::create_endpoint(
+		asio_config::io_service_ptr svc, endpoint const& ep)
+{
+	// TODO System-assigned endpoint from an empty enpoint
+	endpoint_data const& ed = ep.get< endpoint_data >();
+	resolver_type resolver(*svc);
+	resolver_type::query query(ed.host, ::std::to_string(ed.port));
+	endpoint_type proto_ep = *resolver.resolve(query);
+	return ::std::move(proto_ep);
+}
+
+transport_type_traits< transport_type::socket >::endpoint_type
+transport_type_traits< transport_type::socket >::create_endpoint(
+		asio_config::io_service_ptr svc, endpoint const& ep)
+{
+	// TODO System-assigned endpoint from an empty enpoint
+	endpoint_data const& ed = ep.get< endpoint_data >();
+	return ::std::move(endpoint_type{ ed.path });
+}
+
+//----------------------------------------------------------------------------
 //	TCP transport
 //----------------------------------------------------------------------------
 tcp_transport::tcp_transport(asio_config::io_service_ptr io_svc)
@@ -230,6 +278,31 @@ void
 udp_transport::close()
 {
 	socket_.close();
+}
+
+//----------------------------------------------------------------------------
+//	UDP transport listener
+//----------------------------------------------------------------------------
+transport_listener< void, transport_type::udp >::transport_listener(asio_config::io_service_ptr svc)
+		: udp_transport(svc)
+{
+}
+
+void
+transport_listener< void, transport_type::udp >::open(endpoint const& ep)
+{
+	endpoint_type proto_ep = traits::create_endpoint(io_service_, ep);
+	socket_.open(proto_ep.protocol());
+	socket_.set_option(socket_type::reuse_address(true));
+	socket_.bind(proto_ep);
+
+	// Start receive
+}
+
+transport_listener< void, transport_type::udp >::endpoint_type
+transport_listener< void, transport_type::udp >::local_endpoint() const
+{
+	return socket_.local_endpoint();
 }
 
 //----------------------------------------------------------------------------

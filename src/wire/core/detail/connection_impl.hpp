@@ -454,6 +454,19 @@ private:
 	transport_type	transport_;
 };
 
+template < transport_type _type >
+struct listen_connection_impl : connection_impl_base {
+	typedef connection_impl< _type >					session_type;
+	typedef transport_listener< session_type, _type >	acceptor_type;
+
+	listen_connection_impl(asio_config::io_service_ptr svc)
+	{
+
+	}
+
+	acceptor_type	acceptor_;
+};
+
 }  // namespace detail
 }  // namespace core
 }  // namespace wire

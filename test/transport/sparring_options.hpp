@@ -28,6 +28,7 @@ public:
 
 	std::string					greet_message;
 
+	bool						client				= false;
 	bool						validate_message	= false;
 	bool						require_peer_cert	= false;
 	bool						ping_pong			= false;
