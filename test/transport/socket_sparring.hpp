@@ -56,7 +56,7 @@ public:
 	typedef protocol::endpoint			endpoint_type;
 	typedef protocol::acceptor			acceptor;
 public:
-	server(asio_config::io_service& svc);
+	server(asio_config::io_service_ptr svc);
 	~server();
 private:
 	void
@@ -67,7 +67,7 @@ private:
 	void
 	handle_stop();
 private:
-	asio_config::io_service&	io_service_;
+	asio_config::io_service_ptr	io_service_;
 	acceptor					acceptor_;
 	ASIO_NS::signal_set			signals_;
 

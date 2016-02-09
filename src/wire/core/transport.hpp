@@ -320,8 +320,10 @@ struct transport_listener {
 	typedef typename traits::endpoint_data	endpoint_data;
 	typedef Session							session_type;
 	typedef std::shared_ptr<Session>		session_ptr;
+	typedef std::function< session_ptr(asio_config::io_service_ptr) >
+											session_factory;
 
-	transport_listener(asio_config::io_service_ptr);
+	transport_listener(asio_config::io_service_ptr, session_factory);
 
 	void
 	open(endpoint const&);
@@ -343,6 +345,7 @@ private:
 private:
 	asio_config::io_service_ptr	io_service_;
 	acceptor_type				acceptor_;
+	session_factory				factory_;
 };
 
 template <>

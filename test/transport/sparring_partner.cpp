@@ -76,16 +76,16 @@ main(int argc, char* argv[])
 		}
 		po::notify(vm);
 
-		wire::asio_config::io_service io_service;
+		wire::asio_config::io_service_ptr io_service{ std::make_shared<wire::asio_config::io_service>() };
 
 		switch (opts.transport) {
 			case wire::core::transport_type::tcp: {
 				if (opts.client) {
 					wire::test::tcp::client c(io_service);
-					io_service.run();
+					io_service->run();
 				} else {
 					wire::test::tcp::server s(io_service);
-					io_service.run();
+					io_service->run();
 				}
 				break;
 			}
@@ -96,17 +96,17 @@ main(int argc, char* argv[])
 					return 2;
 				}
 				wire::test::ssl::server s(io_service);
-				io_service.run();
+				io_service->run();
 				break;
 			}
 			case wire::core::transport_type::udp: {
 				wire::test::udp::server s(io_service);
-				io_service.run();
+				io_service->run();
 				break;
 			}
 			case wire::core::transport_type::socket: {
 				wire::test::socket::server s(io_service);
-				io_service.run();
+				io_service->run();
 				break;
 			}
 			default:

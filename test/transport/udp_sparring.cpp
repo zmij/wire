@@ -13,9 +13,9 @@ namespace wire {
 namespace test {
 namespace udp {
 
-server::server(asio_config::io_service& svc)
+server::server(asio_config::io_service_ptr svc)
 	: io_service_(svc),
-	  socket_{ io_service_, asio_config::udp::endpoint{ asio_config::udp::v4(), sparring_options::instance().port } },
+	  socket_{ *io_service_, asio_config::udp::endpoint{ asio_config::udp::v4(), sparring_options::instance().port } },
 	  requests_(sparring_options::instance().requests),
 	  limit_requests_(requests_ > 0)
 {

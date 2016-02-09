@@ -15,8 +15,8 @@ namespace core {
 
 template < typename Session, transport_type Type >
 transport_listener< Session, Type >::transport_listener(
-		asio_config::io_service_ptr svc)
-	: io_service_{svc}, acceptor_{*svc}
+		asio_config::io_service_ptr svc, session_factory factory)
+	: io_service_{svc}, acceptor_{*svc}, factory_(factory)
 {
 }
 
@@ -37,7 +37,7 @@ template < typename Session, transport_type Type >
 typename transport_listener<Session, Type>::session_ptr
 transport_listener<Session, Type>::create_session()
 {
-	return ::std::make_shared< Session >( io_service_ );
+	return factory_( io_service_ );
 }
 
 template < typename Session, transport_type Type >

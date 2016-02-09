@@ -135,9 +135,9 @@ session::handle_write(asio_config::error_code const& ec, size_t bytes_transferre
 	delete this;
 }
 
-server::server(asio_config::io_service& svc)
+server::server(asio_config::io_service_ptr svc)
 	: io_service_(svc),
-	  acceptor_{svc, asio_config::tcp::endpoint{ asio_config::tcp::v4(), sparring_options::instance().port }},
+	  acceptor_{*svc, asio_config::tcp::endpoint{ asio_config::tcp::v4(), sparring_options::instance().port }},
 	  connections_(sparring_options::instance().connections), limit_connections_(connections_ > 0),
 	  requests_(sparring_options::instance().requests)
 {
@@ -149,7 +149,7 @@ server::server(asio_config::io_service& svc)
 void
 server::start_accept()
 {
-	session* new_session = new session(io_service_, requests_);
+	session* new_session = new session(*io_service_, requests_);
 	acceptor_.async_accept(new_session->socket(),
 			std::bind(&server::handle_accept, this, new_session, std::placeholders::_1));
 }

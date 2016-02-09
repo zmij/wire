@@ -16,26 +16,28 @@ namespace test {
 struct tcp_session : ::std::enable_shared_from_this< tcp_session > {
 	typedef transport_type_traits< transport_type::tcp > traits;
 
-	tcp_session(asio_config::io_service_ptr svc)
-		: svc_(svc), socket_(*svc)
+	tcp_session(asio_config::io_service_ptr svc, bool& connected)
+		: svc_(svc), transport_(svc), connected_(connected)
 	{
 	}
 
 	traits::socket_type&
 	socket()
 	{
-		return socket_;
+		return transport_.socket();
 	}
 
 	void
 	start()
 	{
 		std::cerr << "Start TCP session\n";
+		connected_ = true;
 		svc_->stop();
 	}
 
 	asio_config::io_service_ptr svc_;
-	traits::socket_type	socket_;
+	tcp_transport				transport_;
+	bool&						connected_;
 };
 
 class TCPServer : public wire::test::transport::SparringTest {
@@ -43,7 +45,12 @@ public:
 	typedef transport_listener< tcp_session, transport_type::tcp >	server_type;
 public:
 	TCPServer()
-		: SparringTest(), server_(io_svc), port_(0)
+		: SparringTest(),
+		  connected_(false),
+		  server_(io_svc,
+		  [&](asio_config::io_service_ptr svc) {
+			return ::std::make_shared< tcp_session >(svc, connected_);
+		  }), port_(0)
 	{
 	}
 protected:
@@ -62,6 +69,7 @@ protected:
 	{
 	}
 
+	bool		connected_;
 	server_type server_;
 	uint16_t	port_;
 };

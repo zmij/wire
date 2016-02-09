@@ -53,14 +53,14 @@ private:
 
 class server {
 public:
-	server(asio_config::io_service& svc);
+	server(asio_config::io_service_ptr svc);
 private:
 	void
 	start_accept();
 	void
 	handle_accept(session*, asio_config::error_code const&);
 private:
-	asio_config::io_service&	io_service_;
+	asio_config::io_service_ptr	io_service_;
 	asio_config::tcp::acceptor	acceptor_;
 	ASIO_NS::ssl::context		context_;
 	std::size_t					connections_;

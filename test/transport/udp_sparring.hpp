@@ -21,7 +21,7 @@ public:
 	};
 	typedef std::shared_ptr<asio_config::udp::endpoint> udp_endpoint_ptr;
 public:
-	server(asio_config::io_service& svc);
+	server(asio_config::io_service_ptr svc);
 private:
 	void
 	start_receive();
@@ -30,7 +30,7 @@ private:
 	void
 	handle_send(asio_config::error_code const&, std::size_t, udp_endpoint_ptr);
 private:
-	asio_config::io_service&	io_service_;
+	asio_config::io_service_ptr	io_service_;
 	asio_config::udp::socket	socket_;
 	char data_[ max_length ];
 

@@ -53,11 +53,11 @@ session::handle_write(asio_config::error_code const& ec, size_t bytes_transferre
 	delete this;
 }
 
-server::server(asio_config::io_service& svc)
+server::server(asio_config::io_service_ptr svc)
 	: io_service_(svc),
-	  acceptor_{svc,
+	  acceptor_{*svc,
 			endpoint_type{ "/tmp/." + std::to_string(::getpid()) + "_test_sparring" }},
-	  signals_{svc},
+	  signals_{*svc},
 	  connections_(sparring_options::instance().connections), limit_connections_(connections_ > 0),
 	  requests_(sparring_options::instance().requests)
 {
@@ -81,7 +81,7 @@ server::~server()
 void
 server::start_accept()
 {
-	session* new_session = new session(io_service_, requests_);
+	session* new_session = new session(*io_service_, requests_);
 	acceptor_.async_accept(new_session->socket(),
 			std::bind(&server::handle_accept, this, new_session, std::placeholders::_1));
 }
@@ -107,9 +107,9 @@ server::handle_accept(session* new_session, asio_config::error_code const& ec)
 void
 server::handle_stop()
 {
-	if (!io_service_.stopped()) {
+	if (!io_service_->stopped()) {
 		acceptor_.cancel();
-		io_service_.stop();
+		io_service_->stop();
 		::unlink( acceptor_.local_endpoint().path().c_str() );
 	}
 }

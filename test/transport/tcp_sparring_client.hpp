@@ -9,6 +9,7 @@
 #define TRANSPORT_TCP_SPARRING_CLIENT_HPP_
 
 #include <wire/asio_config.hpp>
+#include <wire/core/transport.hpp>
 
 namespace wire {
 namespace test {
@@ -16,7 +17,7 @@ namespace tcp {
 
 class client {
 public:
-	client(asio_config::io_service& svc);
+	client(asio_config::io_service_ptr svc);
 	virtual ~client()
 	{
 	}
@@ -24,10 +25,10 @@ private:
 	void
 	handle_connect(asio_config::error_code const& ec);
 private:
-	asio_config::tcp::socket socket_;
+	core::tcp_transport transport_;
 };
 
-} /* namespace tcp */
+} /* namespace ssl */
 } /* namespace test */
 } /* namespace wire */
 

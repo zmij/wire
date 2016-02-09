@@ -13,16 +13,13 @@ namespace wire {
 namespace test {
 namespace tcp {
 
-client::client(asio_config::io_service& svc)
-	: socket_(svc)
+client::client(asio_config::io_service_ptr svc)
+	: transport_(svc)
 {
-	asio_config::tcp::resolver resolver(svc);
-	asio_config::tcp::resolver::query query("127.0.0.1",
-			::std::to_string(sparring_options::instance().port));
-	auto ep_iter = resolver.resolve(query);
-	ASIO_NS::async_connect(socket_, ep_iter,
-			::std::bind(&client::handle_connect, this,
-					std::placeholders::_1));
+	transport_.connect_async(
+		core::endpoint::tcp("127.0.0.1", sparring_options::instance().port),
+		::std::bind(&client::handle_connect, this,
+							std::placeholders::_1));
 }
 
 void
