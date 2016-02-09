@@ -30,6 +30,7 @@ set(test_sparring_SRCS
     tcp_sparring.cpp
     tcp_sparring_client.cpp
     ssl_sparring.cpp
+    ssl_sparring_client.cpp
     udp_sparring.cpp
     socket_sparring.cpp
 )
@@ -49,6 +50,7 @@ set(test_transport_SRCS
     tcp_transport_test.cpp
     tcp_transport_server_test.cpp
     ssl_transport_test.cpp
+    ssl_transport_server_test.cpp
     udp_transport_test.cpp
     socket_transport_test.cpp
     client_connection_test.cpp

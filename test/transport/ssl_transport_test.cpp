@@ -17,19 +17,12 @@ namespace test {
 
 class SSL : public wire::test::transport::SparringTest {
 protected:
-	SSL() : SparringTest(),
-		ssl_ctx(std::make_shared<asio_config::ssl_context>(asio_config::ssl_context::sslv23))
+	SSL() : SparringTest()
 	{
 	}
 	void
 	SetUp() override
 	{
-		ssl_ctx->set_options(
-			asio_config::ssl_context::default_workarounds |
-			asio_config::ssl_context::no_sslv2 |
-			asio_config::ssl_context::single_dh_use
-		);
-		ssl_ctx->load_verify_file( wire::test::CA_ROOT);
 	}
 	void
 	SetupArgs(args_type& args) override
@@ -63,7 +56,6 @@ protected:
 	}
 
 	endpoint						endpoint_;
-	asio_config::ssl_context_ptr	ssl_ctx;
 	bool							alternate_cert	= false;
 	bool							verify_peer		= false;
 };
@@ -75,7 +67,7 @@ TEST_F(SSL, Connect)
 	ASSERT_EQ(transport_type::ssl, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::ssl_endpoint_data>(endpoint_.data()).port);
 
-	ssl_transport ssl(io_svc, ssl_ctx);
+	ssl_transport ssl(io_svc, ssl_transport::options{ wire::test::CA_ROOT });
 	bool connected = false;
 	ssl.connect_async(endpoint_,
 	[&]( asio_config::error_code const& ec ) {
@@ -96,7 +88,7 @@ TEST_F(SSL, InvalidServerCert)
 	ASSERT_EQ(transport_type::ssl, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::ssl_endpoint_data>(endpoint_.data()).port);
 
-	ssl_transport ssl(io_svc, ssl_ctx);
+	ssl_transport ssl(io_svc, ssl_transport::options{ wire::test::CA_ROOT });
 	bool connected = false;
 	ssl.connect_async(endpoint_,
 	[&]( asio_config::error_code const& ec ) {
@@ -117,7 +109,7 @@ TEST_F(SSL, NoClientCert)
 	ASSERT_EQ(transport_type::ssl, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::ssl_endpoint_data>(endpoint_.data()).port);
 
-	ssl_transport ssl(io_svc, ssl_ctx);
+	ssl_transport ssl(io_svc, ssl_transport::options{ wire::test::CA_ROOT });
 	bool connected = false;
 	ssl.connect_async(endpoint_,
 	[&]( asio_config::error_code const& ec ) {
@@ -134,13 +126,14 @@ TEST_F(SSL, VerifyClientCert)
 {
 	verify_peer = true;
 	StartPartner();
-	ssl_ctx->use_certificate_chain_file(wire::test::CLIENT_CERT);
-	ssl_ctx->use_private_key_file(wire::test::CLIENT_KEY, asio_config::ssl_context::pem);
 	ASSERT_NE(0, child_.pid);
 	ASSERT_EQ(transport_type::ssl, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::ssl_endpoint_data>(endpoint_.data()).port);
 
-	ssl_transport ssl(io_svc, ssl_ctx);
+	ssl_transport ssl(io_svc, ssl_transport::options{
+		wire::test::CA_ROOT,
+		wire::test::CLIENT_CERT,
+		wire::test::CLIENT_KEY});
 	bool connected = false;
 	ssl.connect_async(endpoint_,
 	[&]( asio_config::error_code const& ec ) {
@@ -158,13 +151,14 @@ TEST_F(SSL, ClientCertInvalidServer)
 	verify_peer		= true;
 	alternate_cert	= true;
 	StartPartner();
-	ssl_ctx->use_certificate_chain_file(wire::test::CLIENT_CERT);
-	ssl_ctx->use_private_key_file(wire::test::CLIENT_KEY, asio_config::ssl_context::pem);
 	ASSERT_NE(0, child_.pid);
 	ASSERT_EQ(transport_type::ssl, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::ssl_endpoint_data>(endpoint_.data()).port);
 
-	ssl_transport ssl(io_svc, ssl_ctx);
+	ssl_transport ssl(io_svc, ssl_transport::options{
+		wire::test::CA_ROOT,
+		wire::test::CLIENT_CERT,
+		wire::test::CLIENT_KEY});
 	bool connected = false;
 	ssl.connect_async(endpoint_,
 	[&]( asio_config::error_code const& ec ) {
@@ -181,13 +175,14 @@ TEST_F(SSL, ReadWrite)
 {
 	verify_peer		= true;
 	StartPartner();
-	ssl_ctx->use_certificate_chain_file(wire::test::CLIENT_CERT);
-	ssl_ctx->use_private_key_file(wire::test::CLIENT_KEY, asio_config::ssl_context::pem);
 	ASSERT_NE(0, child_.pid);
 	ASSERT_EQ(transport_type::ssl, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::ssl_endpoint_data>(endpoint_.data()).port);
 
-	ssl_transport ssl(io_svc, ssl_ctx);
+	ssl_transport ssl(io_svc, ssl_transport::options{
+		wire::test::CA_ROOT,
+		wire::test::CLIENT_CERT,
+		wire::test::CLIENT_KEY});
 
 	bool connected = false;
 	size_t errors = 0;

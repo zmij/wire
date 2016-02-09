@@ -35,6 +35,7 @@ struct transport_type_traits< transport_type::tcp > {
 
 	typedef asio_config::tcp			protocol;
 	typedef protocol::socket			socket_type;
+	typedef protocol::socket			listen_socket_type;
 	typedef protocol::endpoint			endpoint_type;
 	typedef protocol::resolver			resolver_type;
 	typedef protocol::acceptor			acceptor_type;
@@ -53,6 +54,7 @@ struct transport_type_traits< transport_type::ssl > {
 
 	typedef asio_config::tcp			protocol;
 	typedef ASIO_NS::ssl::stream< protocol::socket > socket_type;
+	typedef socket_type::lowest_layer_type	listen_socket_type;
 	typedef protocol::endpoint			endpoint_type;
 	typedef protocol::resolver			resolver_type;
 	typedef protocol::acceptor			acceptor_type;
@@ -71,6 +73,7 @@ struct transport_type_traits< transport_type::udp > {
 
 	typedef asio_config::udp			protocol;
 	typedef protocol::socket			socket_type;
+	typedef protocol::socket			listen_socket_type;
 	typedef protocol::endpoint			endpoint_type;
 	typedef protocol::resolver			resolver_type;
 
@@ -88,6 +91,7 @@ struct transport_type_traits< transport_type::socket > {
 
 	typedef asio_config::local_socket	protocol;
 	typedef protocol::socket			socket_type;
+	typedef protocol::socket			listen_socket_type;
 	typedef protocol::endpoint			endpoint_type;
 	typedef protocol::acceptor			acceptor_type;
 
@@ -99,6 +103,7 @@ struct transport_type_traits< transport_type::socket > {
 struct tcp_transport {
 	typedef transport_type_traits< transport_type::tcp >	traits;
 	typedef traits::socket_type								socket_type;
+	typedef traits::listen_socket_type						listen_socket_type;
 	typedef traits::resolver_type							resolver_type;
 
 	tcp_transport(asio_config::io_service_ptr);
@@ -140,10 +145,10 @@ struct tcp_transport {
 				ASIO_NS::transfer_at_least(1), asio_config::use_future);
 	}
 
-	socket_type&
+	listen_socket_type&
 	socket()
 	{ return socket_; }
-	socket_type const&
+	listen_socket_type const&
 	socket() const
 	{ return socket_; }
 private:
@@ -167,9 +172,20 @@ private:
 struct ssl_transport {
 	typedef transport_type_traits< transport_type::ssl >	traits;
 	typedef traits::socket_type								socket_type;
+	typedef traits::listen_socket_type						listen_socket_type;
 	typedef traits::resolver_type							resolver_type;
+	typedef ASIO_NS::ssl::verify_mode						verify_mode;
 
-	ssl_transport(asio_config::io_service_ptr, asio_config::ssl_context_ptr);
+	struct options {
+		::std::string	verify_file;
+		::std::string	cert_file;
+		::std::string	key_file;
+		bool			require_peer_cert;
+	};
+	static asio_config::ssl_context
+	create_context(options const&);
+
+	ssl_transport(asio_config::io_service_ptr, options const& = options{});
 
 	/**
 	 * Client connect.
@@ -185,6 +201,10 @@ struct ssl_transport {
 	 */
 	void
 	start(asio_config::asio_callback);
+
+	void
+	set_verify_mode(verify_mode mode)
+	{ verify_mode_ = mode; }
 
 	void
 	close();
@@ -203,6 +223,13 @@ struct ssl_transport {
 		ASIO_NS::async_read(socket_, buffer,
 				ASIO_NS::transfer_at_least(1), handler);
 	}
+
+	listen_socket_type&
+	socket()
+	{ return socket_.lowest_layer(); }
+	listen_socket_type const&
+	socket() const
+	{ return socket_.lowest_layer(); }
 private:
 	bool
 	verify_certificate(bool preverified, ASIO_NS::ssl::verify_context& ctx);
@@ -220,8 +247,10 @@ private:
 	ssl_transport&
 	operator = (ssl_transport const&) = delete;
 private:
-	resolver_type	resolver_;
-	socket_type		socket_;
+	asio_config::ssl_context	ctx_;
+	resolver_type				resolver_;
+	socket_type					socket_;
+	verify_mode					verify_mode_ = ASIO_NS::ssl::verify_peer;
 };
 
 struct udp_transport {

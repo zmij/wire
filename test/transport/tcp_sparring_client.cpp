@@ -25,7 +25,11 @@ client::client(asio_config::io_service_ptr svc)
 void
 client::handle_connect(asio_config::error_code const& ec)
 {
-	std::cerr << "[SPARRING] Connected to test tcp server\n";
+	if (!ec) {
+		std::cerr << "[SPARRING] Connected to test tcp server\n";
+	} else {
+		std::cerr << "[SPARRING] Failed to connect to test tcp server\n";
+	}
 }
 
 } /* namespace tcp */

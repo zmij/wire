@@ -13,6 +13,7 @@
 #include "tcp_sparring.hpp"
 #include "tcp_sparring_client.hpp"
 #include "ssl_sparring.hpp"
+#include "ssl_sparring_client.hpp"
 #include "udp_sparring.hpp"
 #include "socket_sparring.hpp"
 
@@ -42,7 +43,7 @@ main(int argc, char* argv[])
 			("greet-message",
 				po::value<std::string>(&opts.greet_message),
 				"Send message after accepting connection (incompatible with validate-message)")
-			("validate-message",
+			("validate-message,v",
 				po::bool_switch(&opts.validate_message),
 				"Send validate message after accepting connection (incompatible with greet-message)")
 			("ping-pong",
@@ -58,7 +59,7 @@ main(int argc, char* argv[])
 				po::value< std::string >(&opts.cert_file), "Certificate file")
 			("key-file,k",
 				po::value< std::string >(&opts.key_file), "Private key file")
-			("verify-file,v",
+			("verify-file",
 				po::value< std::string >(&opts.verify_file), "Verify file")
 			("verify-client",
 				po::bool_switch(&opts.require_peer_cert), "Verify client")
@@ -90,13 +91,18 @@ main(int argc, char* argv[])
 				break;
 			}
 			case wire::core::transport_type::ssl: {
-				if (opts.cert_file.empty() || opts.key_file.empty()) {
-					std::cerr << "No certificate or private key file\n"
-							<< cmd_line << "\n";
-					return 2;
+				if (opts.client) {
+					wire::test::ssl::client c(io_service);
+					io_service->run();
+				} else {
+					if (opts.cert_file.empty() || opts.key_file.empty()) {
+						std::cerr << "No certificate or private key file\n"
+								<< cmd_line << "\n";
+						return 2;
+					}
+					wire::test::ssl::server s(io_service);
+					io_service->run();
 				}
-				wire::test::ssl::server s(io_service);
-				io_service->run();
 				break;
 			}
 			case wire::core::transport_type::udp: {

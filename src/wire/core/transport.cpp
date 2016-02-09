@@ -141,17 +141,38 @@ tcp_transport::handle_connect(asio_config::error_code const& ec,
 //----------------------------------------------------------------------------
 //	SSL/TCP transport
 //----------------------------------------------------------------------------
-asio_config::ssl_context&
-from_ptr_or_default(asio_config::ssl_context_ptr ctx)
+asio_config::ssl_context
+ssl_transport::create_context(options const& opts)
 {
-	// FIXME Check for null pointer
-	return *ctx;
+	asio_config::ssl_context ctx{ asio_config::ssl_context::sslv23 };
+	ctx.set_options(
+		asio_config::ssl_context::default_workarounds |
+		asio_config::ssl_context::no_sslv2 |
+		asio_config::ssl_context::single_dh_use
+	);
+	if (!opts.verify_file.empty()) {
+		ctx.load_verify_file(opts.verify_file);
+	} else {
+		ctx.set_default_verify_paths();
+	}
+	if (!opts.cert_file.empty()) {
+		if (opts.key_file.empty()) {
+			throw errors::runtime_error("No key file for ssl certificate");
+		}
+		ctx.use_certificate_chain_file(opts.cert_file);
+		ctx.use_private_key_file(opts.key_file, ASIO_NS::ssl::context::pem);
+	}
+	return ::std::move(ctx);
 }
 
 ssl_transport::ssl_transport(asio_config::io_service_ptr io_svc,
-		asio_config::ssl_context_ptr ctx)
-	: resolver_(*io_svc), socket_(*io_svc, from_ptr_or_default(ctx))
+		options const& opts)
+	: ctx_(create_context(opts)), resolver_(*io_svc), socket_(*io_svc, ctx_)
 {
+	if (opts.require_peer_cert) {
+		verify_mode_ = ASIO_NS::ssl::verify_peer
+				| ASIO_NS::ssl::verify_fail_if_no_peer_cert;
+	}
 	socket_.set_verify_callback(
 		std::bind(&ssl_transport::verify_certificate, this,
 			std::placeholders::_1, std::placeholders::_2));
@@ -174,7 +195,7 @@ ssl_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
 	ep.check(traits::value);
 	traits::endpoint_data const& ssl_data = ep.get< traits::endpoint_data >();
 
-	socket_.set_verify_mode(ASIO_NS::ssl::verify_peer);
+	socket_.set_verify_mode(verify_mode_);
 	asio_config::tcp::resolver::query query( ssl_data.host,
 			std::to_string(ssl_data.port) );
 	resolver_.async_resolve(query,
@@ -185,6 +206,7 @@ ssl_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
 void
 ssl_transport::start(asio_config::asio_callback cb)
 {
+	socket_.set_verify_mode(verify_mode_);
 	socket_.async_handshake(
 		ASIO_NS::ssl::stream_base::server,
 		std::bind(&ssl_transport::handle_handshake, this,

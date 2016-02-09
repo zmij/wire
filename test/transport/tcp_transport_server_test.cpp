@@ -21,7 +21,7 @@ struct tcp_session : ::std::enable_shared_from_this< tcp_session > {
 	{
 	}
 
-	traits::socket_type&
+	traits::listen_socket_type&
 	socket()
 	{
 		return transport_.socket();
@@ -46,11 +46,10 @@ public:
 public:
 	TCPServer()
 		: SparringTest(),
-		  connected_(false),
 		  server_(io_svc,
 		  [&](asio_config::io_service_ptr svc) {
 			return ::std::make_shared< tcp_session >(svc, connected_);
-		  }), port_(0)
+		  })
 	{
 	}
 protected:
@@ -69,9 +68,9 @@ protected:
 	{
 	}
 
-	bool		connected_;
+	bool		connected_ = false;
 	server_type server_;
-	uint16_t	port_;
+	uint16_t	port_ = 0;
 };
 
 TEST_F(TCPServer, Listen)
@@ -84,6 +83,7 @@ TEST_F(TCPServer, Listen)
 	port_ = proto_ep.port();
 	StartPartner();
 	io_svc->run();
+	EXPECT_TRUE(connected_);
 }
 
 }  // namespace test
