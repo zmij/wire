@@ -82,10 +82,11 @@ main(int argc, char* argv[])
 			case wire::core::transport_type::tcp: {
 				if (opts.client) {
 					wire::test::tcp::client c(io_service);
+					io_service.run();
 				} else {
 					wire::test::tcp::server s(io_service);
+					io_service.run();
 				}
-				io_service.run();
 				break;
 			}
 			case wire::core::transport_type::ssl: {
