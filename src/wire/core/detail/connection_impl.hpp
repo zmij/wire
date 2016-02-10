@@ -344,6 +344,8 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 
 	static connection_impl_ptr
 	create_connection( asio_config::io_service_ptr io_svc, transport_type _type );
+	static connection_impl_ptr
+	create_listen_connection( asio_config::io_service_ptr io_svc, transport_type _type );
 
 	connection_impl_base() : request_no_{0} {}
 	virtual ~connection_impl_base() {}
@@ -457,14 +459,37 @@ private:
 template < transport_type _type >
 struct listen_connection_impl : connection_impl_base {
 	typedef connection_impl< _type >					session_type;
-	typedef transport_listener< session_type, _type >	acceptor_type;
+	typedef transport_listener< session_type, _type >	listener_type;
+	typedef typename listener_type::session_factory		session_factory;
+	typedef transport_type_traits< _type >				transport_traits;
 
-	listen_connection_impl(asio_config::io_service_ptr svc)
+	listen_connection_impl(asio_config::io_service_ptr svc, session_factory factory)
+		: listener_(svc, factory)
 	{
-
 	}
 
-	acceptor_type	acceptor_;
+	bool
+	is_stream_oriented() const override
+	{ return transport_traits::stream_oriented; }
+private:
+	void
+	do_connect_async(endpoint const& ep, asio_config::asio_callback cb) override
+	{
+	}
+	void
+	do_close() override
+	{
+	}
+	void
+	do_write_async(encoding::outgoing_ptr buffer, asio_config::asio_rw_callback cb) override
+	{
+	}
+	void
+	do_read_async(incoming_buffer_ptr buffer, asio_config::asio_rw_callback cb) override
+	{
+	}
+
+	listener_type	listener_;
 };
 
 }  // namespace detail

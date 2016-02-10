@@ -34,6 +34,26 @@ connection_impl_base::create_connection(asio_config::io_service_ptr io_svc,
 	throw errors::logic_error(_type, " connection is not implemented yet");
 }
 
+connection_impl_ptr
+connection_impl_base::create_listen_connection(asio_config::io_service_ptr io_svc,
+		transport_type _type)
+{
+	switch (_type) {
+		case transport_type::tcp:
+			return ::std::make_shared<
+			listen_connection_impl< transport_type::tcp > >(
+				io_svc,
+				[]( asio_config::io_service_ptr svc ){
+					return ::std::make_shared<
+							connection_impl< transport_type::tcp > >( svc );
+				});
+			break;
+		default:
+			break;
+	}
+	throw errors::logic_error(_type, " listen connection is not implemented yet");
+}
+
 void
 connection_impl_base::connect_async(endpoint const& ep,
 		callbacks::void_callback cb, callbacks::exception_callback eb)
@@ -386,7 +406,13 @@ struct connection::impl {
 	void
 	start_accept(endpoint const& ep)
 	{
-
+		if (connection_) {
+			// Do something with the old connection
+			// Or throw exception
+		}
+		connection_ = detail::connection_impl_base::create_listen_connection(io_service_, ep.transport());
+		connection_->adapter_ = adapter_;
+		//connection_->
 	}
 
 	void
