@@ -38,6 +38,12 @@ operator >> (std::istream& is, address& val)
 }  // namespace asio
 }  // namespace boost
 
+#ifdef SO_REUSEPORT
+namespace test {
+typedef boost::asio::detail::socket_option::boolean<
+		BOOST_ASIO_OS_DEF(SOL_SOCKET), SO_REUSEPORT > reuse_port;
+}  // namespace test
+#endif
 
 typedef boost::asio::ssl::stream< boost::asio::ip::tcp::socket > ssl_socket_type;
 enum { max_length = 1024 };
@@ -126,12 +132,13 @@ private:
 class server {
 public:
 	typedef boost::asio::io_service io_service;
+	typedef boost::asio::ip::tcp::acceptor acceptor;
 public:
 	server(io_service& svc, boost::asio::ip::tcp::endpoint const& endpoint,
 			std::string const& verify_file,
 			std::string const& cert_file, std::string const& key_file)
 		: io_service_(svc),
-		  acceptor_(svc, endpoint),
+		  acceptor_(svc),
 		  context_(boost::asio::ssl::context::sslv23)
 	{
 		context_.set_options(
@@ -144,7 +151,14 @@ public:
 		}
 		context_.use_certificate_chain_file(cert_file);
 		context_.use_private_key_file(key_file, boost::asio::ssl::context::pem);
-		//context_.use_tmp_dh_file("/tmp/dh512.pem");
+
+		acceptor_.open(endpoint.protocol());
+#ifdef SO_REUSEPORT
+		acceptor_.set_option(test::reuse_port(true));
+		std::cerr << "Reuse port: 1\n";
+#endif
+		acceptor_.bind(endpoint);
+		acceptor_.listen();
 
 		start_accept();
 	}
@@ -171,7 +185,7 @@ private:
 	}
 private:
 	io_service& io_service_;
-	boost::asio::ip::tcp::acceptor acceptor_;
+	acceptor acceptor_;
 	boost::asio::ssl::context context_;
 };
 
@@ -189,16 +203,24 @@ main(int argc, char* argv[])
 
 		po::options_description options("SSL server options");
 		options.add_options()
-			("bind-address,a", po::value< boost::asio::ip::address >(&bind_addr),
+			("help,h", "Produce help message")
+			("bind-address,a",
+					po::value< boost::asio::ip::address >(&bind_addr)
+					->default_value(boost::asio::ip::address_v4{}),
 					"Bind to interface")
-			("bind-port,p", po::value< unsigned short >(&bind_port), "Bind to port")
+			("bind-port,p", po::value< unsigned short >(&bind_port)->default_value(0),
+					"Bind to port")
 			("verify-file,v", po::value< std::string >(&verify_file), "Verify file")
-			("cert-file,c", po::value< std::string >(&cert_file), "Certificate file")
-			("key-file,k", po::value< std::string >(&key_file), "Private key file")
+			("cert-file,c", po::value< std::string >(&cert_file)->required(), "Certificate file")
+			("key-file,k", po::value< std::string >(&key_file)->required(), "Private key file")
 		;
 
 		po::variables_map vm;
 		po::store(po::parse_command_line(argc, argv, options), vm);
+		if (vm.count("help")) {
+			std::cerr << "Usage:\n" << options << "\n";
+			return 0;
+		}
 		po::notify(vm);
 
 		if (cert_file.empty() || key_file.empty()) {
