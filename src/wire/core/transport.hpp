@@ -17,6 +17,11 @@
 namespace wire {
 namespace core {
 
+#ifdef SO_REUSEPORT
+typedef ASIO_NS::detail::socket_option::boolean<
+		BOOST_ASIO_OS_DEF(SOL_SOCKET), SO_REUSEPORT > reuse_port;
+#endif
+
 struct tcp_transport;
 struct ssl_transport;
 struct udp_transport;
@@ -355,7 +360,7 @@ struct transport_listener {
 	transport_listener(asio_config::io_service_ptr, session_factory);
 
 	void
-	open(endpoint const&);
+	open(endpoint const&, bool reuse_port = false);
 
 	endpoint_type
 	local_endpoint() const;
