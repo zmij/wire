@@ -12,6 +12,7 @@
 
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/adapter_fwd.hpp>
+#include <wire/core/connector_fwd.hpp>
 #include <wire/core/identity.hpp>
 #include <wire/core/endpoint.hpp>
 
@@ -20,37 +21,22 @@
 namespace wire {
 namespace core {
 
+namespace detail {
+struct adapter_options;
+}  // namespace detail
+
 class adapter {
 public:
 	/**
-	 * Create an adapter with default TCP endpoint (will listen to a
-	 * system-assigned port).
-	 * @param svc	I/O service object
-	 * @param name	adapter name
-	 * @return
-	 */
-	static adapter_ptr
-	create_adapter(asio_config::io_service_ptr svc, ::std::string const& name);
-	/**
-	 * Create an adapter with specified endpoint.
-	 * @param svc	I/O service object
-	 * @param name	adapter name
-	 * @param ep	endpoint
-	 * @return
-	 */
-	static adapter_ptr
-	create_adapter(asio_config::io_service_ptr svc, ::std::string const& name,
-			endpoint const& ep);
-	/**
 	 * Create an adapter with specified endpoint list
-	 * @param svc	I/O service object
-	 * @param name	adapter name
-	 * @param eps	endpoints list
+	 * @param svc		I/O service object
+	 * @param name		adapter name
+	 * @param options	adapter options structure
 	 * @return
 	 */
 	static adapter_ptr
-	create_adapter(asio_config::io_service_ptr svc, ::std::string const& name,
-			endpoints const& eps);
+	create_adapter(connector_ptr c, ::std::string const& name,
+			detail::adapter_options const& options);
 public:
 	asio_config::io_service_ptr
 	io_service() const;
@@ -97,11 +83,7 @@ public:
 	find_object(identity const&) const;
 
 private:
-	adapter(asio_config::io_service_ptr svc, ::std::string const& name);
-	adapter(asio_config::io_service_ptr svc, ::std::string const& name,
-			endpoint const& ep);
-	adapter(asio_config::io_service_ptr svc, ::std::string const& name,
-			endpoints const& eps);
+	adapter(connector_ptr c, ::std::string const& name, detail::adapter_options const&);
 
 	adapter(adapter const&) = delete;
 	adapter&

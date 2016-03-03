@@ -142,7 +142,7 @@ tcp_transport::handle_connect(asio_config::error_code const& ec,
 //	SSL/TCP transport
 //----------------------------------------------------------------------------
 asio_config::ssl_context
-ssl_transport::create_context(options const& opts)
+ssl_transport::create_context(detail::ssl_options const& opts)
 {
 	asio_config::ssl_context ctx{ asio_config::ssl_context::sslv23 };
 	ctx.set_options(
@@ -166,7 +166,7 @@ ssl_transport::create_context(options const& opts)
 }
 
 ssl_transport::ssl_transport(asio_config::io_service_ptr io_svc,
-		options const& opts)
+		detail::ssl_options const& opts)
 	: ctx_(create_context(opts)), resolver_(*io_svc), socket_(*io_svc, ctx_)
 {
 	if (opts.require_peer_cert) {

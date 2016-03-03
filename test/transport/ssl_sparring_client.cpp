@@ -15,7 +15,7 @@ namespace ssl {
 
 client::client(asio_config::io_service_ptr svc)
 	: transport_(svc,
-		core::ssl_transport::options{
+		core::detail::ssl_options{
 			sparring_options::instance().verify_file,
 			sparring_options::instance().cert_file,
 			sparring_options::instance().key_file,

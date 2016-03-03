@@ -41,8 +41,8 @@ struct empty_endpoint {
 	{ return false; }
 };
 
-std::ostream&
-operator << (std::ostream& os, empty_endpoint const& val);
+::std::ostream&
+operator << (::std::ostream& os, empty_endpoint const& val);
 
 inline ::std::size_t
 hash_value(empty_endpoint const&)
@@ -61,14 +61,14 @@ wire_read(InputIterator& begin, InputIterator read, empty_endpoint& v)
 }
 
 struct inet_endpoint_data {
-	std::string		host = "";
+	::std::string		host = "";
 	uint16_t		port = 0;
 
 	inet_endpoint_data()
 		: host(), port(0)
 	{
 	}
-	inet_endpoint_data(std::string const& host, uint16_t port)
+	inet_endpoint_data(::std::string const& host, uint16_t port)
 		: host(host), port(port)
 	{
 	}
@@ -95,10 +95,10 @@ struct inet_endpoint_data {
 	check(transport_type expected) const;
 };
 
-std::ostream&
-operator << (std::ostream& os, inet_endpoint_data const& val);
+::std::ostream&
+operator << (::std::ostream& os, inet_endpoint_data const& val);
 
-std::size_t
+::std::size_t
 hash_value(inet_endpoint_data const& val);
 
 template < typename OutputIterator >
@@ -117,88 +117,32 @@ wire_read(InputIterator& begin, InputIterator& end, inet_endpoint_data& v)
 	encoding::read(begin, end, v.port);
 }
 
-struct controlled_endpoint_data : inet_endpoint_data {
-	uint32_t		timeout = 0;
-
-	controlled_endpoint_data() : inet_endpoint_data{}, timeout(0) {}
-	controlled_endpoint_data( std::string const& host, uint16_t port)
-		: inet_endpoint_data{ host, port }, timeout(0)
-	{
-	}
-	controlled_endpoint_data( std::string const& host, uint16_t port,
-			uint32_t timeout)
-		: inet_endpoint_data{ host, port }, timeout(timeout)
-	{
-	}
-//	controlled_endpoint_data( std::string&& host, uint16_t port,
-//			uint32_t timeout = 0)
-//		: inet_endpoint_data{ std::move(host), port }, timeout(timeout)
-//	{
-//	}
-
-	bool
-	operator == (controlled_endpoint_data const& rhs) const
-	{
-		return (static_cast< inet_endpoint_data const& >(*this) == static_cast< inet_endpoint_data const& >(rhs))
-				&& timeout == rhs.timeout;
-	}
-	bool
-	operator != (controlled_endpoint_data const& rhs) const
-	{
-		return !(*this == rhs);
-	}
-};
-
-std::ostream&
-operator << (std::ostream& os, controlled_endpoint_data const& val);
-
-::std::size_t
-hash_value(controlled_endpoint_data const&);
-
-template < typename OutputIterator >
-void
-wire_write(OutputIterator o, controlled_endpoint_data const& v)
-{
-	wire_write(o, static_cast< inet_endpoint_data const& >(v));
-	encoding::write(o, v.timeout);
-}
-
-template < typename InputIterator >
-void
-wire_read(InputIterator& begin, InputIterator& end, controlled_endpoint_data& v)
-{
-	wire_read(begin, end, static_cast< inet_endpoint_data& >(v));
-	encoding::read(begin, end, v.timeout);
-}
-
-struct tcp_endpoint_data : controlled_endpoint_data {
+struct tcp_endpoint_data : inet_endpoint_data {
 	tcp_endpoint_data() = default;
-	tcp_endpoint_data( std::string const& host, uint16_t port,
-			uint32_t timeout = 0)
-		: controlled_endpoint_data{host, port, timeout}
+	tcp_endpoint_data( ::std::string const& host, uint16_t port)
+		: inet_endpoint_data{host, port}
 	{
 	}
 };
 
-struct ssl_endpoint_data : controlled_endpoint_data {
+struct ssl_endpoint_data : inet_endpoint_data {
 	ssl_endpoint_data() = default;
-	ssl_endpoint_data( std::string const& host, uint16_t port,
-			uint32_t timeout = 0)
-		: controlled_endpoint_data{host, port, timeout}
+	ssl_endpoint_data( ::std::string const& host, uint16_t port)
+		: inet_endpoint_data{host, port}
 	{
 	}
 };
 
 struct udp_endpoint_data : inet_endpoint_data {
 	udp_endpoint_data() = default;
-	udp_endpoint_data( std::string const& host, uint16_t port)
+	udp_endpoint_data( ::std::string const& host, uint16_t port)
 		: inet_endpoint_data{host, port}
 	{
 	}
 };
 
 struct socket_endpoint_data {
-	std::string		path;
+	::std::string		path;
 
 	bool
 	operator == (socket_endpoint_data const& rhs) const
@@ -220,8 +164,8 @@ struct socket_endpoint_data {
 	check(transport_type expected) const;
 };
 
-std::ostream&
-operator << (std::ostream& os, socket_endpoint_data const& val);
+::std::ostream&
+operator << (::std::ostream& os, socket_endpoint_data const& val);
 
 ::std::size_t
 hash_value(socket_endpoint_data const&);
@@ -242,23 +186,23 @@ wire_read(InputIterator& begin, InputIterator end, socket_endpoint_data& v)
 
 template < typename T >
 struct endpoint_data_traits
-	: std::integral_constant< transport_type, transport_type::empty > {};
+	: ::std::integral_constant< transport_type, transport_type::empty > {};
 
 template <>
 struct endpoint_data_traits< tcp_endpoint_data >
-	: std::integral_constant< transport_type, transport_type::tcp > {};
+	: ::std::integral_constant< transport_type, transport_type::tcp > {};
 
 template <>
 struct endpoint_data_traits< ssl_endpoint_data >
-	: std::integral_constant< transport_type, transport_type::ssl > {};
+	: ::std::integral_constant< transport_type, transport_type::ssl > {};
 
 template <>
 struct endpoint_data_traits< udp_endpoint_data >
-	: std::integral_constant< transport_type, transport_type::udp > {};
+	: ::std::integral_constant< transport_type, transport_type::udp > {};
 
 template <>
 struct endpoint_data_traits< socket_endpoint_data >
-	: std::integral_constant< transport_type, transport_type::socket > {};
+	: ::std::integral_constant< transport_type, transport_type::socket > {};
 
 }  // namespace detail
 
@@ -274,9 +218,9 @@ public:
 public:
 	endpoint() : endpoint_data_{ detail::empty_endpoint{} } {}
 	endpoint(endpoint const& rhs) : endpoint_data_{ rhs.endpoint_data_ } {}
-	endpoint(endpoint&& rhs) : endpoint_data_{ std::move(rhs.endpoint_data_) } {}
+	endpoint(endpoint&& rhs) : endpoint_data_{ ::std::move(rhs.endpoint_data_) } {}
 	endpoint(endpoint_data const& data) : endpoint_data_{ data } {}
-	endpoint(endpoint_data&& data) : endpoint_data_{ std::move(data) } {}
+	endpoint(endpoint_data&& data) : endpoint_data_{ ::std::move(data) } {}
 
 	void
 	swap(endpoint& rhs);
@@ -362,18 +306,21 @@ public:
 	}
 
 	static endpoint
-	tcp(std::string const& host, uint16_t port, uint32_t timeout = 0);
+	tcp(::std::string const& host, uint16_t port);
 	static endpoint
-	ssl(std::string const& host, uint16_t port, uint32_t timeout = 0);
+	ssl(::std::string const& host, uint16_t port);
 	static endpoint
-	udp(std::string const& host, uint16_t port);
+	udp(::std::string const& host, uint16_t port);
 	static endpoint
-	socket(std::string const& path);
+	socket(::std::string const& path);
 private:
 	endpoint_data	endpoint_data_;
 };
 
-typedef ::std::unordered_set<endpoint> endpoints;
+typedef ::std::unordered_set<endpoint> endpoint_list;
+
+::std::istream&
+operator >> (::std::istream& is, endpoint_list& val);
 
 template < typename OutputIterator >
 void
@@ -393,14 +340,14 @@ wire_read(InputIterator& begin, InputIterator end, endpoint& v)
 hash_value(endpoint const&);
 
 //----------------------------------------------------------------------------
-std::ostream&
-operator << (std::ostream& os, transport_type val);
-std::istream&
-operator >> (std::istream& in, transport_type& val);
-std::ostream&
-operator << (std::ostream& os, endpoint const& val);
-std::istream&
-operator >> (std::istream& is, endpoint& val);
+::std::ostream&
+operator << (::std::ostream& os, transport_type val);
+::std::istream&
+operator >> (::std::istream& in, transport_type& val);
+::std::ostream&
+operator << (::std::ostream& os, endpoint const& val);
+::std::istream&
+operator >> (::std::istream& is, endpoint& val);
 }  // namespace core
 }  // namespace wire
 

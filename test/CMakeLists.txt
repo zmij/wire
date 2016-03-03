@@ -4,3 +4,4 @@
 
 add_subdirectory(encoding)
 add_subdirectory(transport)
+add_subdirectory(connector)

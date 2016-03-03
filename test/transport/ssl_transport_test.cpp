@@ -67,7 +67,7 @@ TEST_F(SSL, Connect)
 	ASSERT_EQ(transport_type::ssl, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::ssl_endpoint_data>(endpoint_.data()).port);
 
-	ssl_transport ssl(io_svc, ssl_transport::options{ wire::test::CA_ROOT });
+	ssl_transport ssl(io_svc, detail::ssl_options{ wire::test::CA_ROOT });
 	bool connected = false;
 	ssl.connect_async(endpoint_,
 	[&]( asio_config::error_code const& ec ) {
@@ -88,7 +88,7 @@ TEST_F(SSL, InvalidServerCert)
 	ASSERT_EQ(transport_type::ssl, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::ssl_endpoint_data>(endpoint_.data()).port);
 
-	ssl_transport ssl(io_svc, ssl_transport::options{ wire::test::CA_ROOT });
+	ssl_transport ssl(io_svc, detail::ssl_options{ wire::test::CA_ROOT });
 	bool connected = false;
 	ssl.connect_async(endpoint_,
 	[&]( asio_config::error_code const& ec ) {
@@ -109,7 +109,7 @@ TEST_F(SSL, NoClientCert)
 	ASSERT_EQ(transport_type::ssl, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::ssl_endpoint_data>(endpoint_.data()).port);
 
-	ssl_transport ssl(io_svc, ssl_transport::options{ wire::test::CA_ROOT });
+	ssl_transport ssl(io_svc, detail::ssl_options{ wire::test::CA_ROOT });
 	bool connected = false;
 	ssl.connect_async(endpoint_,
 	[&]( asio_config::error_code const& ec ) {
@@ -130,7 +130,7 @@ TEST_F(SSL, VerifyClientCert)
 	ASSERT_EQ(transport_type::ssl, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::ssl_endpoint_data>(endpoint_.data()).port);
 
-	ssl_transport ssl(io_svc, ssl_transport::options{
+	ssl_transport ssl(io_svc, detail::ssl_options{
 		wire::test::CA_ROOT,
 		wire::test::CLIENT_CERT,
 		wire::test::CLIENT_KEY});
@@ -155,7 +155,7 @@ TEST_F(SSL, ClientCertInvalidServer)
 	ASSERT_EQ(transport_type::ssl, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::ssl_endpoint_data>(endpoint_.data()).port);
 
-	ssl_transport ssl(io_svc, ssl_transport::options{
+	ssl_transport ssl(io_svc, detail::ssl_options{
 		wire::test::CA_ROOT,
 		wire::test::CLIENT_CERT,
 		wire::test::CLIENT_KEY});
@@ -179,7 +179,7 @@ TEST_F(SSL, ReadWrite)
 	ASSERT_EQ(transport_type::ssl, endpoint_.transport());
 	ASSERT_NE(0, boost::get<detail::ssl_endpoint_data>(endpoint_.data()).port);
 
-	ssl_transport ssl(io_svc, ssl_transport::options{
+	ssl_transport ssl(io_svc, detail::ssl_options{
 		wire::test::CA_ROOT,
 		wire::test::CLIENT_CERT,
 		wire::test::CLIENT_KEY});

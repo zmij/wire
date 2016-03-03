@@ -10,6 +10,7 @@ set(wire_lib_SRCS
     encoding/buffer_iterator.cpp
     encoding/buffers.cpp
     encoding/message.cpp
+    core/connector.cpp
     core/constants.cpp
     core/endpoint.cpp
     core/transport.cpp
@@ -27,6 +28,7 @@ set_target_properties(
 )
 target_link_libraries(
     ${WIRE_LIB}
+    ${Boost_PROGRAM_OPTIONS_LIBRARIES}
     ${Boost_SYSTEM_LIBRARIES}
     ${OPENSSL_LIBRARIES}
 )

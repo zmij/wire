@@ -39,20 +39,20 @@ static_assert(
 
 
 namespace {
-	const std::map< transport_type, std::string > CLASS_TO_STRING {
+	const std::map< transport_type, std::string > TRANSPORT_TYPE_TO_STRING {
 		{ transport_type::empty, "empty" },
 		{ transport_type::tcp, "tcp" },
 		{ transport_type::ssl, "ssl" },
 		{ transport_type::udp, "udp" },
 		{ transport_type::socket, "socket" },
-	}; // CLASS_TO_STRING
-	const std::map< std::string, transport_type > STRING_TO_CLASS {
+	}; // TRANSPORT_TYPE_TO_STRING
+	const std::map< std::string, transport_type > STRING_TO_TRANSPORT_TYPE {
 		{ "empty", transport_type::empty },
 		{ "tcp", transport_type::tcp },
 		{ "ssl", transport_type::ssl },
 		{ "udp", transport_type::udp },
 		{ "socket", transport_type::socket },
-	}; // STRING_TO_CLASS
+	}; // STRING_TO_TRANSPORT_TYPE
 } // namespace
 
 // Generated output operator
@@ -61,8 +61,8 @@ operator << (std::ostream& out, transport_type val)
 {
 	std::ostream::sentry s (out);
 	if (s) {
-		auto f = CLASS_TO_STRING.find(val);
-		if (f != CLASS_TO_STRING.end()) {
+		auto f = TRANSPORT_TYPE_TO_STRING.find(val);
+		if (f != TRANSPORT_TYPE_TO_STRING.end()) {
 			out << f->second;
 		} else {
 			out << "Unknown class " << (int)val;
@@ -78,8 +78,8 @@ operator >> (std::istream& in, transport_type& val)
 	if (s) {
 		std::string name;
 		if (in >> name) {
-			auto f = STRING_TO_CLASS.find(name);
-			if (f != STRING_TO_CLASS.end()) {
+			auto f = STRING_TO_TRANSPORT_TYPE.find(name);
+			if (f != STRING_TO_TRANSPORT_TYPE.end()) {
 				val = f->second;
 			} else {
 				in.setstate(std::ios_base::failbit);
@@ -139,19 +139,6 @@ operator << (std::ostream& os, inet_endpoint_data const& val)
 }
 
 std::ostream&
-operator << (std::ostream& os, controlled_endpoint_data const& val)
-{
-	std::ostream::sentry s (os);
-	if (s) {
-		os << static_cast<inet_endpoint_data const&>(val);
-		if (val.timeout > 0) {
-			os << " --timeout " << val.timeout;
-		}
-	}
-	return os;
-}
-
-std::ostream&
 operator << (std::ostream& os, socket_endpoint_data const& val)
 {
 	std::ostream::sentry s (os);
@@ -166,12 +153,6 @@ hash_value(inet_endpoint_data const& val)
 {
 	return ::std::hash<::std::string>()(val.host) ^
 			(::std::hash<uint16_t>()(val.port) << 1);
-}
-::std::size_t
-hash_value(controlled_endpoint_data const& val)
-{
-	return hash_value(static_cast< inet_endpoint_data const& >(val)) ^
-			(::std::hash<uint32_t>()(val.timeout) << 1);
 }
 
 ::std::size_t
@@ -269,17 +250,30 @@ operator >> (std::istream& is, endpoint& val)
 	return is;
 }
 
-
-endpoint
-endpoint::tcp(std::string const& host, uint16_t port, uint32_t timeout)
+::std::istream&
+operator >> (::std::istream& is, endpoint_list& val)
 {
-	return std::move(endpoint{ detail::tcp_endpoint_data{ host, port, timeout } });
+	std::istream::sentry s(is);
+	if (s) {
+		endpoint tmp;
+		while ((bool)(is >> tmp)) {
+			val.insert(std::move(tmp));
+			endpoint{}.swap(tmp);
+		}
+	}
+	return is;
 }
 
 endpoint
-endpoint::ssl(std::string const& host, uint16_t port, uint32_t timeout)
+endpoint::tcp(std::string const& host, uint16_t port)
 {
-	return std::move(endpoint{ detail::ssl_endpoint_data{ host, port, timeout } });
+	return std::move(endpoint{ detail::tcp_endpoint_data{ host, port } });
+}
+
+endpoint
+endpoint::ssl(std::string const& host, uint16_t port)
+{
+	return std::move(endpoint{ detail::ssl_endpoint_data{ host, port } });
 }
 endpoint
 endpoint::udp(std::string const& host, uint16_t port)

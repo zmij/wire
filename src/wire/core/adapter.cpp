@@ -7,6 +7,10 @@
 
 #include <wire/core/adapter.hpp>
 #include <wire/core/connection.hpp>
+#include <wire/core/connector.hpp>
+
+#include <wire/core/detail/configuration_options.hpp>
+
 #include <unordered_map>
 
 namespace wire {
@@ -19,7 +23,8 @@ struct adapter::impl {
 
 	asio_config::io_service_ptr io_service_;
 	::std::string				name_;
-	endpoints					endpoints_;
+
+	detail::adapter_options		options_;
 
 	connections					connections_;
 	active_objects				active_objects_;
@@ -27,18 +32,8 @@ struct adapter::impl {
 
 	adapter_weak_ptr			owner_;
 
-	impl(asio_config::io_service_ptr svc, ::std::string const& name)
-		: io_service_(svc), name_(name)
-	{
-	}
-	impl(asio_config::io_service_ptr svc, ::std::string const& name,
-			endpoints&& eps)
-		: io_service_(svc), name_(name), endpoints_{ std::move(eps) }
-	{
-	}
-	impl(asio_config::io_service_ptr svc, ::std::string const& name,
-			endpoints const& eps)
-		: io_service_(svc), name_(name), endpoints_{ eps }
+	impl(connector_ptr c, ::std::string const& name, detail::adapter_options const& options)
+		: io_service_(c->io_service()), name_(name), options_(options)
 	{
 	}
 
@@ -47,13 +42,15 @@ struct adapter::impl {
 	{
 		adapter_ptr adp = owner_.lock();
 		if (adp) {
-			if (endpoints_.empty()) {
-				endpoints_.insert(endpoint::tcp("0.0.0.0", 0));
+			if (options_.endpoints.empty()) {
+				options_.endpoints.insert(endpoint::tcp("0.0.0.0", 0));
 			}
-			for (auto const& ep : endpoints_) {
+			for (auto const& ep : options_.endpoints) {
 				connections_.emplace(ep, std::move(connection{ adp, ep }));
 			}
-		} // TODO Throw an exception
+		} else {
+			throw ::std::runtime_error("Adapter owning implementation was destroyed");
+		}
 	}
 
 	void
@@ -97,45 +94,17 @@ struct adapter::impl {
 };
 
 adapter_ptr
-adapter::create_adapter(asio_config::io_service_ptr svc, ::std::string const& name)
+adapter::create_adapter(connector_ptr c, ::std::string const& name,
+		detail::adapter_options const& options)
 {
-	adapter_ptr a(new adapter{svc, name});
+	adapter_ptr a(new adapter{c, name, options});
 	a->pimpl_->owner_ = a;
 	return a;
 }
 
-adapter_ptr
-adapter::create_adapter(asio_config::io_service_ptr svc, ::std::string const& name,
-		endpoint const& ep)
-{
-	adapter_ptr a(new adapter{svc, name, ep});
-	a->pimpl_->owner_ = a;
-	return a;
-}
-
-adapter_ptr
-adapter::create_adapter(asio_config::io_service_ptr svc, ::std::string const& name,
-		endpoints const& eps)
-{
-	adapter_ptr a(new adapter{svc, name, eps});
-	a->pimpl_->owner_ = a;
-	return a;
-}
-
-adapter::adapter(asio_config::io_service_ptr svc, ::std::string const& name)
-	: pimpl_( ::std::make_shared<impl>(svc, name) )
-{
-}
-
-adapter::adapter(asio_config::io_service_ptr svc, ::std::string const& name,
-			endpoint const& ep)
-	: pimpl_( ::std::make_shared<impl>( svc, name, std::move(endpoints{ ep }) ) )
-{
-}
-
-adapter::adapter(asio_config::io_service_ptr svc, ::std::string const& name,
-			endpoints const& eps)
-	: pimpl_( ::std::make_shared<impl>(svc, name, eps) )
+adapter::adapter(connector_ptr c, ::std::string const& name,
+		detail::adapter_options const& options)
+	: pimpl_( ::std::make_shared<impl>(c, name, options) )
 {
 }
 

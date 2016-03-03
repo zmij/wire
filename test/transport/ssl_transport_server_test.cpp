@@ -17,7 +17,7 @@ namespace test {
 
 struct ssl_session : std::enable_shared_from_this< ssl_session > {
 	typedef transport_type_traits< transport_type::ssl >	traits;
-	typedef ssl_transport::options							options;
+	typedef detail::ssl_options								options;
 
 	ssl_session(asio_config::io_service_ptr svc,
 			options const& opts, bool& connected)

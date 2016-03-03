@@ -30,6 +30,7 @@ set(
     BOOST_COMPONENTS
     system
     thread 
+    program_options
 )
 set(BOOST_VERSION 1.58) # We want endian library.
 

@@ -20,7 +20,7 @@ TEST(Endpoint, DataIO)
 {
 	{
 		buffer_type buffer;
-		detail::tcp_endpoint_data ep_in { "127.0.0.1", 5678, 30000 };
+		detail::tcp_endpoint_data ep_in { "127.0.0.1", 5678 };
 		EXPECT_NO_THROW(encoding::write(std::back_inserter(buffer), ep_in));
 		std::cerr << "TCP endpoint data buffer size " << buffer.size() << "\n";
 		detail::tcp_endpoint_data ep_out;
@@ -34,7 +34,7 @@ TEST(Endpoint, DataIO)
 
 	{
 		buffer_type buffer;
-		detail::ssl_endpoint_data ep_in { "127.0.0.1", 5678, 30000 };
+		detail::ssl_endpoint_data ep_in { "127.0.0.1", 5678 };
 		EXPECT_NO_THROW(encoding::write(std::back_inserter(buffer), ep_in));
 		std::cerr << "SSL endpoint data buffer size " << buffer.size() << "\n";
 		detail::ssl_endpoint_data ep_out;
@@ -89,7 +89,7 @@ TEST(Endpoint, DataVariantIO)
 	}
 	{
 		buffer_type buffer;
-		endpoint::endpoint_data ep{detail::ssl_endpoint_data{ "127.0.0.1", 5678, 3000 }};
+		endpoint::endpoint_data ep{detail::ssl_endpoint_data{ "127.0.0.1", 5678 }};
 		EXPECT_NO_THROW(encoding::write(std::back_inserter(buffer), ep));
 		endpoint::endpoint_data e_out;
 		input_iterator b = buffer.begin();

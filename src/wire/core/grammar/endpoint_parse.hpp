@@ -106,6 +106,22 @@ struct endpoint_grammar :
 	socket_endpoint_grammar< InputIterator >				socket_endpoint;
 };
 
+template < typename InputIterator >
+struct endpoints_grammar :
+		boost::spirit::qi::grammar< InputIterator, endpoint_list() > {
+	typedef endpoint_list value_type;
+	endpoints_grammar() : endpoints_grammar::base_type(root)
+	{
+		namespace qi = boost::spirit::qi;
+		using qi::lit;
+		using qi::space;
+		using qi::skip;
+		root %= ep >> *skip(space)[lit(",") >> ep];
+	}
+	boost::spirit::qi::rule< InputIterator, value_type() >	root;
+	endpoint_grammar< InputIterator >						ep;
+};
+
 }  // namespace parse
 }  // namespace grammar
 }  // namespace core

@@ -10,6 +10,7 @@
 
 #include <wire/asio_config.hpp>
 #include <wire/core/endpoint.hpp>
+#include <wire/core/detail/configuration_options.hpp>
 
 #include <memory>
 #include <future>
@@ -181,16 +182,11 @@ struct ssl_transport {
 	typedef traits::resolver_type							resolver_type;
 	typedef ASIO_NS::ssl::verify_mode						verify_mode;
 
-	struct options {
-		::std::string	verify_file;
-		::std::string	cert_file;
-		::std::string	key_file;
-		bool			require_peer_cert;
-	};
 	static asio_config::ssl_context
-	create_context(options const&);
+	create_context(detail::ssl_options const&);
 
-	ssl_transport(asio_config::io_service_ptr, options const& = options{});
+	ssl_transport(asio_config::io_service_ptr, detail::ssl_options const&
+			= detail::ssl_options {});
 
 	/**
 	 * Client connect.
