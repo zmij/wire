@@ -191,7 +191,12 @@ struct connector::impl {
 	adapter_ptr
 	create_adapter(::std::string const& name, endpoint_list const& eps = endpoint_list{})
 	{
-		//return ad
+		connector_ptr conn = owner_.lock();
+		if (!conn) {
+			throw std::runtime_error("Connector already destroyed");
+		}
+		detail::adapter_options opts = configure_adapter(name, eps);
+		return adapter::create_adapter(conn, name, opts);
 	}
 };
 
