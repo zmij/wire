@@ -305,8 +305,15 @@ connector::io_service()
 adapter_ptr
 connector::create_adapter(::std::string const& name)
 {
-
+	return pimpl_->create_adapter(name);
 }
+
+adapter_ptr
+connector::create_adapter(::std::string const& name, endpoint_list const& eps)
+{
+	return pimpl_->create_adapter(name, eps);
+}
+
 
 }  // namespace core
 }  // namespace wire
