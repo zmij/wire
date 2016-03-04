@@ -62,6 +62,14 @@ struct adapter::impl {
 		connections_.clear();
 	}
 
+	endpoint_list
+	active_endpoints()
+	{
+		endpoint_list endpoints;
+		;
+		return ::std::move(endpoints);
+	}
+
 	void
 	add_object(identity const& id, dispatcher_ptr disp)
 	{

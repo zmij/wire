@@ -44,10 +44,10 @@ transport_listener<Session, Type>::create_session()
 }
 
 template < typename Session, transport_type Type >
-typename transport_listener<Session, Type>::endpoint_type
+endpoint
 transport_listener<Session, Type>::local_endpoint() const
 {
-	return acceptor_.local_endpoint();
+	return traits::get_endpoint_data(acceptor_.local_endpoint());
 }
 
 template < typename Session, transport_type Type >

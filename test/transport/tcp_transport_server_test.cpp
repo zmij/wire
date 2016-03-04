@@ -77,10 +77,11 @@ TEST_F(TCPServer, Listen)
 {
 	endpoint ep = endpoint::tcp("127.0.0.1", 0);
 	server_.open(ep);
-	server_type::endpoint_type proto_ep = server_.local_endpoint();
-	std::cerr << proto_ep.address() << ":" << proto_ep.port() << "\n";
-	ASSERT_LT(0, proto_ep.port());
-	port_ = proto_ep.port();
+	endpoint proto_ep = server_.local_endpoint();
+	server_type::endpoint_data data = proto_ep.get<server_type::endpoint_data>();
+	std::cerr << data.host << ":" << data.port << "\n";
+	ASSERT_LT(0, data.port);
+	port_ = data.port;
 	StartPartner();
 	io_svc->run();
 	EXPECT_TRUE(connected_);

@@ -20,14 +20,16 @@ namespace core {
 
 namespace detail {
 
+typedef connection_impl< transport_type::tcp > tcp_connection_impl;
+typedef listen_connection_impl< transport_type::tcp > tcp_listen_connection_impl;
+
 connection_impl_ptr
 connection_impl_base::create_connection(asio_config::io_service_ptr io_svc,
 		transport_type _type)
 {
 	switch (_type) {
 		case transport_type::tcp :
-			return ::std::make_shared<
-					connection_impl< transport_type::tcp > >( io_svc );
+			return ::std::make_shared< tcp_connection_impl >( io_svc );
 		default:
 			break;
 	}
@@ -40,12 +42,10 @@ connection_impl_base::create_listen_connection(asio_config::io_service_ptr io_sv
 {
 	switch (_type) {
 		case transport_type::tcp:
-			return ::std::make_shared<
-			listen_connection_impl< transport_type::tcp > >(
+			return ::std::make_shared< tcp_listen_connection_impl >(
 				io_svc,
 				[]( asio_config::io_service_ptr svc ){
-					return ::std::make_shared<
-							connection_impl< transport_type::tcp > >( svc );
+					return ::std::make_shared< tcp_connection_impl >( svc );
 				});
 			break;
 		default:
@@ -60,6 +60,12 @@ connection_impl_base::connect_async(endpoint const& ep,
 {
 	mode_ = client;
 	process_event(events::connect{ ep, cb, eb });
+}
+
+void
+connection_impl_base::listen(endpoint const& ep, bool reuse_port)
+{
+	do_listen(ep, reuse_port);
 }
 
 void

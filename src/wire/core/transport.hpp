@@ -48,6 +48,8 @@ struct transport_type_traits< transport_type::tcp > {
 
 	static endpoint_type
 	create_endpoint(asio_config::io_service_ptr svc, endpoint const&);
+	static endpoint
+	get_endpoint_data(endpoint_type const&);
 };
 
 template<>
@@ -67,6 +69,8 @@ struct transport_type_traits< transport_type::ssl > {
 
 	static endpoint_type
 	create_endpoint(asio_config::io_service_ptr svc, endpoint const&);
+	static endpoint
+	get_endpoint_data(endpoint_type const&);
 };
 
 template<>
@@ -85,6 +89,8 @@ struct transport_type_traits< transport_type::udp > {
 
 	static endpoint_type
 	create_endpoint(asio_config::io_service_ptr svc, endpoint const&);
+	static endpoint
+	get_endpoint_data(endpoint_type const&);
 };
 
 template<>
@@ -103,6 +109,8 @@ struct transport_type_traits< transport_type::socket > {
 
 	static endpoint_type
 	create_endpoint(asio_config::io_service_ptr svc, endpoint const&);
+	static endpoint
+	get_endpoint_data(endpoint_type const&);
 };
 
 
@@ -157,6 +165,12 @@ struct tcp_transport {
 	listen_socket_type const&
 	socket() const
 	{ return socket_; }
+
+	endpoint
+	local_endpoint() const
+	{
+		return traits::get_endpoint_data(socket_.local_endpoint());
+	}
 private:
 	void
 	handle_resolve(asio_config::error_code const& ec,
@@ -231,6 +245,12 @@ struct ssl_transport {
 	listen_socket_type const&
 	socket() const
 	{ return socket_.lowest_layer(); }
+
+	endpoint
+	local_endpoint() const
+	{
+		return traits::get_endpoint_data(socket_.lowest_layer().local_endpoint() );
+	}
 private:
 	bool
 	verify_certificate(bool preverified, ASIO_NS::ssl::verify_context& ctx);
@@ -285,6 +305,12 @@ struct udp_transport {
 	{
 		socket_.async_receive(buffer, handler);
 	}
+
+	endpoint
+	local_endpoint() const
+	{
+		return traits::get_endpoint_data(socket_.local_endpoint());
+	}
 private:
 	void
 	handle_resolve(asio_config::error_code const& ec,
@@ -331,6 +357,11 @@ struct socket_transport {
 		ASIO_NS::async_read(socket_, buffer,
 				ASIO_NS::transfer_at_least(1), handler);
 	}
+	endpoint
+	local_endpoint() const
+	{
+		return traits::get_endpoint_data(socket_.local_endpoint());
+	}
 private:
 	void
 	handle_connect(asio_config::error_code const&, asio_config::asio_callback);
@@ -358,7 +389,7 @@ struct transport_listener {
 	void
 	open(endpoint const&, bool reuse_port = false);
 
-	endpoint_type
+	endpoint
 	local_endpoint() const;
 private:
 	void
@@ -389,7 +420,7 @@ struct transport_listener< void, transport_type::udp > : udp_transport {
 	void
 	open(endpoint const&);
 
-	endpoint_type
+	endpoint
 	local_endpoint() const;
 private:
 	transport_listener(transport_listener const&) = delete;

@@ -40,6 +40,12 @@ transport_type_traits< transport_type::tcp >::create_endpoint(
 	return ::std::move(proto_ep);
 }
 
+endpoint
+transport_type_traits< transport_type::tcp >::get_endpoint_data(endpoint_type const& ep)
+{
+	return endpoint::tcp(ep.address().to_string(), ep.port());
+}
+
 transport_type_traits< transport_type::ssl >::endpoint_type
 transport_type_traits< transport_type::ssl >::create_endpoint(
 		asio_config::io_service_ptr svc, endpoint const& ep)
@@ -50,6 +56,12 @@ transport_type_traits< transport_type::ssl >::create_endpoint(
 	resolver_type::query query(ed.host, ::std::to_string(ed.port));
 	endpoint_type proto_ep = *resolver.resolve(query);
 	return ::std::move(proto_ep);
+}
+
+endpoint
+transport_type_traits< transport_type::ssl >::get_endpoint_data(endpoint_type const& ep)
+{
+	return endpoint::ssl(ep.address().to_string(), ep.port());
 }
 
 transport_type_traits< transport_type::udp >::endpoint_type
@@ -64,6 +76,12 @@ transport_type_traits< transport_type::udp >::create_endpoint(
 	return ::std::move(proto_ep);
 }
 
+endpoint
+transport_type_traits< transport_type::udp >::get_endpoint_data(endpoint_type const& ep)
+{
+	return endpoint::udp(ep.address().to_string(), ep.port());
+}
+
 transport_type_traits< transport_type::socket >::endpoint_type
 transport_type_traits< transport_type::socket >::create_endpoint(
 		asio_config::io_service_ptr svc, endpoint const& ep)
@@ -71,6 +89,12 @@ transport_type_traits< transport_type::socket >::create_endpoint(
 	// TODO System-assigned endpoint from an empty enpoint
 	endpoint_data const& ed = ep.get< endpoint_data >();
 	return ::std::move(endpoint_type{ ed.path });
+}
+
+endpoint
+transport_type_traits< transport_type::socket >::get_endpoint_data(endpoint_type const& ep)
+{
+	return endpoint::socket(ep.path());
 }
 
 //----------------------------------------------------------------------------
@@ -321,10 +345,10 @@ transport_listener< void, transport_type::udp >::open(endpoint const& ep)
 	// Start receive
 }
 
-transport_listener< void, transport_type::udp >::endpoint_type
+endpoint
 transport_listener< void, transport_type::udp >::local_endpoint() const
 {
-	return socket_.local_endpoint();
+	return traits::get_endpoint_data(socket_.local_endpoint());
 }
 
 //----------------------------------------------------------------------------

@@ -7,6 +7,7 @@
 
 #include <gtest/gtest.h>
 #include <wire/core/connector.hpp>
+#include <wire/core/adapter.hpp>
 #include <boost/program_options.hpp>
 #include "config.hpp"
 
@@ -28,7 +29,7 @@ TEST(Connector, Configure)
 	EXPECT_THROW(conn->create_adapter("unconfigured"), ::boost::program_options::required_option);
 	adapter_ptr adapter;
 	EXPECT_NO_THROW(adapter = conn->create_adapter("configured_adapter"));
-
+	EXPECT_LT(0, adapter->endpoints().size());
 }
 
 }  // namespace test

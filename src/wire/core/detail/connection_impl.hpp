@@ -356,24 +356,21 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 	void
 	connect_async(endpoint const&,
 			callbacks::void_callback cb, callbacks::exception_callback eb);
-	virtual void
-	do_connect_async(endpoint const& ep, asio_config::asio_callback cb) = 0;
 	void
 	handle_connected(asio_config::error_code const& ec);
 	void
 	send_validate_message();
 
 	void
+	listen(endpoint const&, bool reuse_port = false);
+
+	void
 	close();
-	virtual void
-	do_close() = 0;
 	void
 	send_close_message();
 
 	void
 	write_async(encoding::outgoing_ptr, callbacks::void_callback cb = nullptr);
-	virtual void
-	do_write_async(encoding::outgoing_ptr, asio_config::asio_rw_callback) = 0;
 	void
 	handle_write(asio_config::error_code const& ec, std::size_t bytes,
 			callbacks::void_callback cb, encoding::outgoing_ptr);
@@ -382,8 +379,6 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 	start_read();
 	void
 	read_async(incoming_buffer_ptr);
-	virtual void
-	do_read_async(incoming_buffer_ptr, asio_config::asio_rw_callback) = 0;
 	void
 	handle_read(asio_config::error_code const& ec, std::size_t bytes,
 			incoming_buffer_ptr);
@@ -409,6 +404,27 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 			callbacks::exception_callback exception,
 			callbacks::callback< bool > sent);
 
+	virtual endpoint
+	local_endpoint() const = 0;
+
+	virtual void
+	do_connect_async(endpoint const& ep, asio_config::asio_callback cb)
+	{
+		throw ::std::logic_error("do_connect_async is not implemented");
+	}
+	virtual void
+	do_close() = 0;
+private:
+	virtual void
+	do_listen(endpoint const&, bool reuse_port)
+	{
+		throw ::std::logic_error("do_listen is not implemented");
+	}
+	virtual void
+	do_write_async(encoding::outgoing_ptr, asio_config::asio_rw_callback) = 0;
+	virtual void
+	do_read_async(incoming_buffer_ptr, asio_config::asio_rw_callback) = 0;
+protected:
 	::std::atomic<uint32_t>	request_no_;
 	encoding::incoming_ptr	incoming_;
 	pending_replies_type	pending_replies_;
@@ -430,6 +446,11 @@ struct connection_impl : connection_impl_base {
 	is_stream_oriented() const override
 	{ return transport_traits::stream_oriented; }
 
+	endpoint
+	local_endpoint() const override
+	{
+		return transport_.local_endpoint();
+	}
 private:
 	void
 	do_connect_async(endpoint const& ep, asio_config::asio_callback cb) override
@@ -471,10 +492,16 @@ struct listen_connection_impl : connection_impl_base {
 	bool
 	is_stream_oriented() const override
 	{ return transport_traits::stream_oriented; }
+	endpoint
+	local_endpoint() const override
+	{
+		return listener_.local_endpoint();
+	}
 private:
 	void
-	do_connect_async(endpoint const& ep, asio_config::asio_callback cb) override
+	do_listen(endpoint const& ep, bool reuse_port)
 	{
+		listener_.open(ep, reuse_port);
 	}
 	void
 	do_close() override
