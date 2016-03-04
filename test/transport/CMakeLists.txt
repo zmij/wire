@@ -20,9 +20,7 @@ set(
 )
 find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 
-include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR})
-
-configure_file(config.in.hpp config.hpp)
+include_directories(${GTEST_INCLUDE_DIRS})
 
 set(test_sparring_SRCS
     sparring_partner.cpp
