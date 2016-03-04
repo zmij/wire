@@ -51,6 +51,15 @@ public:
 	void
 	deactivate();
 
+	::std::string const&
+	name() const;
+	/**
+	 * Get adapter endpoints list
+	 * @return
+	 */
+	endpoint_list const&
+	endpoints() const;
+
 	/**
 	 * Add servant object with random UUID
 	 * @param

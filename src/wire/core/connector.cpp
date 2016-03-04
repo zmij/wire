@@ -11,6 +11,7 @@
 
 #include <boost/program_options.hpp>
 
+#include <iostream>
 #include <sstream>
 #include <fstream>
 
@@ -28,7 +29,7 @@ struct connector::impl {
 	po::options_description		cfg_file_options_;
 
 	args_type					unrecognized_cmd_;
-	args_type					unrecognized_cfg_;
+	::std::string				unrecognized_cfg_;
 
 	impl(asio_config::io_service_ptr svc)
 		: io_service_{svc}, options_{},
@@ -103,13 +104,24 @@ struct connector::impl {
 		po::variables_map vm;
 		po::store(parsed_cmd, vm);
 		unrecognized_cmd_ = po::collect_unrecognized(parsed_cmd.options, po::exclude_positional);
+		po::notify(vm);
 
 		if (!options_.config_file.empty()) {
 			std::ifstream cfg(options_.config_file.c_str());
 			if (cfg) {
 				po::parsed_options parsed_cfg = po::parse_config_file(cfg, cfg_file_options_, true);
 				po::store(parsed_cfg, vm);
-				unrecognized_cfg_ = po::collect_unrecognized(parsed_cfg.options, po::exclude_positional);
+				args_type unrecognized_params = po::collect_unrecognized(parsed_cfg.options, po::exclude_positional);
+				::std::ostringstream cfg_out;
+				// Output configuration to a "file"
+				for (args_type::iterator p = unrecognized_params.begin();
+						p != unrecognized_params.end(); ++p) {
+					auto optname = p++;
+					if (p == unrecognized_params.end())
+						break;
+					cfg_out << *optname << "=" << *p << "\n";
+				}
+				unrecognized_cfg_ = cfg_out.str();
 			} else {
 				throw ::std::runtime_error(
 					"Failed to open configuration file " + options_.config_file );
@@ -175,13 +187,12 @@ struct connector::impl {
 				po::command_line_parser(unrecognized_cmd_).options(adapter_opts).
 					allow_unregistered().run();
 		po::store(parsed_cmd, vm);
-		unrecognized_cmd_ = po::collect_unrecognized(parsed_cmd.options, po::exclude_positional);
 
-		po::parsed_options parsed_cfg =
-				po::command_line_parser(unrecognized_cfg_).options(adapter_opts).
-					allow_unregistered().run();
-		po::store(parsed_cfg, vm);
-		unrecognized_cfg_ = po::collect_unrecognized(parsed_cfg.options, po::exclude_positional);
+		if (!unrecognized_cfg_.empty()) {
+			::std::istringstream cfg(unrecognized_cfg_);
+			po::parsed_options parsed_cfg = po::parse_config_file(cfg, adapter_opts, true);
+			po::store(parsed_cfg, vm);
+		}
 
 		po::notify(vm);
 

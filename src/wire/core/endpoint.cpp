@@ -253,12 +253,20 @@ operator >> (std::istream& is, endpoint& val)
 ::std::istream&
 operator >> (::std::istream& is, endpoint_list& val)
 {
+	typedef std::istreambuf_iterator<char> istreambuf_iterator;
+	typedef boost::spirit::multi_pass< istreambuf_iterator > stream_iterator;
+	typedef grammar::parse::endpoints_grammar< stream_iterator > endpoints_grammar;
+	static endpoints_grammar endpoints_parser;
+
 	std::istream::sentry s(is);
 	if (s) {
-		endpoint tmp;
-		while ((bool)(is >> tmp)) {
-			val.insert(std::move(tmp));
-			endpoint{}.swap(tmp);
+		stream_iterator in = stream_iterator(istreambuf_iterator(is));
+		stream_iterator eos = stream_iterator(istreambuf_iterator());
+		endpoint_list tmp;
+		if (boost::spirit::qi::parse(in, eos, endpoints_parser, tmp)) {
+			tmp.swap(val);
+		} else {
+			is.setstate(::std::ios_base::failbit);
 		}
 	}
 	return is;

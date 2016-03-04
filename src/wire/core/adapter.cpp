@@ -120,6 +120,18 @@ adapter::activate()
 	pimpl_->activate();
 }
 
+::std::string const&
+adapter::name() const
+{
+	return pimpl_->name_;
+}
+
+endpoint_list const&
+adapter::endpoints() const
+{
+	return pimpl_->options_.endpoints;
+}
+
 void
 adapter::add_object(dispatcher_ptr disp)
 {

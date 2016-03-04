@@ -5,6 +5,7 @@
 configure_file(config.in.hpp config.hpp)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
+add_subdirectory(data)
 add_subdirectory(encoding)
 add_subdirectory(transport)
 add_subdirectory(connector)
