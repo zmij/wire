@@ -8,7 +8,7 @@
 #ifndef WIRE_CORE_TRANSPORT_INL_
 #define WIRE_CORE_TRANSPORT_INL_
 
-#include <wire/core/transport.inl>
+#include <wire/core/transport.hpp>
 
 namespace wire {
 namespace core {

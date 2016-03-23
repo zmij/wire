@@ -424,7 +424,7 @@ private:
 	do_write_async(encoding::outgoing_ptr, asio_config::asio_rw_callback) = 0;
 	virtual void
 	do_read_async(incoming_buffer_ptr, asio_config::asio_rw_callback) = 0;
-protected:
+public:
 	::std::atomic<uint32_t>	request_no_;
 	encoding::incoming_ptr	incoming_;
 	pending_replies_type	pending_replies_;
@@ -450,6 +450,12 @@ struct connection_impl : connection_impl_base {
 	local_endpoint() const override
 	{
 		return transport_.local_endpoint();
+	}
+
+	typename transport_traits::listen_socket_type&
+	socket()
+	{
+		return transport_.socket();
 	}
 private:
 	void
@@ -499,7 +505,7 @@ struct listen_connection_impl : connection_impl_base {
 	}
 private:
 	void
-	do_listen(endpoint const& ep, bool reuse_port)
+	do_listen(endpoint const& ep, bool reuse_port) override
 	{
 		listener_.open(ep, reuse_port);
 	}
