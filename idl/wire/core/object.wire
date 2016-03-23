@@ -1,0 +1,49 @@
+/*
+ * core.wire
+ *
+ *  Created on: 20 февр. 2016 г.
+ *      Author: sergey.fedorov
+ */
+
+#ifndef WIRE_OBJECT_WIRE_
+#define WIRE_OBJECT_WIRE_
+
+#include <wire/sugar.wire>
+
+namespace wire {
+namespace core {
+
+interface object {
+	/**
+	 * Check if an object instance is of given type
+	 * @param type_name
+	 * @return
+	 */
+	bool
+	wire_is_a(string type_name) const;
+
+	/**
+	 * Do a network roundtrip to the object
+	 */
+	void
+	wire_ping() const;
+
+	/**
+	 * Get the most derived typename for the object
+	 * @return
+	 */
+	string
+	wire_type() const;
+
+	/**
+	 * Get the list of typenames for the object
+	 * @return
+	 */
+	sequence< string >
+	wire_types() const;
+};
+
+}  // namespace core
+}  // namespace wire
+
+#endif /* WIRE_OBJECT_WIRE_ */

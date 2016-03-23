@@ -1,0 +1,58 @@
+/*
+ * locator.wire
+ *
+ *  Created on: 20 февр. 2016 г.
+ *      Author: sergey.fedorov
+ */
+
+#ifndef WIRE_CORE_LOCATOR_WIRE_
+#define WIRE_CORE_LOCATOR_WIRE_
+
+#include <wire/core/identity.wire>
+#include <wire/core/object.wire>
+
+namespace wire {
+namespace core {
+
+exception no_object {};
+exception no_adapter {};
+
+interface locator_registry;
+
+interface locator {
+	/**
+	 * Find an object proxy by id
+	 * @param id
+	 * @return
+	 */
+	object*
+	find_object(identity id) const
+		throw(no_object);
+
+	/**
+	 * Find an adapter and return it's proxy (a dummy proxy
+	 * containing adapter's endpoints)
+	 * @param id
+	 * @return
+	 */
+	object*
+	find_adapter(identity id) const
+		throw(no_adapter);
+
+	/**
+	 * Get the locator registry object
+	 * @return
+	 */
+	locator_registry*
+	get_registry() const;
+};
+
+interface locator_registry {
+
+};
+
+}  // namespace core
+}  // namespace wire
+
+
+#endif /* WIRE_CORE_LOCATOR_WIRE_ */

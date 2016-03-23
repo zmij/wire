@@ -1,0 +1,25 @@
+/*
+ * identity.wire
+ *
+ *  Created on: 20 февр. 2016 г.
+ *      Author: sergey.fedorov
+ */
+
+#ifndef WIRE_CORE_IDENTITY_WIRE_
+#define WIRE_CORE_IDENTITY_WIRE_
+
+#include <wire/sugar.wire>
+
+namespace wire {
+namespace core {
+
+struct identity {
+	string					category;
+	variant<string, uuid>	id;
+};
+
+
+}  // namespace core
+}  // namespace wire
+
+#endif /* WIRE_CORE_IDENTITY_WIRE_ */
