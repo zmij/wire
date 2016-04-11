@@ -65,6 +65,7 @@ connection_impl_base::connect_async(endpoint const& ep,
 void
 connection_impl_base::listen(endpoint const& ep, bool reuse_port)
 {
+	mode_ = server;
 	do_listen(ep, reuse_port);
 }
 

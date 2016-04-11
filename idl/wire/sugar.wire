@@ -1,0 +1,29 @@
+/*
+ * sugar.wire
+ *
+ *  Created on: 20 февр. 2016 г.
+ *      Author: sergey.fedorov
+ */
+
+#ifndef WIRE_SUGAR_WIRE_
+#define WIRE_SUGAR_WIRE_
+
+#ifndef GENERATING
+/* Syntactic sugar for highlighting and code assist */
+#define interface class
+#define exception class
+
+class string;
+class uuid;
+template < typename ... T >
+struct variant;
+template < typename T >
+struct sequence;
+template < typename K, typename V >
+struct dictionary;
+template < typename T >
+struct optional;
+
+#endif /*GENERATING*/
+
+#endif /* WIRE_SUGAR_WIRE_ */

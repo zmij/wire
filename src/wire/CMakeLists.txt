@@ -32,3 +32,5 @@ target_link_libraries(
     ${Boost_SYSTEM_LIBRARIES}
     ${OPENSSL_LIBRARIES}
 )
+
+add_subdirectory(ast)
