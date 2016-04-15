@@ -14,8 +14,8 @@ namespace wire {
 namespace core {
 
 class connector;
-typedef ::std::shared_ptr< connector > connector_ptr;
-typedef ::std::weak_ptr< connector > connector_weak_ptr;
+using connector_ptr         = ::std::shared_ptr< connector >;
+using connector_weak_ptr    = ::std::weak_ptr< connector >;
 
 }  // namespace core
 }  // namespace wire
