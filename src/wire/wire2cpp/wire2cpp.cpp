@@ -47,6 +47,7 @@ try {
     gen_opts_desc.add_options()
         ("help,h", "Print help message and exit")
         ("version", "Print version and exit")
+        ("preprocess-only,E", "Only run the preprocessor")
     ;
 
     po::options_description mcpp_opts_desc{"Preprocessor options"};
@@ -113,13 +114,16 @@ try {
     }
 
     for (auto const& file : options.files) {
-        std::cout << "Process " << file << "\n";
+        ::std::cerr << "Process " << file << "\n";
         wire::ast::preprocessor preproc{ file, preproc_opts };
 
-        std::copy( input_stream_iterator{ preproc.stream() },
-                input_stream_iterator{},
-                output_stream_iterator{ ::std::cout } );
-        //wire::ast::preprocess(file, ::std::cout, preproc_opts);
+        if (vm.count("preprocess-only")) {
+            ::std::copy( input_stream_iterator{ preproc.stream() },
+                    input_stream_iterator{},
+                    output_stream_iterator{ ::std::cout } );
+        } else {
+            ::std::cerr << "Generate files here\n";
+        }
     }
 
     return 0;

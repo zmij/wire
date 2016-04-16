@@ -52,11 +52,15 @@ struct preprocessor::impl {
 
         io::file_descriptor_sink sink{ pipe_.sink, io::close_handle };
 
-        bp::execute(
+        bp::child p = bp::execute(
             bi::set_args(args),
             bi::bind_stdout{sink},
             bi::throw_on_error{}
         );
+        int status = bp::wait_for_exit(p);
+        if (status != 0) {
+            throw ::std::runtime_error("Failed to preprocess file " + file_name);
+        }
     }
 };
 
