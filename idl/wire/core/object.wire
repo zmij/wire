@@ -14,36 +14,37 @@ namespace wire {
 namespace core {
 
 interface object {
-	/**
-	 * Check if an object instance is of given type
-	 * @param type_name
-	 * @return
-	 */
-	bool
-	wire_is_a(string type_name) const;
+    /**
+     * Check if an object instance is of given type
+     * @param type_name
+     * @return
+     */
+    bool
+    wire_is_a(string type_name) const;
 
-	/**
-	 * Do a network roundtrip to the object
-	 */
-	void
-	wire_ping() const;
+    /**
+     * Do a network roundtrip to the object
+     */
+    void
+    wire_ping() const;
 
-	/**
-	 * Get the most derived typename for the object
-	 * @return
-	 */
-	string
-	wire_type() const;
+    /**
+     * Get the most derived typename for the object
+     * @return
+     */
+    string
+    wire_type() const;
 
-	/**
-	 * Get the list of typenames for the object
-	 * @return
-	 */
-	sequence< string >
-	wire_types() const;
+    /**
+     * Get the list of typenames for the object
+     * @return
+     */
+    [[cpp_container(vector)]]
+    sequence< string >
+    wire_types() const;
 };
 
-}  // namespace core
-}  // namespace wire
+}  /* namespace core */
+}  /* namespace wire */
 
 #endif /* WIRE_OBJECT_WIRE_ */

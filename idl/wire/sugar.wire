@@ -8,7 +8,10 @@
 #ifndef WIRE_SUGAR_WIRE_
 #define WIRE_SUGAR_WIRE_
 
-#ifndef GENERATING
+#ifndef WIRE_GENERATE
+
+#include <cstdint>
+
 /* Syntactic sugar for highlighting and code assist */
 #define interface class
 #define exception class
@@ -24,6 +27,13 @@ struct dictionary;
 template < typename T >
 struct optional;
 
-#endif /*GENERATING*/
+using byte     = ::std::int8_t;
+using int32    = ::std::int32_t;
+using int64    = ::std::int64_t;
+using octet    = ::std::uint8_t;
+using uint32   = ::std::uint32_t;
+using uint64   = ::std::uint64_t;
+
+#endif /* WIRE_GENERATE */
 
 #endif /* WIRE_SUGAR_WIRE_ */

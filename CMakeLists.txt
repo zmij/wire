@@ -1,7 +1,7 @@
-#	CMakeLists.txt for wire library
-#	
-#	@author zmij
-#	@date Nov 30, 2015
+#    CMakeLists.txt for wire library
+#
+#    @author zmij
+#    @date Nov 30, 2015
 
 cmake_minimum_required(VERSION 2.6)
 
@@ -29,7 +29,7 @@ option(BUILD_TESTS "Build tests for ${lib_name} library" ON)
 set(
     BOOST_COMPONENTS
     system
-    thread 
+    thread
     program_options
 )
 set(BOOST_VERSION 1.58) # We want endian library.
@@ -45,15 +45,28 @@ endif()
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}/src
     ${Boost_INCLUDE_DIRS}
 )
 add_definitions("-std=c++11")
 
 set(${LIB_NAME}_LIB ${lib_name})
+set(${LIB_NAME}_GEN_LIB ${lib_name}-ast)
 
 if(_TIP_IRI_SUBTREE)
     add_subdirectory(lib/iri)
 endif()
+
+if (NOT BOOST_PROCESS_INCLUDE_DIRS)
+    message(STATUS "Use bundled boost::process")
+    set(_BP_BUILD_TESTS ${BUILD_TESTS})
+    set(BUILD_TESTS OFF)
+    option(BUILD_EXAMPLES "" OFF)
+    add_subdirectory(lib/process)
+    set(BUILD_TESTS ${_BP_BUILD_TESTS})
+endif()
+message(STATUS "Boost process includes ${BOOST_PROCESS_INCLUDE_DIRS}")
+include_directories(${BOOST_PROCESS_INCLUDE_DIRS})
 
 include_directories(${TIP_IRI_INCLUDE_DIRS})
 
@@ -62,15 +75,6 @@ add_subdirectory(experiments)
 add_subdirectory(src/wire)
 if(BUILD_TESTS)
     enable_testing()
-    if (NOT BOOST_PROCESS_INCLUDE_DIRS)
-        message(STATUS "Use bundled boost::process")
-        set(BUILD_TESTS OFF)
-        option(BUILD_EXAMPLES "" OFF)
-        add_subdirectory(lib/process)
-        set(BUILD_TESTS ON)
-    endif()
-    message(STATUS "Boost process includes ${BOOST_PROCESS_INCLUDE_DIRS}")
-    include_directories(${BOOST_PROCESS_INCLUDE_DIRS})
     add_subdirectory(test)
 endif()
 

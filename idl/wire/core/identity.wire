@@ -14,12 +14,12 @@ namespace wire {
 namespace core {
 
 struct identity {
-	string					category;
-	variant<string, uuid>	id;
+    string                   category;
+    variant<string, uuid>    id;
 };
 
 
-}  // namespace core
-}  // namespace wire
+}  /* namespace core */
+}  /* namespace wire */
 
 #endif /* WIRE_CORE_IDENTITY_WIRE_ */

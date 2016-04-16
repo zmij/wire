@@ -1,0 +1,39 @@
+/*
+ * test_interface.wire
+ *
+ *  Created on: 16 апр. 2016 г.
+ *      Author: sergey.fedorov
+ */
+
+#ifndef DATA_TEST_INTERFACE_WIRE_
+#define DATA_TEST_INTERFACE_WIRE_
+
+#include <wire/sugar.wire>
+
+namespace test {
+
+enum values {
+    value1,
+    value2
+};
+
+enum class colors {
+    red,
+    green,
+    blue
+};
+
+struct some_struct {
+    string s;
+    int32  i;
+};
+
+interface server {
+    [[sync, idempotent]]
+    int32
+    calculate(some_struct s) const;
+};
+
+}  /* namespace test */
+
+#endif /* DATA_TEST_INTERFACE_WIRE_ */

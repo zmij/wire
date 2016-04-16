@@ -213,7 +213,7 @@ struct connector::impl {
     object_prx
     string_to_proxy(::std::string const& name)
     {
-
+        return object_prx{};
     }
 };
 

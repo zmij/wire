@@ -1,7 +1,7 @@
-#	/tip-proto/src/CMakeLists.txt
-#	
-#	@author zmij
-#	@date Dec 11, 2015
+#    /tip-proto/src/CMakeLists.txt
+#
+#    @author zmij
+#    @date Dec 11, 2015
 
 cmake_minimum_required(VERSION 2.6)
 
@@ -25,6 +25,7 @@ set_target_properties(
     ${WIRE_LIB} PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION 1
+    LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
 )
 target_link_libraries(
     ${WIRE_LIB}
@@ -34,3 +35,4 @@ target_link_libraries(
 )
 
 add_subdirectory(ast)
+add_subdirectory(wire2cpp)
