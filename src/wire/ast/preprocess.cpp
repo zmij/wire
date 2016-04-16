@@ -18,33 +18,39 @@
 namespace wire {
 namespace ast {
 
-void
-preprocess(::std::string const& file_name, ::std::ostream& os,
-        preprocess_options const& options)
-{
-    namespace bp = ::boost::process;
-    namespace bi = ::boost::process::initializers;
-    namespace io = ::boost::iostreams;
+namespace bp = ::boost::process;
+namespace bi = ::boost::process::initializers;
+namespace io = ::boost::iostreams;
 
-    using input_iterator = ::std::istream_iterator< char >;
-    using output_iterator = ::std::ostream_iterator< char >;
+struct preprocessor::impl {
+    using pipe_source  = io::file_descriptor_source;
+    using pipe_istream = io::stream< io::file_descriptor_source >;
 
-    string_list args{ MCPP_PATH, "-+", "-DWIRE_GENERATE" };
-    for (auto const& p : options.include_dirs) {
-        args.push_back("-I");
-        args.push_back(p);
-    }
-    args.push_back(file_name);
+    bp::pipe        pipe_;
+    pipe_source     source_;
+    pipe_istream    istream_;
 
-    ::std::cerr << "Execute preprocessor";
-    for (auto const& a : args) {
-        ::std::cerr << " " << a;
-    }
-    ::std::cerr << "\n";
-
-    bp::pipe p = bp::create_pipe();
+    impl(::std::string const& file_name, preprocess_options const& options)
+        : pipe_{ bp::create_pipe() },
+          source_{ pipe_.source, io::close_handle },
+          istream_{ source_ }
     {
-        io::file_descriptor_sink sink{ p.sink, io::close_handle };
+        ::std::noskipws(istream_);
+
+        string_list args{ MCPP_PATH, "-+", "-DWIRE_GENERATE" };
+        for (auto const& p : options.include_dirs) {
+            args.push_back("-I");
+            args.push_back(p);
+        }
+        args.push_back(file_name);
+
+        ::std::cerr << "Execute preprocessor";
+        for (auto const& a : args) {
+            ::std::cerr << " " << a;
+        }
+        ::std::cerr << "\n";
+
+        io::file_descriptor_sink sink{ pipe_.sink, io::close_handle };
 
         bp::execute(
             bi::set_args(args),
@@ -52,14 +58,18 @@ preprocess(::std::string const& file_name, ::std::ostream& os,
             bi::throw_on_error{}
         );
     }
+};
 
-    io::file_descriptor_source source{ p.source, io::close_handle };
-    io::stream< io::file_descriptor_source > is(source);
-    ::std::noskipws(is);
-
-    ::std::copy(input_iterator{is}, input_iterator{}, output_iterator{os});
+preprocessor::preprocessor(::std::string const& file_name, preprocess_options const& options)
+    : pimpl_{ ::std::make_shared<impl>( file_name, options ) }
+{
 }
 
+::std::istream&
+preprocessor::stream()
+{
+    return pimpl_->istream_;
+}
 
 }  /* namespace ast */
 }  /* namespace wire */

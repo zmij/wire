@@ -11,6 +11,8 @@
 #include <boost/program_options.hpp>
 
 #include <wire/ast/preprocess.hpp>
+#include <iterator>
+#include <algorithm>
 
 namespace wire {
 namespace cpp {
@@ -35,6 +37,8 @@ int
 main(int argc, char* argv[])
 try {
     namespace po = boost::program_options;
+    using input_stream_iterator = ::std::istream_iterator<char>;
+    using output_stream_iterator = ::std::ostream_iterator<char>;
 
     wire::ast::preprocess_options   preproc_opts;
     wire::cpp::options              options;
@@ -110,7 +114,12 @@ try {
 
     for (auto const& file : options.files) {
         std::cout << "Process " << file << "\n";
-        wire::ast::preprocess(file, ::std::cout, preproc_opts);
+        wire::ast::preprocessor preproc{ file, preproc_opts };
+
+        std::copy( input_stream_iterator{ preproc.stream() },
+                input_stream_iterator{},
+                output_stream_iterator{ ::std::cout } );
+        //wire::ast::preprocess(file, ::std::cout, preproc_opts);
     }
 
     return 0;

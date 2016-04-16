@@ -11,6 +11,7 @@
 #include <iosfwd>
 #include <vector>
 #include <string>
+#include <memory>
 
 namespace wire {
 namespace ast {
@@ -21,9 +22,19 @@ struct preprocess_options {
     string_list    include_dirs;
 };
 
-void
-preprocess(::std::string const& file_name, ::std::ostream& os,
+class preprocessor {
+public:
+    explicit
+    preprocessor(::std::string const& file_name,
         preprocess_options const& options = preprocess_options{});
+
+    ::std::istream&
+    stream();
+private:
+    struct impl;
+    using pimpl = ::std::shared_ptr< impl >;
+    pimpl pimpl_;
+};
 
 }  /* namespace ast */
 }  /* namespace wire */
