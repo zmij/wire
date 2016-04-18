@@ -21,6 +21,7 @@ find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 set(
     wire_idl_SRCS
     ast.cpp
+    qname.cpp
     preprocess.cpp
 )
 

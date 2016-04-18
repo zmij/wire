@@ -30,7 +30,7 @@ struct variant;
 template < typename T >
 struct sequence;
 template < typename T, uint64 >
-struct fixed_array;
+struct array;
 template < typename K, typename V >
 struct dictionary;
 template < typename T >

@@ -15,9 +15,7 @@
 #include <boost/spirit/include/phoenix_algorithm.hpp>
 #include <boost/spirit/include/phoenix_core.hpp>
 
-#include <boost/spirit/home/lex/lexer/lexer.hpp>
-
-#include <wire/idl/ast.hpp>
+#include <wire/idl/source_location.hpp>
 
 namespace wire {
 namespace idl {

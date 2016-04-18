@@ -12,7 +12,10 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <map>
 #include <iosfwd>
+
+#include <wire/idl/source_location.hpp>
 
 namespace wire {
 namespace idl {
@@ -24,31 +27,26 @@ class scope;
 typedef ::std::shared_ptr<scope> scope_ptr;
 typedef ::std::weak_ptr<scope> scope_weak_ptr;
 
-class name_space;
-typedef ::std::shared_ptr< name_space > namespace_ptr;
-typedef ::std::vector< namespace_ptr > namespace_list;
+class namespace_;
+using namespace_ptr = ::std::shared_ptr< namespace_ >;
+using namespace_list = ::std::map< ::std::string, namespace_ptr >;
 
-struct location {
-    ::std::string file;
-    ::std::size_t line;
-    ::std::size_t character;
-};
+struct qname;
+struct qname_search;
 
-class entity {
+class entity : public ::std::enable_shared_from_this<entity> {
 public:
+    virtual ~entity() {}
     ::std::string const&
     name() const
     { return name_; }
 
     scope_ptr
-    scope() const
+    parent() const
     { return scope_.lock(); }
 
-    std::string
-    qualified_name() const;
-
-    void
-    get_qualified_name(::std::ostream& os) const;
+    virtual qname
+    get_qualified_name() const;
 
     struct name_compare {
         bool
@@ -63,48 +61,115 @@ public:
             return lhs->name() < rhs->name();
         }
     };
+    template < typename T >
+    ::std::shared_ptr<T>
+    shared_this()
+    {
+        static_assert(::std::is_base_of<entity, T>::value,
+                "Cannot cast to non-entity");
+        return ::std::dynamic_pointer_cast<T>(shared_from_this());
+    }
 protected:
     /**
-     * Create an entity in the global scope. Can be used for global namespace
-     * only.
+     * Constructor for the global namespace only.
      */
     entity();
+    /**
+     * Constructor for built-in types
+     * @param name
+     */
+    explicit
+    entity(::std::string const& name);
+
     /**
      * Create an entity in the given scope
      * @param sc
      * @param name
      */
     entity(scope_ptr sc, ::std::string const& name);
+
 private:
     scope_weak_ptr    scope_;
-    ::std::string    name_;
+    ::std::string     name_;
 };
 
 typedef ::std::set<entity_ptr, entity::name_compare> entity_set;
 
-struct type : virtual entity {
+//----------------------------------------------------------------------------
+class type : public virtual entity {
+public:
+    static bool
+    is_biult_in(qname const& name);
+protected:
+    /**
+     * Constructor for built-in types only
+     * @param name
+     */
+    type(::std::string const& name) : entity(name) {}
 };
-typedef ::std::shared_ptr< type >     type_ptr;
-typedef ::std::vector< type_ptr >    type_list;
+using type_ptr =  ::std::shared_ptr< type >;
+using type_list = ::std::map< ::std::string, type_ptr >;
 
+//----------------------------------------------------------------------------
+class type_alias : public type {
+public:
+    type_alias(scope_ptr sc, ::std::string const& name, type_ptr aliased);
+private:
+    type_ptr    type_;
+};
+
+//----------------------------------------------------------------------------
+class parametrized_type : public type {
+};
+
+
+//----------------------------------------------------------------------------
+/**
+ * Constant declaration
+ */
 class constant : public entity {
 public:
     constant( scope_ptr sc, ::std::string const& type,
-            ::std::string const& name, ::std::string const& literal);
+            ::std::string const& name,
+            ::std::string const& literal);
 private:
+    explicit
+    constant(::std::string const& name);
+    static constant
+    create_dummy(::std::string const& name);
     type_ptr        type_;
     ::std::string    literal_;
 };
 
-typedef ::std::vector< constant >    constant_list;
+using constant_ptr = ::std::shared_ptr<constant>;
+using constant_list = ::std::set< constant_ptr, entity::name_compare >;
 
+//----------------------------------------------------------------------------
+/**
+ * Types and constants container
+ */
 class scope : public virtual entity {
 public:
+    virtual ~scope() {}
     void
     add_type(type_ptr);
-    type_ptr
-    find_type(::std::string const& name) const;
 
+    entity_ptr
+    find_name(qname const& name) const;
+    virtual entity_ptr
+    find_name(qname_search const& search) const;
+
+    template< typename T >
+    ::std::shared_ptr< T >
+    find_name(qname const& name) const
+    {
+        static_assert(::std::is_base_of<entity, T>::value,
+            "Cannot cast to non-entity");
+        auto ptr = ::std::dynamic_pointer_cast<T>(find_name(name));
+        if (!ptr)
+            throw ::std::runtime_error("Incorrect type cast");
+        return ptr;
+    }
     void
     add_constant(constant&& c);
 
@@ -116,27 +181,51 @@ public:
     constants() const
     { return constants_; }
 protected:
+    scope() : entity{} {}
+    scope(scope_ptr parent, ::std::string const& name)
+        : entity(parent, name) {}
+protected:
     type_list        types_;
     constant_list    constants_;
 };
 
-class name_space : public scope {
+//----------------------------------------------------------------------------
+/**
+ * IDL Namespace. Can contain types, constants and nested namespaces
+ */
+class namespace_ : public scope {
 public:
-    static name_space&
+    static namespace_ptr
     global();
 
     static void
     clear_global();
 public:
-    void
-    add_namespace(namespace_ptr ns);
+    namespace_(scope_ptr parent, ::std::string const& name)
+        : entity(parent, name), scope(parent, name) {}
+
+    using scope::find_name;
+    entity_ptr
+    find_name(qname_search const& search) const override;
+
+    bool
+    is_global() const;
+
+    namespace_ptr
+    add_namespace(qname const& qn);
+    namespace_ptr
+    add_namespace(qname_search const& qn);
 
     namespace_list const&
     nested() const
     { return nested_; }
+protected:
+    namespace_() : scope{} {}
 private:
     namespace_list    nested_;
 };
+
+
 
 }  // namespace ast
 }  // namespace wire
