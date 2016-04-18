@@ -40,7 +40,7 @@ try {
     using input_stream_iterator = ::std::istream_iterator<char>;
     using output_stream_iterator = ::std::ostream_iterator<char>;
 
-    wire::ast::preprocess_options   preproc_opts;
+    wire::idl::preprocess_options   preproc_opts;
     wire::cpp::options              options;
 
     po::options_description gen_opts_desc{"General options"};
@@ -115,7 +115,7 @@ try {
 
     for (auto const& file : options.files) {
         ::std::cerr << "Process " << file << "\n";
-        wire::ast::preprocessor preproc{ file, preproc_opts };
+        wire::idl::preprocessor preproc{ file, preproc_opts };
 
         if (vm.count("preprocess-only")) {
             ::std::copy( input_stream_iterator{ preproc.stream() },

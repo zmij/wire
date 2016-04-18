@@ -16,7 +16,7 @@
 #include <iostream>
 
 namespace wire {
-namespace ast {
+namespace idl {
 
 namespace bp = ::boost::process;
 namespace bi = ::boost::process::initializers;

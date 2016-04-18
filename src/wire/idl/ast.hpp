@@ -15,7 +15,7 @@
 #include <iosfwd>
 
 namespace wire {
-namespace ast {
+namespace idl {
 
 class entity;
 typedef ::std::shared_ptr< entity > entity_ptr;

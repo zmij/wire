@@ -14,7 +14,7 @@
 #include <memory>
 
 namespace wire {
-namespace ast {
+namespace idl {
 
 using string_list = ::std::vector< ::std::string >;
 

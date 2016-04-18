@@ -9,7 +9,7 @@
 #include <sstream>
 
 namespace wire {
-namespace ast {
+namespace idl {
 
 //----------------------------------------------------------------------------
 //	entity class implementation

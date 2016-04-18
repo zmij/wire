@@ -11,7 +11,7 @@
 #include <string>
 
 namespace wire {
-namespace ast {
+namespace idl {
 
 const ::std::string MCPP_PATH = "@MCPP@";
 
