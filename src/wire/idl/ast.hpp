@@ -28,9 +28,10 @@ class name_space;
 typedef ::std::shared_ptr< name_space > namespace_ptr;
 typedef ::std::vector< namespace_ptr > namespace_list;
 
-class location {
+struct location {
     ::std::string file;
     ::std::size_t line;
+    ::std::size_t character;
 };
 
 class entity {

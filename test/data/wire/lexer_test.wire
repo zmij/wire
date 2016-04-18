@@ -1,0 +1,66 @@
+/*
+ * compilation_unit_track.wire
+ *
+ *  Created on: Apr 18, 2016
+ *      Author: zmij
+ */
+
+#ifndef DATA_WIRE_LEXER_TEST_WIRE_
+#define DATA_WIRE_LEXER_TEST_WIRE_
+
+#include <wire/sugar.wire>
+#include <wire/core/identity.wire>
+
+[[cpp_namespace(foo, bar)]] // File-level attributes
+
+namespace test {
+
+string const foo = "bar";
+int32 const bar = 42;
+int64 const oct = 0123;
+int64 const hex = 0x0affcde7;
+
+using strings = sequence< string >;
+
+strings const lipsum = {
+    "Lorem", "ipsum", "dolor", "sit", "amet"
+};
+
+interface some_service;
+
+exception something_bad {
+    string message;
+};
+
+exception something_very_bad : something_bad {
+    bool call911;
+    some_service* help;
+};
+
+struct some_struct {
+    using string_seq = sequence< string >;
+
+    ::wire::core::identity  id;
+    string                  str;
+    string_seq              str_seq;
+};
+
+interface some_service {
+    /**
+     * Documentation for the good
+     * @param
+     * @param
+     */
+    void
+    do_very_good( string, int32 ) const;
+};
+
+interface another_service : some_service {
+    [[sync]]
+    void
+    make_some_bad();
+};
+
+}  // namespace test
+// Here is the final position, line:0
+#endif /* DATA_WIRE_LEXER_TEST_WIRE_ */

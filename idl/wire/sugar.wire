@@ -13,19 +13,8 @@
 #include <cstdint>
 
 /* Syntactic sugar for highlighting and code assist */
-#define interface class
-#define exception class
-
-class string;
-class uuid;
-template < typename ... T >
-struct variant;
-template < typename T >
-struct sequence;
-template < typename K, typename V >
-struct dictionary;
-template < typename T >
-struct optional;
+#define interface struct
+#define exception struct
 
 using byte     = ::std::int8_t;
 using int32    = ::std::int32_t;
@@ -33,6 +22,19 @@ using int64    = ::std::int64_t;
 using octet    = ::std::uint8_t;
 using uint32   = ::std::uint32_t;
 using uint64   = ::std::uint64_t;
+
+class string;
+class uuid;
+template < typename ... T >
+struct variant;
+template < typename T >
+struct sequence;
+template < typename T, uint64 >
+struct fixed_array;
+template < typename K, typename V >
+struct dictionary;
+template < typename T >
+struct optional;
 
 #endif /* WIRE_GENERATE */
 
