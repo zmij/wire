@@ -5,8 +5,8 @@
  *      Author: sergey.fedorov
  */
 
-#ifndef WIRE_AST_AST_HPP_
-#define WIRE_AST_AST_HPP_
+#ifndef WIRE_IDL_AST_HPP_
+#define WIRE_IDL_AST_HPP_
 
 #include <memory>
 #include <string>
@@ -142,4 +142,4 @@ private:
 
 
 
-#endif /* WIRE_AST_AST_HPP_ */
+#endif /* WIRE_IDL_AST_HPP_ */

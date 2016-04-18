@@ -34,5 +34,5 @@ target_link_libraries(
     ${OPENSSL_LIBRARIES}
 )
 
-add_subdirectory(ast)
+add_subdirectory(idl)
 add_subdirectory(wire2cpp)

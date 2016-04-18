@@ -5,8 +5,8 @@
  *      Author: sergey.fedorov
  */
 
-#ifndef WIRE_AST_PREPROCESS_HPP_
-#define WIRE_AST_PREPROCESS_HPP_
+#ifndef WIRE_IDL_PREPROCESS_HPP_
+#define WIRE_IDL_PREPROCESS_HPP_
 
 #include <iosfwd>
 #include <vector>
@@ -41,4 +41,4 @@ private:
 
 
 
-#endif /* WIRE_AST_PREPROCESS_HPP_ */
+#endif /* WIRE_IDL_PREPROCESS_HPP_ */

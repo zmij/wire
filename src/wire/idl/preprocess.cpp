@@ -5,8 +5,8 @@
  *      Author: sergey.fedorov
  */
 
-#include <wire/ast/preprocess.hpp>
-#include <wire/ast/config.hpp>
+#include <wire/idl/preprocess.hpp>
+#include <wire/idl/config.hpp>
 #include <boost/process.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/stream.hpp>

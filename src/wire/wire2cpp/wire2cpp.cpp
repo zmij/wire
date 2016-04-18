@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 #include <boost/program_options.hpp>
+#include <wire/idl/preprocess.hpp>
 
-#include <wire/ast/preprocess.hpp>
 #include <iterator>
 #include <algorithm>
 

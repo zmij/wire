@@ -5,7 +5,7 @@
  *      Author: sergey.fedorov
  */
 
-#include <wire/ast/ast.hpp>
+#include <wire/idl/ast.hpp>
 #include <sstream>
 
 namespace wire {

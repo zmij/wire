@@ -14,5 +14,5 @@ set(
 add_executable(wire2cpp ${wire2cpp_SRCS})
 target_link_libraries(wire2cpp
     ${Boost_PROGRAM_OPTIONS_LIBRARIES}
-    ${WIRE_GEN_LIB}
+    ${WIRE_IDL_LIB}
 )

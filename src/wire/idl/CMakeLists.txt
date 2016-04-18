@@ -19,20 +19,20 @@ set(
 find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 
 set(
-    wire_ast_SRCS
+    wire_idl_SRCS
     ast.cpp
     preprocess.cpp
 )
 
-add_library(${WIRE_GEN_LIB} SHARED ${wire_ast_SRCS})
+add_library(${WIRE_IDL_LIB} SHARED ${wire_idl_SRCS})
 target_link_libraries(
-    ${WIRE_GEN_LIB}
+    ${WIRE_IDL_LIB}
     ${Boost_PROGRAM_OPTIONS_LIBRARIES}
     ${Boost_IOSTREAMS_LIBRARIES}
     ${Boost_SYSTEM_LIBRARIES}
 )
 set_target_properties(
-    ${WIRE_GEN_LIB} PROPERTIES
+    ${WIRE_IDL_LIB} PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION 1
     LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
