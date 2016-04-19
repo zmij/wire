@@ -16,9 +16,11 @@
 #include <boost/spirit/include/phoenix_core.hpp>
 
 #include <wire/idl/source_location.hpp>
+#include <wire/idl/token_types.hpp>
 
 namespace wire {
 namespace idl {
+namespace lexer {
 
 template < typename InputIterator >
 struct location_grammar : ::boost::spirit::qi::grammar< InputIterator, location() > {
@@ -79,49 +81,6 @@ struct distance_func {
 };
 
 ::boost::phoenix::function< distance_func > const distance = distance_func{};
-
-//----------------------------------------------------------------------------
-/**
- * Token types
- */
-enum token_type {
-    token_locn    = ::boost::spirit::lex::min_token_id,
-    //@{
-    /** @name Keywords */
-    token_ns,
-    token_struct,
-    token_class,
-    token_interface,
-    token_exception,
-    token_const,
-    token_using,
-    //@}
-    //@{
-    /** @name Punctuation */
-    token_comma,
-    token_colon,
-    token_scope_resolution,
-    token_semicolon,
-    token_assign,
-    token_asterisk,
-    token_brace_open,
-    token_brace_close,
-    token_block_start,
-    token_block_end,
-    token_angled_open,
-    token_angled_close,
-    token_attrib_start,
-    token_attrib_end,
-    //@}
-    token_identifier,
-    token_number,
-    token_oct_number,
-    token_hex_number,
-    token_quoted_string,
-    token_eol,
-    token_whitespace,
-    token_any
-};
 
 template <typename Attribute = ::boost::spirit::lex::unused_type,
         typename Char = char>
@@ -260,6 +219,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
     token_def<>   any;
 };
 
+}  /* namespace lexer */
 }  // namespace idl
 }  // namespace wire
 

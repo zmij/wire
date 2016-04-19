@@ -19,6 +19,7 @@
 
 namespace wire {
 namespace idl {
+namespace lexer {
 namespace test {
 
 GRAMMAR_TEST(location_grammar, PreprocessorLocation,
@@ -180,7 +181,8 @@ TEST(Lexer, TrackCompilationUnit)
                 break;
 
             case token_identifier:
-                ::std::cerr << "Identifier";
+                ::std::cerr << "Identifier("
+                      << ::std::string{ iter->value().begin(), iter->value().end() } << ")";
                 break;
             case token_number:
                 ::std::cerr << "NUMBER";
@@ -217,6 +219,7 @@ TEST(Lexer, TrackCompilationUnit)
 }
 
 }  // namespace test
+}  /* namespace lexer */
 }  // namespace idl
 }  // namespace wire
 
