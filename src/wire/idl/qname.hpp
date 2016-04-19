@@ -10,17 +10,77 @@
 
 #include <string>
 #include <vector>
+#include <stdexcept>
 
 namespace wire {
 namespace idl {
+
+/**
+ * Object for searching for a partial qname
+ */
+struct qname_search {
+    using string_seq = ::std::vector< ::std::string >;
+    using const_iterator = string_seq::const_iterator;
+
+    bool            fully;
+    const_iterator  begin;
+    const_iterator  end;
+
+    bool
+    empty() const
+    { return begin == end; }
+
+    ::std::size_t
+    size() const
+    { return static_cast<::std::size_t>(::std::distance(begin, end)); }
+
+    ::std::string const&
+    front() const
+    {
+        if (empty())
+            throw ::std::range_error("Qname search object is emtpy (get front)");
+        return *begin;
+    }
+    ::std::string const&
+    back() const
+    {
+        if (empty())
+            throw ::std::range_error("Qname search object is empty (get name)");
+        auto back = end - 1;
+        return *back;
+    }
+
+    qname_search
+    next() const
+    {
+        if (empty())
+            throw ::std::range_error("Qname search object is empty (get next)");
+        return { false, begin + 1, end };
+    }
+
+    qname_search
+    last() const
+    {
+        if (empty())
+            throw ::std::range_error("Qname search object is empty (get last)");
+        return { false, end - 1, end};
+    }
+    qname_search
+    scope() const
+    {
+        if (empty())
+            throw ::std::range_error("Qname search object is empty (get scope)");
+        return {fully, begin, end - 1};
+    }
+};
 
 /**
  * Qualified name.
  * Can be fully qualified, can be relative.
  */
 struct qname {
-    using string_seq = ::std::vector< ::std::string >;
-    using const_iterator = string_seq::const_iterator;
+    using string_seq = qname_search::string_seq;
+    using const_iterator = qname_search::const_iterator;
 
     bool       fully = false;
     string_seq components;
@@ -65,30 +125,19 @@ struct qname {
         return components.back();
     }
 
+    qname_search
+    search() const
+    { return { fully, components.begin(), components.end() }; }
+    qname_search
+    search( bool f) const
+    { return { f, components.begin(), components.end() }; }
+
     static qname
     parse(::std::string const& name);
 };
 
-struct qname_search {
-    using string_seq = qname::string_seq;
-    using iterator = qname::const_iterator;
-
-    bool fully;
-    iterator begin;
-    iterator end;
-
-    bool
-    empty() const
-    { return begin == end; }
-
-    qname_search
-    next() const
-    { return { fully, begin + 1, end }; }
-
-    qname_search
-    next(bool f) const
-    { return { f, begin + 1, end }; }
-};
+::std::ostream&
+operator << (::std::ostream& os, qname const& val);
 
 }  /* namespace idl */
 }  /* namespace wire */

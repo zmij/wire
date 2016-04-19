@@ -7,6 +7,7 @@
 
 #include <wire/idl/qname.hpp>
 #include <wire/idl/qname_grammar.hpp>
+#include <wire/idl/ast.hpp>
 
 namespace wire {
 namespace idl {
@@ -34,6 +35,28 @@ qname
 qname::parse(::std::string const& name)
 {
     return qname{ name };
+}
+
+::std::ostream&
+operator << (::std::ostream& os, qname const& val)
+{
+    ::std::ostream::sentry s(os);
+    if (s) {
+        if (ast::type::is_built_in(val)) {
+            os << val.name();
+        } else {
+            if (val.fully)
+                os << "::";
+            bool scope = false;
+            for (auto const& c : val.components) {
+                if (scope)
+                    os << "::";
+                os << c;
+                scope = true;
+            }
+        }
+    }
+    return os;
 }
 
 }  /* namespace idl */
