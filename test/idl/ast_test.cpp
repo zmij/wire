@@ -242,6 +242,8 @@ TEST(AST, EntityLookup)
      * interface out_interface {
      *     struct internal {
      *     };
+     *     void
+     *     func();
      * };
      *
      * interface derived : out_interface {
@@ -263,6 +265,7 @@ TEST(AST, EntityLookup)
     out->add_type< structure >("in_struct");
 
     interface_ptr iface = inner_ns->add_type< interface >( "out_iterface" );
+    iface->add_function("func");
     structure_ptr intl = iface->add_type< structure >("internal");
     interface_ptr dface = inner_ns->add_type< interface >( "derived", interface_list{ iface } );
 
@@ -304,8 +307,10 @@ TEST(AST, EntityLookup)
     ASSERT_TRUE(intl.get());
     ASSERT_TRUE(dface.get());
     EXPECT_TRUE(iface->find_entity("internal").get());
+    EXPECT_TRUE(iface->find_entity("func").get());
     EXPECT_TRUE(glob->find_entity("outer::inner::derived").get());
     EXPECT_TRUE(dface->find_entity("internal").get());
+    EXPECT_TRUE(dface->find_entity("func").get());
     EXPECT_TRUE(glob->find_entity("outer::inner::derived::internal").get());
 
     EXPECT_FALSE(inner_ns->find_entity("::outer::inner::out_struct::__not_there_").get());

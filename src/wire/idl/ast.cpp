@@ -26,7 +26,7 @@ namespace ast {
  */
 struct builtin_type : public type {
     builtin_type(::std::string name)
-        : type(name)
+        : entity(name), type(name)
     {
     }
 
@@ -39,32 +39,32 @@ struct builtin_type : public type {
 
 namespace {
 
-#define MAKE_TYPE_PAIR(t, x) {#x, ::std::make_shared<t>(#x)}
+#define MAKE_BUILTIN_WIRE_TYPE(t, x) ::std::make_shared<t>(#x)
 
 type_list const&
 builtin_types()
 {
     static type_list builtins_{
-        MAKE_TYPE_PAIR(builtin_type, void),
-        MAKE_TYPE_PAIR(builtin_type, bool),
-        MAKE_TYPE_PAIR(builtin_type, char),
-        MAKE_TYPE_PAIR(builtin_type, byte),
-        MAKE_TYPE_PAIR(builtin_type, int32),
-        MAKE_TYPE_PAIR(builtin_type, int64),
-        MAKE_TYPE_PAIR(builtin_type, octet),
-        MAKE_TYPE_PAIR(builtin_type, uint32),
-        MAKE_TYPE_PAIR(builtin_type, uint64),
-        MAKE_TYPE_PAIR(builtin_type, float),
-        MAKE_TYPE_PAIR(builtin_type, double),
-        MAKE_TYPE_PAIR(builtin_type, string),
-        MAKE_TYPE_PAIR(builtin_type, uuid),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, void),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, bool),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, char),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, byte),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, int32),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, int64),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, octet),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, uint32),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, uint64),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, float),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, double),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, string),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, uuid),
 
         // FIXME Replace with parametrized type implementation
-        MAKE_TYPE_PAIR(builtin_type, variant),
-        MAKE_TYPE_PAIR(builtin_type, sequence),
-        MAKE_TYPE_PAIR(builtin_type, array),
-        MAKE_TYPE_PAIR(builtin_type, dictionary),
-        MAKE_TYPE_PAIR(builtin_type, optional),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, variant),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, sequence),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, array),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, dictionary),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, optional),
     };
     return builtins_;
 }
@@ -73,9 +73,9 @@ type_ptr
 find_builtin(::std::string const& name)
 {
     type_list const& bt = builtin_types();
-    auto f = bt.find(name);
-    if (f != bt.end()) {
-        return f->second;
+    for (auto const& t : bt) {
+        if (t->name() == name)
+            return t;
     }
     return type_ptr{};
 }
@@ -132,9 +132,8 @@ entity::get_qualified_name() const
 bool
 type::is_built_in(qname const& qn)
 {
-    type_list const& bt = builtin_types();
-    auto f = bt.find(qn.name());
-    return f != bt.end();
+    type_ptr t = find_builtin(qn.name());
+    return t.get();
 }
 
 //----------------------------------------------------------------------------
@@ -270,9 +269,9 @@ scope::local_type_search(qname_search const& search) const
     if (search.empty())
         return type_ptr{};
 
-    auto ft = types_.find(search.back());
-    if (ft != types_.end()) {
-        return ft->second;
+    for (auto const t : types_) {
+        if (t->name() == search.back())
+            return t;
     }
     return type_ptr{};
 }
@@ -283,9 +282,9 @@ scope::local_scope_search(qname_search const& search) const
     if (search.empty()) {
         return const_cast< scope* >(this)->shared_this<scope>();
     }
-    auto ft = types_.find(search.front());
-    if (ft != types_.end()) {
-        return dynamic_type_cast<scope>(ft->second);
+    for (auto const t : types_) {
+        if (t->name() == search.front())
+            return dynamic_type_cast<scope>(t);
     }
     return scope_ptr{};
 }
@@ -294,13 +293,29 @@ entity_ptr
 scope::local_entity_search(qname_search const& search) const
 {
     if (!search.empty()) {
-        auto ft = types_.find(search.back());
-        if (ft != types_.end()) {
-            return ft->second;
-        }
+        entity_ptr ent = local_type_search(search);
+        if (ent)
+            return ent;
         // TODO Search for constants
     }
     return entity_ptr{};
+}
+
+//----------------------------------------------------------------------------
+//    function class implementation
+//----------------------------------------------------------------------------
+function::function(interface_ptr sc, ::std::string const& name, type_ptr ret)
+    : entity(sc, name), ret_type_{ ret ? ret : namespace_::global()->find_type("void") }
+{
+}
+
+variable_ptr
+function::add_parameter(::std::string const& name, type_ptr type)
+{
+    variable_ptr param = ::std::make_shared<variable>(
+            owner(), name, type);
+    parameters_.push_back(param);
+    return param;
 }
 
 //----------------------------------------------------------------------------
@@ -423,21 +438,108 @@ namespace_::is_global() const
 }
 
 //----------------------------------------------------------------------------
+//    enumeration class implementation
+//----------------------------------------------------------------------------
+void
+enumeration::add_enumerator(::std::string const& name, optional_value val)
+{
+    for (auto const& e : enumerators_) {
+        if (e.first == name)
+            throw ::std::runtime_error("Duplicate enumerator identifier");
+    }
+    enumerators_.emplace_back(name, val);
+}
+//----------------------------------------------------------------------------
+//    structure class implementation
+//----------------------------------------------------------------------------
+
+variable_ptr
+structure::add_data_member(::std::string const& name, type_ptr t)
+{
+    variable_ptr member =
+            ::std::make_shared< variable >( shared_this<structure>(), name, t );
+    data_members_.push_back( member );
+    return member;
+}
+
+variable_ptr
+structure::find_member(::std::string const& name) const
+{
+    for (auto const& dm : data_members_) {
+        if (dm->name() == name)
+            return dm;
+    }
+    return variable_ptr{};
+}
+
+entity_ptr
+structure::local_entity_search(qname_search const& search) const
+{
+    entity_ptr ent = scope::local_entity_search(search);
+    if (!ent) {
+        ent = find_member(search.back());
+    }
+    return ent;
+}
+
+//----------------------------------------------------------------------------
 //    interface class implementation
 //----------------------------------------------------------------------------
+function_ptr
+interface::add_function(::std::string const& name, type_ptr t)
+{
+    function_ptr func = ::std::make_shared<function>(
+            shared_this<interface>(), name, t
+        );
+    functions_.push_back(func);
+    return func;
+}
+
+function_ptr
+interface::find_function(::std::string const& name) const
+{
+    for (auto f : functions_) {
+        if (f->name() == name)
+            return f;
+    }
+    return function_ptr{};
+}
+
+entity_ptr
+interface::ancestors_entity_search(qname_search const& search) const
+{
+    entity_ptr ent{};
+    // search ancestors
+    for (auto const& anc : ancestors_) {
+        ent = anc->local_entity_search(search);
+        if (ent)
+            break;
+    }
+    return ent;
+}
 entity_ptr
 interface::local_entity_search(qname_search const& search) const
 {
     entity_ptr ent = scope::local_entity_search(search);
     if (!ent) {
-        // search ancestors
-        for (auto const& anc : ancestors_) {
-            ent = anc.second->local_entity_search(search);
-            if (ent)
-                break;
-        }
+        ent = find_function(search.back());
+    }
+    if (!ent) {
+        ent = ancestors_entity_search(search);
     }
     return ent;
+}
+
+type_ptr
+interface::ancestors_type_search(qname_search const& search) const
+{
+    type_ptr t{};
+    for (auto const& anc : ancestors_) {
+        t = anc->local_type_search(search);
+        if (t)
+            break;
+    }
+    return t;
 }
 
 type_ptr
@@ -445,11 +547,7 @@ interface::local_type_search(qname_search const& search) const
 {
     type_ptr t = scope::local_type_search(search);
     if (!t) {
-        for (auto const& anc : ancestors_) {
-            t = anc.second->local_type_search(search);
-            if (t)
-                break;
-        }
+        t = ancestors_type_search(search);
     }
     return t;
 }
@@ -466,12 +564,7 @@ class_::local_entity_search(qname_search const& search) const
             ent = parent_->local_entity_search(search);
         }
         if (!ent) {
-            // search ancestors
-            for (auto const& anc : ancestors_) {
-                ent = anc.second->local_entity_search(search);
-                if (ent)
-                    break;
-            }
+            ent = ancestors_entity_search(search);
         }
     }
     return ent;
@@ -486,11 +579,7 @@ class_::local_type_search(qname_search const& search) const
             t = parent_->local_type_search(search);
         }
         if (!t) {
-            for (auto const& anc : ancestors_) {
-                t = anc.second->local_type_search(search);
-                if (t)
-                    break;
-            }
+            t = ancestors_type_search(search);
         }
     }
     return t;

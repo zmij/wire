@@ -33,8 +33,10 @@
 #include <vector>
 #include <set>
 #include <map>
-#include <iosfwd>
+#include <iostream>
 #include <algorithm>
+
+#include <boost/optional.hpp>
 
 #include <wire/idl/source_location.hpp>
 #include <wire/idl/qname.hpp>
@@ -64,6 +66,38 @@ class namespace_;
 using namespace_ptr = ::std::shared_ptr< namespace_ >;
 using namespace_list = ::std::map< ::std::string, namespace_ptr >;
 
+class structure;
+using structure_ptr = shared_entity< structure >;
+
+class interface;
+using interface_ptr = shared_entity< interface >;
+using interface_list = ::std::vector< interface_ptr >;
+
+struct literal_base {};
+template < typename T >
+struct literal : literal_base {
+    using value_type = typename ::std::decay<T>::type;
+    value_type value = T{};
+
+    literal() {}
+    literal(T const& v) : value{v} {}
+};
+
+template < typename T >
+std::ostream&
+operator << (std::ostream& os, literal<T> const& val)
+{
+    std::ostream::sentry s (os);
+    if (s) {
+        s << val.value;
+    }
+    return os;
+}
+
+using integral_literal = literal< ::std::int64_t >;
+using string_literal = literal< ::std::string >;
+
+//----------------------------------------------------------------------------
 template < typename T, typename U >
 shared_entity< T >
 dynamic_entity_cast(shared_entity< U > const& e);
@@ -189,7 +223,7 @@ protected:
         : entity(parent, name) {}
 };
 using type_ptr =  ::std::shared_ptr< type >;
-using type_list = ::std::map< ::std::string, type_ptr >;
+using type_list = ::std::vector< type_ptr >;
 
 //----------------------------------------------------------------------------
 /**
@@ -222,7 +256,7 @@ class parametrized_type : public type {
 
 //----------------------------------------------------------------------------
 /**
- * Constant declaration
+ * Wire IDL constant item
  */
 class constant : public entity {
 public:
@@ -241,6 +275,47 @@ private:
 
 using constant_ptr = ::std::shared_ptr<constant>;
 using constant_list = ::std::set< constant_ptr, entity::name_compare >;
+//----------------------------------------------------------------------------
+/**
+ * Wire IDL variable item (for data members and function parameters)
+ */
+class variable : public entity {
+public:
+    variable(scope_ptr sc, ::std::string const& name, type_ptr t)
+        : entity(sc, name), type_(t) {/*TODO Check type is not void*/}
+private:
+    type_ptr type_;
+};
+using variable_ptr = shared_entity< variable >;
+using variable_list = ::std::vector< variable_ptr >;
+
+//----------------------------------------------------------------------------
+/**
+ * Wire IDL function item (for member function)
+ */
+
+class function : public entity {
+public:
+    function(interface_ptr sc, ::std::string const& name, type_ptr ret = type_ptr{});
+
+    variable_ptr
+    add_parameter(::std::string const& name, type_ptr type);
+
+    bool&
+    is_const()
+    { return is_const_; }
+
+    bool
+    is_const() const
+    { return is_const_; }
+private:
+    type_ptr         ret_type_;
+    variable_list    parameters_;
+    bool             is_const_ = false;
+
+};
+using function_ptr = shared_entity<function>;
+using function_list = ::std::vector< function_ptr >;
 
 //----------------------------------------------------------------------------
 /**
@@ -317,7 +392,7 @@ public:
         shared_entity< T > t = ::std::make_shared< T >(
                 shared_this< scope >(), qn.name(),
                 ::std::forward< Y >(args) ... );
-        types_.emplace( qn.name(), t );
+        types_.push_back( t );
         return t;
     }
     /**
@@ -336,7 +411,7 @@ public:
     constants() const
     { return constants_; }
 protected:
-    scope() : entity{} {}
+    scope() : entity() {}
     /**
      * Create a scope with a parent and name
      * @param parent
@@ -418,52 +493,73 @@ private:
 
 //----------------------------------------------------------------------------
 /**
+ * Wire IDL enum item
+ */
+class enumeration : public type {
+public:
+    // TODO Expression for value, can contain integral constants
+    // and already defined enumerators
+    using optional_value = ::boost::optional< integral_literal >;
+    using enumerator = ::std::pair< ::std::string, optional_value >;
+    using enumerator_list = ::std::vector<enumerator>;
+public:
+    enumeration(scope_ptr owner, ::std::string const& name)
+        : entity(owner, name), type(owner, name) {}
+
+    void
+    add_enumerator(::std::string const& name,
+        optional_value = optional_value{});
+private:
+    enumerator_list enumerators_;
+};
+//----------------------------------------------------------------------------
+/**
  * Wire IDL struct item
  */
 class structure : public virtual type, public virtual scope {
 public:
     structure(scope_ptr sc, ::std::string const& name)
         : entity(sc, name), type(sc, name), scope(sc, name) {}
-    // TODO data members
-};
 
-using structure_ptr = shared_entity< structure >;
+    variable_ptr
+    add_data_member( ::std::string const& name, type_ptr t );
+    variable_ptr
+    find_member( ::std::string const& name) const;
+protected:
+    entity_ptr
+    local_entity_search(qname_search const& search) const override;
+protected:
+    variable_list data_members_;
+};
 
 //----------------------------------------------------------------------------
 /**
  * Wire IDL interface item
  */
-class interface;
-using interface_ptr = shared_entity< interface >;
-using interface_map = ::std::map< ::std::string, interface_ptr >;
-using interface_list = ::std::vector< interface_ptr >;
-
 class interface : public virtual type, public virtual scope {
 public:
     interface(scope_ptr sc, ::std::string const& name,
-            interface_map const& ancestors = interface_map{})
+            interface_list const& ancestors = interface_list{})
         : entity(sc, name), type(sc, name), scope(sc, name),
           ancestors_{ ancestors } {}
-    interface(scope_ptr sc, ::std::string const& name,
-            interface_list const& ancestors)
-        : entity(sc, name), type(sc, name), scope(sc, name)
-    {
-        ::std::transform(ancestors.begin(), ancestors.end(),
-             ::std::inserter(ancestors_, ancestors_.end()),
-             [](interface_ptr i)
-             {
-                return ::std::make_pair(i->name(), i);
-             });
-    }
     // TODO function members
+    function_ptr
+    add_function(::std::string const& name, type_ptr t = type_ptr{});
+    function_ptr
+    find_function(::std::string const& name) const;
 protected:
-    friend class class_;
+    entity_ptr
+    ancestors_entity_search(qname_search const& search) const;
+    type_ptr
+    ancestors_type_search(qname_search const& search) const;
+
     entity_ptr
     local_entity_search(qname_search const& search) const override;
     type_ptr
     local_type_search(qname_search const& search) const override;
 protected:
-    interface_map ancestors_;
+    interface_list ancestors_;
+    function_list functions_;
 };
 
 //----------------------------------------------------------------------------
@@ -477,17 +573,7 @@ class class_ : public structure, public interface {
 public:
     class_(scope_ptr sc, ::std::string const& name,
             class_ptr parent = class_ptr{},
-            interface_map const& implements = interface_map{})
-        : entity(sc, name),
-          type(sc, name),
-          scope(sc, name),
-          structure(sc, name),
-          interface(sc, name, implements),
-          parent_(parent)
-    {}
-    class_(scope_ptr sc, ::std::string const& name,
-            class_ptr parent,
-            interface_list const& implements)
+            interface_list const& implements = interface_list{})
         : entity(sc, name),
           type(sc, name),
           scope(sc, name),
