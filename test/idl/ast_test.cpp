@@ -342,6 +342,8 @@ TEST(AST, TypeLookup)
      *     };
      * };
      *
+     * using child_alias = child;
+     *
      * }
      * }
      */
@@ -364,6 +366,7 @@ TEST(AST, TypeLookup)
     class_ptr base = inner_ns->add_type<class_>("base", class_ptr{}, interface_list{ dface });
     class_ptr child = inner_ns->add_type<class_>("child", base);
     child->add_type<class_>("sneaky");
+    inner_ns->add_type< type_alias >("child_alias", child);
 
     EXPECT_TRUE(glob->find_type("outer::inner::out_struct").get());
     EXPECT_TRUE(glob->find_type("::outer::inner::out_struct").get());
@@ -421,6 +424,10 @@ TEST(AST, TypeLookup)
     EXPECT_FALSE(glob->find_type("outer::inner::base::__not_there_").get());
     EXPECT_TRUE(glob->find_type("outer::inner::child::sneaky").get());
     EXPECT_FALSE(glob->find_type("outer::inner::base::sneaky").get());
+
+    EXPECT_TRUE(inner_ns->find_type("child_alias").get());
+    EXPECT_TRUE(glob->find_type("outer::inner::child_alias").get());
+    EXPECT_TRUE(glob->find_type("outer::inner::child_alias::internal").get());
 }
 
 }  /* namespace test */
