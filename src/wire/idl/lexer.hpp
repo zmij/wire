@@ -132,6 +132,9 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
 
           quoted_str    {"\\\"[^\\\"]+\\\"",        token_quoted_string},
 
+          c_comment     {"\\/\\*[^*]*\\*+((\n)|([^/*][^*]*\\*+))*\\/",
+                                                    token_c_comment},
+          cpp_comment   {"\\/\\/[^\n]*\n",          token_cpp_comment},
           eol           {"\n",                      token_eol},
           whitespace    {"[ \t]",                   token_whitespace},
           any           {".",                       token_any}
@@ -142,40 +145,42 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
 
         self =
              preproc_directive [ update_location( ref(current_location), _start, _end ) ]
-           | ns             [ ref(current_location.character) += distance(_start, _end) ]
+           | ns                [ ref(current_location.character) += distance(_start, _end) ]
 
-           | struct_        [ ref(current_location.character) += distance(_start, _end) ]
-           | class_         [ ref(current_location.character) += distance(_start, _end) ]
-           | interface      [ ref(current_location.character) += distance(_start, _end) ]
-           | exception      [ ref(current_location.character) += distance(_start, _end) ]
+           | struct_           [ ref(current_location.character) += distance(_start, _end) ]
+           | class_            [ ref(current_location.character) += distance(_start, _end) ]
+           | interface         [ ref(current_location.character) += distance(_start, _end) ]
+           | exception         [ ref(current_location.character) += distance(_start, _end) ]
 
-           | const_         [ ref(current_location.character) += distance(_start, _end) ]
-           | using_         [ ref(current_location.character) += distance(_start, _end) ]
+           | const_            [ ref(current_location.character) += distance(_start, _end) ]
+           | using_            [ ref(current_location.character) += distance(_start, _end) ]
 
-           | comma          [ ++ref(current_location.character) ]
-           | colon          [ ++ref(current_location.character) ]
-           | scope          [ ref(current_location.character) += 2 ]
-           | semicolon      [ ++ref(current_location.character) ]
-           | assign         [ ++ref(current_location.character) ]
-           | asterisk       [ ++ref(current_location.character) ]
-           | brace_open     [ ++ref(current_location.character) ]
-           | brace_close    [ ++ref(current_location.character) ]
-           | block_start    [ ++ref(current_location.character) ]
-           | block_end      [ ++ref(current_location.character) ]
-           | angled_open    [ ++ref(current_location.character) ]
-           | angled_close   [ ++ref(current_location.character) ]
-           | attrib_start   [ ref(current_location.character) += 2 ]
-           | attrib_end     [ ref(current_location.character) += 2 ]
+           | comma             [ ++ref(current_location.character) ]
+           | colon             [ ++ref(current_location.character) ]
+           | scope             [ ref(current_location.character) += 2 ]
+           | semicolon         [ ++ref(current_location.character) ]
+           | assign            [ ++ref(current_location.character) ]
+           | asterisk          [ ++ref(current_location.character) ]
+           | brace_open        [ ++ref(current_location.character) ]
+           | brace_close       [ ++ref(current_location.character) ]
+           | block_start       [ ++ref(current_location.character) ]
+           | block_end         [ ++ref(current_location.character) ]
+           | angled_open       [ ++ref(current_location.character) ]
+           | angled_close      [ ++ref(current_location.character) ]
+           | attrib_start      [ ref(current_location.character) += 2 ]
+           | attrib_end        [ ref(current_location.character) += 2 ]
 
-           | identifier     [ ref(current_location.character) += distance(_start, _end) ]
-           | number         [ ref(current_location.character) += distance(_start, _end) ]
-           | oct_number     [ ref(current_location.character) += distance(_start, _end) ]
-           | hex_number     [ ref(current_location.character) += distance(_start, _end) ]
-           | quoted_str     [ ref(current_location.character) += distance(_start, _end) ]
+           | identifier        [ ref(current_location.character) += distance(_start, _end) ]
+           | number            [ ref(current_location.character) += distance(_start, _end) ]
+           | oct_number        [ ref(current_location.character) += distance(_start, _end) ]
+           | hex_number        [ ref(current_location.character) += distance(_start, _end) ]
+           | quoted_str        [ ref(current_location.character) += distance(_start, _end) ]
 
-           | eol            [ ++ref(current_location.line), ref(current_location.character) = 0 ]
-           | whitespace     [ ++ref(current_location.character) ]
-           | any            [ ++ref(current_location.character) ]
+           | c_comment
+           | cpp_comment
+           | eol               [ ++ref(current_location.line), ref(current_location.character) = 0 ]
+           | whitespace        [ ++ref(current_location.character) ]
+           | any               [ ++ref(current_location.character) ]
         ;
     }
 
@@ -213,6 +218,9 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
     token_def<>   oct_number;
     token_def<>   hex_number;
     token_def<>   quoted_str;
+
+    token_def<>   c_comment;
+    token_def<>   cpp_comment;
 
     token_def<>   eol;
     token_def<>   whitespace;

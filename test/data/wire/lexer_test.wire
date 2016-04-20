@@ -11,7 +11,7 @@
 #include <wire/sugar.wire>
 #include <wire/core/identity.wire>
 
-[[cpp_namespace(foo, bar)]] // File-level attributes
+[[cpp_namespace(foo, bar)]] /* File-level attributes */
 
 namespace test {
 
@@ -61,6 +61,6 @@ interface another_service : some_service {
     make_some_bad();
 };
 
-}  // namespace test
+}  /* namespace test */
 // Here is the final position, line:0
 #endif /* DATA_WIRE_LEXER_TEST_WIRE_ */

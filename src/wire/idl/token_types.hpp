@@ -53,6 +53,9 @@ enum token_type {
     token_hex_number,
     token_quoted_string,
 
+    token_c_comment,
+    token_cpp_comment,
+
     token_eol,
     token_whitespace,
     token_any

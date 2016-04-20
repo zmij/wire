@@ -38,6 +38,9 @@ struct preprocessor::impl {
         ::std::noskipws(istream_);
 
         string_list args{ MCPP_PATH, "-+", "-DWIRE_GENERATE" };
+        if (options.output_comments) {
+            args.push_back("-C");
+        }
         for (auto const& p : options.include_dirs) {
             args.push_back("-I");
             args.push_back(p);

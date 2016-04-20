@@ -81,7 +81,7 @@ TEST(Lexer, TrackCompilationUnit)
     using lexer_type = lex::lexertl::actor_lexer< token_value_type >;
 
     const std::string file_name = ::wire::test::DATA_SRC_ROOT + "/wire/lexer_test.wire";
-    preprocessor pp{ file_name, {{ ::wire::test::IDL_ROOT }} };
+    preprocessor pp{ file_name, {{ ::wire::test::IDL_ROOT }, true} };
 
     ::std::size_t line_count = 0;
     {
@@ -197,6 +197,14 @@ TEST(Lexer, TrackCompilationUnit)
                 ::std::cerr << "\"string literal\"";
                 break;
 
+            case token_c_comment:
+                ::std::cerr << "C Comment " << ::std::string{ iter->value().begin(), iter->value().end() } << "\n"
+                    << ::std::setw(3) << lexer.current_location.line << ": ";
+                break;
+            case token_cpp_comment:
+                ::std::cerr << "CPP Comment: " << ::std::string{ iter->value().begin(), iter->value().end() }
+                    << ::std::setw(3) << lexer.current_location.line << ": ";
+                break;
             case token_eol:
                 ::std::cerr << "\n"
                      << ::std::setw(3) << lexer.current_location.line << ": ";

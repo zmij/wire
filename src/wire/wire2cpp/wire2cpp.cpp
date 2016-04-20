@@ -55,6 +55,9 @@ try {
         ("include-dir,I",
             po::value< wire::cpp::string_list >(&preproc_opts.include_dirs),
             "Add directory to #include search list")
+        ("output-comments,C",
+            po::bool_switch(&preproc_opts.output_comments),
+            "Output comments from IDL")
     ;
     po::options_description out_opts_desc{"Output options"};
     out_opts_desc.add_options()
