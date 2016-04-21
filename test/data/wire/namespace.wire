@@ -1,0 +1,25 @@
+/*
+ * namespace.wire
+ *
+ *  Created on: Apr 21, 2016
+ *      Author: zmij
+ */
+
+#ifndef DATA_WIRE_NAMESPACE_WIRE_
+#define DATA_WIRE_NAMESPACE_WIRE_
+
+/**
+ * Namespace documentation
+ */
+namespace test {
+
+} /* namespace test */
+
+// Namespace reopen
+namespace test {
+namespace detail {
+
+}  /* namespace detail */
+} /* namespace test */
+
+#endif /* DATA_WIRE_NAMESPACE_WIRE_ */

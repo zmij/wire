@@ -61,6 +61,15 @@ enum token_type {
     token_any
 };
 
+template <typename Attribute = ::boost::spirit::lex::unused_type,
+        typename Char = char>
+using token_def = ::boost::spirit::lex::token_def<Attribute, Char, token_type>;
+
+template <typename Iterator = char const*,
+        typename AttributeTypes = ::boost::mpl::vector0<>,
+        typename HasState = ::boost::mpl::true_ >
+using token = ::boost::spirit::lex::lexertl::token<Iterator, AttributeTypes, HasState, token_type>;
+
 }  /* namespace lexer */
 }  /* namespace idl */
 }  /* namespace wire */

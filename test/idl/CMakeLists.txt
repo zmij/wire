@@ -22,6 +22,7 @@ set(
     lexer_test.cpp
     qname_test.cpp
     ast_test.cpp
+    parser_test.cpp
 )
 add_executable(test-wire-idl ${test_program_SRCS})
 target_link_libraries(

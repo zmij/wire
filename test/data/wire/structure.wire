@@ -1,0 +1,21 @@
+/*
+ * structure.wire
+ *
+ *  Created on: Apr 21, 2016
+ *      Author: zmij
+ */
+
+#ifndef DATA_WIRE_STRUCTURE_WIRE_
+#define DATA_WIRE_STRUCTURE_WIRE_
+
+#include <wire/sugar.wire>
+
+namespace test {
+
+struct test_struct {
+    int32 value;
+};
+
+}  /* namespace test */
+
+#endif /* DATA_WIRE_STRUCTURE_WIRE_ */

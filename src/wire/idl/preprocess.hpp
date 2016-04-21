@@ -31,6 +31,9 @@ public:
 
     ::std::istream&
     stream();
+
+    ::std::string
+    to_string();
 private:
     struct impl;
     using pimpl = ::std::shared_ptr< impl >;

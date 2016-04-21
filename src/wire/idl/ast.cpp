@@ -585,6 +585,33 @@ class_::local_type_search(qname_search const& search) const
     return t;
 }
 
+
+//----------------------------------------------------------------------------
+//    exception class implementation
+//----------------------------------------------------------------------------
+entity_ptr
+exception::local_entity_search(qname_search const& search) const
+{
+    entity_ptr ent = scope::local_entity_search(search);
+    if (!ent) {
+        if (parent_) {
+            ent = parent_->local_entity_search(search);
+        }
+    }
+    return ent;
+}
+
+type_ptr
+exception::local_type_search(qname_search const& search) const
+{
+    type_ptr t = scope::local_type_search(search);
+    if (!t) {
+        if (parent_) {
+            t = parent_->local_type_search(search);
+        }
+    }
+    return t;
+}
 }  // namespace ast
 }  // namespace idl
 }  // namespace wire

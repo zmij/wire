@@ -14,7 +14,6 @@
 #include <boost/spirit/include/phoenix_statement.hpp>
 #include <boost/spirit/include/phoenix_algorithm.hpp>
 #include <boost/spirit/include/phoenix_core.hpp>
-
 #include <wire/idl/source_location.hpp>
 #include <wire/idl/token_types.hpp>
 
@@ -23,7 +22,7 @@ namespace idl {
 namespace lexer {
 
 template < typename InputIterator >
-struct location_grammar : ::boost::spirit::qi::grammar< InputIterator, location() > {
+struct location_grammar : ::boost::spirit::qi::grammar< InputIterator, source_location() > {
     location_grammar() : location_grammar::base_type(root)
     {
         namespace qi = boost::spirit::qi;
@@ -37,14 +36,14 @@ struct location_grammar : ::boost::spirit::qi::grammar< InputIterator, location(
 
         line = ::boost::spirit::qi::uint_parser< ::std::size_t, 10, 1 >();
         file_name %= +(~char_('"'));
-        root = eps[phx::bind(&location::character, _val) = 0]
+        root = eps[phx::bind(&source_location::character, _val) = 0]
            >> lit("#line") >> +space
-           >> line[ phx::bind(&location::line, _val) = _1 ]
+           >> line[ phx::bind(&source_location::line, _val) = _1 ]
            >> +space >> '"'
-           >> file_name[phx::bind(&location::file, _val) = _1]
+           >> file_name[phx::bind(&source_location::file, _val) = _1]
            >> '"' >> "\n";
     }
-    ::boost::spirit::qi::rule<InputIterator, location()>        root;
+    ::boost::spirit::qi::rule<InputIterator, source_location()>        root;
     ::boost::spirit::qi::rule<InputIterator, ::std::size_t()>   line;
     ::boost::spirit::qi::rule<InputIterator, ::std::string()>   file_name;
 };
@@ -57,7 +56,7 @@ struct file_location_func {
 
     template < typename Iterator >
     void
-    operator()(location& loc, Iterator begin, Iterator end) const
+    operator()(source_location& loc, Iterator begin, Iterator end) const
     {
         namespace qi = ::boost::spirit::qi;
         using grammar_type = location_grammar<Iterator>;
@@ -81,15 +80,6 @@ struct distance_func {
 };
 
 ::boost::phoenix::function< distance_func > const distance = distance_func{};
-
-template <typename Attribute = ::boost::spirit::lex::unused_type,
-        typename Char = char>
-using token_def = ::boost::spirit::lex::token_def<Attribute, Char, token_type>;
-
-template <typename Iterator = char const*,
-        typename AttributeTypes = ::boost::mpl::vector0<>,
-        typename HasState = ::boost::mpl::true_ >
-using token = ::boost::spirit::lex::lexertl::token<Iterator, AttributeTypes, HasState, token_type>;
 
 template < typename Lexer >
 struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
@@ -184,7 +174,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
         ;
     }
 
-    location      current_location;
+    source_location      current_location;
     token_def<>   preproc_directive;
     //@{
     /** @name Keywords */

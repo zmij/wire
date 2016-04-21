@@ -38,8 +38,8 @@
 
 #include <boost/optional.hpp>
 
-#include <wire/idl/source_location.hpp>
 #include <wire/idl/qname.hpp>
+#include <wire/idl/source_location.hpp>
 
 namespace wire {
 namespace idl {
@@ -225,6 +225,23 @@ protected:
 using type_ptr =  ::std::shared_ptr< type >;
 using type_list = ::std::vector< type_ptr >;
 
+//----------------------------------------------------------------------------
+class forward_declaration : public type {
+public:
+    enum forward_type {
+        structure,
+        interface,
+        class_,
+        exception
+    };
+
+    forward_declaration(scope_ptr sc, ::std::string const& name, forward_type fw)
+        : entity(sc, name), type(sc, name), fw_(fw)
+    {
+    }
+private:
+    forward_type fw_;
+};
 //----------------------------------------------------------------------------
 /**
  * Class for type alias
@@ -588,6 +605,32 @@ private:
     local_type_search(qname_search const& search) const override;
 private:
     class_ptr parent_;
+};
+
+//----------------------------------------------------------------------------
+/**
+ * Wire IDL class item
+ */
+class exception;
+using exception_ptr = shared_entity<exception>;
+
+class exception : public structure {
+public:
+    exception(scope_ptr sc, ::std::string const& name,
+            exception_ptr parent = exception_ptr{})
+        : entity(sc, name),
+          type(sc, name),
+          scope(sc, name),
+          structure(sc, name),
+          parent_(parent)
+    {}
+private:
+    entity_ptr
+    local_entity_search(qname_search const& search) const override;
+    type_ptr
+    local_type_search(qname_search const& search) const override;
+private:
+    exception_ptr parent_;
 };
 
 //----------------------------------------------------------------------------

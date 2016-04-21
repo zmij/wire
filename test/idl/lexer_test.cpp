@@ -54,7 +54,7 @@ TEST(Lexer, LocationGrammar)
     iterator_type f = TEST_PREPROC_MESSAGE.begin();
     iterator_type l = TEST_PREPROC_MESSAGE.end();
 
-    location loc;// {"", 100, 500};
+    source_location loc;// {"", 100, 500};
     EXPECT_TRUE(qi::parse(f, l, grammar_type{}, loc));
     EXPECT_EQ(l, f);
     EXPECT_EQ(11, loc.line);
@@ -64,7 +64,7 @@ TEST(Lexer, LocationGrammar)
 
 TEST(Lexer, UpdateLocation)
 {
-    location loc {"", 100, 500};
+    source_location loc {"", 100, 500};
     EXPECT_NO_THROW(file_location_func{}(loc, TEST_PREPROC_MESSAGE.begin(), TEST_PREPROC_MESSAGE.end()));
     EXPECT_EQ(11, loc.line);
     EXPECT_EQ(0, loc.character);

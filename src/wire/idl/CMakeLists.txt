@@ -23,6 +23,8 @@ set(
     ast.cpp
     qname.cpp
     preprocess.cpp
+    parser.cpp
+    syntax_error.cpp
 )
 
 add_library(${WIRE_IDL_LIB} SHARED ${wire_idl_SRCS})

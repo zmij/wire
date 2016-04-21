@@ -86,6 +86,7 @@ struct qname {
     string_seq components;
 
     qname() {}
+    qname(bool f) : fully(f) {}
     qname(char const* name);
     /**
      * Intentionally implicit
