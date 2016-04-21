@@ -64,10 +64,16 @@ TEST(Parser, Structure)
 
     EXPECT_TRUE(ast::namespace_::global()->find_namespace("test").get());
     EXPECT_TRUE(ast::namespace_::global()->find_namespace("::test").get());
+
+    EXPECT_TRUE(ast::namespace_::global()->find_type("test::buffer").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::buffer").get());
     EXPECT_TRUE(ast::namespace_::global()->find_type("test::test_struct").get());
     EXPECT_TRUE(ast::namespace_::global()->find_type("::test::test_struct").get());
+
     EXPECT_TRUE(ast::namespace_::global()->find_entity("test::test_struct::value").get());
     EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::test_struct::value").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("test::test_struct::ids").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::test_struct::buffer").get());
 }
 
 }  // namespace test
