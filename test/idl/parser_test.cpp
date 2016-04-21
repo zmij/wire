@@ -100,6 +100,8 @@ TEST(Parser, Exception)
 
     EXPECT_TRUE(ast::namespace_::global()->find_type("test::test_error").get());
     EXPECT_TRUE(ast::namespace_::global()->find_type("::test::severe_error").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::test_error::buffer").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::severe_error::buffer").get());
 
     EXPECT_TRUE(ast::namespace_::global()->find_entity("test::test_error::message").get());
     EXPECT_TRUE(ast::namespace_::global()->find_entity("test::severe_error::message").get());

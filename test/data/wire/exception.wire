@@ -20,6 +20,8 @@ exception test_error {
 exception severe_error : test_error {
     int32 severity;
     buffer data;
+
+    using buffer2 = buffer;
 };
 
 }  /* namespace test */

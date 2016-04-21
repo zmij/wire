@@ -599,8 +599,12 @@ struct type_alias_decl : phrase_parse {
                 current_phrase_.process_token(loc, tkn);
                 break;
             case lexer::token_semicolon:
-                scope.add_type_alias(loc, member_name_, aliased_type);
-                return phrase_parse_ptr{};
+                if (!current_phrase_.process_token(loc, tkn)) {
+                    if (!aliased_type)
+                        throw syntax_error(loc, "Aliased type not found");
+                    scope.add_type_alias(loc, member_name_, aliased_type);
+                    return phrase_parse_ptr{};
+                }
             default:
                 if (!current_phrase_.process_token(loc, tkn)) {
                     throw syntax_error(loc, "Unexpected token (type alias)");
