@@ -668,7 +668,7 @@ class_::local_type_search(qname_search const& search) const
 entity_ptr
 exception::local_entity_search(qname_search const& search) const
 {
-    entity_ptr ent = scope::local_entity_search(search);
+    entity_ptr ent = structure::local_entity_search(search);
     if (!ent) {
         if (parent_) {
             ent = parent_->local_entity_search(search);

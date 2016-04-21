@@ -76,6 +76,37 @@ TEST(Parser, Structure)
     EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::test_struct::buffer").get());
 }
 
+TEST(Parser, Exception)
+{
+    const std::string file_name = ::wire::test::DATA_SRC_ROOT + "/wire/exception.wire";
+
+    preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, true } };
+    parser_state parser;
+    lexer::wire_tokens<parser_state::lexer_type> tokens;
+
+    std::string input_str = pp.to_string();
+    auto sb     = input_str.data();
+    auto se     = sb + input_str.size();
+
+    auto end    = tokens.end();
+
+    for (auto iter   = tokens.begin(sb, se);
+            iter != end && token_is_valid(*iter); ++iter) {
+        parser.process_token(tokens.current_location, *iter);
+    }
+
+    EXPECT_TRUE(ast::namespace_::global()->find_namespace("test").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_namespace("::test").get());
+
+    EXPECT_TRUE(ast::namespace_::global()->find_type("test::test_error").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::severe_error").get());
+
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("test::test_error::message").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("test::severe_error::message").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("test::severe_error::severity").get());
+    //EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::test_struct::buffer").get());
+}
+
 }  // namespace test
 }  // namespace parser
 }  // namespace core

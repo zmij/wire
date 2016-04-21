@@ -141,7 +141,8 @@ public:
     process_token(source_location const& loc, token_value_type const& tkn);
 
     void
-    open_scope(source_location const&, rule type, ::std::string const& identifier);
+    open_scope(source_location const&, rule type,
+            ::std::string const& identifier, ast::type_list const&);
     void
     close_scope(source_location const& loc);
     void
@@ -163,7 +164,7 @@ protected:
     }
     virtual void
     open_scope_impl(source_location const&, rule type,
-            ::std::string const& identifier);
+            ::std::string const& identifier, ast::type_list const&);
 private:
     virtual void
     start_namespace(source_location const& loc)
@@ -194,7 +195,7 @@ private:
     start_namespace(source_location const& source_loc) override;
     void
     open_scope_impl(source_location const&, rule type,
-            ::std::string const& identifier) override;
+            ::std::string const& identifier, ast::type_list const&) override;
 };
 
 //----------------------------------------------------------------------------
@@ -226,10 +227,10 @@ public:
 };
 
 //----------------------------------------------------------------------------
-class exception_scope : public parser_scope {
+class exception_scope : public structure_scope {
 public:
     exception_scope( parser_state& ps, ast::exception_ptr s)
-        : parser_scope(ps, s) {}
+        : structure_scope(ps, s) {}
     virtual ~exception_scope() {}
 };
 

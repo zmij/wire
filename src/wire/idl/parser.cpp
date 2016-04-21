@@ -50,6 +50,7 @@ struct expect_semicolon_after_block;
 struct type_name_expect_scope;
 struct type_name_expect_identifier;
 struct type_name_template_args;
+struct expect_type_name;
 
 //----------------------------------------------------------------------------
 struct skip_leading_whitespace : phrase_parse {
@@ -90,28 +91,72 @@ struct block_name_parse : phrase_parse {
             // Expect a block open token or a statement end (for forward declaration)
             switch (tkn.id()) {
                 case lexer::token_semicolon:
-                    if (type == rule::namespace_name) {
-                        throw syntax_error(loc, "Cannot forward declare a namespace");
+                    if (!current_phrase_.process_token(loc, tkn)) {
+                        if (type == rule::namespace_name) {
+                            throw syntax_error(loc, "Cannot forward declare a namespace");
+                        }
+                        if (!ancestors.empty())
+                            throw syntax_error(loc, "Cannot declare bases in a forward declaration");
+                        // notify scope about forward declaration
+                        scope.forward_declare(loc, type, identifier);
+                        return phrase_parse_ptr{};
                     }
-                    // notify scope about forward declaration
-                    scope.forward_declare(loc, type, identifier);
-                    return phrase_parse_ptr{};
+                    break;
                 case lexer::token_block_start:
-                    // notify scope about scope open
-                    scope.open_scope(loc, type, identifier);
-                    if (type == rule::namespace_name)
-                        return phrase_parse_ptr{}; // Don't want a semicolon here
-                    return next_phrase<expect_semicolon_after_block>();
+                    if (!current_phrase_.process_token(loc, tkn)) {
+                        // notify scope about scope open
+                        scope.open_scope(loc, type, identifier, ancestors);
+                        if (type == rule::namespace_name)
+                            return phrase_parse_ptr{}; // Don't want a semicolon here
+                        return next_phrase<expect_semicolon_after_block>();
+                    }
+                    break;
+                case lexer::token_colon: {
+                    if (!current_phrase_.process_token(loc, tkn)) {
+                        switch (type) {
+                            case rule::namespace_name:
+                            case rule::structure_name:
+                                throw syntax_error(loc, "Cannot derive a namespace or structure");
+                        }
+                        current_phrase_.set_current_phrase< expect_type_name >(scope,
+                                [&](ast::type_ptr t) { ancestors.push_back(t); }
+                        );
+                    }
+                    break;
+                }
+                case lexer::token_comma:
+                    if (!current_phrase_.process_token(loc, tkn)) {
+                        switch (type) {
+                            case rule::namespace_name:
+                            case rule::structure_name:
+                                throw syntax_error(loc, "Cannot derive a namespace or structure");
+                            case rule::exception_name:
+                                if (ancestors.size() > 0) {
+                                    throw syntax_error(loc, "An exception cannot have more than one base");
+                                }
+                                break;
+                        }
+                        current_phrase_.set_current_phrase< expect_type_name >(scope,
+                                [&](ast::type_ptr t) { ancestors.push_back(t); }
+                        );
+                    }
+                    break;
                 case lexer::token_whitespace:
+                    if (!current_phrase_.process_token(loc, tkn)) {
+                    }
                     break;
                 default:
-                    throw syntax_error(loc, "Unexpected token (block name)");
+                    if (!current_phrase_.process_token(loc, tkn)) {
+                        throw syntax_error(loc, "Unexpected token (block name)");
+                    }
             }
         }
         return shared_from_this();
     }
 
+    phrase_parser   current_phrase_;
     ::std::string   identifier;
+    ast::type_list  ancestors;
 };
 
 struct expect_semicolon_after_block : phrase_parse {
@@ -180,6 +225,8 @@ struct type_name_expect_scope : phrase_parse {
     want_token(source_location const& loc, token_value_type const& tkn) const override
     {
         switch(tkn.id()) {
+            case lexer::token_semicolon:
+            case lexer::token_block_start:
             case lexer::token_angled_close:
             case lexer::token_comma:
             case lexer::token_eol:
@@ -635,6 +682,9 @@ parser_scope::process_token(source_location const& loc, token_value_type const& 
             break;
         case lexer::token_colon:
             ::std::cerr << ":";
+            if (!current_phrase_.process_token(loc, tkn)) {
+                throw syntax_error(loc, "Unexpected colon");
+            }
             break;
         case lexer::token_scope_resolution:
             ::std::cerr << ":SCOPE:";
@@ -750,14 +800,16 @@ parser_scope::process_token(source_location const& loc, token_value_type const& 
 }
 
 void
-parser_scope::open_scope(source_location const& loc, rule type, ::std::string const& identifier)
+parser_scope::open_scope(source_location const& loc, rule type,
+        ::std::string const& identifier, ast::type_list const& ancestors)
 {
     ::std::cerr << "// Open scope " << identifier << "\n";
-    open_scope_impl(loc, type, identifier);
+    open_scope_impl(loc, type, identifier, ancestors);
 }
 
 void
-parser_scope::open_scope_impl(source_location const& loc, rule type, ::std::string const& identifier)
+parser_scope::open_scope_impl(source_location const& loc, rule type,
+        ::std::string const& identifier, ast::type_list const& ancestors)
 {
     if (type == rule::namespace_name) {
         throw syntax_error(loc, "Cannot open a namespace at this scope");
@@ -780,7 +832,16 @@ parser_scope::open_scope_impl(source_location const& loc, rule type, ::std::stri
             break;
         }
         case rule::exception_name: {
-            ast::exception_ptr e = scope()->add_type< ast::exception >(identifier);
+            ast::exception_ptr parent;
+            if (!ancestors.empty()) {
+                if (ancestors.size() > 1) {
+                    throw syntax_error(loc, "An exception can have no more than one ancestor");
+                }
+                parent = ast::dynamic_type_cast< ast::exception >(ancestors.front());
+                if (!parent)
+                    throw syntax_error(loc, "An exception can be derived from an exception only");
+            }
+            ast::exception_ptr e = scope()->add_type< ast::exception >(identifier, parent);
             state_.push_scope< exception_scope >(e);
             break;
         }
@@ -831,13 +892,14 @@ namespace_scope::start_namespace(source_location const& source_loc)
 }
 
 void
-namespace_scope::open_scope_impl(source_location const& loc, rule type, ::std::string const& identifier)
+namespace_scope::open_scope_impl(source_location const& loc, rule type,
+        ::std::string const& identifier, ast::type_list const& ancestors)
 {
     if (type == rule::namespace_name) {
         ast::namespace_ptr ns = scope< ast::namespace_ >()->add_namespace(identifier);
         state_.push_scope< namespace_scope >(ns);
     } else {
-        parser_scope::open_scope_impl(loc, type, identifier);
+        parser_scope::open_scope_impl(loc, type, identifier, ancestors);
     }
 }
 
