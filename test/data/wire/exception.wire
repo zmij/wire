@@ -1,0 +1,28 @@
+/*
+ * exception.wire
+ *
+ *  Created on: Apr 21, 2016
+ *      Author: zmij
+ */
+
+#ifndef DATA_WIRE_EXCEPTION_WIRE_
+#define DATA_WIRE_EXCEPTION_WIRE_
+
+#include <wire/sugar.wire>
+
+namespace test {
+
+exception test_error {
+    using buffer = array< byte, 1024 >;
+    string message;
+};
+
+exception severe_error : test_error {
+    int32 severity;
+    buffer data;
+};
+
+}  /* namespace test */
+
+
+#endif /* DATA_WIRE_EXCEPTION_WIRE_ */

@@ -104,7 +104,8 @@ TEST(Parser, Exception)
     EXPECT_TRUE(ast::namespace_::global()->find_entity("test::test_error::message").get());
     EXPECT_TRUE(ast::namespace_::global()->find_entity("test::severe_error::message").get());
     EXPECT_TRUE(ast::namespace_::global()->find_entity("test::severe_error::severity").get());
-    //EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::test_struct::buffer").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::test_error::buffer").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::severe_error::buffer").get());
 }
 
 }  // namespace test
