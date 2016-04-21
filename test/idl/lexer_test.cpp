@@ -193,6 +193,9 @@ TEST(Lexer, TrackCompilationUnit)
             case token_hex_number:
                 ::std::cerr << "HEX";
                 break;
+            case token_float_literal:
+                ::std::cerr << "FLOAT";
+                break;
             case token_quoted_string:
                 ::std::cerr << "\"string literal\"";
                 break;

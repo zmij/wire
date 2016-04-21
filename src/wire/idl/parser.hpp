@@ -50,14 +50,19 @@ private:
 
 //----------------------------------------------------------------------------
 enum class rule {
+    skip_whitespace,
     namespace_name,
     structure_name,
     interface_name,
     class_name,
     exception_name,
+    identifier,
     semicolon_after_block,
     member_declaration,
-    type_name
+    type_name,
+    template_args,
+    type_alias,
+
 };
 struct phrase_parse : ::std::enable_shared_from_this<phrase_parse> {
     using token_value_type = parser_state::token_value_type;
@@ -66,7 +71,10 @@ struct phrase_parse : ::std::enable_shared_from_this<phrase_parse> {
     phrase_parse(parser_scope& sc, rule t) : scope(sc), type(t) {}
     virtual ~phrase_parse() {}
     virtual phrase_parse_ptr
-    process_token(source_location const& source_loc, token_value_type const&) = 0;
+    process_token(source_location const& loc, token_value_type const&) = 0;
+    virtual bool
+    want_token(source_location const& loc, token_value_type const&) const
+    { return true; }
 
     template < typename T, typename ... Args >
     phrase_parse_ptr
@@ -81,6 +89,36 @@ struct phrase_parse : ::std::enable_shared_from_this<phrase_parse> {
     rule        type;
 };
 using phrase_parse_ptr = ::std::shared_ptr< phrase_parse >;
+
+struct phrase_parser {
+    using token_value_type = parser_state::token_value_type;
+
+    operator bool() const
+    {
+        return current_phrase_.get();
+    }
+
+    bool
+    process_token(source_location const& loc, token_value_type const& tkn)
+    {
+        if (current_phrase_) {
+            if (current_phrase_->want_token(loc, tkn)) {
+                current_phrase_ = current_phrase_->process_token(loc, tkn);
+                return true;
+            }
+            current_phrase_.reset();
+        }
+        return false;
+    }
+    template < typename T, typename ... Args >
+    void
+    set_current_phrase(Args&& ... args)
+    {
+        current_phrase_ = ::std::make_shared<T>(::std::forward<Args>(args)...);
+    }
+
+    phrase_parse_ptr current_phrase_;
+};
 
 //----------------------------------------------------------------------------
 class parser_scope {
@@ -100,7 +138,7 @@ public:
     { return ast::dynamic_entity_cast< T >(scope_); }
 
     void
-    process_token(source_location const& source_loc, token_value_type const& tkn);
+    process_token(source_location const& loc, token_value_type const& tkn);
 
     void
     open_scope(source_location const&, rule type, ::std::string const& identifier);
@@ -111,32 +149,29 @@ public:
             ::std::string const& idetifier);
 
     void
-    add_data_member(source_location const& loc,
-            qname const& type, ::std::string const& identifier); // TODO default value
-protected:
-    phrase_parse_ptr
-    current_phrase()
-    { return current_phrase_; }
+    add_type_alias(source_location const& loc, ::std::string const& identifier,
+            ast::type_ptr aliased_type);
     void
-    set_current_phrase(phrase_parse_ptr p)
-    { current_phrase_ = p; }
+    add_data_member(source_location const& loc,
+            ast::type_ptr type, ::std::string const& identifier); // TODO default value
+protected:
     template < typename T, typename ... Args >
     void
     set_current_phrase(Args&& ... args)
     {
-        current_phrase_ = ::std::make_shared<T>(*this, ::std::forward<Args>(args)...);
+        current_phrase_.set_current_phrase<T>(*this, ::std::forward<Args>(args)...);
     }
     virtual void
     open_scope_impl(source_location const&, rule type,
             ::std::string const& identifier);
 private:
     virtual void
-    start_namespace(source_location const& source_loc)
+    start_namespace(source_location const& loc)
     {
-        throw syntax_error(source_loc, "Cannot nest a namespace at this scope");
+        throw syntax_error(loc, "Cannot nest a namespace at this scope");
     }
     virtual void
-    add_data_member_impl(source_location const& loc, qname const& type,
+    add_data_member_impl(source_location const& loc, ast::type_ptr type,
             ::std::string const& identifier)
     {
         throw syntax_error(loc, "Cannot add a data member at this scope");
@@ -144,7 +179,7 @@ private:
 protected:
     parser_state&     state_;
     ast::scope_ptr    scope_;
-    phrase_parse_ptr  current_phrase_;
+    phrase_parser     current_phrase_;
 };
 
 //----------------------------------------------------------------------------
@@ -170,7 +205,7 @@ public:
     virtual ~structure_scope() {}
 private:
     void
-    add_data_member_impl(source_location const& loc, qname const& type,
+    add_data_member_impl(source_location const& loc, ast::type_ptr type,
             ::std::string const& identifier) override;
 };
 

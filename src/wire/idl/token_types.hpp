@@ -51,6 +51,7 @@ enum token_type {
     token_number,
     token_oct_number,
     token_hex_number,
+    token_float_literal,
     token_quoted_string,
 
     token_c_comment,

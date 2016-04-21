@@ -7,6 +7,7 @@
 
 #include <wire/idl/ast.hpp>
 #include <wire/idl/qname.hpp>
+#include <wire/idl/syntax_error.hpp>
 #include <sstream>
 
 #include <iostream>
@@ -37,9 +38,76 @@ struct builtin_type : public type {
     }
 };
 
+struct templated_type_impl : templated_type {
+    templated_type_impl(::std::string const& name, template_param_types&& args)
+        : entity(name), templated_type(name, ::std::move(args))
+    {
+    }
+};
+
+parametrized_type_ptr
+templated_type::create_parametrized_type(scope_ptr sc) const
+{
+    return std::make_shared< parametrized_type >( sc, name(), params);
+}
+
+void
+parametrized_type::add_parameter(source_location const& loc, parameter const& param)
+{
+    if (current == param_types.end()) {
+        ::std::ostringstream os;
+        os << "Extra " << (param.which() ? "integral" : "type")
+            << " parameter for " << name() << " template on position "
+            << params.size();
+        throw syntax_error(loc, os.str());
+    }
+
+    if (param.which() == current->kind) {
+        params.push_back(param);
+        if (!current->unbound)
+            ++current;
+    } else {
+        if (current->unbound) {
+            ++current;
+            add_parameter(loc, param);
+        } else {
+            ::std::ostringstream os;
+            os << "Unexpected " << (param.which() ? "integral" : "type")
+                << " parameter for " << name() << " template on position "
+                << params.size();
+            throw syntax_error(loc, os.str());
+        }
+    }
+}
+
+qname
+parametrized_type::get_qualified_name() const
+{
+    qname qn(name());
+    for (auto const& p : params) {
+        switch (p.which()) {
+            case template_param_type::type: {
+                type_ptr t = ::boost::get< type_ptr >(p);
+                ::std::ostringstream os;
+                os << t->get_qualified_name();
+                qn.parameters.push_back(os.str());
+                break;
+            }
+            case template_param_type::integral: {
+                qn.parameters.push_back(::boost::get< ::std::string >(p));
+                break;
+            }
+            default:
+                break;
+        }
+    }
+    return qn;
+}
+
 namespace {
 
 #define MAKE_BUILTIN_WIRE_TYPE(t, x) ::std::make_shared<t>(#x)
+#define MAKE_TEMPLATE_WIRE_TYPE(t, x, ...) ::std::make_shared<t>(#x, template_param_types __VA_ARGS__)
 
 type_list const&
 builtin_types()
@@ -60,11 +128,16 @@ builtin_types()
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, uuid),
 
         // FIXME Replace with parametrized type implementation
-        MAKE_BUILTIN_WIRE_TYPE(builtin_type, variant),
-        MAKE_BUILTIN_WIRE_TYPE(builtin_type, sequence),
-        MAKE_BUILTIN_WIRE_TYPE(builtin_type, array),
-        MAKE_BUILTIN_WIRE_TYPE(builtin_type, dictionary),
-        MAKE_BUILTIN_WIRE_TYPE(builtin_type, optional),
+        MAKE_TEMPLATE_WIRE_TYPE(templated_type_impl, variant,
+                {{ template_param_type::type, true }}),
+        MAKE_TEMPLATE_WIRE_TYPE(templated_type_impl, sequence,
+                {{template_param_type::type, false}}),
+        MAKE_TEMPLATE_WIRE_TYPE(templated_type_impl, array,
+                {{template_param_type::type, false}, {template_param_type::integral, false}}),
+        MAKE_TEMPLATE_WIRE_TYPE(templated_type_impl, dictionary,
+                {{template_param_type::type, false}}),
+        MAKE_TEMPLATE_WIRE_TYPE(templated_type_impl, optional,
+                {{template_param_type::type, false}}),
     };
     return builtins_;
 }
@@ -132,8 +205,11 @@ entity::get_qualified_name() const
 bool
 type::is_built_in(qname const& qn)
 {
-    type_ptr t = find_builtin(qn.name());
-    return t.get();
+    if (qn.parameters.empty()) {
+        type_ptr t = find_builtin(qn.name());
+        return t.get();
+    }
+    return false;
 }
 
 //----------------------------------------------------------------------------

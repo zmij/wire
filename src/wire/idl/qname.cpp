@@ -54,6 +54,17 @@ operator << (::std::ostream& os, qname const& val)
                 os << c;
                 scope = true;
             }
+            if (!val.parameters.empty()) {
+                os << "<";
+                bool comma = false;
+                for (auto const& p : val.parameters) {
+                    if (comma)
+                        os << ", ";
+                    os << p;
+                    comma = true;
+                }
+                os << ">";
+            }
         }
     }
     return os;

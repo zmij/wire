@@ -37,6 +37,7 @@
 #include <algorithm>
 
 #include <boost/optional.hpp>
+#include <boost/variant.hpp>
 
 #include <wire/idl/qname.hpp>
 #include <wire/idl/source_location.hpp>
@@ -267,9 +268,55 @@ private:
 };
 
 //----------------------------------------------------------------------------
-class parametrized_type : public type {
+struct template_param_type {
+    enum param_kind {
+        type,
+        integral
+    } kind;
+    bool unbound;
 };
 
+using template_param_types = ::std::vector< template_param_type >;
+
+//----------------------------------------------------------------------------
+class parametrized_type : public type {
+public:
+    using parameter = ::boost::variant< type_ptr, ::std::string >;
+    using parameters = ::std::vector< parameter >;
+public:
+    parametrized_type(scope_ptr sc, ::std::string const& name,
+            template_param_types const& argst)
+        : entity(sc, name), type(sc, name),
+          param_types{argst}, current{param_types.begin()}
+        {}
+
+    void
+    add_parameter(source_location const& loc, parameter const&);
+
+    qname
+    get_qualified_name() const override;
+private:
+    template_param_types const&           param_types;
+    template_param_types::const_iterator  current;
+    parameters                            params;
+};
+
+using parametrized_type_ptr = shared_entity< parametrized_type >;
+
+//----------------------------------------------------------------------------
+// Templated classes are predefined
+class templated_type : public type {
+public:
+    parametrized_type_ptr
+    create_parametrized_type(scope_ptr sc) const;
+protected:
+    templated_type(::std::string const& name, template_param_types&& args)
+        : entity(name), type(name), params{ ::std::move(args) }
+    {
+    }
+    template_param_types params;
+};
+using templated_type_ptr = shared_entity< templated_type >;
 
 //----------------------------------------------------------------------------
 /**

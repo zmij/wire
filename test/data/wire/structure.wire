@@ -12,8 +12,12 @@
 
 namespace test {
 
+using buffer = array< byte, 1024 >;
+
 struct test_struct {
     int32 value;
+    sequence<variant<string, uuid>> ids;
+    buffer buffer;
 };
 
 }  /* namespace test */

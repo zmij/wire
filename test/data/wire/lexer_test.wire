@@ -17,13 +17,16 @@ namespace test {
 
 string const foo = "bar";
 int32 const bar = 42;
+int32 const bar = -42;
 int64 const oct = 0123;
 int64 const hex = 0x0affcde7;
+const float pi = 3.14;
+const float mpi = -3.14e10;
 
 using strings = sequence< string >;
 
 strings const lipsum = {
-    "Lorem", "ipsum", "dolor", "sit", "amet"
+    "Lorem", "\\ipsum \"dolor\"", "dolor", "sit", "amet"
 };
 
 interface some_service;

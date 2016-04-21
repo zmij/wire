@@ -116,11 +116,13 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
           attrib_end    {"\\]\\]",                  token_attrib_end},
 
           identifier    {"[a-zA-Z_][a-zA-Z0-9_]+",  token_identifier},
-          number        {"[1-9][0-9]*",             token_number},
+          number        {"-?[1-9][0-9]*",           token_number},
           oct_number    {"0[1-7][0-7]*",            token_oct_number},
           hex_number    {"0[xX][0-9a-fA-F]+",       token_hex_number},
-
-          quoted_str    {"\\\"[^\\\"]+\\\"",        token_quoted_string},
+          float_literal {"-?([1-9][0-9]*)?\\.[0-9]*([eE]-?[1-9][0-9]*)?",
+                                                    token_float_literal},
+          quoted_str    {"\\\"((\\\\\\\")|[^\\\"])*\\\"",
+                                                    token_quoted_string},
 
           c_comment     {"\\/\\*[^*]*\\*+((\n)|([^/*][^*]*\\*+))*\\/",
                                                     token_c_comment},
@@ -164,6 +166,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
            | number            [ ref(current_location.character) += distance(_start, _end) ]
            | oct_number        [ ref(current_location.character) += distance(_start, _end) ]
            | hex_number        [ ref(current_location.character) += distance(_start, _end) ]
+           | float_literal     [ ref(current_location.character) += distance(_start, _end) ]
            | quoted_str        [ ref(current_location.character) += distance(_start, _end) ]
 
            | c_comment
@@ -207,6 +210,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
     token_def<>   number;
     token_def<>   oct_number;
     token_def<>   hex_number;
+    token_def<>   float_literal;
     token_def<>   quoted_str;
 
     token_def<>   c_comment;
