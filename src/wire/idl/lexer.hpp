@@ -96,6 +96,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
           class_        {"class",                   token_class},
           interface     {"interface",               token_interface},
           exception     {"exception",               token_exception},
+          enum_         {"enum",                    token_enum},
 
           const_        {"const",                   token_const},
           using_        {"using",                   token_using},
@@ -144,6 +145,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
            | class_            [ ref(current_location.character) += distance(_start, _end) ]
            | interface         [ ref(current_location.character) += distance(_start, _end) ]
            | exception         [ ref(current_location.character) += distance(_start, _end) ]
+           | enum_             [ ref(current_location.character) += distance(_start, _end) ]
 
            | const_            [ ref(current_location.character) += distance(_start, _end) ]
            | using_            [ ref(current_location.character) += distance(_start, _end) ]
@@ -188,6 +190,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
     token_def<>   class_;
     token_def<>   interface;
     token_def<>   exception;
+    token_def<>   enum_;
     token_def<>   const_;
     token_def<>   using_;
     token_def<>   throw_;

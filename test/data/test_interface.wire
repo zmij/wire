@@ -13,7 +13,7 @@
 namespace test {
 
 enum values {
-    value1,
+    value1 = 0,
     value2
 };
 

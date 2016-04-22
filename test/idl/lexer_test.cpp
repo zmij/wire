@@ -130,6 +130,9 @@ TEST(Lexer, TrackCompilationUnit)
             case token_exception:
                 ::std::cerr << "Exception";
                 break;
+            case token_enum:
+                ::std::cerr << "Enumeration";
+                break;
 
             case token_const:
                 ::std::cerr << "const";

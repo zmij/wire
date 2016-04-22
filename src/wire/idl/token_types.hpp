@@ -27,6 +27,7 @@ enum token_type {
     token_class,
     token_interface,
     token_exception,
+    token_enum,
     token_const,
     token_using,
     token_throw,

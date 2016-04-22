@@ -676,13 +676,18 @@ parser_scope::process_token(source_location const& loc, token_value_type const& 
             set_current_phrase< block_name_parse >(rule::interface_name);
             break;
         case lexer::token_exception:
+            ::std::cerr << "Exception";
             if (current_phrase) {
                 throw syntax_error(loc, "Unexpected exception token");
             }
-            ::std::cerr << "Exception";
             set_current_phrase< block_name_parse >(rule::exception_name);
             break;
-
+        case lexer::token_enum:
+            ::std::cerr << "Enumeration";
+            if (current_phrase) {
+                throw syntax_error(loc, "Unexpected enum token");
+            }
+            break;
         case lexer::token_const:
             ::std::cerr << "const";
             if (!current_phrase.process_token(loc, tkn)) {
