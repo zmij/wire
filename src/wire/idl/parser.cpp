@@ -72,6 +72,33 @@ struct skip_leading_whitespace : phrase_parse {
     }
     phrase_parse_ptr next;
 };
+
+//----------------------------------------------------------------------------
+struct expect_identifier : phrase_parse {
+    expect_identifier(parser_scope& sc, ::std::string& id)
+        : phrase_parse(sc, rule::identifier), identifier(id)
+    {
+    }
+
+    phrase_parse_ptr
+    process_token(source_location const& loc, token_value_type const& tkn) override
+    {
+        switch (tkn.id()) {
+            case lexer::token_identifier:
+                identifier = ::std::string{ tkn.value().begin(), tkn.value().end() };
+                break;
+            case lexer::token_eol:
+            case lexer::token_whitespace:
+                return shared_from_this();
+            default:
+                throw syntax_error(loc, "Identifier expected");
+        }
+        return phrase_parse_ptr{};
+    }
+
+    ::std::string& identifier;
+};
+
 //----------------------------------------------------------------------------
 struct block_name_parse : phrase_parse {
     block_name_parse(parser_scope& sc, rule t)
@@ -91,7 +118,7 @@ struct block_name_parse : phrase_parse {
             // Expect a block open token or a statement end (for forward declaration)
             switch (tkn.id()) {
                 case lexer::token_semicolon:
-                    if (!current_phrase_.process_token(loc, tkn)) {
+                    if (!current_phrase.process_token(loc, tkn)) {
                         if (type == rule::namespace_name) {
                             throw syntax_error(loc, "Cannot forward declare a namespace");
                         }
@@ -103,7 +130,7 @@ struct block_name_parse : phrase_parse {
                     }
                     break;
                 case lexer::token_block_start:
-                    if (!current_phrase_.process_token(loc, tkn)) {
+                    if (!current_phrase.process_token(loc, tkn)) {
                         // notify scope about scope open
                         scope.open_scope(loc, type, identifier, ancestors);
                         if (type == rule::namespace_name)
@@ -112,20 +139,22 @@ struct block_name_parse : phrase_parse {
                     }
                     break;
                 case lexer::token_colon: {
-                    if (!current_phrase_.process_token(loc, tkn)) {
+                    if (!current_phrase.process_token(loc, tkn)) {
                         switch (type) {
                             case rule::namespace_name:
                             case rule::structure_name:
                                 throw syntax_error(loc, "Cannot derive a namespace or structure");
+                            default:
+                                break;
                         }
-                        current_phrase_.set_current_phrase< expect_type_name >(scope,
+                        current_phrase.set_current_phrase< expect_type_name >(scope,
                                 [&](ast::type_ptr t) { ancestors.push_back(t); }
                         );
                     }
                     break;
                 }
                 case lexer::token_comma:
-                    if (!current_phrase_.process_token(loc, tkn)) {
+                    if (!current_phrase.process_token(loc, tkn)) {
                         switch (type) {
                             case rule::namespace_name:
                             case rule::structure_name:
@@ -135,18 +164,20 @@ struct block_name_parse : phrase_parse {
                                     throw syntax_error(loc, "An exception cannot have more than one base");
                                 }
                                 break;
+                            default:
+                                break;
                         }
-                        current_phrase_.set_current_phrase< expect_type_name >(scope,
+                        current_phrase.set_current_phrase< expect_type_name >(scope,
                                 [&](ast::type_ptr t) { ancestors.push_back(t); }
                         );
                     }
                     break;
                 case lexer::token_whitespace:
-                    if (!current_phrase_.process_token(loc, tkn)) {
+                    if (!current_phrase.process_token(loc, tkn)) {
                     }
                     break;
                 default:
-                    if (!current_phrase_.process_token(loc, tkn)) {
+                    if (!current_phrase.process_token(loc, tkn)) {
                         throw syntax_error(loc, "Unexpected token (block name)");
                     }
             }
@@ -154,7 +185,7 @@ struct block_name_parse : phrase_parse {
         return shared_from_this();
     }
 
-    phrase_parser   current_phrase_;
+    phrase_parser   current_phrase;
     ::std::string   identifier;
     ast::type_list  ancestors;
 };
@@ -239,6 +270,8 @@ struct type_name_expect_scope : phrase_parse {
                 }
                 return false;
             }
+            default:
+                break;
         }
         return true;
     }
@@ -300,11 +333,11 @@ struct type_name_template_args : phrase_parse {
     {
         switch(tkn.id()) {
             case lexer::token_scope_resolution:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     if (current_param_)
                         throw syntax_error(loc, "Unexpected identifier (template params)");
                     // start a type parser
-                    current_phrase_.set_current_phrase< type_name_expect_identifier >(
+                    current_phrase.set_current_phrase< type_name_expect_identifier >(
                             scope,
                             [&](ast::type_ptr t) mutable
                             {
@@ -314,11 +347,11 @@ struct type_name_template_args : phrase_parse {
                 }
                 break;
             case lexer::token_identifier:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     if (current_param_)
                         throw syntax_error(loc, "Unexpected identifier (template params)");
                     // start a type parser
-                    current_phrase_.set_current_phrase< type_name_expect_scope >(
+                    current_phrase.set_current_phrase< type_name_expect_scope >(
                             scope,
                             ::std::string{ tkn.value().begin(), tkn.value().end() },
                             [&](ast::type_ptr t) mutable
@@ -331,7 +364,7 @@ struct type_name_template_args : phrase_parse {
             case lexer::token_number:
             case lexer::token_hex_number:
             case lexer::token_oct_number:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     // we got an integral param here
                     if (current_param_)
                         throw syntax_error(loc, "Unexpected numeric literal (template params)");
@@ -340,7 +373,7 @@ struct type_name_template_args : phrase_parse {
                 }
                 break;
             case lexer::token_comma:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     // done with current param
                     if (!current_param_)
                         throw syntax_error(loc, "Unexpected comma in template params");
@@ -349,10 +382,10 @@ struct type_name_template_args : phrase_parse {
                 }
                 break;
             case lexer::token_angled_open:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     // start a nested template parser
                     if (current_param_ && current_param_->which() == ast::template_param_type::type) {
-                        current_phrase_.set_current_phrase< type_name_template_args >(
+                        current_phrase.set_current_phrase< type_name_template_args >(
                                 scope, loc, ::boost::get< ast::type_ptr >(*current_param_),
                                 [&](ast::type_ptr t) mutable
                                 {
@@ -365,7 +398,7 @@ struct type_name_template_args : phrase_parse {
                 }
                 break;
             case lexer::token_angled_close:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     if (!current_param_)
                         throw syntax_error(loc, "Unexpected comma in template params");
                     type_->add_parameter(loc, *current_param_);
@@ -379,7 +412,7 @@ struct type_name_template_args : phrase_parse {
                 break;
             case lexer::token_eol:
             case lexer::token_whitespace:
-                current_phrase_.process_token(loc, tkn);
+                current_phrase.process_token(loc, tkn);
                 break;
             default:
                 throw syntax_error(loc, "Unexpected token (template parameters)");
@@ -387,7 +420,7 @@ struct type_name_template_args : phrase_parse {
         return shared_from_this();
     }
 
-    phrase_parser               current_phrase_;
+    phrase_parser               current_phrase;
     ast::parametrized_type_ptr  type_;
     type_set                    func;
     parameter_ptr               current_param_;
@@ -407,16 +440,18 @@ struct member_decl : phrase_parse {
                 is_const_ = true;
                 break;
             case lexer::token_identifier:
-                current_phrase_.set_current_phrase< type_name_expect_scope >(
+                current_phrase.set_current_phrase< type_name_expect_scope >(
                         scope,
                         ::std::string{ tkn.value().begin(), tkn.value().end() },
                         [&](ast::type_ptr qn) mutable { data_type_ = qn; }
                 );
                 break;
             case lexer::token_scope_resolution:
-                current_phrase_.set_current_phrase< type_name_expect_identifier >(
+                current_phrase.set_current_phrase< type_name_expect_identifier >(
                         scope,
                         [&](ast::type_ptr qn) mutable { data_type_ = qn; });
+                break;
+            default:
                 break;
         }
 
@@ -432,9 +467,9 @@ struct member_decl : phrase_parse {
                 is_const_ = true;
                 break;
             case lexer::token_identifier:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     if (!data_type_) {
-                        current_phrase_.set_current_phrase< type_name_expect_scope >(
+                        current_phrase.set_current_phrase< type_name_expect_scope >(
                                 scope,
                                 ::std::string{ tkn.value().begin(), tkn.value().end() },
                                 [&](ast::type_ptr qn) mutable { data_type_ = qn; }
@@ -447,14 +482,14 @@ struct member_decl : phrase_parse {
                 }
                 break;
             case lexer::token_comma:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     throw syntax_error(loc, "Unexpected comma (parse member)");
                 }
                 break;
             case lexer::token_scope_resolution:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     if (!data_type_)
-                        current_phrase_.set_current_phrase< type_name_expect_identifier >(
+                        current_phrase.set_current_phrase< type_name_expect_identifier >(
                                 scope,
                                 [&](ast::type_ptr qn) mutable { data_type_ = qn; });
                     else
@@ -475,30 +510,35 @@ struct member_decl : phrase_parse {
                 }
                 return phrase_parse_ptr{};
             case lexer::token_angled_open:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     if (!member_name_.empty())
                         throw syntax_error(loc, "Unexpected template params start");
-                    current_phrase_.set_current_phrase< type_name_template_args >(
+                    current_phrase.set_current_phrase< type_name_template_args >(
                             scope, loc, data_type_,
                             [&](ast::type_ptr qn) mutable { data_type_ = qn; }
                     );
                 }
                 break;
             case lexer::token_angled_close:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     throw syntax_error(loc, "Unexpected template params end");
                 }
+                break;
+            case lexer::token_brace_open:
+                type = function;
+                break;
+            case lexer::token_brace_close:
                 break;
             case lexer::token_number:
             case lexer::token_hex_number:
             case lexer::token_oct_number:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     throw syntax_error(loc, "Unexpected numeric literal (parse member)");
                 }
                 break;
             case lexer::token_eol:
             case lexer::token_whitespace:
-                current_phrase_.process_token(loc, tkn);
+                current_phrase.process_token(loc, tkn);
                 break;
             default:
                 throw syntax_error(loc, "Unexpected token (parse member)");
@@ -508,31 +548,9 @@ struct member_decl : phrase_parse {
 
     member_type                 type = data;
     ::boost::optional< bool >   is_const_;
-    phrase_parser               current_phrase_;
+    phrase_parser               current_phrase;
     ast::type_ptr               data_type_;
     ::std::string               member_name_;
-};
-
-struct expect_identifier : phrase_parse {
-    expect_identifier(parser_scope& sc, ::std::string& id)
-        : phrase_parse(sc, rule::identifier), identifier(id)
-    {
-    }
-
-    phrase_parse_ptr
-    process_token(source_location const& loc, token_value_type const& tkn) override
-    {
-        switch (tkn.id()) {
-            case lexer::token_identifier:
-                identifier = ::std::string{ tkn.value().begin(), tkn.value().end() };
-                break;
-            default:
-                throw syntax_error(loc, "Identifier expected");
-        }
-        return phrase_parse_ptr{};
-    }
-
-    ::std::string& identifier;
 };
 
 struct expect_type_name : phrase_parse {
@@ -571,7 +589,7 @@ struct type_alias_decl : phrase_parse {
         : phrase_parse(sc, rule::type_alias),
           member_name_{}
     {
-        current_phrase_.set_current_phrase< skip_leading_whitespace >(
+        current_phrase.set_current_phrase< skip_leading_whitespace >(
                 scope, next_phrase< expect_identifier >(member_name_));
     }
     phrase_parse_ptr
@@ -579,16 +597,16 @@ struct type_alias_decl : phrase_parse {
     {
         switch (tkn.id()) {
             case lexer::token_assign:
-                if (!current_phrase_.process_token(loc, tkn)) {
-                    current_phrase_.set_current_phrase< expect_type_name >(
+                if (!current_phrase.process_token(loc, tkn)) {
+                    current_phrase.set_current_phrase< expect_type_name >(
                             scope,
                             [&](ast::type_ptr t) mutable { aliased_type = t; }
                     );
                 }
                 break;
             case lexer::token_angled_open:
-                if (!current_phrase_.process_token(loc, tkn)) {
-                    current_phrase_.set_current_phrase< type_name_template_args >(
+                if (!current_phrase.process_token(loc, tkn)) {
+                    current_phrase.set_current_phrase< type_name_template_args >(
                             scope, loc, aliased_type,
                             [&](ast::type_ptr t) mutable { aliased_type = t; }
                     );
@@ -596,17 +614,17 @@ struct type_alias_decl : phrase_parse {
                 break;
             case lexer::token_eol:
             case lexer::token_whitespace:
-                current_phrase_.process_token(loc, tkn);
+                current_phrase.process_token(loc, tkn);
                 break;
             case lexer::token_semicolon:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     if (!aliased_type)
                         throw syntax_error(loc, "Aliased type not found");
                     scope.add_type_alias(loc, member_name_, aliased_type);
                     return phrase_parse_ptr{};
                 }
             default:
-                if (!current_phrase_.process_token(loc, tkn)) {
+                if (!current_phrase.process_token(loc, tkn)) {
                     throw syntax_error(loc, "Unexpected token (type alias)");
                 }
                 break;
@@ -616,7 +634,7 @@ struct type_alias_decl : phrase_parse {
 
     ::std::string       member_name_;
     ast::type_ptr       aliased_type;
-    phrase_parser       current_phrase_;
+    phrase_parser       current_phrase;
 };
 
 //----------------------------------------------------------------------------
@@ -631,101 +649,117 @@ parser_scope::process_token(source_location const& loc, token_value_type const& 
             break;
         case lexer::token_ns:
             ::std::cerr << "Namespace";
-            if (current_phrase_) {
+            if (current_phrase) {
                 throw syntax_error(loc, "Unexpected namespace token");
             }
             start_namespace(loc);
             break;
         case lexer::token_struct:
-            if (current_phrase_) {
+            ::std::cerr << "Structure";
+            if (current_phrase) {
                 throw syntax_error(loc, "Unexpected struct token");
             }
-            ::std::cerr << "Structure";
             set_current_phrase< block_name_parse >(rule::structure_name);
             break;
         case lexer::token_class:
-            if (current_phrase_) {
+            ::std::cerr << "Class";
+            if (current_phrase) {
                 throw syntax_error(loc, "Unexpected class token");
             }
-            ::std::cerr << "Class";
             set_current_phrase< block_name_parse >(rule::class_name);
             break;
         case lexer::token_interface:
-            if (current_phrase_) {
+            ::std::cerr << "Interface";
+            if (current_phrase) {
                 throw syntax_error(loc, "Unexpected interface token");
             }
-            ::std::cerr << "Interface";
             set_current_phrase< block_name_parse >(rule::interface_name);
             break;
         case lexer::token_exception:
-            if (current_phrase_) {
+            if (current_phrase) {
                 throw syntax_error(loc, "Unexpected exception token");
             }
             ::std::cerr << "Exception";
             set_current_phrase< block_name_parse >(rule::exception_name);
             break;
+
         case lexer::token_const:
             ::std::cerr << "const";
-            if (!current_phrase_.process_token(loc, tkn)) {
+            if (!current_phrase.process_token(loc, tkn)) {
                 set_current_phrase< member_decl >( tkn );
             }
             break;
         case lexer::token_using:
             ::std::cerr << "using";
-            if (current_phrase_) {
+            if (current_phrase) {
                 throw syntax_error(loc, "Unexpected using token");
             }
             set_current_phrase< type_alias_decl >();
             break;
+        case lexer::token_throw:
+            ::std::cerr << "throw";
+            if (!current_phrase.process_token(loc, tkn)) {
+                throw syntax_error(loc, "Unexpected throw token");
+            }
+            break;
 
         case lexer::token_comma:
             ::std::cerr << ",";
-            if (!current_phrase_.process_token(loc, tkn)) {
+            if (!current_phrase.process_token(loc, tkn)) {
                 throw syntax_error(loc, "Unexpected comma");
             }
             break;
         case lexer::token_colon:
             ::std::cerr << ":";
-            if (!current_phrase_.process_token(loc, tkn)) {
+            if (!current_phrase.process_token(loc, tkn)) {
                 throw syntax_error(loc, "Unexpected colon");
             }
             break;
         case lexer::token_scope_resolution:
             ::std::cerr << ":SCOPE:";
-            if (!current_phrase_.process_token(loc, tkn)) {
+            if (!current_phrase.process_token(loc, tkn)) {
                 set_current_phrase< member_decl >( tkn );
             }
              break;
         case lexer::token_semicolon:
             ::std::cerr << ";";
-            if (!current_phrase_) {
+            if (!current_phrase) {
                 throw syntax_error(loc, "Unexpected statement end");
             }
-            current_phrase_.process_token(loc, tkn);
+            current_phrase.process_token(loc, tkn);
             break;
         case lexer::token_assign:
             ::std::cerr << "=";
-            if (!current_phrase_.process_token(loc, tkn)) {
+            if (!current_phrase.process_token(loc, tkn)) {
                 throw syntax_error(loc, "Unexpected assign token");
             }
             break;
         case lexer::token_asterisk:
             ::std::cerr << "*";
+            if (!current_phrase.process_token(loc, tkn)) {
+                throw syntax_error(loc, "Unexpected asterisk token");
+            }
             break;
         case lexer::token_brace_open:
             ::std::cerr << "(";
+            if (!current_phrase.process_token(loc, tkn)) {
+                throw syntax_error(loc, "Unexpected open brace");
+            }
             break;
         case lexer::token_brace_close:
             ::std::cerr << ")";
+            if (!current_phrase.process_token(loc, tkn)) {
+                throw syntax_error(loc, "Unexpected close brace");
+            }
             break;
         case lexer::token_block_start:
-            if (!current_phrase_) {
+            if (!current_phrase) {
                 throw syntax_error(loc, "Unexpected block start");
             }
-            current_phrase_.process_token(loc, tkn);
+            current_phrase.process_token(loc, tkn);
             break;
         case lexer::token_block_end:
-            if (current_phrase_) {
+            if (current_phrase) {
                 throw syntax_error(loc, "Unexpected block end");
             }
             ::std::cerr << "}";
@@ -733,27 +767,33 @@ parser_scope::process_token(source_location const& loc, token_value_type const& 
             break;
         case lexer::token_angled_open:
             ::std::cerr << "<";
-            if (!current_phrase_.process_token(loc, tkn)) {
+            if (!current_phrase.process_token(loc, tkn)) {
                 throw syntax_error(loc, "Unexpected template parameters start");
             }
             break;
         case lexer::token_angled_close:
             ::std::cerr << ">";
-            if (!current_phrase_.process_token(loc, tkn)) {
+            if (!current_phrase.process_token(loc, tkn)) {
                 throw syntax_error(loc, "Unexpected template parameters end");
             }
             break;
         case lexer::token_attrib_start:
             ::std::cerr << "[[";
+            if (!current_phrase.process_token(loc, tkn)) {
+                throw syntax_error(loc, "Unexpected attributes start");
+            }
             break;
         case lexer::token_attrib_end:
             ::std::cerr << "]]";
+            if (!current_phrase.process_token(loc, tkn)) {
+                throw syntax_error(loc, "Unexpected attributes end");
+            }
             break;
 
         case lexer::token_identifier:
             ::std::cerr << "Identifier("
                   << ::std::string{ tkn.value().begin(), tkn.value().end() } << ")";
-            if (!current_phrase_.process_token(loc, tkn)) {
+            if (!current_phrase.process_token(loc, tkn)) {
                 set_current_phrase< member_decl >( tkn );
             }
             break;
@@ -761,19 +801,19 @@ parser_scope::process_token(source_location const& loc, token_value_type const& 
         case lexer::token_oct_number:
         case lexer::token_hex_number:
             ::std::cerr << "NUMBER";
-            if (!current_phrase_.process_token(loc, tkn)) {
+            if (!current_phrase.process_token(loc, tkn)) {
                 throw syntax_error(loc, "Unexpected numeric literal");
             }
             break;
         case lexer::token_float_literal:
             ::std::cerr << "FLOAT";
-            if (!current_phrase_.process_token(loc, tkn)) {
+            if (!current_phrase.process_token(loc, tkn)) {
                 throw syntax_error(loc, "Unexpected float literal");
             }
             break;
         case lexer::token_quoted_string:
             ::std::cerr << "\"string literal\"";
-            if (!current_phrase_.process_token(loc, tkn)) {
+            if (!current_phrase.process_token(loc, tkn)) {
                 throw syntax_error(loc, "Unexpected string literal");
             }
             break;
@@ -791,15 +831,15 @@ parser_scope::process_token(source_location const& loc, token_value_type const& 
         case lexer::token_eol:
             ::std::cerr << "\n"
                  << ::std::setw(3) << loc.line << ": ";
-            current_phrase_.process_token(loc, tkn);
+            current_phrase.process_token(loc, tkn);
             break;
         case lexer::token_whitespace:
             ::std::cerr << *tkn.value().begin();
-            current_phrase_.process_token(loc, tkn);
+            current_phrase.process_token(loc, tkn);
             break;
         default:
             ::std::cerr << "{_|_}";
-            break;
+            throw syntax_error(loc, "Unrecognized token");
     }
 }
 
@@ -826,12 +866,42 @@ parser_scope::open_scope_impl(source_location const& loc, rule type,
             break;
         }
         case rule::interface_name: {
-            ast::interface_ptr i = scope()->add_type< ast::interface >(identifier);
+            ast::interface_list implements;
+            if (!ancestors.empty()) {
+                for (auto const& a : ancestors) {
+                    ast::interface_ptr i = ast::dynamic_type_cast< ast::interface >(a);
+                    if (!i) {
+                        throw syntax_error(loc,
+                                "Interface can be derived from an interface only");
+                    }
+                    implements.push_back(i);
+                }
+            }
+            ast::interface_ptr i = scope()->add_type< ast::interface >(identifier, implements);
             state_.push_scope< interface_scope >(i);
             break;
         }
         case rule::class_name: {
-            ast::class_ptr c = scope()->add_type< ast::class_ >(identifier);
+            ast::class_ptr parent;
+            ast::interface_list implements;
+            if (!ancestors.empty()) {
+                for (auto const& a : ancestors) {
+                    ast::class_ptr c = ast::dynamic_type_cast<ast::class_>(a);
+                    if (c) {
+                        if (parent)
+                            throw syntax_error(loc, "Class can have no more than one parent class");
+                        parent = c;
+                    } else {
+                        ast::interface_ptr i = ast::dynamic_type_cast< ast::interface >(a);
+                        if (!i) {
+                            throw syntax_error(loc,
+                                    "Interface can be derived from an interface only");
+                        }
+                        implements.push_back(i);
+                    }
+                }
+            }
+            ast::class_ptr c = scope()->add_type< ast::class_ >(identifier, parent, implements);
             state_.push_scope< class_scope >(c);
             break;
         }

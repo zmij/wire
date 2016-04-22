@@ -1,0 +1,37 @@
+/*
+ * interface.wire
+ *
+ *  Created on: 22 апр. 2016 г.
+ *      Author: sergey.fedorov
+ */
+
+#ifndef DATA_WIRE_INTERFACE_WIRE_
+#define DATA_WIRE_INTERFACE_WIRE_
+
+#include <wire/sugar.wire>
+
+namespace test {
+
+exception no_service {
+
+};
+
+interface good_service {
+    using good_list = sequence< string >;
+//    void
+//    do_good() throw (no_service);
+};
+
+interface bad_service {
+    using bad_list = sequence< string >;
+//    void
+//    do_bad();
+};
+
+interface controversial : good_service, bad_service {
+
+};
+
+}  /* namespace test */
+
+#endif /* DATA_WIRE_INTERFACE_WIRE_ */

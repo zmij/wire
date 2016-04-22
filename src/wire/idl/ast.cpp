@@ -380,8 +380,11 @@ scope::local_entity_search(qname_search const& search) const
 //----------------------------------------------------------------------------
 //    function class implementation
 //----------------------------------------------------------------------------
-function::function(interface_ptr sc, ::std::string const& name, type_ptr ret)
-    : entity(sc, name), ret_type_{ ret ? ret : namespace_::global()->find_type("void") }
+function::function(interface_ptr sc, ::std::string const& name,
+        type_ptr ret, variable_list const& params)
+    : entity(sc, name),
+      ret_type_{ ret ? ret : namespace_::global()->find_type("void") },
+      parameters_{ params }
 {
 }
 
@@ -634,13 +637,11 @@ interface::local_type_search(qname_search const& search) const
 entity_ptr
 class_::local_entity_search(qname_search const& search) const
 {
-    entity_ptr ent = scope::local_entity_search(search);
+    entity_ptr ent = structure::local_entity_search(search);
     if (!ent) {
-        if (parent_) {
+        ent = interface::local_entity_search(search);
+        if (!ent && parent_) {
             ent = parent_->local_entity_search(search);
-        }
-        if (!ent) {
-            ent = ancestors_entity_search(search);
         }
     }
     return ent;
@@ -649,13 +650,11 @@ class_::local_entity_search(qname_search const& search) const
 type_ptr
 class_::local_type_search(qname_search const& search) const
 {
-    type_ptr t = scope::local_type_search(search);
+    type_ptr t = structure::local_type_search(search);
     if (!t) {
-        if (parent_) {
+        t = interface::local_type_search(search);
+        if (!t && parent_) {
             t = parent_->local_type_search(search);
-        }
-        if (!t) {
-            t = ancestors_type_search(search);
         }
     }
     return t;

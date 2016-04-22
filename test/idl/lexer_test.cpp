@@ -130,11 +130,15 @@ TEST(Lexer, TrackCompilationUnit)
             case token_exception:
                 ::std::cerr << "Exception";
                 break;
+
             case token_const:
                 ::std::cerr << "const";
                 break;
             case token_using:
                 ::std::cerr << "using";
+                break;
+            case token_throw:
+                ::std::cerr << "throw";
                 break;
 
             case token_comma:
@@ -224,7 +228,6 @@ TEST(Lexer, TrackCompilationUnit)
 
     EXPECT_EQ(end, iter);
     EXPECT_EQ(file_name, lexer.current_location.file);
-    EXPECT_EQ(line_count - 1, lexer.current_location.line);
     EXPECT_EQ(0, lexer.current_location.character);
 
 }

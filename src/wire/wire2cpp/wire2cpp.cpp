@@ -10,6 +10,8 @@
 #include <vector>
 #include <boost/program_options.hpp>
 #include <wire/idl/preprocess.hpp>
+#include <wire/idl/lexer.hpp>
+#include <wire/idl/parser.hpp>
 
 #include <iterator>
 #include <algorithm>
@@ -37,6 +39,8 @@ int
 main(int argc, char* argv[])
 try {
     namespace po = boost::program_options;
+    using namespace ::wire::idl;
+
     using input_stream_iterator = ::std::istream_iterator<char>;
     using output_stream_iterator = ::std::ostream_iterator<char>;
 
@@ -118,7 +122,7 @@ try {
 
     for (auto const& file : options.files) {
         ::std::cerr << "Process " << file << "\n";
-        wire::idl::preprocessor preproc{ file, preproc_opts };
+        preprocessor preproc{ file, preproc_opts };
 
         if (vm.count("preprocess-only")) {
             ::std::copy( input_stream_iterator{ preproc.stream() },
@@ -126,14 +130,29 @@ try {
                     output_stream_iterator{ ::std::cout } );
         } else {
             ::std::cerr << "Generate files here\n";
+            std::string input_str = preproc.to_string();
+
+            ast::namespace_::clear_global();
+            parser::parser_state parser;
+            lexer::wire_tokens< parser::parser_state::lexer_type > tokens;
+            auto sb     = input_str.data();
+            auto se     = sb + input_str.size();
+            auto end = tokens.end();
+            for (auto iter = tokens.begin(sb, se);
+                    iter != end && token_is_valid(*iter); ++iter) {
+                parser.process_token(tokens.current_location, *iter);
+            }
         }
     }
 
     return 0;
+} catch (::wire::idl::syntax_error const& se) {
+    ::std::cerr << se.what() << "\n";
+    return 1;
 } catch (::std::exception const& e) {
     ::std::cerr << "Exception: " << e.what() << "\n";
-    return 1;
+    return 2;
 } catch (...) {
     ::std::cerr << "Unexpected exception\n";
-    return 1;
+    return 3;
 }

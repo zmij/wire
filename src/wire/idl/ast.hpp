@@ -360,7 +360,9 @@ using variable_list = ::std::vector< variable_ptr >;
 
 class function : public entity {
 public:
-    function(interface_ptr sc, ::std::string const& name, type_ptr ret = type_ptr{});
+    function(interface_ptr sc, ::std::string const& name,
+        type_ptr ret = type_ptr{},
+        variable_list const& params = variable_list{});
 
     variable_ptr
     add_parameter(::std::string const& name, type_ptr type);

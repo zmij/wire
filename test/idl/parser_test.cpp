@@ -110,6 +110,77 @@ TEST(Parser, Exception)
     EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::severe_error::buffer").get());
 }
 
+TEST(Parser, Interface)
+{
+    const std::string file_name = ::wire::test::DATA_SRC_ROOT + "/wire/interface.wire";
+
+    preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, true } };
+    parser_state parser;
+    lexer::wire_tokens<parser_state::lexer_type> tokens;
+
+    std::string input_str = pp.to_string();
+    auto sb     = input_str.data();
+    auto se     = sb + input_str.size();
+
+    auto end    = tokens.end();
+
+    for (auto iter   = tokens.begin(sb, se);
+            iter != end && token_is_valid(*iter); ++iter) {
+        parser.process_token(tokens.current_location, *iter);
+    }
+
+    EXPECT_TRUE(ast::namespace_::global()->find_namespace("test").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_namespace("::test").get());
+
+    EXPECT_TRUE(ast::namespace_::global()->find_type("test::no_service").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::good_service").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::bad_service").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::controversial").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::good_service::good_list").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::bad_service::bad_list").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::controversial::good_list").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::controversial::bad_list").get());
+
+}
+
+TEST(Parser, Class)
+{
+    const std::string file_name = ::wire::test::DATA_SRC_ROOT + "/wire/class.wire";
+
+    preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, true } };
+    parser_state parser;
+    lexer::wire_tokens<parser_state::lexer_type> tokens;
+
+    std::string input_str = pp.to_string();
+    auto sb     = input_str.data();
+    auto se     = sb + input_str.size();
+
+    auto end    = tokens.end();
+
+    for (auto iter   = tokens.begin(sb, se);
+            iter != end && token_is_valid(*iter); ++iter) {
+        parser.process_token(tokens.current_location, *iter);
+    }
+
+    EXPECT_TRUE(ast::namespace_::global()->find_namespace("test").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_namespace("::test").get());
+
+    EXPECT_TRUE(ast::namespace_::global()->find_type("test::oops").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::shiny_one").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::backdoor").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::base_class").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::derived").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::shiny_one::magic").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::backdoor::key").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::base_class::magic").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::derived::magic").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_type("::test::derived::key").get());
+
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::base_class::the_spell").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::derived::the_spell").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::derived::the_key").get());
+}
+
 }  // namespace test
 }  // namespace parser
 }  // namespace core

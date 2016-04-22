@@ -160,7 +160,7 @@ protected:
     void
     set_current_phrase(Args&& ... args)
     {
-        current_phrase_.set_current_phrase<T>(*this, ::std::forward<Args>(args)...);
+        current_phrase.set_current_phrase<T>(*this, ::std::forward<Args>(args)...);
     }
     virtual void
     open_scope_impl(source_location const&, rule type,
@@ -180,7 +180,7 @@ private:
 protected:
     parser_state&     state_;
     ast::scope_ptr    scope_;
-    phrase_parser     current_phrase_;
+    phrase_parser     current_phrase;
 };
 
 //----------------------------------------------------------------------------
@@ -199,19 +199,19 @@ private:
 };
 
 //----------------------------------------------------------------------------
-class structure_scope : public parser_scope {
+class structure_scope : public virtual parser_scope {
 public:
     structure_scope( parser_state& ps, ast::structure_ptr s)
         : parser_scope(ps, s) {}
     virtual ~structure_scope() {}
-private:
+protected:
     void
     add_data_member_impl(source_location const& loc, ast::type_ptr type,
             ::std::string const& identifier) override;
 };
 
 //----------------------------------------------------------------------------
-class interface_scope : public parser_scope {
+class interface_scope : public virtual parser_scope {
 public:
     interface_scope( parser_state& ps, ast::interface_ptr s)
         : parser_scope(ps, s) {}
@@ -219,10 +219,12 @@ public:
 };
 
 //----------------------------------------------------------------------------
-class class_scope : public parser_scope {
+class class_scope : public structure_scope, public interface_scope {
 public:
     class_scope( parser_state& ps, ast::class_ptr s)
-        : parser_scope(ps, s) {}
+        : parser_scope(ps, s),
+          structure_scope(ps, s),
+          interface_scope(ps, s) {}
     virtual ~class_scope() {}
 };
 
@@ -230,7 +232,7 @@ public:
 class exception_scope : public structure_scope {
 public:
     exception_scope( parser_state& ps, ast::exception_ptr s)
-        : structure_scope(ps, s) {}
+        : parser_scope(ps, s), structure_scope(ps, s) {}
     virtual ~exception_scope() {}
 };
 

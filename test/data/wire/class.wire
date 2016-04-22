@@ -1,0 +1,40 @@
+/*
+ * class.wire
+ *
+ *  Created on: 22 апр. 2016 г.
+ *      Author: sergey.fedorov
+ */
+
+#ifndef DATA_WIRE_CLASS_WIRE_
+#define DATA_WIRE_CLASS_WIRE_
+
+#include <wire/sugar.wire>
+
+namespace test {
+
+exception oops {
+    string message;
+};
+
+interface shiny_one {
+    using magic = array< byte, 4 >;
+};
+
+interface backdoor {
+    using key = uuid;
+};
+
+class mixin {
+};
+
+class base_class : shiny_one {
+    magic the_spell;
+};
+
+class derived : base_class, backdoor {
+    key the_key;
+};
+
+}  /* namespace test */
+
+#endif /* DATA_WIRE_CLASS_WIRE_ */

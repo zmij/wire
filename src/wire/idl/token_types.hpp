@@ -29,6 +29,7 @@ enum token_type {
     token_exception,
     token_const,
     token_using,
+    token_throw,
     //@}
     //@{
     /** @name Punctuation */

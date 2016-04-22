@@ -99,6 +99,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
 
           const_        {"const",                   token_const},
           using_        {"using",                   token_using},
+          throw_        {"throw",                   token_throw},
 
           comma         {",",                       token_comma},
           colon         {":",                       token_colon},
@@ -115,7 +116,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
           attrib_start  {"\\[\\[",                  token_attrib_start},
           attrib_end    {"\\]\\]",                  token_attrib_end},
 
-          identifier    {"[a-zA-Z_][a-zA-Z0-9_]+",  token_identifier},
+          identifier    {"[a-zA-Z_][a-zA-Z0-9_]*",  token_identifier},
           number        {"-?[1-9][0-9]*",           token_number},
           oct_number    {"0[1-7][0-7]*",            token_oct_number},
           hex_number    {"0[xX][0-9a-fA-F]+",       token_hex_number},
@@ -146,6 +147,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
 
            | const_            [ ref(current_location.character) += distance(_start, _end) ]
            | using_            [ ref(current_location.character) += distance(_start, _end) ]
+           | throw_            [ ref(current_location.character) += distance(_start, _end) ]
 
            | comma             [ ++ref(current_location.character) ]
            | colon             [ ++ref(current_location.character) ]
@@ -188,6 +190,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
     token_def<>   exception;
     token_def<>   const_;
     token_def<>   using_;
+    token_def<>   throw_;
     //@}
     //@{
     /** @name Punctuation */
