@@ -22,7 +22,7 @@ namespace idl {
 namespace lexer {
 namespace test {
 
-GRAMMAR_TEST(location_grammar, PreprocessorLocation,
+GRAMMAR_TEST(grammar::location_grammar, PreprocessorLocation,
     ::testing::Values(
         R"~(#line 11 "/wire/lexer_test.wire"
 )~",
@@ -49,7 +49,7 @@ TEST(Lexer, LocationGrammar)
 {
     namespace qi = ::boost::spirit::qi;
     using iterator_type = ::std::string::const_iterator;
-    using grammar_type = location_grammar<iterator_type>;
+    using grammar_type = grammar::location_grammar<iterator_type>;
 
     iterator_type f = TEST_PREPROC_MESSAGE.begin();
     iterator_type l = TEST_PREPROC_MESSAGE.end();

@@ -47,21 +47,17 @@ operator << (::std::ostream& os, qname const& val)
         } else {
             if (val.fully)
                 os << "::";
-            bool scope = false;
-            for (auto const& c : val.components) {
-                if (scope)
+            for (auto c = val.components.begin(); c != val.components.end(); ++c) {
+                if (c != val.components.begin())
                     os << "::";
-                os << c;
-                scope = true;
+                os << *c;
             }
             if (!val.parameters.empty()) {
                 os << "<";
-                bool comma = false;
-                for (auto const& p : val.parameters) {
-                    if (comma)
+                for (auto p = val.parameters.begin(); p != val.parameters.end(); ++p) {
+                    if (p != val.parameters.begin())
                         os << ", ";
-                    os << p;
-                    comma = true;
+                    os << *p;
                 }
                 os << ">";
             }

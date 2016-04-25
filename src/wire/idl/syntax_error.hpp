@@ -30,6 +30,11 @@ public:
     {}
 };
 
+class grammar_error : public ::std::runtime_error {
+public:
+    grammar_error(::std::string const& msg) : runtime_error(msg) {}
+};
+
 }  /* namespace idl */
 }  /* namespace wire */
 

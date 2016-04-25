@@ -17,36 +17,11 @@
 #include <wire/idl/source_location.hpp>
 #include <wire/idl/token_types.hpp>
 
+#include <wire/idl/grammar/source_advance.hpp>
+
 namespace wire {
 namespace idl {
 namespace lexer {
-
-template < typename InputIterator >
-struct location_grammar : ::boost::spirit::qi::grammar< InputIterator, source_location() > {
-    location_grammar() : location_grammar::base_type(root)
-    {
-        namespace qi = boost::spirit::qi;
-        namespace phx = boost::phoenix;
-        using qi::lit;
-        using qi::space;
-        using qi::_val;
-        using qi::_1;
-        using qi::eps;
-        using qi::char_;
-
-        line = ::boost::spirit::qi::uint_parser< ::std::size_t, 10, 1 >();
-        file_name %= +(~char_('"'));
-        root = eps[phx::bind(&source_location::character, _val) = 0]
-           >> lit("#line") >> +space
-           >> line[ phx::bind(&source_location::line, _val) = _1 ]
-           >> +space >> '"'
-           >> file_name[phx::bind(&source_location::file, _val) = _1]
-           >> '"' >> "\n";
-    }
-    ::boost::spirit::qi::rule<InputIterator, source_location()>        root;
-    ::boost::spirit::qi::rule<InputIterator, ::std::size_t()>   line;
-    ::boost::spirit::qi::rule<InputIterator, ::std::string()>   file_name;
-};
 
 //----------------------------------------------------------------------------
 //  Phoenix function adaptors
@@ -59,7 +34,7 @@ struct file_location_func {
     operator()(source_location& loc, Iterator begin, Iterator end) const
     {
         namespace qi = ::boost::spirit::qi;
-        using grammar_type = location_grammar<Iterator>;
+        using grammar_type = grammar::location_grammar<Iterator>;
 
         if (!qi::parse(begin, end, grammar_type{}, loc) || begin != end) {
             throw ::std::runtime_error("Invalid preprocessor location string");
