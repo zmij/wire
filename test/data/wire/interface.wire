@@ -18,8 +18,8 @@ exception no_service {
 
 interface good_service {
     using good_list = sequence< string >;
-//    void
-//    do_good() throw (no_service);
+    void
+    do_good(good_list errands) const throw (no_service);
 };
 
 interface bad_service {
@@ -29,7 +29,8 @@ interface bad_service {
 };
 
 interface controversial : good_service, bad_service {
-
+    void
+    get_good(good_service* svc) const;
 };
 
 }  /* namespace test */

@@ -99,14 +99,16 @@ struct phrase_parser {
     }
 
     bool
-    process_token(source_location const& loc, token_value_type const& tkn)
+    operator()(source_location const& loc, token_value_type const& tkn)
     {
         if (current_phrase_) {
+            auto prev = current_phrase_;
             if (current_phrase_->want_token(loc, tkn)) {
                 current_phrase_ = current_phrase_->process_token(loc, tkn);
                 return true;
             }
-            current_phrase_.reset();
+            if (current_phrase_ == prev)
+                current_phrase_.reset();
         }
         return false;
     }
@@ -116,6 +118,9 @@ struct phrase_parser {
     {
         current_phrase_ = ::std::make_shared<T>(::std::forward<Args>(args)...);
     }
+    void
+    reset()
+    { current_phrase_.reset(); }
 
     phrase_parse_ptr current_phrase_;
 };
@@ -124,6 +129,9 @@ struct phrase_parser {
 class parser_scope {
 public:
     using token_value_type = parser_state::token_value_type;
+    using function_param = ::std::pair< ast::type_ptr, ::std::string >;
+    using function_params = ::std::vector<function_param>;
+    using throw_spec = ::std::vector< ast::exception_ptr >;
 
     parser_scope( parser_state& ps, ast::scope_ptr sc )
         : state_(ps), scope_(sc) {}
@@ -155,6 +163,10 @@ public:
     void
     add_data_member(source_location const& loc,
             ast::type_ptr type, ::std::string const& identifier); // TODO default value
+    void
+    add_function_member(source_location const& loc,
+            ast::type_ptr type, ::std::string const& identifier, bool const_func,
+            function_params const& params, throw_spec const& t_spec);
 protected:
     template < typename T, typename ... Args >
     void
@@ -176,6 +188,13 @@ private:
             ::std::string const& identifier)
     {
         throw syntax_error(loc, "Cannot add a data member at this scope");
+    }
+    virtual void
+    add_function_member_impl(source_location const& loc,
+            ast::type_ptr type, ::std::string const& identifier, bool const_func,
+            function_params const& params, throw_spec const& t_spec)
+    {
+        throw syntax_error(loc, "Cannot add a function member at this scope");
     }
 protected:
     parser_state&     state_;
@@ -216,6 +235,11 @@ public:
     interface_scope( parser_state& ps, ast::interface_ptr s)
         : parser_scope(ps, s) {}
     virtual ~interface_scope() {}
+protected:
+    void
+    add_function_member_impl(source_location const& loc,
+            ast::type_ptr type, ::std::string const& identifier, bool const_func,
+            function_params const& params, throw_spec const& t_spec) override;
 };
 
 //----------------------------------------------------------------------------

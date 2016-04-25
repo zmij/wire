@@ -74,6 +74,10 @@ class interface;
 using interface_ptr = shared_entity< interface >;
 using interface_list = ::std::vector< interface_ptr >;
 
+class exception;
+using exception_ptr = shared_entity<exception>;
+using exception_list = ::std::vector< exception_ptr >;
+
 struct literal_base {};
 template < typename T >
 struct literal : literal_base {
@@ -360,12 +364,13 @@ using variable_list = ::std::vector< variable_ptr >;
 
 class function : public entity {
 public:
+    using function_param = ::std::pair< type_ptr, ::std::string >;
+    using function_params = ::std::vector< function_param >;
+public:
     function(interface_ptr sc, ::std::string const& name,
-        type_ptr ret = type_ptr{},
-        variable_list const& params = variable_list{});
-
-    variable_ptr
-    add_parameter(::std::string const& name, type_ptr type);
+        type_ptr ret, bool is_const,
+        function_params const& params,
+        exception_list const& t_spec);
 
     bool&
     is_const()
@@ -376,8 +381,9 @@ public:
     { return is_const_; }
 private:
     type_ptr         ret_type_;
-    variable_list    parameters_;
+    function_params  parameters_;
     bool             is_const_ = false;
+    exception_list   throw_spec_;
 
 };
 using function_ptr = shared_entity<function>;
@@ -604,13 +610,19 @@ protected:
  */
 class interface : public virtual type, public virtual scope {
 public:
+    using function_param = function::function_param;
+    using function_params = function::function_params;
+public:
     interface(scope_ptr sc, ::std::string const& name,
             interface_list const& ancestors = interface_list{})
         : entity(sc, name), type(sc, name), scope(sc, name),
           ancestors_{ ancestors } {}
     // TODO function members
     function_ptr
-    add_function(::std::string const& name, type_ptr t = type_ptr{});
+    add_function(::std::string const& name, type_ptr t = type_ptr{},
+        bool is_const = false,
+        function_params const& params = function_params{},
+        exception_list const& t_spec = exception_list{});
     function_ptr
     find_function(::std::string const& name) const;
 protected:
@@ -626,6 +638,17 @@ protected:
 protected:
     interface_list ancestors_;
     function_list functions_;
+};
+
+//----------------------------------------------------------------------------
+/**
+ * Wire IDL reference to interface item
+ */
+class reference : public type {
+public:
+    reference(interface_ptr iface)
+        : entity(iface->owner(), iface->name()),
+          type(iface->owner(), iface->name()) {}
 };
 
 //----------------------------------------------------------------------------
@@ -660,9 +683,6 @@ private:
 /**
  * Wire IDL class item
  */
-class exception;
-using exception_ptr = shared_entity<exception>;
-
 class exception : public structure {
 public:
     exception(scope_ptr sc, ::std::string const& name,

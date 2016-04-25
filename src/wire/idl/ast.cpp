@@ -381,21 +381,15 @@ scope::local_entity_search(qname_search const& search) const
 //    function class implementation
 //----------------------------------------------------------------------------
 function::function(interface_ptr sc, ::std::string const& name,
-        type_ptr ret, variable_list const& params)
+        type_ptr ret, bool is_const,
+        function_params const& params,
+        exception_list const& t_spec)
     : entity(sc, name),
       ret_type_{ ret ? ret : namespace_::global()->find_type("void") },
-      parameters_{ params }
+      parameters_{ params }, is_const_(is_const), throw_spec_(t_spec)
 {
 }
 
-variable_ptr
-function::add_parameter(::std::string const& name, type_ptr type)
-{
-    variable_ptr param = ::std::make_shared<variable>(
-            owner(), name, type);
-    parameters_.push_back(param);
-    return param;
-}
 
 //----------------------------------------------------------------------------
 //    namespace_ class implementation
@@ -565,10 +559,11 @@ structure::local_entity_search(qname_search const& search) const
 //    interface class implementation
 //----------------------------------------------------------------------------
 function_ptr
-interface::add_function(::std::string const& name, type_ptr t)
+interface::add_function(::std::string const& name, type_ptr t, bool is_const,
+        function_params const& params, exception_list const& t_spec)
 {
     function_ptr func = ::std::make_shared<function>(
-            shared_this<interface>(), name, t
+            shared_this<interface>(), name, t, is_const, params, t_spec
         );
     functions_.push_back(func);
     return func;
