@@ -152,10 +152,13 @@ struct function_member_grammar : parser_value_grammar< InputIterator, function_d
 };
 
 //----------------------------------------------------------------------------
+//    type alias decl
+//----------------------------------------------------------------------------
+using type_alias_decl = ::std::pair< ::std::string, type_name >;
 //----------------------------------------------------------------------------
 template < typename InputIterator, typename Lexer >
-struct type_alias_grammar : parser_grammar< InputIterator, Lexer > {
-    using main_rule_type = parser_rule< InputIterator, Lexer >;
+struct type_alias_grammar : parser_value_grammar< InputIterator, type_alias_decl, Lexer > {
+    using main_rule_type = parser_value_rule< InputIterator, type_alias_decl, Lexer >;
     using type_name_rule = type_name_grammar< InputIterator, Lexer >;
 
     template < typename TokenDef >
@@ -163,7 +166,16 @@ struct type_alias_grammar : parser_grammar< InputIterator, Lexer > {
         : type_alias_grammar::base_type{ type_alias },
           type_name_{tok}
     {
-        type_alias = tok.using_ >> tok.identifier >> '=' >> type_name_ >> ';';
+        namespace phx = ::boost::phoenix;
+        namespace qi = ::boost::spirit::qi;
+        using qi::_val;
+        using qi::_1;
+
+        type_alias = tok.using_
+            >> tok.identifier      [ phx::bind(&type_alias_decl::first, _val) = to_string(_1) ]
+            >> '=' >> type_name_   [ phx::bind(&type_alias_decl::second, _val) = _1 ]
+            >> ';'
+        ;
     }
 
     main_rule_type     type_alias;
