@@ -15,6 +15,8 @@ namespace test {
 exception no_service {
     string const name = "No Service!";
     const int32 val = 42;
+
+    string reason;
 };
 
 interface good_service {

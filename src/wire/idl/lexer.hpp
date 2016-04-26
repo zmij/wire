@@ -15,7 +15,6 @@
 #include <boost/spirit/include/phoenix_algorithm.hpp>
 #include <boost/spirit/include/phoenix_core.hpp>
 #include <wire/idl/source_location.hpp>
-#include <wire/idl/token_types.hpp>
 
 #include <wire/idl/grammar/source_advance.hpp>
 
@@ -23,183 +22,52 @@ namespace wire {
 namespace idl {
 namespace lexer {
 
-//----------------------------------------------------------------------------
-//  Phoenix function adaptors
-//----------------------------------------------------------------------------
-struct file_location_func {
-    using result = void;
-
-    template < typename Iterator >
-    void
-    operator()(source_location& loc, Iterator begin, Iterator end) const
-    {
-        namespace qi = ::boost::spirit::qi;
-        using grammar_type = grammar::location_grammar<Iterator>;
-
-        if (!qi::parse(begin, end, grammar_type{}, loc) || begin != end) {
-            throw ::std::runtime_error("Invalid preprocessor location string");
-        }
-    }
-};
-
-::boost::phoenix::function< file_location_func > const update_location = file_location_func{};
-
-struct distance_func {
-    template < typename Iterator >
-    auto
-    operator()( Iterator const& begin, Iterator const& end ) const
-    -> decltype(::std::distance(begin, end))
-    {
-        return ::std::distance(begin, end);
-    }
-};
-
-::boost::phoenix::function< distance_func > const distance = distance_func{};
-
-template < typename Lexer >
+template <typename Lexer>
 struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
-    using base_type = ::boost::spirit::lex::lexer< Lexer >;
-    using base_type::self;
+    using base = ::boost::spirit::lex::lexer< Lexer >;
+    using base::self;
+    template < typename ... T >
+    using token_def = ::boost::spirit::lex::token_def<T...>;
 
     wire_tokens()
-        : current_location{"", 0, 0},
-          preproc_directive{"#line[ \t]+\\d+[ \t]+\\\"[^\\\"]+\\\"\n",
-                    token_locn},
+        : source_advance{"#line[ \t]+\\d+[ \t]+\\\"[^\\\"]+\\\"\n"},
 
-          ns            {"namespace",               token_ns},
-          struct_       {"struct",                  token_struct},
-          class_        {"class",                   token_class},
-          interface     {"interface",               token_interface},
-          exception     {"exception",               token_exception},
-          enum_         {"enum",                    token_enum},
+          namespace_{"namespace"}, enum_{"enum"}, struct_{"struct"},
+          interface{"interface"}, class_{"class"}, exception{"exception"},
 
-          const_        {"const",                   token_const},
-          using_        {"using",                   token_using},
-          throw_        {"throw",                   token_throw},
+          const_{"const"}, throw_{"throw"}, using_{"using"},
 
-          comma         {",",                       token_comma},
-          colon         {":",                       token_colon},
-          scope         {"::",                      token_scope_resolution},
-          semicolon     {";",                       token_semicolon},
-          assign        {"=",                       token_assign},
-          asterisk      {"\\*",                     token_asterisk},
-          brace_open    {"\\(",                     token_brace_open},
-          brace_close   {"\\)",                     token_brace_close},
-          block_start   {"\\{",                     token_block_start},
-          block_end     {"\\}",                     token_block_end},
-          angled_open   {"<",                       token_angled_open},
-          angled_close  {">",                       token_angled_close},
-          attrib_start  {"\\[\\[",                  token_attrib_start},
-          attrib_end    {"\\]\\]",                  token_attrib_end},
+          identifier{"[a-zA-Z_][a-zA-Z0-9_]*"},
+          dec_literal{"-?([1-9][0-9]*)|0"},
+          oct_literal{"0[1-7][0-7]*"},
+          hex_literal{"0[xX][0-9a-fA-F]+"},
+          string_literal{R"~(\"((\\\")|(\\.)|[^\"])*\")~" },
 
-          identifier    {"[a-zA-Z_][a-zA-Z0-9_]*",  token_identifier},
-          number        {"-?[1-9][0-9]*",           token_number},
-          oct_number    {"0[1-7][0-7]*",            token_oct_number},
-          hex_number    {"0[xX][0-9a-fA-F]+",       token_hex_number},
-          float_literal {"-?([1-9][0-9]*)?\\.[0-9]*([eE]-?[1-9][0-9]*)?",
-                                                    token_float_literal},
-          quoted_str    {"\\\"((\\\\\\\")|[^\\\"])*\\\"",
-                                                    token_quoted_string},
-
-          c_comment     {"\\/\\*[^*]*\\*+((\n)|([^/*][^*]*\\*+))*\\/",
-                                                    token_c_comment},
-          cpp_comment   {"\\/\\/[^\n]*\n",          token_cpp_comment},
-          eol           {"\n",                      token_eol},
-          whitespace    {"[ \t]",                   token_whitespace},
-          any           {".",                       token_any}
+          scope_resolution{"::"},
+          annotation_start{"\\[\\["}, annotation_end{"\\]\\]"}
     {
-        using ::boost::spirit::lex::_start;
-        using ::boost::spirit::lex::_end;
-        using ::boost::phoenix::ref;
-
-        self =
-             preproc_directive [ update_location( ref(current_location), _start, _end ) ]
-           | ns                [ ref(current_location.character) += distance(_start, _end) ]
-
-           | struct_           [ ref(current_location.character) += distance(_start, _end) ]
-           | class_            [ ref(current_location.character) += distance(_start, _end) ]
-           | interface         [ ref(current_location.character) += distance(_start, _end) ]
-           | exception         [ ref(current_location.character) += distance(_start, _end) ]
-           | enum_             [ ref(current_location.character) += distance(_start, _end) ]
-
-           | const_            [ ref(current_location.character) += distance(_start, _end) ]
-           | using_            [ ref(current_location.character) += distance(_start, _end) ]
-           | throw_            [ ref(current_location.character) += distance(_start, _end) ]
-
-           | comma             [ ++ref(current_location.character) ]
-           | colon             [ ++ref(current_location.character) ]
-           | scope             [ ref(current_location.character) += 2 ]
-           | semicolon         [ ++ref(current_location.character) ]
-           | assign            [ ++ref(current_location.character) ]
-           | asterisk          [ ++ref(current_location.character) ]
-           | brace_open        [ ++ref(current_location.character) ]
-           | brace_close       [ ++ref(current_location.character) ]
-           | block_start       [ ++ref(current_location.character) ]
-           | block_end         [ ++ref(current_location.character) ]
-           | angled_open       [ ++ref(current_location.character) ]
-           | angled_close      [ ++ref(current_location.character) ]
-           | attrib_start      [ ref(current_location.character) += 2 ]
-           | attrib_end        [ ref(current_location.character) += 2 ]
-
-           | identifier        [ ref(current_location.character) += distance(_start, _end) ]
-           | number            [ ref(current_location.character) += distance(_start, _end) ]
-           | oct_number        [ ref(current_location.character) += distance(_start, _end) ]
-           | hex_number        [ ref(current_location.character) += distance(_start, _end) ]
-           | float_literal     [ ref(current_location.character) += distance(_start, _end) ]
-           | quoted_str        [ ref(current_location.character) += distance(_start, _end) ]
-
-           | c_comment
-           | cpp_comment
-           | eol               [ ++ref(current_location.line), ref(current_location.character) = 0 ]
-           | whitespace        [ ++ref(current_location.character) ]
-           | any               [ ++ref(current_location.character) ]
+        self = source_advance
+            | namespace_ | enum_ | struct_ | interface | class_ | exception
+            | const_ | throw_ | using_
+            | identifier
+            | dec_literal | oct_literal | hex_literal | string_literal
+            | scope_resolution | annotation_start | annotation_end
+            | ',' | '.' | ':' | ';'
+            | '<' | '>' | '(' | ')' | '{' | '}'
+            | '*'
+            | '=' | '|' | '&' | '!' | '~'
         ;
+        self("WS") = token_def<>("[ \\t\\n]+");
     }
 
-    source_location      current_location;
-    token_def<>   preproc_directive;
-    //@{
-    /** @name Keywords */
-    token_def<>   ns;
-    token_def<>   struct_;
-    token_def<>   class_;
-    token_def<>   interface;
-    token_def<>   exception;
-    token_def<>   enum_;
-    token_def<>   const_;
-    token_def<>   using_;
-    token_def<>   throw_;
-    //@}
-    //@{
-    /** @name Punctuation */
-    token_def<>   comma;
-    token_def<>   colon;
-    token_def<>   scope;
-    token_def<>   semicolon;
-    token_def<>   assign;
-    token_def<>   asterisk;
-    token_def<>   brace_open;
-    token_def<>   brace_close;
-    token_def<>   block_start;
-    token_def<>   block_end;
-    token_def<>   angled_open;
-    token_def<>   angled_close;
-    token_def<>   attrib_start;
-    token_def<>   attrib_end;
-    //@}
-    token_def<>   identifier;
-    token_def<>   number;
-    token_def<>   oct_number;
-    token_def<>   hex_number;
-    token_def<>   float_literal;
-    token_def<>   quoted_str;
+    token_def<> source_advance;
 
-    token_def<>   c_comment;
-    token_def<>   cpp_comment;
+    token_def<> namespace_, enum_, struct_, interface, class_, exception;
+    token_def<> const_, throw_, using_;
 
-    token_def<>   eol;
-    token_def<>   whitespace;
-    token_def<>   any;
+    token_def<> identifier;
+    token_def<> dec_literal,  oct_literal, hex_literal, string_literal;
+    token_def<> scope_resolution, annotation_start, annotation_end;
 };
 
 }  /* namespace lexer */

@@ -19,10 +19,8 @@ include_directories(${GTEST_INCLUDE_DIRS})
 set(
     test_program_SRCS
     # Add your sources here
-    lexer_test.cpp
     qname_test.cpp
     ast_test.cpp
-    parser_test.cpp
     lexer_qi_test.cpp
 )
 add_executable(test-wire-idl ${test_program_SRCS})

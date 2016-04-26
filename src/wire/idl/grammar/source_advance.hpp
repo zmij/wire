@@ -9,6 +9,9 @@
 #define WIRE_IDL_GRAMMAR_SOURCE_ADVANCE_HPP_
 
 #include <wire/idl/source_location.hpp>
+#include <boost/spirit/include/qi.hpp>
+#include <boost/spirit/include/phoenix.hpp>
+#include <boost/spirit/repository/include/qi_iter_pos.hpp>
 
 namespace wire {
 namespace idl {
@@ -100,6 +103,38 @@ struct next_line_func {
 };
 
 ::boost::phoenix::function< next_line_func > const nl = next_line_func{};
+
+//----------------------------------------------------------------------------
+template < typename InputIterator >
+struct current_pos {
+    using base_iterator = decltype( ::std::declval<InputIterator>()->value().begin() );
+    current_pos()
+    {
+        namespace qi = ::boost::spirit::qi;
+        namespace phx = ::boost::phoenix;
+        using ::boost::spirit::repository::qi::iter_pos;
+
+        save_start_pos = qi::omit[ iter_pos[
+             phx::bind( &current_pos::set_start_pos, this, qi::_1 )] ];
+        current = iter_pos[ qi::_val = phx::bind( &current_pos::get_current_pos, this, qi::_1 ) ];
+    }
+    ::boost::spirit::qi::rule<InputIterator>                    save_start_pos;
+    ::boost::spirit::qi::rule<InputIterator, ::std::size_t()>   current;
+private:
+    void
+    set_start_pos(InputIterator const& iterator)
+    {
+        start_pos_ = iterator->value().begin();
+    }
+
+    ::std::size_t
+    get_current_pos(InputIterator const& iterator)
+    {
+        return ::std::distance(start_pos_, iterator->value().begin());
+    }
+
+    base_iterator start_pos_;
+};
 
 }  /* namespace grammar */
 }  /* namespace idl */

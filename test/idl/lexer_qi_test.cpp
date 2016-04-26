@@ -22,6 +22,8 @@
 #include <wire/idl/grammar/source_advance.hpp>
 #include <wire/idl/grammar/idl_file.hpp>
 
+#include <wire/idl/lexer.hpp>
+
 namespace wire {
 namespace idl {
 namespace grammar {
@@ -30,51 +32,6 @@ namespace test {
 namespace lex = ::boost::spirit::lex;
 namespace qi = ::boost::spirit::qi;
 
-template <typename Lexer>
-struct test_tokens : lex::lexer< Lexer > {
-    using base = lex::lexer< Lexer >;
-    using base::self;
-
-    test_tokens()
-        : source_advance{"#line[ \t]+\\d+[ \t]+\\\"[^\\\"]+\\\"\n"},
-
-          namespace_{"namespace"}, enum_{"enum"}, struct_{"struct"},
-          interface{"interface"}, class_{"class"}, exception{"exception"},
-
-          const_{"const"}, throw_{"throw"}, using_{"using"},
-
-          identifier{"[a-zA-Z_][a-zA-Z0-9_]*"},
-          dec_literal{"-?([1-9][0-9]*)|0"},
-          oct_literal{"0[1-7][0-7]*"},
-          hex_literal{"0[xX][0-9a-fA-F]+"},
-          string_literal{R"~(\"((\\\")|(\\.)|[^\"])*\")~" },
-
-          scope_resolution{"::"},
-          annotation_start{"\\[\\["}, annotation_end{"\\]\\]"}
-    {
-        self = source_advance
-            | namespace_ | enum_ | struct_ | interface | class_ | exception
-            | const_ | throw_ | using_
-            | identifier
-            | dec_literal | oct_literal | hex_literal | string_literal
-            | scope_resolution | annotation_start | annotation_end
-            | ',' | '.' | ':' | ';'
-            | '<' | '>' | '(' | ')' | '{' | '}'
-            | '*'
-            | '=' | '|' | '&' | '!' | '~'
-        ;
-        self("WS") = lex::token_def<>("[ \\t\\n]+");
-    }
-
-    lex::token_def<> source_advance;
-
-    lex::token_def<> namespace_, enum_, struct_, interface, class_, exception;
-    lex::token_def<> const_, throw_, using_;
-
-    lex::token_def<> identifier;
-    lex::token_def<> dec_literal,  oct_literal, hex_literal, string_literal;
-    lex::token_def<> scope_resolution, annotation_start, annotation_end;
-};
 
 struct idl_file {
     using location_jumps = ::std::map< ::std::size_t, source_location >;
@@ -82,7 +39,7 @@ struct idl_file {
     using attribs = ::boost::mpl::vector0<>;
     using token_type = lex::lexertl::token<base_iterator, attribs, ::boost::mpl::true_>;
     using lexer_type = lex::lexertl::lexer<token_type>;
-    using tokens_type = test_tokens< lexer_type >;
+    using tokens_type = lexer::wire_tokens< lexer_type >;
     using token_iterator = tokens_type::iterator_type;
 
     idl_file(::std::string const& contents)
@@ -103,9 +60,14 @@ struct idl_file {
     source_location
     get_location(base_iterator p) const
     {
-        auto f = --jumps.upper_bound( ::std::distance(stream_begin, p) );
+        return get_location( ::std::distance(stream_begin, p) );
+    }
+    source_location
+    get_location(::std::size_t pos) const
+    {
+        auto f = --jumps.upper_bound( pos );
         source_location loc = f->second;
-        for (auto c = stream_begin + f->first; c != p; ++c) {
+        for (auto c = stream_begin + f->first; c != stream_begin + pos; ++c) {
             if (*c == '\n') {
                 loc.character = 0;
                 ++loc.line;
@@ -118,63 +80,72 @@ struct idl_file {
     }
 
     void
-    add_type_alias(type_alias_decl const& decl)
+    add_type_alias(::std::size_t pos, type_alias_decl const& decl)
     {
-        ::std::cerr << "Add type alias " << decl.first << " = " << decl.second << "\n";
+        ::std::cerr << get_location(pos) << " note: "
+                << "Add type alias " << decl.first << " = " << decl.second << "\n";
     }
 
     void
-    forward_declare(fwd_decl const& fwd)
+    forward_declare(::std::size_t pos, fwd_decl const& fwd)
     {
-        ::std::cerr << "Forward declare " << fwd.first << " " << fwd.second << "\n";
+        ::std::cerr << get_location(pos) << " note: "
+                << "Forward declare " << fwd.first << " " << fwd.second << "\n";
     }
 
     void
-    declare_enum(enum_decl const& decl)
+    declare_enum(::std::size_t pos, enum_decl const& decl)
     {
-        ::std::cerr << "Declare enum " << decl.name << "\n";
+        ::std::cerr << get_location(pos) << " note: "
+                << "Declare enum " << decl.name << "\n";
     }
 
     void
-    add_constant(data_member_decl const& decl)
+    add_constant(::std::size_t pos, data_member_decl const& decl)
     {
-        ::std::cerr << "Add constant " << decl.type << " " << decl.name << "\n";
+        ::std::cerr << get_location(pos) << " note: "
+                << "Add constant " << decl.type << " " << decl.name << "\n";
     }
 
     void
-    add_data_member(data_member_decl const& decl)
+    add_data_member(::std::size_t pos, data_member_decl const& decl)
     {
-        ::std::cerr << "Add data member " << decl.type << " " << decl.name << "\n";
+        ::std::cerr << get_location(pos) << " note: "
+             << "Add data member " << decl.type << " " << decl.name << "\n";
     }
 
     void
-    add_func_member(function_decl const& decl)
+    add_func_member(::std::size_t pos, function_decl const& decl)
     {
-        ::std::cerr << "Add function member " << decl.return_type << " " << decl.name << "\n";
+        ::std::cerr << get_location(pos) << " note: "
+                 << "Add function member " << decl.return_type << " " << decl.name << "\n";
     }
 
     void
-    end_scope()
+    end_scope(::std::size_t pos)
     {
-        ::std::cerr << "End scope\n";
+        ::std::cerr << get_location(pos) << " note: "<< "End scope\n";
     }
 
     void
-    start_namespace(::std::string const& name)
+    start_namespace(::std::size_t pos, ::std::string const& name)
     {
-        ::std::cerr << "Start namespace " << name << "\n";
+        ::std::cerr << get_location(pos) << " note: "
+                << "Start namespace " << name << "\n";
     }
 
     void
-    start_structure(::std::string const& name)
+    start_structure(::std::size_t pos, ::std::string const& name)
     {
-        ::std::cerr << "Start structure " << name << "\n";
+        ::std::cerr << get_location(pos) << " note: "
+                << "Start structure " << name << "\n";
     }
 
     void
-    start_interface(::std::string const& name, ::boost::optional< type_name_list > const& ancestors)
+    start_interface(::std::size_t pos, ::std::string const& name, ::boost::optional< type_name_list > const& ancestors)
     {
-        std::cerr << "Start interface " << name;
+        ::std::cerr << get_location(pos) << " note: "
+                << "Start interface " << name;
         if (ancestors.is_initialized()) {
             ::std::cerr << " : ";
             for (auto p = ancestors->begin(); p != ancestors->end(); ++p) {
@@ -187,9 +158,10 @@ struct idl_file {
     }
 
     void
-    start_class(::std::string const& name, ::boost::optional< type_name_list > const& ancestors)
+    start_class(::std::size_t pos, ::std::string const& name, ::boost::optional< type_name_list > const& ancestors)
     {
-        std::cerr << "Start class " << name;
+        ::std::cerr << get_location(pos) << " note: "
+                << "Start class " << name;
         if (ancestors.is_initialized()) {
             ::std::cerr << " : ";
             for (auto p = ancestors->begin(); p != ancestors->end(); ++p) {
@@ -202,9 +174,10 @@ struct idl_file {
     }
 
     void
-    start_exception(::std::string const& name, ::boost::optional< type_name > const& ancestor)
+    start_exception(::std::size_t pos, ::std::string const& name, ::boost::optional< type_name > const& ancestor)
     {
-        ::std::cerr << "Start exception " << name;
+        ::std::cerr << get_location(pos) << " note: "
+                << "Start exception " << name;
         if (ancestor.is_initialized()) {
             ::std::cerr << " : " << *ancestor;
         }
@@ -212,9 +185,10 @@ struct idl_file {
     }
 
     void
-    add_annotations(annotation_list const& ann)
+    add_annotations(::std::size_t pos, annotation_list const& ann)
     {
-        ::std::cerr << "Add annotations (" << ann.size() << ")\n";
+        ::std::cerr << get_location(pos) << " note: "
+                << "Add annotations (" << ann.size() << ")\n";
     }
 
     base_iterator  stream_begin;
@@ -227,7 +201,7 @@ TEST(Parser, QiQName)
     using attribs = ::boost::mpl::vector0<>;
     using token_type = lex::lexertl::token<base_iterator, attribs, ::boost::mpl::true_>;
     using lexer_type = lex::lexertl::lexer<token_type>;
-    using tokens_type = test_tokens< lexer_type >;
+    using tokens_type = lexer::wire_tokens< lexer_type >;
     using token_iterator = tokens_type::iterator_type;
     using grammar_type = qname_grammar< token_iterator, tokens_type::lexer_def >;
 
@@ -260,7 +234,7 @@ TEST(Parser, QiTypeName)
     using attribs = ::boost::mpl::vector0<>;
     using token_type = lex::lexertl::token<base_iterator, attribs, ::boost::mpl::true_>;
     using lexer_type = lex::lexertl::lexer<token_type>;
-    using tokens_type = test_tokens< lexer_type >;
+    using tokens_type = lexer::wire_tokens< lexer_type >;
     using token_iterator = tokens_type::iterator_type;
     using grammar_type = type_name_grammar< token_iterator, tokens_type::lexer_def >;
 
@@ -301,7 +275,7 @@ TEST(Parser, QiNamespace)
     using attribs = ::boost::mpl::vector0<>;
     using token_type = lex::lexertl::token<base_iterator, attribs, ::boost::mpl::true_>;
     using lexer_type = lex::lexertl::lexer<token_type>;
-    using tokens_type = test_tokens< lexer_type >;
+    using tokens_type = lexer::wire_tokens< lexer_type >;
     using token_iterator = tokens_type::iterator_type;
     using grammar_type = idl_file_grammar< token_iterator, tokens_type::lexer_def >;
 
