@@ -122,7 +122,7 @@ struct qname {
     name() const
     {
         if (empty()) {
-            throw ::std::runtime_error("Name is empty");
+            throw ::std::runtime_error("Name is empty (qualified name)");
         }
         return components.back();
     }

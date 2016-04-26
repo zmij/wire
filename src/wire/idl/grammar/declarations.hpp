@@ -70,8 +70,14 @@ struct enum_decl {
 
 //----------------------------------------------------------------------------
 struct annotation {
+    using annotation_ptr = ::std::shared_ptr< annotation >;
+    using argument_list = ::std::vector< annotation_ptr >;
 
+    ::std::string           name;
+    argument_list           arguments;
 };
+
+using annotation_list = ::std::vector< annotation >;
 
 //----------------------------------------------------------------------------
 template < typename State >
@@ -224,6 +230,16 @@ struct parser_state_update {
         state_type& state;
     };
 
+    struct add_annotation_func {
+        using result = void;
+        void
+        operator()(annotation_list const& ann) const
+        {
+            state.add_annotations(ann);
+        }
+        state_type& state;
+    };
+
     parser_state_update(state_type& st)
         : state(st),
           location          { update_source_location_func{st} },
@@ -238,7 +254,8 @@ struct parser_state_update {
           start_interface   { start_interface_func{st} },
           start_class       { start_class_func{st} },
           start_exception   { start_exception_func{st} },
-          end_scope         { end_scope_func{st} }
+          end_scope         { end_scope_func{st} },
+          add_annotations   { add_annotation_func{st} }
     {
     }
 
@@ -256,6 +273,7 @@ struct parser_state_update {
     fn< start_class_func >              start_class;
     fn< start_exception_func >          start_exception;
     fn< end_scope_func >                end_scope;
+    fn< add_annotation_func >           add_annotations;
 };
 
 }  /* namespace grammar */

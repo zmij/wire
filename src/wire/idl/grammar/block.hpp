@@ -16,15 +16,16 @@ namespace grammar {
 
 template < typename InputIterator, typename Lexer >
 struct block_grammar : parser_grammar< InputIterator, Lexer > {
-    using main_rule_type = parser_rule< InputIterator, Lexer >;
-    using type_name_rule = type_name_grammar< InputIterator, Lexer >;
-    using rule_type = parser_rule< InputIterator, Lexer >;
-    using type_alias_rule = type_alias_grammar<InputIterator, Lexer>;
-    using constant_rule = const_member_grammar<InputIterator, Lexer>;
-    using forward_rule = forward_decl_grammar<InputIterator, Lexer>;
-    using data_member_rule = data_member_grammar<InputIterator, Lexer>;
-    using function_member_rule = function_member_grammar<InputIterator, Lexer>;
-    using enum_rule = enum_grammar<InputIterator, Lexer>;
+    using main_rule_type        = parser_rule< InputIterator, Lexer >;
+    using type_name_rule        = type_name_grammar< InputIterator, Lexer >;
+    using rule_type             = parser_rule< InputIterator, Lexer >;
+    using type_alias_rule       = type_alias_grammar<InputIterator, Lexer>;
+    using constant_rule         = const_member_grammar<InputIterator, Lexer>;
+    using forward_rule          = forward_decl_grammar<InputIterator, Lexer>;
+    using data_member_rule      = data_member_grammar<InputIterator, Lexer>;
+    using function_member_rule  = function_member_grammar<InputIterator, Lexer>;
+    using enum_rule             = enum_grammar<InputIterator, Lexer>;
+    using annotation_rule       = annotation_grammar<InputIterator, Lexer>;
 
     template < typename T, typename ... Rest >
     using value_rule_type = parser_value_rule<InputIterator, T, Lexer, Rest ...>;
@@ -33,6 +34,7 @@ struct block_grammar : parser_grammar< InputIterator, Lexer > {
     block_grammar(TokenDef const& tok, ParserState& st)
         : block_grammar::base_type{block},
           type_name_{tok},
+          annotation_{tok},
           type_alias{tok},
           fwd_decl{tok},
           enum_{tok},
@@ -48,7 +50,8 @@ struct block_grammar : parser_grammar< InputIterator, Lexer > {
 
         update_parser_state scope{ st };
 
-        scope_member = type_alias       [ scope.add_type_alias(_1) ]
+        scope_member = annotation_      [ scope.add_annotations(_1) ]
+            | type_alias                [ scope.add_type_alias(_1) ]
             | fwd_decl                  [ scope.forward_declare(_1) ]
             | enum_                     [ scope.declare_enum(_1) ]
             | constant                  [ scope.add_constant(_1) ]
@@ -97,6 +100,7 @@ struct block_grammar : parser_grammar< InputIterator, Lexer > {
 
     main_rule_type                      block;
     type_name_rule                      type_name_;
+    annotation_rule                     annotation_;
     type_alias_rule                     type_alias;
     forward_rule                        fwd_decl;
     enum_rule                           enum_;

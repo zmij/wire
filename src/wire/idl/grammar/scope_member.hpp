@@ -164,11 +164,11 @@ struct const_member_grammar : parser_value_grammar< InputIterator, data_member_d
 
         const_member =
                ((tok.const_ >> type_name_)      [ _a = _2 ]
-               | (type_name_ >> tok.const_)     [ _a = _1 ]
+               | (type_name_ >> tok.const_)     [ _a = _1 ])
             >> tok.identifier                   [ _b = to_string(_1) ]
             >> '='
             >> initializer                      [ _val = create_dm(_a, _b, _1) ]
-            >> ';')
+            >> ';'
         ;
 
         main = const_member;
@@ -202,7 +202,7 @@ struct function_member_grammar : parser_value_grammar< InputIterator, function_d
 
         param = (type_name_ >> tok.identifier)
                 [ _val = phx::construct< function_decl::param_type >(_1, to_string(_2)) ];
-        param_list %= -(param) >> *(',' >> param);
+        param_list %= -(param >> *(',' >> param));
 
         throw_list %= type_name_ >> *(',' >> type_name_);
 
@@ -361,6 +361,82 @@ struct enum_grammar : parser_value_grammar< InputIterator, enum_decl, Lexer > {
     value_rule_type< ::std::string >                expression;
 };
 
+//----------------------------------------------------------------------------
+struct create_annotation_ptr_func {
+    using result = annotation::annotation_ptr;
+
+    result
+    operator()(annotation const& ann) const
+    {
+        return ::std::make_shared< annotation >(ann);
+    }
+
+    template < typename TokenValue >
+    result
+    operator()(TokenValue const& tok) const
+    {
+        annotation ann{::std::string{ tok.begin(), tok.end() }};
+        return ::std::make_shared< annotation >(::std::move(ann));
+    }
+};
+
+::boost::phoenix::function< create_annotation_ptr_func > const ann_ptr
+     = create_annotation_ptr_func{};
+
+//----------------------------------------------------------------------------
+struct create_annotation_func {
+    using result = annotation;
+
+    template < typename TokenValue >
+    result
+    operator()(TokenValue const& tok,
+            ::boost::optional< annotation::argument_list > const& args) const
+    {
+        if (args.is_initialized()) {
+            return result { ::std::string{ tok.begin(), tok.end() }, *args };
+        }
+        return result{ ::std::string{ tok.begin(), tok.end() } };
+    }
+};
+
+::boost::phoenix::function< create_annotation_func > const create_annotation
+     = create_annotation_func{};
+
+//----------------------------------------------------------------------------
+template < typename InputIterator, typename Lexer >
+struct annotation_grammar : parser_value_grammar< InputIterator, annotation_list, Lexer > {
+    using main_rule_type = parser_value_rule< InputIterator, annotation_list, Lexer >;
+    template< typename T >
+    using value_rule_type = parser_value_rule<InputIterator, T, Lexer>;
+
+    template < typename TokenDef >
+    annotation_grammar(TokenDef const& tok)
+        : annotation_grammar::base_type(main)
+    {
+        namespace qi = ::boost::spirit::qi;
+        using qi::_val;
+        using qi::_1;
+        using qi::_2;
+
+        main = tok.annotation_start
+            >> annotation_list_ [ _val = _1 ]
+            >> tok.annotation_end;
+
+        annotation_list_ %= annotation_ >> *(',' >> annotation_);
+        annotation_ = (tok.identifier >> -( '(' >> args >> ')' ))
+                [ _val = create_annotation(_1, _2) ];
+        args %= -(arg >> *(',' >> arg));
+        arg = annotation_ [ _val = ann_ptr(_1) ]
+            | (tok.dec_literal | tok.oct_literal | tok.hex_literal | tok.string_literal)
+                    [ _val = ann_ptr(_1) ];
+    }
+
+    main_rule_type                                  main;
+    main_rule_type                                  annotation_list_;
+    value_rule_type< annotation >                   annotation_;
+    value_rule_type< annotation::argument_list >    args;
+    value_rule_type< annotation::annotation_ptr >   arg;
+};
 }  /* namespace grammar */
 }  /* namespace idl */
 }  /* namespace wire */

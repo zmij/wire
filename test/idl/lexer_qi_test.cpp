@@ -47,9 +47,10 @@ struct test_tokens : lex::lexer< Lexer > {
           dec_literal{"-?([1-9][0-9]*)|0"},
           oct_literal{"0[1-7][0-7]*"},
           hex_literal{"0[xX][0-9a-fA-F]+"},
-          string_literal{R"~("((\\\")|(\\.)|[^\"])*")~" },
+          string_literal{R"~(\"((\\\")|(\\.)|[^\"])*\")~" },
 
-          scope_resolution{"::"}, annotation_start{"[["}, annotation_end{"]]"}
+          scope_resolution{"::"},
+          annotation_start{"\\[\\["}, annotation_end{"\\]\\]"}
     {
         self = source_advance
             | namespace_ | enum_ | struct_ | interface | class_ | exception
@@ -60,7 +61,7 @@ struct test_tokens : lex::lexer< Lexer > {
             | ',' | '.' | ':' | ';'
             | '<' | '>' | '(' | ')' | '{' | '}'
             | '*'
-            | '=' | '|' | '&'
+            | '=' | '|' | '&' | '!' | '~'
         ;
         self("WS") = lex::token_def<>("[ \\t\\n]+");
     }
@@ -203,11 +204,17 @@ struct idl_file {
     void
     start_exception(::std::string const& name, ::boost::optional< type_name > const& ancestor)
     {
-        std::cerr << "Start exception " << name;
+        ::std::cerr << "Start exception " << name;
         if (ancestor.is_initialized()) {
             ::std::cerr << " : " << *ancestor;
         }
         ::std::cerr << "\n";
+    }
+
+    void
+    add_annotations(annotation_list const& ann)
+    {
+        ::std::cerr << "Add annotations (" << ann.size() << ")\n";
     }
 
     base_iterator  stream_begin;
