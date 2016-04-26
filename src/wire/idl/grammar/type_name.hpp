@@ -65,9 +65,10 @@ struct qname_grammar : parser_value_grammar< InputIterator, qname, Lexer > {
         using qi::_2;
 
         main = eps[ qname_reset(_val) ]
-            >> -tok.scope_resolution[ phx::bind(&qname::fully, _val) = true ]
-                    >> tok.identifier[ qname_add_component(_val, _1) ]
-            >> *(tok.scope_resolution >> tok.identifier[ qname_add_component(_val, _1) ]);
+            >> -tok.scope_resolution            [ phx::bind(&qname::fully, _val) = true ]
+                    >> tok.identifier           [ qname_add_component(_val, _1) ]
+            >> *(tok.scope_resolution
+                    >> tok.identifier           [ qname_add_component(_val, _1) ]);
     }
 
     main_rule_type        main;
@@ -131,8 +132,8 @@ struct type_name_grammar : parser_value_grammar< InputIterator, type_name, Lexer
         using qi::_2;
         using qi::char_;
 
-        template_param = type_name_[ _val = tmpl_param(_1) ]
-            | (tok.dec_literal | tok.oct_literal | tok.hex_literal)[ _val = tmpl_param(_1) ];
+        template_param = type_name_                                 [ _val = tmpl_param(_1) ]
+            | (tok.dec_literal | tok.oct_literal | tok.hex_literal) [ _val = tmpl_param(_1) ];
 
         template_params %=
                 template_param

@@ -21,14 +21,18 @@ struct idl_file_grammar : parser_grammar< InputIterator, Lexer > {
     using main_rule_type = parser_rule< InputIterator, Lexer >;
     using block_rule = block_grammar< InputIterator, Lexer >;
 
-    template < typename TokenDef, typename UpdateLoc >
-    idl_file_grammar(TokenDef const& tok, UpdateLoc update_loc)
+    template < typename TokenDef, typename ParserState >
+    idl_file_grammar(TokenDef const& tok, ParserState& state)
         : idl_file_grammar::base_type{ file },
-          block{tok}
+          block{tok, state}
     {
+        using update_parser_state = parser_state_update< ParserState >;
         namespace qi = ::boost::spirit::qi;
         using qi::_1;
-        file = *(tok.source_advance[ update_loc(_1) ]
+
+        update_parser_state up{ state };
+
+        file = *(tok.source_advance[ up.location(_1) ]
             | block);
     }
 

@@ -15,51 +15,6 @@ namespace idl {
 namespace grammar {
 
 template < typename InputIterator, typename Lexer >
-struct forward_decl_grammar : parser_grammar< InputIterator, Lexer > {
-    using main_rule_type = parser_rule< InputIterator, Lexer >;
-
-    template < typename TokenDef >
-    forward_decl_grammar(TokenDef const& tok)
-        : forward_decl_grammar::base_type{fwd}
-    {
-        fwd = (tok.struct_ | tok.interface | tok.class_ | tok.exception)
-            >> tok.identifier >> ';';
-    }
-
-    main_rule_type fwd;
-};
-
-template < typename InputIterator, typename Lexer >
-struct enum_grammar : parser_grammar< InputIterator, Lexer > {
-    using main_rule_type = parser_rule< InputIterator, Lexer >;
-    using rule_type = parser_rule< InputIterator, Lexer >;
-
-    template < typename TokenDef >
-    enum_grammar(TokenDef const& tok)
-        : enum_grammar::base_type{ enum_ }
-    {
-        namespace qi = ::boost::spirit::qi;
-        using qi::char_;
-        enum_ = tok.enum_ >> -tok.class_ >> tok.identifier
-            >> '{'
-                >> enumerator_list
-            >> '}' >> ';';
-        enumerator_list = -(enumerator >> *(',' >> enumerator));
-        enumerator = tok.identifier
-            >> -('=' >> enumerator_init)
-        ;
-        enumerator_init = tok.dec_literal | tok.oct_literal | tok.hex_literal | expression;
-        expression = tok.identifier >> *(char_('|') >> tok.identifier);
-    }
-
-    main_rule_type enum_;
-    rule_type    enumerator;
-    rule_type    enumerator_init;
-    rule_type    enumerator_list;
-    rule_type    expression;
-};
-
-template < typename InputIterator, typename Lexer >
 struct block_grammar : parser_grammar< InputIterator, Lexer > {
     using main_rule_type = parser_rule< InputIterator, Lexer >;
     using type_name_rule = type_name_grammar< InputIterator, Lexer >;
@@ -71,62 +26,88 @@ struct block_grammar : parser_grammar< InputIterator, Lexer > {
     using function_member_rule = function_member_grammar<InputIterator, Lexer>;
     using enum_rule = enum_grammar<InputIterator, Lexer>;
 
-    template < typename TokenDef >
-    block_grammar(TokenDef const& tok)
+    template < typename T, typename ... Rest >
+    using value_rule_type = parser_value_rule<InputIterator, T, Lexer, Rest ...>;
+
+    template < typename TokenDef, typename ParserState >
+    block_grammar(TokenDef const& tok, ParserState& st)
         : block_grammar::base_type{block},
           type_name_{tok},
           type_alias{tok},
-          constant{tok},
           fwd_decl{tok},
-          data_member{tok},
-          function{tok},
-          enum_{tok}
+          enum_{tok},
+          constant{tok},
+          data_member_{tok},
+          function_{tok}
     {
-        scope_member = type_alias | fwd_decl
+        using update_parser_state = parser_state_update< ParserState >;
+        namespace qi = ::boost::spirit::qi;
+        using qi::_1;
+        using qi::_2;
+        using qi::char_;
+
+        update_parser_state scope{ st };
+
+        scope_member = type_alias       [ scope.add_type_alias(_1) ]
+            | fwd_decl                  [ scope.forward_declare(_1) ]
+            | enum_                     [ scope.declare_enum(_1) ]
+            | constant                  [ scope.add_constant(_1) ]
             | struct_ | interface_ | class_ | exception_
-            | enum_ | constant;
-        struct_ = tok.struct_ >> tok.identifier
+        ;
+        struct_ = tok.struct_ >> tok.identifier         [ scope.start_structure(to_string(_1)) ]
             >> '{'
                 >> *(scope_member | data_member)
-            >> '}' >> ';';
+            >> '}' >> char_(';')                        [ scope.end_scope() ]
+        ;
 
-        interface_ = tok.interface >> tok.identifier
-            >> -(':' >> type_list)
+        interface_ = tok.interface
+            >> (tok.identifier >> -(':' >> type_list))  [ scope.start_interface(to_string(_1), _2) ]
             >> '{'
                 >> *(scope_member | function)
-            >> '}' >> ';';
+            >> '}' >> char_(';')                        [ scope.end_scope() ]
+        ;
 
-        class_ = tok.class_ >> tok.identifier
-            >> -(':' >> type_list)
+        class_ = tok.class_
+            >> (tok.identifier >> -(':' >> type_list))  [ scope.start_class(to_string(_1), _2) ]
             >> '{'
                 >> *(scope_member | function | data_member)
-            >> '}' >> ';';
+            >> '}' >> char_(';')                        [ scope.end_scope() ]
+        ;
 
-        exception_ = tok.exception >> tok.identifier
-            >> -(':' >> type_name_)
+        exception_ = tok.exception
+            >> (tok.identifier >> -(':' >> type_name_)) [ scope.start_exception(to_string(_1), _2) ]
             >> '{'
                 >> *(scope_member | data_member)
-            >> '}' >> ';';
+            >> '}' >> char_(';')                        [ scope.end_scope() ]
+        ;
 
-        namespace_ = tok.namespace_ >> tok.identifier
+        namespace_ = tok.namespace_ >> tok.identifier   [ scope.start_namespace(to_string(_1)) ]
             >> '{'
                 >> *(scope_member | namespace_)
-            >> '}';
+            >> char_('}')                               [ scope.end_scope() ]
+        ;
 
-        type_list = type_name_ >> -(',' >> type_name_);
+        type_list %= type_name_ >> -(',' >> type_name_);
 
         block = scope_member | namespace_;
+
+        data_member = data_member_                      [ scope.add_data_member(_1) ];
+        function = function_                            [ scope.add_func_member(_1) ];
     }
 
-    main_rule_type         block;
-    type_name_rule         type_name_;
-    type_alias_rule        type_alias;
-    constant_rule          constant;
-    forward_rule           fwd_decl;
-    data_member_rule       data_member;
-    function_member_rule   function;
-    enum_rule              enum_;
-    rule_type              type_list;
+    main_rule_type                      block;
+    type_name_rule                      type_name_;
+    type_alias_rule                     type_alias;
+    forward_rule                        fwd_decl;
+    enum_rule                           enum_;
+    constant_rule                       constant;
+
+    data_member_rule                    data_member_;
+    function_member_rule                function_;
+
+    rule_type                           data_member, function; // Semantic action attached
+
+    value_rule_type< type_name_list >   type_list;
     rule_type scope_member, struct_, interface_, class_, exception_, namespace_;
 };
 

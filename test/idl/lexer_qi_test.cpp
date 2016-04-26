@@ -49,14 +49,14 @@ struct test_tokens : lex::lexer< Lexer > {
           hex_literal{"0[xX][0-9a-fA-F]+"},
           string_literal{R"~("((\\\")|(\\.)|[^\"])*")~" },
 
-          scope_resolution{"::"}
+          scope_resolution{"::"}, annotation_start{"[["}, annotation_end{"]]"}
     {
         self = source_advance
             | namespace_ | enum_ | struct_ | interface | class_ | exception
             | const_ | throw_ | using_
             | identifier
             | dec_literal | oct_literal | hex_literal | string_literal
-            | scope_resolution
+            | scope_resolution | annotation_start | annotation_end
             | ',' | '.' | ':' | ';'
             | '<' | '>' | '(' | ')' | '{' | '}'
             | '*'
@@ -72,7 +72,7 @@ struct test_tokens : lex::lexer< Lexer > {
 
     lex::token_def<> identifier;
     lex::token_def<> dec_literal,  oct_literal, hex_literal, string_literal;
-    lex::token_def<> scope_resolution;
+    lex::token_def<> scope_resolution, annotation_start, annotation_end;
 };
 
 struct idl_file {
@@ -116,32 +116,102 @@ struct idl_file {
         return loc;
     }
 
+    void
+    add_type_alias(type_alias_decl const& decl)
+    {
+        ::std::cerr << "Add type alias " << decl.first << " = " << decl.second << "\n";
+    }
+
+    void
+    forward_declare(fwd_decl const& fwd)
+    {
+        ::std::cerr << "Forward declare " << fwd.first << " " << fwd.second << "\n";
+    }
+
+    void
+    declare_enum(enum_decl const& decl)
+    {
+        ::std::cerr << "Declare enum " << decl.name << "\n";
+    }
+
+    void
+    add_constant(data_member_decl const& decl)
+    {
+        ::std::cerr << "Add constant " << decl.type << " " << decl.name << "\n";
+    }
+
+    void
+    add_data_member(data_member_decl const& decl)
+    {
+        ::std::cerr << "Add data member " << decl.type << " " << decl.name << "\n";
+    }
+
+    void
+    add_func_member(function_decl const& decl)
+    {
+        ::std::cerr << "Add function member " << decl.return_type << " " << decl.name << "\n";
+    }
+
+    void
+    end_scope()
+    {
+        ::std::cerr << "End scope\n";
+    }
+
+    void
+    start_namespace(::std::string const& name)
+    {
+        ::std::cerr << "Start namespace " << name << "\n";
+    }
+
+    void
+    start_structure(::std::string const& name)
+    {
+        ::std::cerr << "Start structure " << name << "\n";
+    }
+
+    void
+    start_interface(::std::string const& name, ::boost::optional< type_name_list > const& ancestors)
+    {
+        std::cerr << "Start interface " << name;
+        if (ancestors.is_initialized()) {
+            ::std::cerr << " : ";
+            for (auto p = ancestors->begin(); p != ancestors->end(); ++p) {
+                if (p != ancestors->begin())
+                    ::std::cerr << ", ";
+                ::std::cerr << *p;
+            }
+        }
+        ::std::cerr << "\n";
+    }
+
+    void
+    start_class(::std::string const& name, ::boost::optional< type_name_list > const& ancestors)
+    {
+        std::cerr << "Start class " << name;
+        if (ancestors.is_initialized()) {
+            ::std::cerr << " : ";
+            for (auto p = ancestors->begin(); p != ancestors->end(); ++p) {
+                if (p != ancestors->begin())
+                    ::std::cerr << ", ";
+                ::std::cerr << *p;
+            }
+        }
+        ::std::cerr << "\n";
+    }
+
+    void
+    start_exception(::std::string const& name, ::boost::optional< type_name > const& ancestor)
+    {
+        std::cerr << "Start exception " << name;
+        if (ancestor.is_initialized()) {
+            ::std::cerr << " : " << *ancestor;
+        }
+        ::std::cerr << "\n";
+    }
+
     base_iterator  stream_begin;
     location_jumps jumps;
-};
-
-struct location_updater {
-    using result = void;
-    idl_file& file;
-
-    template < typename TokenValue >
-    void
-    operator()(TokenValue const& tok) const
-    {
-        namespace qi = ::boost::spirit::qi;
-        using Iterator = decltype(tok.begin());
-        using grammar_type = grammar::location_grammar<Iterator>;
-
-        auto begin = tok.begin();
-        auto end = tok.end();
-
-        source_location loc;
-
-        if (!qi::parse(begin, end, grammar_type{}, loc) || begin != end) {
-            throw ::std::runtime_error("Invalid preprocessor location string");
-        }
-        file.update_location(end, loc);
-    }
 };
 
 TEST(Parser, QiQName)
@@ -228,7 +298,7 @@ TEST(Parser, QiNamespace)
     using token_iterator = tokens_type::iterator_type;
     using grammar_type = idl_file_grammar< token_iterator, tokens_type::lexer_def >;
 
-    const std::string file_name = ::wire::test::DATA_SRC_ROOT + "/wire/enum.wire";
+    const std::string file_name = ::wire::test::DATA_SRC_ROOT + "/wire/interface.wire";
 
     preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, false } };
 
@@ -243,9 +313,7 @@ TEST(Parser, QiNamespace)
     token_iterator iter = tokens.begin(sb, se);
     token_iterator end = tokens.end();
 
-    ::boost::phoenix::function< location_updater > loc_up = location_updater{ file };
-
-    grammar_type grammar(tokens, loc_up);
+    grammar_type grammar(tokens, file);
     bool r = qi::phrase_parse(iter, end, grammar, qi::in_state("WS")[tokens.self]);
 
     EXPECT_TRUE(r);

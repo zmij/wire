@@ -24,13 +24,16 @@ interface good_service {
 
 interface bad_service {
     using bad_list = sequence< string >;
-//    void
-//    do_bad();
+    void
+    do_bad();
 };
 
 interface controversial : good_service, bad_service {
     void
-    get_good(good_service* svc) const;
+    set_good(good_service* svc);
+
+    good_service*
+    get_good() const;
 };
 
 }  /* namespace test */
