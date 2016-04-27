@@ -57,7 +57,7 @@ TEST(AST, QualifiedName)
 
 TEST(AST, BuiltinTypes)
 {
-    auto glob = namespace_::create_global();
+    auto glob = global_namespace::create();
 
     ASSERT_TRUE(glob->types().empty());
     ASSERT_TRUE(glob->nested().empty());
@@ -129,7 +129,7 @@ TEST(AST, BuiltinTypes)
 
 TEST(AST, Namespaces)
 {
-    auto glob = namespace_::create_global();
+    auto glob = global_namespace::create();
     auto foobar = glob->add_namespace(0, "foo::bar");
     EXPECT_TRUE(foobar.get());
     auto foo = glob->find_entity<namespace_>(qname{"foo"});
@@ -163,7 +163,7 @@ TEST(AST, ScopeLookup)
      * }
      * }
      */
-    auto glob = namespace_::create_global();
+    auto glob = global_namespace::create();
 
     ASSERT_TRUE(glob->types().empty());
     ASSERT_TRUE(glob->nested().empty());
@@ -209,7 +209,7 @@ TEST(AST, ScopeOfLookup)
      * }
      * }
      */
-    auto glob = namespace_::create_global();
+    auto glob = global_namespace::create();
     ASSERT_TRUE(glob->types().empty());
     ASSERT_TRUE(glob->nested().empty());
 
@@ -249,7 +249,7 @@ TEST(AST, EntityLookup)
      * }
      * }
      */
-    auto glob = namespace_::create_global();
+    auto glob = global_namespace::create();
 
     ASSERT_TRUE(glob->types().empty());
     ASSERT_TRUE(glob->nested().empty());
@@ -348,7 +348,7 @@ TEST(AST, TypeLookup)
      * }
      * }
      */
-    auto glob = namespace_::create_global();
+    auto glob = global_namespace::create();
 
     ASSERT_TRUE(glob->types().empty());
     ASSERT_TRUE(glob->nested().empty());

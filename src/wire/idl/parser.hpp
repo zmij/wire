@@ -29,10 +29,12 @@ public:
 
     using optional_type = ::boost::optional< type_name >;
     using optional_type_list = ::boost::optional< grammar::type_name_list >;
+    using include_dir_list = ::std::vector< ::std::string >;
 public:
-    parser_state( ::std::string const& contents );
+    parser_state( ::std::string const& contents,
+            include_dir_list const& include_dirs = include_dir_list{} );
 
-    ast::namespace_ptr
+    ast::global_namespace_ptr
     get_tree() const
     { return global_; }
 
@@ -82,9 +84,10 @@ private:
 
     base_iterator               stream_begin;
     location_jumps              loc_jumps;
-    ast::namespace_ptr          global_;
+    ast::global_namespace_ptr   global_;
     scope_stack                 scopes_;
     grammar::annotation_list    current_annotations_;
+    include_dir_list const      include_dirs_;
 };
 
 //----------------------------------------------------------------------------
@@ -197,10 +200,11 @@ public:
 public:
     parser( ::std::string const& contents );
 
-    void
+    ast::global_namespace_ptr
     parse();
 private:
-    ::std::string const&  contents;
+    ::std::string const&    contents;
+    parser_state            state_;
 };
 
 }  // namespace parser

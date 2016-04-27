@@ -151,6 +151,7 @@ entity::entity(scope_ptr sc, ::std::size_t pos, ::std::string const& name)
     if (name.empty()) {
         throw std::runtime_error("Name is empty");
     }
+    compilation_unit_ = get_global()->current_compilation_unit();
 }
 
 ::std::string const&
@@ -181,13 +182,13 @@ entity::get_type_name() const
     return type_name { get_qualified_name(), type_name::template_params{}, false };
 }
 
-namespace_ptr
+global_namespace_ptr
 entity::get_global() const
 {
     scope_ptr sc = owner();
     if (sc)
         return sc->get_global();
-    return const_cast< entity* >(this)->shared_this< namespace_ >();
+    return const_cast< entity* >(this)->shared_this< global_namespace >();
 }
 
 //----------------------------------------------------------------------------
@@ -495,6 +496,7 @@ scope::add_constant(::std::size_t pos, ::std::string const& name, type_ptr t,
     constant_ptr cn = ::std::make_shared< constant >(
             shared_this< scope >(), pos, name, t, init);
     constants_.push_back(cn);
+    on_add_entity(cn);
     return cn;
 }
 
@@ -518,20 +520,6 @@ function::function(interface_ptr sc, ::std::size_t pos, ::std::string const& nam
 //----------------------------------------------------------------------------
 //    namespace_ class implementation
 //----------------------------------------------------------------------------
-
-class global_namespace : public namespace_ {
-public:
-    global_namespace()
-        : namespace_()
-    {
-    }
-};
-
-namespace_ptr
-namespace_::create_global()
-{
-    return ::std::make_shared<global_namespace>();
-}
 
 namespace_ptr
 namespace_::add_namespace(::std::size_t pos, qname const& qn)
@@ -627,6 +615,37 @@ bool
 namespace_::is_global() const
 {
     return !owner();
+}
+
+//----------------------------------------------------------------------------
+global_namespace_ptr
+global_namespace::create()
+{
+    return global_namespace_ptr{ new global_namespace{} };
+}
+
+compilation_unit_ptr
+global_namespace::current_compilation_unit()
+{
+    return current_;
+}
+
+void
+global_namespace::set_current_compilation_unit(::std::string const& name)
+{
+    auto f = units_.find(name);
+    if (f == units_.end()) {
+        f = units_.insert(::std::make_pair( name, ::std::make_shared< compilation_unit >( name ) )).first;
+    }
+    current_ = f->second;
+}
+
+void
+global_namespace::on_add_entity(entity_ptr en)
+{
+    if (current_) {
+        current_->entities.push_back(en);
+    }
 }
 
 //----------------------------------------------------------------------------

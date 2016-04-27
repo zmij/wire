@@ -129,11 +129,17 @@ try {
                     input_stream_iterator{},
                     output_stream_iterator{ ::std::cout } );
         } else {
-            ::std::cerr << "Generate files here\n";
             std::string input_str = preproc.to_string();
 
             parser::parser p{ input_str };
-            p.parse();
+
+            auto ns = p.parse();
+            ast::compilation_unit_ptr cmp_unit = ns->current_compilation_unit();
+
+            ::std::cerr << "Will generate declarations for the following:\n";
+            for (auto const& e : cmp_unit->entities) {
+                ::std::cerr << "\t" << e->get_qualified_name() << "\n";
+            }
         }
     }
 

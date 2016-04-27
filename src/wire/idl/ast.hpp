@@ -70,6 +70,9 @@ class namespace_;
 using namespace_ptr = ::std::shared_ptr< namespace_ >;
 using namespace_list = ::std::map< ::std::string, namespace_ptr >;
 
+class global_namespace;
+using global_namespace_ptr = ::std::shared_ptr< global_namespace >;
+
 class structure;
 using structure_ptr = shared_entity< structure >;
 
@@ -83,29 +86,19 @@ class exception;
 using exception_ptr = shared_entity<exception>;
 using exception_list = ::std::vector< exception_ptr >;
 
-struct literal_base {};
-template < typename T >
-struct literal : literal_base {
-    using value_type = typename ::std::decay<T>::type;
-    value_type value = T{};
+//----------------------------------------------------------------------------
+struct compilation_unit {
+    using entity_list = ::std::vector< entity_ptr >;
 
-    literal() {}
-    literal(T const& v) : value{v} {}
+    ::std::string   name;
+    entity_list     entities;
+
+    compilation_unit( ::std::string const& n )
+        : name{n} {}
 };
 
-template < typename T >
-std::ostream&
-operator << (std::ostream& os, literal<T> const& val)
-{
-    std::ostream::sentry s (os);
-    if (s) {
-        s << val.value;
-    }
-    return os;
-}
-
-using integral_literal = literal< ::std::int64_t >;
-using string_literal = literal< ::std::string >;
+using compilation_unit_ptr = ::std::shared_ptr< compilation_unit >;
+using compilation_unit_weak_ptr = ::std::weak_ptr<compilation_unit>;
 
 //----------------------------------------------------------------------------
 template < typename T, typename U >
@@ -180,7 +173,7 @@ public:
         }
         //@}
     };
-    namespace_ptr
+    global_namespace_ptr
     get_global() const;
 protected:
     /**
@@ -226,6 +219,7 @@ private:
     ::std::string               name_;
     ::std::size_t               decl_pos_;
     grammar::annotation_list    annotations_;
+    compilation_unit_weak_ptr   compilation_unit_;
 };
 
 using entity_set = ::std::set<entity_ptr, entity::name_compare>;
@@ -589,6 +583,7 @@ private:
                 shared_this< scope >(), pos, qn.name(), aliased,
                 ::std::forward< Y >(args) ... );
         types_.push_back( t );
+        on_add_entity(t);
         return t;
     }
     /**
@@ -621,6 +616,7 @@ private:
         }
 
         forwards_.push_back(t);
+        on_add_entity(t);
         return t;
     }
     /**
@@ -661,6 +657,7 @@ private:
         }
 
         types_.push_back( t );
+        on_add_entity(t);
 
         // Resolve forward declaration if any
         if (fwd) {
@@ -669,6 +666,9 @@ private:
 
         return t;
     }
+private:
+    virtual void
+    on_add_entity(entity_ptr) {}
 protected:
     type_list        types_;
     type_list        forwards_;
@@ -680,9 +680,6 @@ protected:
  * IDL Namespace. Can contain types, constants and nested namespaces
  */
 class namespace_ : public scope {
-public:
-    static namespace_ptr
-    create_global();
 public:
     namespace_(scope_ptr parent, ::std::size_t pos, ::std::string const& name)
         : entity(parent, pos, name), scope(parent, pos, name) {}
@@ -731,6 +728,30 @@ private:
 private:
     namespace_list    nested_;
 };
+
+//----------------------------------------------------------------------------
+class global_namespace : public namespace_ {
+public:
+    static global_namespace_ptr
+    create();
+
+    compilation_unit_ptr
+    current_compilation_unit();
+    void
+    set_current_compilation_unit(::std::string const& name);
+private:
+    global_namespace()
+        : namespace_()
+    {
+    }
+    void
+    on_add_entity(entity_ptr en) override;
+private:
+    using unit_list = ::std::map< ::std::string, compilation_unit_ptr >;
+    compilation_unit_ptr    current_;
+    unit_list               units_;
+};
+
 
 //----------------------------------------------------------------------------
 /**

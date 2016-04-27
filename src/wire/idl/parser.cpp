@@ -16,16 +16,14 @@ namespace idl {
 namespace parser {
 
 parser::parser(::std::string const& cnt)
-    : contents{ cnt }
+    : contents{ cnt }, state_{contents}
 {
 }
 
-void
+ast::global_namespace_ptr
 parser::parse()
 {
     namespace qi = ::boost::spirit::qi;
-
-    parser_state ps{contents};
 
     auto sb     = contents.data();
     auto se     = sb + contents.size();
@@ -34,21 +32,25 @@ parser::parse()
     token_iterator iter = tokens.begin(sb, se);
     token_iterator end = tokens.end();
 
-    grammar_type grammar{ tokens, ps };
+    grammar_type grammar{ tokens, state_ };
 
     bool r = qi::phrase_parse(iter, end, grammar, qi::in_state("WS")[tokens.self]);
 
     if (iter != end) {
-        auto loc = ps.get_location( ::std::distance(contents.data(), sb) );
+        auto loc = state_.get_location( ::std::distance(contents.data(), sb) );
         throw syntax_error(loc, "Unexpected token");
     }
+    return state_.get_tree();
 }
 
-parser_state::parser_state(::std::string const& contents)
+//----------------------------------------------------------------------------
+parser_state::parser_state(::std::string const& contents,
+        include_dir_list const& include_dirs)
     : stream_begin(contents.data()),
       loc_jumps{ {0, source_location{}} },
-      global_{ ast::namespace_::create_global() },
-      scopes_{ ::std::make_shared< namespace_scope >( global_ ) }
+      global_{ ast::global_namespace::create() },
+      scopes_{ ::std::make_shared< namespace_scope >( global_ ) },
+      include_dirs_{ include_dirs }
 {
 }
 
@@ -68,6 +70,7 @@ void
 parser_state::update_location(base_iterator p, source_location const& loc)
 {
     loc_jumps[ ::std::distance(stream_begin, p) ] = loc;
+    global_->set_current_compilation_unit(loc.file);
 }
 
 source_location
