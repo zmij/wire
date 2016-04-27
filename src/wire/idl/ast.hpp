@@ -514,7 +514,9 @@ public:
     shared_entity< T >
     add_type(::std::size_t pos, qname const& qn, Y&& ... args )
     {
-        return add_type_impl<T>(pos, qn, ::std::forward<Y>(args) ... );
+        auto res = add_type_impl<T>(pos, qn, ::std::forward<Y>(args) ... );
+        on_add_entity(res);
+        return res;
     }
     /**
      * Access types in this scope
@@ -583,7 +585,6 @@ private:
                 shared_this< scope >(), pos, qn.name(), aliased,
                 ::std::forward< Y >(args) ... );
         types_.push_back( t );
-        on_add_entity(t);
         return t;
     }
     /**
@@ -616,7 +617,6 @@ private:
         }
 
         forwards_.push_back(t);
-        on_add_entity(t);
         return t;
     }
     /**
@@ -657,7 +657,6 @@ private:
         }
 
         types_.push_back( t );
-        on_add_entity(t);
 
         // Resolve forward declaration if any
         if (fwd) {
@@ -725,6 +724,8 @@ private:
     local_scope_search(qname_search const& search) const override;
     entity_ptr
     local_entity_search(qname_search const& search) const override;
+    void
+    on_add_entity(entity_ptr en) override;
 private:
     namespace_list    nested_;
 };
@@ -739,13 +740,14 @@ public:
     current_compilation_unit();
     void
     set_current_compilation_unit(::std::string const& name);
+
+    void
+    on_add_entity(entity_ptr en) override;
 private:
     global_namespace()
         : namespace_()
     {
     }
-    void
-    on_add_entity(entity_ptr en) override;
 private:
     using unit_list = ::std::map< ::std::string, compilation_unit_ptr >;
     compilation_unit_ptr    current_;

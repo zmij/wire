@@ -617,6 +617,12 @@ namespace_::is_global() const
     return !owner();
 }
 
+void
+namespace_::on_add_entity(entity_ptr en)
+{
+    get_global()->on_add_entity(en);
+}
+
 //----------------------------------------------------------------------------
 global_namespace_ptr
 global_namespace::create()
@@ -638,6 +644,7 @@ global_namespace::set_current_compilation_unit(::std::string const& name)
         f = units_.insert(::std::make_pair( name, ::std::make_shared< compilation_unit >( name ) )).first;
     }
     current_ = f->second;
+    assert(current_.get() && "Current compilation unit");
 }
 
 void

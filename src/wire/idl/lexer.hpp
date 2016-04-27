@@ -42,6 +42,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
           dec_literal{"-?([1-9][0-9]*)|0"},
           oct_literal{"0[1-7][0-7]*"},
           hex_literal{"0[xX][0-9a-fA-F]+"},
+          float_literal{"-?([1-9][0-9]*)?\\.[0-9]*([eE]-?[1-9][0-9]*)?"},
           string_literal{R"~(\"((\\\")|(\\.)|[^\"])*\")~" },
 
           scope_resolution{"::"},
@@ -52,7 +53,9 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
             | const_ | throw_ | using_
             | true_ | false_
             | identifier
-            | dec_literal | oct_literal | hex_literal | string_literal
+            | dec_literal | oct_literal | hex_literal
+            | float_literal
+            | string_literal
             | scope_resolution | annotation_start | annotation_end
             | ',' | '.' | ':' | ';'
             | '<' | '>' | '(' | ')' | '{' | '}'
@@ -70,7 +73,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
     token_def<> true_, false_;
 
     token_def<> identifier;
-    token_def<> dec_literal,  oct_literal, hex_literal, string_literal;
+    token_def<> dec_literal,  oct_literal, hex_literal, float_literal, string_literal;
     token_def<> scope_resolution, annotation_start, annotation_end;
 };
 

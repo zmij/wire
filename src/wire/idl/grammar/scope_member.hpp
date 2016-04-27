@@ -91,7 +91,7 @@ struct data_initializer_grammar : parser_value_grammar< InputIterator, data_init
         using phx::ref;
 
         initializer =
-              (tok.dec_literal | tok.oct_literal | tok.hex_literal
+              (tok.dec_literal | tok.oct_literal | tok.hex_literal | tok.float_literal
                       | tok.true_ | tok.false_ | tok.string_literal)    [ _val = create_di(_1) ]
             | initializer_list                                          [ _val = create_di(_1) ]
         ;

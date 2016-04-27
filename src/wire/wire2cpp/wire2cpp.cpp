@@ -136,7 +136,8 @@ try {
             auto ns = p.parse();
             ast::compilation_unit_ptr cmp_unit = ns->current_compilation_unit();
 
-            ::std::cerr << "Will generate declarations for the following:\n";
+            ::std::cerr << "Will generate declarations for the following:\n"
+                << cmp_unit->name << "\n";
             for (auto const& e : cmp_unit->entities) {
                 ::std::cerr << "\t" << e->get_qualified_name() << "\n";
             }

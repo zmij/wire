@@ -9,6 +9,7 @@
 #define DATA_WIRE_CLASS_WIRE_
 
 #include <wire/sugar.wire>
+#include <wire/core/identity.wire>
 
 namespace test {
 
@@ -34,6 +35,9 @@ interface shiny_one {
 
     magic
     get_some_magic(int32 key) const throw(oops);
+
+    void
+    set_some_magic(magic m, shiny_one* s);
 };
 
 using alias = shiny_one;

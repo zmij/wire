@@ -37,7 +37,6 @@ exception something_bad {
 
 exception something_very_bad : something_bad {
     bool call911;
-    some_service* help;
 };
 
 struct some_struct {
@@ -49,13 +48,8 @@ struct some_struct {
 };
 
 interface some_service {
-    /**
-     * Documentation for the good
-     * @param
-     * @param
-     */
-    void
-    do_very_good( string, int32 ) const;
+    wire::core::identity
+    do_very_good( string s, int32 i ) const;
 };
 
 interface another_service : some_service {
