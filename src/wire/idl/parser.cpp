@@ -47,7 +47,8 @@ parser::parse()
 parser_state::parser_state(::std::string const& contents)
     : stream_begin(contents.data()),
       loc_jumps{ {0, source_location{}} },
-      scopes_{ ::std::make_shared< namespace_scope >( ast::namespace_::global() ) }
+      global_{ ast::namespace_::create_global() },
+      scopes_{ ::std::make_shared< namespace_scope >( global_ ) }
 {
 }
 

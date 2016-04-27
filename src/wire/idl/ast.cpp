@@ -528,18 +528,9 @@ public:
 };
 
 namespace_ptr
-namespace_::global()
+namespace_::create_global()
 {
-    static namespace_ptr gns_(std::make_shared<global_namespace>());
-    return gns_;
-}
-
-void
-namespace_::clear_global()
-{
-    global()->types_.clear();
-    global()->constants_.clear();
-    global()->nested_.clear();
+    return ::std::make_shared<global_namespace>();
 }
 
 namespace_ptr

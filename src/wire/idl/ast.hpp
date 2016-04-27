@@ -682,10 +682,7 @@ protected:
 class namespace_ : public scope {
 public:
     static namespace_ptr
-    global();
-
-    static void
-    clear_global();
+    create_global();
 public:
     namespace_(scope_ptr parent, ::std::size_t pos, ::std::string const& name)
         : entity(parent, pos, name), scope(parent, pos, name) {}

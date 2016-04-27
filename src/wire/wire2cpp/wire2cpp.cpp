@@ -132,7 +132,6 @@ try {
             ::std::cerr << "Generate files here\n";
             std::string input_str = preproc.to_string();
 
-            ast::namespace_::clear_global();
             parser::parser p{ input_str };
             p.parse();
         }

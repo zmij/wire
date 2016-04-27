@@ -32,6 +32,10 @@ public:
 public:
     parser_state( ::std::string const& contents );
 
+    ast::namespace_ptr
+    get_tree() const
+    { return global_; }
+
     void
     update_location(base_iterator p, source_location const& loc);
 
@@ -78,6 +82,7 @@ private:
 
     base_iterator               stream_begin;
     location_jumps              loc_jumps;
+    ast::namespace_ptr          global_;
     scope_stack                 scopes_;
     grammar::annotation_list    current_annotations_;
 };
