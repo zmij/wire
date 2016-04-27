@@ -23,7 +23,7 @@ struct type_name {
 
     qname              name;
     template_params    params;
-    bool               is_reference    = false;
+    bool               is_reference;
 };
 
 std::ostream&

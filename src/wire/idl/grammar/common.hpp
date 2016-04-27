@@ -15,6 +15,8 @@
 #include <boost/spirit/include/phoenix_algorithm.hpp>
 #include <boost/spirit/include/phoenix_core.hpp>
 
+#include <boost/spirit/include/lex_lexertl.hpp>
+
 namespace wire {
 namespace idl {
 namespace grammar {

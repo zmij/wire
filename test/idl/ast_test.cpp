@@ -131,7 +131,7 @@ TEST(AST, BuiltinTypes)
 TEST(AST, Namespaces)
 {
     namespace_::clear_global();
-    auto foobar = namespace_::global()->add_namespace("foo::bar");
+    auto foobar = namespace_::global()->add_namespace(0, "foo::bar");
     EXPECT_TRUE(foobar.get());
     auto foo = namespace_::global()->find_entity<namespace_>(qname{"foo"});
     EXPECT_TRUE(foo.get());
@@ -170,11 +170,11 @@ TEST(AST, ScopeLookup)
     ASSERT_TRUE(glob->types().empty());
     ASSERT_TRUE(glob->nested().empty());
 
-    auto inner_ns = glob->add_namespace("outer::inner");
+    auto inner_ns = glob->add_namespace(0, "outer::inner");
     auto outer_ns = glob->find_namespace("outer");
 
-    structure_ptr out = inner_ns->add_type< structure >("out_struct");
-    out->add_type< structure >("in_struct");
+    structure_ptr out = inner_ns->add_type< structure >(1, "out_struct");
+    out->add_type< structure >(2, "in_struct");
 
     EXPECT_TRUE(glob->find_scope("outer").first.get());
     EXPECT_TRUE(glob->find_scope("outer::inner").first.get());
@@ -216,10 +216,10 @@ TEST(AST, ScopeOfLookup)
     ASSERT_TRUE(glob->types().empty());
     ASSERT_TRUE(glob->nested().empty());
 
-    auto ns = glob->add_namespace("outer::inner");
+    auto ns = glob->add_namespace(0, "outer::inner");
 
-    structure_ptr out = ns->add_type< structure >("out_struct");
-    out->add_type< structure >("in_struct");
+    structure_ptr out = ns->add_type< structure >(1, "out_struct");
+    out->add_type< structure >(2, "in_struct");
 
     EXPECT_TRUE(glob->find_scope_of("outer").get());
     EXPECT_TRUE(glob->find_scope_of("outer::inner").get());
@@ -258,16 +258,16 @@ TEST(AST, EntityLookup)
     ASSERT_TRUE(glob->types().empty());
     ASSERT_TRUE(glob->nested().empty());
 
-    auto inner_ns = glob->add_namespace("outer::inner");
+    auto inner_ns = glob->add_namespace(0, "outer::inner");
     auto outer_ns = glob->find_namespace("outer");
 
-    structure_ptr out = inner_ns->add_type< structure >("out_struct");
-    out->add_type< structure >("in_struct");
+    structure_ptr out = inner_ns->add_type< structure >(1, "out_struct");
+    out->add_type< structure >(2, "in_struct");
 
-    interface_ptr iface = inner_ns->add_type< interface >( "out_iterface" );
-    iface->add_function("func");
-    structure_ptr intl = iface->add_type< structure >("internal");
-    interface_ptr dface = inner_ns->add_type< interface >( "derived", interface_list{ iface } );
+    interface_ptr iface = inner_ns->add_type< interface >(3, "out_iterface" );
+    iface->add_function(4, "func");
+    structure_ptr intl = iface->add_type< structure >(5, "internal");
+    interface_ptr dface = inner_ns->add_type< interface >(6, "derived", interface_list{ iface } );
 
     EXPECT_TRUE(glob->find_entity("outer::inner::out_struct").get());
     EXPECT_TRUE(glob->find_entity("::outer::inner::out_struct").get());
@@ -358,20 +358,20 @@ TEST(AST, TypeLookup)
     ASSERT_TRUE(glob->types().empty());
     ASSERT_TRUE(glob->nested().empty());
 
-    auto inner_ns = glob->add_namespace("outer::inner");
+    auto inner_ns = glob->add_namespace(0, "outer::inner");
     auto outer_ns = glob->find_namespace("outer");
 
-    structure_ptr out = inner_ns->add_type< structure >("out_struct");
-    out->add_type< structure >("in_struct");
+    structure_ptr out = inner_ns->add_type< structure >(1, "out_struct");
+    out->add_type< structure >(2, "in_struct");
 
-    interface_ptr iface = inner_ns->add_type< interface >( "out_iterface" );
-    structure_ptr intl = iface->add_type< structure >("internal");
-    interface_ptr dface = inner_ns->add_type< interface >( "derived", interface_list{ iface } );
+    interface_ptr iface = inner_ns->add_type< interface >(3, "out_iterface" );
+    structure_ptr intl = iface->add_type< structure >(4, "internal");
+    interface_ptr dface = inner_ns->add_type< interface >(5, "derived", interface_list{ iface } );
 
-    class_ptr base = inner_ns->add_type<class_>("base", class_ptr{}, interface_list{ dface });
-    class_ptr child = inner_ns->add_type<class_>("child", base);
-    child->add_type<class_>("sneaky");
-    inner_ns->add_type< type_alias >("child_alias", child);
+    class_ptr base = inner_ns->add_type<class_>(6, "base", class_ptr{}, interface_list{ dface });
+    class_ptr child = inner_ns->add_type<class_>(7, "child", base);
+    child->add_type<class_>(8, "sneaky");
+    inner_ns->add_type< type_alias >(9, "child_alias", child);
 
     EXPECT_TRUE(glob->find_type("outer::inner::out_struct").get());
     EXPECT_TRUE(glob->find_type("::outer::inner::out_struct").get());

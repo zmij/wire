@@ -9,6 +9,7 @@
 #define WIRE_IDL_GRAMMAR_STATE_ADAPTER_HPP_
 
 #include <wire/idl/grammar/declarations.hpp>
+#include <wire/idl/grammar/source_advance.hpp>
 
 namespace wire {
 namespace idl {

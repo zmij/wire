@@ -84,7 +84,6 @@ struct qname {
 
     bool       fully = false;
     string_seq components;
-    string_seq parameters;
 
     qname() {}
     qname(bool f) : fully(f) {}

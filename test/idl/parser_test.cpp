@@ -22,22 +22,27 @@ namespace test {
 
 TEST(Parser, Namespace)
 {
+    namespace qi = ::boost::spirit::qi;
     const std::string file_name = ::wire::test::DATA_SRC_ROOT + "/wire/namespace.wire";
 
-    preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, true } };
-    parser_state parser;
-    lexer::wire_tokens<parser_state::lexer_type> tokens;
+    preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, false } };
 
     std::string input_str = pp.to_string();
+    parser_state ps{input_str};
+
     auto sb     = input_str.data();
     auto se     = sb + input_str.size();
 
-    auto end    = tokens.end();
+    parser::tokens_type tokens;
+    parser::token_iterator iter = tokens.begin(sb, se);
+    parser::token_iterator end = tokens.end();
 
-    for (auto iter   = tokens.begin(sb, se);
-            iter != end && token_is_valid(*iter); ++iter) {
-        parser.process_token(tokens.current_location, *iter);
-    }
+    parser::grammar_type grammar{ tokens, ps };
+
+    bool r = qi::phrase_parse(iter, end, grammar, qi::in_state("WS")[tokens.self]);
+
+    EXPECT_TRUE(r);
+    EXPECT_EQ(iter, end);
 
     EXPECT_TRUE(ast::namespace_::global()->find_namespace("test").get());
     EXPECT_TRUE(ast::namespace_::global()->find_namespace("::test").get());
@@ -45,22 +50,27 @@ TEST(Parser, Namespace)
 
 TEST(Parser, Structure)
 {
+    namespace qi = ::boost::spirit::qi;
     const std::string file_name = ::wire::test::DATA_SRC_ROOT + "/wire/structure.wire";
 
-    preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, true } };
-    parser_state parser;
-    lexer::wire_tokens<parser_state::lexer_type> tokens;
+    preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, false } };
 
     std::string input_str = pp.to_string();
+    parser_state ps{input_str};
+
     auto sb     = input_str.data();
     auto se     = sb + input_str.size();
 
-    auto end    = tokens.end();
+    parser::tokens_type tokens;
+    parser::token_iterator iter = tokens.begin(sb, se);
+    parser::token_iterator end = tokens.end();
 
-    for (auto iter   = tokens.begin(sb, se);
-            iter != end && token_is_valid(*iter); ++iter) {
-        parser.process_token(tokens.current_location, *iter);
-    }
+    parser::grammar_type grammar{ tokens, ps };
+
+    bool r = qi::phrase_parse(iter, end, grammar, qi::in_state("WS")[tokens.self]);
+
+    EXPECT_TRUE(r);
+    EXPECT_EQ(iter, end);
 
     EXPECT_TRUE(ast::namespace_::global()->find_namespace("test").get());
     EXPECT_TRUE(ast::namespace_::global()->find_namespace("::test").get());
@@ -78,22 +88,27 @@ TEST(Parser, Structure)
 
 TEST(Parser, Exception)
 {
+    namespace qi = ::boost::spirit::qi;
     const std::string file_name = ::wire::test::DATA_SRC_ROOT + "/wire/exception.wire";
 
-    preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, true } };
-    parser_state parser;
-    lexer::wire_tokens<parser_state::lexer_type> tokens;
+    preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, false } };
 
     std::string input_str = pp.to_string();
+    parser_state ps{input_str};
+
     auto sb     = input_str.data();
     auto se     = sb + input_str.size();
 
-    auto end    = tokens.end();
+    parser::tokens_type tokens;
+    parser::token_iterator iter = tokens.begin(sb, se);
+    parser::token_iterator end = tokens.end();
 
-    for (auto iter   = tokens.begin(sb, se);
-            iter != end && token_is_valid(*iter); ++iter) {
-        parser.process_token(tokens.current_location, *iter);
-    }
+    parser::grammar_type grammar{ tokens, ps };
+
+    bool r = qi::phrase_parse(iter, end, grammar, qi::in_state("WS")[tokens.self]);
+
+    EXPECT_TRUE(r);
+    EXPECT_EQ(iter, end);
 
     EXPECT_TRUE(ast::namespace_::global()->find_namespace("test").get());
     EXPECT_TRUE(ast::namespace_::global()->find_namespace("::test").get());
@@ -112,22 +127,27 @@ TEST(Parser, Exception)
 
 TEST(Parser, Interface)
 {
+    namespace qi = ::boost::spirit::qi;
     const std::string file_name = ::wire::test::DATA_SRC_ROOT + "/wire/interface.wire";
 
-    preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, true } };
-    parser_state parser;
-    lexer::wire_tokens<parser_state::lexer_type> tokens;
+    preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, false } };
 
     std::string input_str = pp.to_string();
+    parser_state ps{input_str};
+
     auto sb     = input_str.data();
     auto se     = sb + input_str.size();
 
-    auto end    = tokens.end();
+    parser::tokens_type tokens;
+    parser::token_iterator iter = tokens.begin(sb, se);
+    parser::token_iterator end = tokens.end();
 
-    for (auto iter   = tokens.begin(sb, se);
-            iter != end && token_is_valid(*iter); ++iter) {
-        parser.process_token(tokens.current_location, *iter);
-    }
+    parser::grammar_type grammar{ tokens, ps };
+
+    bool r = qi::phrase_parse(iter, end, grammar, qi::in_state("WS")[tokens.self]);
+
+    EXPECT_TRUE(r);
+    EXPECT_EQ(iter, end);
 
     EXPECT_TRUE(ast::namespace_::global()->find_namespace("test").get());
     EXPECT_TRUE(ast::namespace_::global()->find_namespace("::test").get());
@@ -141,26 +161,37 @@ TEST(Parser, Interface)
     EXPECT_TRUE(ast::namespace_::global()->find_type("::test::controversial::good_list").get());
     EXPECT_TRUE(ast::namespace_::global()->find_type("::test::controversial::bad_list").get());
 
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::good_service::do_good").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::bad_service::do_bad").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::controversial::do_good").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::controversial::do_bad").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::controversial::set_good").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::controversial::get_good").get());
 }
 
 TEST(Parser, Class)
 {
+    namespace qi = ::boost::spirit::qi;
     const std::string file_name = ::wire::test::DATA_SRC_ROOT + "/wire/class.wire";
 
-    preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, true } };
-    parser_state parser;
-    lexer::wire_tokens<parser_state::lexer_type> tokens;
+    preprocessor pp { file_name, {{ ::wire::test::IDL_ROOT }, false } };
 
     std::string input_str = pp.to_string();
+    parser_state ps{input_str};
+
     auto sb     = input_str.data();
     auto se     = sb + input_str.size();
 
-    auto end    = tokens.end();
+    parser::tokens_type tokens;
+    parser::token_iterator iter = tokens.begin(sb, se);
+    parser::token_iterator end = tokens.end();
 
-    for (auto iter   = tokens.begin(sb, se);
-            iter != end && token_is_valid(*iter); ++iter) {
-        parser.process_token(tokens.current_location, *iter);
-    }
+    parser::grammar_type grammar{ tokens, ps };
+
+    bool r = qi::phrase_parse(iter, end, grammar, qi::in_state("WS")[tokens.self]);
+
+    EXPECT_TRUE(r);
+    EXPECT_EQ(iter, end);
 
     EXPECT_TRUE(ast::namespace_::global()->find_namespace("test").get());
     EXPECT_TRUE(ast::namespace_::global()->find_namespace("::test").get());
@@ -176,9 +207,14 @@ TEST(Parser, Class)
     EXPECT_TRUE(ast::namespace_::global()->find_type("::test::derived::magic").get());
     EXPECT_TRUE(ast::namespace_::global()->find_type("::test::derived::key").get());
 
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::immutable").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::shiny_one::get_some_magic").get());
     EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::base_class::the_spell").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::base_class::get_some_magic").get());
     EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::derived::the_spell").get());
     EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::derived::the_key").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::derived::get_some_magic").get());
+    EXPECT_TRUE(ast::namespace_::global()->find_entity("::test::derived::oops").get());
 }
 
 }  // namespace test

@@ -40,7 +40,10 @@
 #include <boost/variant.hpp>
 
 #include <wire/idl/qname.hpp>
+#include <wire/idl/type_name.hpp>
 #include <wire/idl/source_location.hpp>
+
+#include <wire/idl/grammar/declarations.hpp>
 
 namespace wire {
 namespace idl {
@@ -74,6 +77,8 @@ class interface;
 using interface_ptr = shared_entity< interface >;
 using interface_list = ::std::vector< interface_ptr >;
 
+class class_;
+
 class exception;
 using exception_ptr = shared_entity<exception>;
 using exception_list = ::std::vector< exception_ptr >;
@@ -105,7 +110,7 @@ using string_literal = literal< ::std::string >;
 //----------------------------------------------------------------------------
 template < typename T, typename U >
 shared_entity< T >
-dynamic_entity_cast(shared_entity< U > const& e);
+dynamic_entity_cast(::std::shared_ptr< U > const& e);
 //----------------------------------------------------------------------------
 /**
  * Base AST entity class
@@ -114,6 +119,13 @@ class entity : public ::std::enable_shared_from_this<entity> {
 public:
     virtual ~entity() {}
 
+    /**
+     * Get position in input stream where the entity was first declared
+     * @return
+     */
+    ::std::size_t
+     decl_position() const
+    { return decl_pos_; }
     /**
      * Get name of the entity
      * @return
@@ -136,6 +148,19 @@ public:
     virtual qname
     get_qualified_name() const;
 
+    virtual type_name
+    get_type_name() const;
+
+    grammar::annotation_list const&
+    get_annotations() const
+    { return annotations_; }
+
+    void
+    add_annotations(grammar::annotation_list const& ann)
+    {
+        annotations_.insert(annotations_.end(), ann.begin(), ann.end());
+    }
+
     /**
      * Functor for comparing entities by name
      */
@@ -155,11 +180,13 @@ public:
         }
         //@}
     };
+    namespace_ptr
+    get_global() const;
 protected:
     /**
      * Constructor for the global namespace only.
      */
-    entity() : owner_{}, name_{} {}
+    entity() : owner_{}, name_{}, decl_pos_{0} {}
     /**
      * Constructor for built-in types
      * @param name
@@ -170,9 +197,10 @@ protected:
     /**
      * Create an entity in the given scope
      * @param parent
+     * @param pos Declaration position in the compilation unit
      * @param name
      */
-    entity(scope_ptr parent, ::std::string const& name);
+    entity(scope_ptr parent, ::std::size_t pos, ::std::string const& name);
 
     /**
      * @return Shared pointer to this cast to a specific type
@@ -194,11 +222,23 @@ protected:
         return ::std::dynamic_pointer_cast<T const>(shared_from_this());
     }
 private:
-    scope_weak_ptr    owner_;
-    ::std::string     name_;
+    scope_weak_ptr              owner_;
+    ::std::string               name_;
+    ::std::size_t               decl_pos_;
+    grammar::annotation_list    annotations_;
 };
 
 using entity_set = ::std::set<entity_ptr, entity::name_compare>;
+
+//----------------------------------------------------------------------------
+class entity_conflict : public ::std::runtime_error {
+public:
+    entity_conflict( entity_ptr prev, ::std::size_t pos )
+        : runtime_error("Entity conflict"), previous{prev}, pos{pos} {}
+
+    entity_ptr      previous;
+    ::std::size_t   pos;
+};
 
 //----------------------------------------------------------------------------
 /**
@@ -224,8 +264,8 @@ protected:
      * @param parent
      * @param name
      */
-    type(scope_ptr parent, ::std::string const& name)
-        : entity(parent, name) {}
+    type(scope_ptr parent, ::std::size_t pos, ::std::string const& name)
+        : entity(parent, pos, name) {}
 };
 using type_ptr =  ::std::shared_ptr< type >;
 using type_list = ::std::vector< type_ptr >;
@@ -234,19 +274,36 @@ using type_list = ::std::vector< type_ptr >;
 class forward_declaration : public type {
 public:
     enum forward_type {
+        unknown,
         structure,
         interface,
         class_,
         exception
     };
 
-    forward_declaration(scope_ptr sc, ::std::string const& name, forward_type fw)
-        : entity(sc, name), type(sc, name), fw_(fw)
+    forward_declaration(scope_ptr sc, ::std::size_t pos,
+            ::std::string const& name, ::std::string const& what);
+
+    bool
+    is_resolved() const;
+
+    void
+    resolve( type_ptr t )
     {
+        resolved_ = t;
     }
+
+    bool
+    is_compatible(entity_ptr en) const;
+
+    static forward_type
+    parse_forward_type(::std::string const& what);
 private:
-    forward_type fw_;
+    forward_type        fw_;
+    mutable type_ptr    resolved_;
 };
+
+using forward_declaration_ptr = shared_entity< forward_declaration >;
 //----------------------------------------------------------------------------
 /**
  * Class for type alias
@@ -259,8 +316,8 @@ public:
      * @param name
      * @param aliased
      */
-    type_alias(scope_ptr sc, ::std::string const& name, type_ptr aliased)
-        : entity(sc, name), type(sc, name), type_{aliased}
+    type_alias(scope_ptr sc, ::std::size_t pos, ::std::string const& name, type_ptr aliased)
+        : entity(sc, pos, name), type(sc, pos, name), type_{aliased}
     {
     }
 
@@ -288,17 +345,17 @@ public:
     using parameter = ::boost::variant< type_ptr, ::std::string >;
     using parameters = ::std::vector< parameter >;
 public:
-    parametrized_type(scope_ptr sc, ::std::string const& name,
+    parametrized_type(scope_ptr sc, ::std::size_t pos, ::std::string const& name,
             template_param_types const& argst)
-        : entity(sc, name), type(sc, name),
+        : entity(sc, pos, name), type(sc, pos, name),
           param_types{argst}, current{param_types.begin()}
         {}
 
     void
-    add_parameter(source_location const& loc, parameter const&);
+    add_parameter(parameter const&);
 
-    qname
-    get_qualified_name() const override;
+//    qname
+//    get_qualified_name() const override;
 private:
     template_param_types const&           param_types;
     template_param_types::const_iterator  current;
@@ -312,7 +369,7 @@ using parametrized_type_ptr = shared_entity< parametrized_type >;
 class templated_type : public type {
 public:
     parametrized_type_ptr
-    create_parametrized_type(scope_ptr sc) const;
+    create_parametrized_type(scope_ptr sc, ::std::size_t pos) const;
 protected:
     templated_type(::std::string const& name, template_param_types&& args)
         : entity(name), type(name), params{ ::std::move(args) }
@@ -328,29 +385,24 @@ using templated_type_ptr = shared_entity< templated_type >;
  */
 class constant : public entity {
 public:
-    constant( scope_ptr sc, ::std::string const& type,
-            ::std::string const& name,
-            ::std::string const& literal);
+    constant( scope_ptr sc, ::std::size_t pos, ::std::string const& name,
+            type_ptr t, grammar::data_initializer const&);
 private:
-    explicit
-    constant(::std::string const& name);
-    static constant
-    create_dummy(::std::string const& name);
-    type_ptr        type_;
-    ::std::string    literal_;
+    type_ptr                    type_;
+    grammar::data_initializer   init_;
 };
 
 
 using constant_ptr = ::std::shared_ptr<constant>;
-using constant_list = ::std::set< constant_ptr, entity::name_compare >;
+using constant_list = ::std::vector< constant_ptr >;
 //----------------------------------------------------------------------------
 /**
  * Wire IDL variable item (for data members and function parameters)
  */
 class variable : public entity {
 public:
-    variable(scope_ptr sc, ::std::string const& name, type_ptr t)
-        : entity(sc, name), type_(t) {/*TODO Check type is not void*/}
+    variable(scope_ptr sc, ::std::size_t pos, ::std::string const& name, type_ptr t)
+        : entity(sc, pos, name), type_(t) {/*TODO Check type is not void*/}
 private:
     type_ptr type_;
 };
@@ -367,7 +419,7 @@ public:
     using function_param = ::std::pair< type_ptr, ::std::string >;
     using function_params = ::std::vector< function_param >;
 public:
-    function(interface_ptr sc, ::std::string const& name,
+    function(interface_ptr sc, ::std::size_t pos, ::std::string const& name,
         type_ptr ret, bool is_const,
         function_params const& params,
         exception_list const& t_spec);
@@ -424,13 +476,26 @@ public:
             "Cannot cast to non-entity");
         return ::std::dynamic_pointer_cast<T>(find_entity(name));
     }
+    virtual entity_ptr
+    local_entity_search(qname_search const& search) const;
     //@}
     //@{
     /** @name Type lookup */
     type_ptr
+    find_type(type_name const& name, ::std::size_t pos) const;
+    type_ptr
     find_type(qname const& name) const;
     type_ptr
     find_type(qname_search const& search) const;
+    template < typename T >
+    shared_entity< T >
+    find_type(type_name const& name, ::std::size_t pos) const
+    {
+        static_assert(::std::is_base_of< entity, T >::value,
+            "Cannot cast to non-type");
+        type_ptr t = find_type(name, pos);
+        return dynamic_entity_cast<T>(t);
+    }
     template < typename T >
     shared_entity< T >
     find_type(qname const& name) const
@@ -453,19 +518,9 @@ public:
 
     template < typename T, typename ... Y >
     shared_entity< T >
-    add_type(qname const& qn, Y&& ... args )
+    add_type(::std::size_t pos, qname const& qn, Y&& ... args )
     {
-        static_assert( ::std::is_base_of< type, T >::value,
-            "Cannot add a non-type");
-        if (qn.size() > 1)
-            throw ::std::runtime_error("Wrong place to add type");
-        if (qn.empty())
-            throw ::std::runtime_error("Name is empty");
-        shared_entity< T > t = ::std::make_shared< T >(
-                shared_this< scope >(), qn.name(),
-                ::std::forward< Y >(args) ... );
-        types_.push_back( t );
-        return t;
+        return add_type_impl<T>(pos, qn, ::std::forward<Y>(args) ... );
     }
     /**
      * Access types in this scope
@@ -475,6 +530,9 @@ public:
     types() const
     { return types_; }
 
+    constant_ptr
+    add_constant(::std::size_t pos, ::std::string const& name, type_ptr t,
+            grammar::data_initializer const& init);
     /**
      * Access constants in this scope
      * @return
@@ -489,17 +547,131 @@ protected:
      * @param parent
      * @param name
      */
-    scope(scope_ptr parent, ::std::string const& name)
-        : entity(parent, name) {}
+    scope(scope_ptr parent, ::std::size_t pos, ::std::string const& name)
+        : entity(parent, pos, name) {}
 
     virtual type_ptr
     local_type_search(qname_search const& search) const;
     virtual scope_ptr
     local_scope_search(qname_search const& search) const;
-    virtual entity_ptr
-    local_entity_search(qname_search const& search) const;
+private:
+    /**
+     * Add type implementation for type alias
+     * @param pos
+     * @param qn
+     * @param args
+     * @return
+     */
+    template < typename T, typename ... Y >
+    typename ::std::enable_if<
+         ::std::is_same<type_alias, T>::value, shared_entity< T >>::type
+    add_type_impl(::std::size_t pos, qname const& qn, type_ptr aliased, Y&& ... args)
+    {
+        static_assert( ::std::is_base_of< type, T >::value,
+            "Cannot add a non-type");
+        if (qn.size() > 1)
+            throw ::std::runtime_error("Wrong place to add type");
+        if (qn.empty())
+            throw ::std::runtime_error("Name is empty");
+
+        entity_ptr en = local_entity_search(qn.search());
+        if (en) {
+            if (auto ta = dynamic_entity_cast< type_alias >(en)) {
+                // Check if aliased types are the same
+                if (aliased != ta->alias())
+                    throw entity_conflict(en, pos);
+            } else {
+                throw entity_conflict(en, pos);
+            }
+        }
+
+        shared_entity< T > t = ::std::make_shared< T >(
+                shared_this< scope >(), pos, qn.name(), aliased,
+                ::std::forward< Y >(args) ... );
+        types_.push_back( t );
+        return t;
+    }
+    /**
+     * Add type implementation for forward declarations
+     * @param pos
+     * @param qn
+     * @param args
+     * @return
+     */
+    template < typename T, typename ... Y >
+    typename ::std::enable_if<
+            ::std::is_same< forward_declaration, T >::value,
+            shared_entity< T >>::type
+    add_type_impl(::std::size_t pos, qname const& qn, Y&& ... args)
+    {
+        if (qn.size() > 1)
+            throw ::std::runtime_error("Wrong place to add type");
+        if (qn.empty())
+            throw ::std::runtime_error("Name is empty");
+
+        shared_entity< T > t = ::std::make_shared< T >(
+                shared_this< scope >(), pos, qn.name(),
+                ::std::forward< Y >(args) ... );
+        entity_ptr en = local_entity_search(qn.search());
+        if (en) {
+            // Check if the entity is a forward or a forward declared type
+            if (!t->is_compatible(en)) {
+                throw entity_conflict(en, pos);
+            }
+        }
+
+        forwards_.push_back(t);
+        return t;
+    }
+    /**
+     * Add type implementation for all other types
+     * @param pos
+     * @param qn
+     * @param args
+     * @return
+     */
+    template < typename T, typename ... Y >
+    typename ::std::enable_if<
+         !(::std::is_same<type_alias, T>::value ||
+                 ::std::is_same< forward_declaration, T >::value),
+         shared_entity< T >>::type
+    add_type_impl(::std::size_t pos, qname const& qn, Y&& ... args)
+    {
+        static_assert( ::std::is_base_of< type, T >::value,
+            "Cannot add a non-type");
+        if (qn.size() > 1)
+            throw ::std::runtime_error("Wrong place to add type");
+        if (qn.empty())
+            throw ::std::runtime_error("Name is empty");
+
+        shared_entity< T > t = ::std::make_shared< T >(
+                shared_this< scope >(), pos, qn.name(),
+                ::std::forward< Y >(args) ... );
+
+        entity_ptr en = local_entity_search(qn.search());
+        forward_declaration_ptr fwd;
+        if (en) {
+            // Check if the entity is a forward
+            fwd = dynamic_entity_cast< forward_declaration >(en);
+            if (!fwd) {
+                throw entity_conflict(en, pos);
+            } else if (!fwd->is_compatible(t)) {
+                throw entity_conflict(en, pos);
+            }
+        }
+
+        types_.push_back( t );
+
+        // Resolve forward declaration if any
+        if (fwd) {
+            fwd->resolve(t);
+        }
+
+        return t;
+    }
 protected:
     type_list        types_;
+    type_list        forwards_;
     constant_list    constants_;
 };
 
@@ -515,8 +687,8 @@ public:
     static void
     clear_global();
 public:
-    namespace_(scope_ptr parent, ::std::string const& name)
-        : entity(parent, name), scope(parent, name) {}
+    namespace_(scope_ptr parent, ::std::size_t pos, ::std::string const& name)
+        : entity(parent, pos, name), scope(parent, pos, name) {}
 
     namespace_ptr
     find_namespace(qname const& qn) const;
@@ -536,14 +708,14 @@ public:
      * @return
      */
     namespace_ptr
-    add_namespace(qname const& qn);
+    add_namespace(::std::size_t pos, qname const& qn);
     /**
      * Create or fine namespace specified by qname_search object.
      * @param qn
      * @return
      */
     namespace_ptr
-    add_namespace(qname_search const& qn);
+    add_namespace(::std::size_t pos, qname_search const& qn);
 
     /**
      * Access nested namespaces list
@@ -569,32 +741,35 @@ private:
  */
 class enumeration : public type {
 public:
-    // TODO Expression for value, can contain integral constants
-    // and already defined enumerators
-    using optional_value = ::boost::optional< integral_literal >;
+    using optional_value = ::boost::optional< ::std::string >;
     using enumerator = ::std::pair< ::std::string, optional_value >;
     using enumerator_list = ::std::vector<enumerator>;
 public:
-    enumeration(scope_ptr owner, ::std::string const& name)
-        : entity(owner, name), type(owner, name) {}
+    enumeration(scope_ptr owner, ::std::size_t pos, ::std::string const& name,
+            bool constrained)
+        : entity(owner, pos, name), type(owner, pos, name), constrained_(constrained) {}
 
     void
-    add_enumerator(::std::string const& name,
+    add_enumerator(::std::size_t pos, ::std::string const& name,
         optional_value = optional_value{});
 private:
+    bool            constrained_;
     enumerator_list enumerators_;
+
 };
+
+using enumeration_ptr = shared_entity< enumeration >;
 //----------------------------------------------------------------------------
 /**
  * Wire IDL struct item
  */
 class structure : public virtual type, public virtual scope {
 public:
-    structure(scope_ptr sc, ::std::string const& name)
-        : entity(sc, name), type(sc, name), scope(sc, name) {}
+    structure(scope_ptr sc, ::std::size_t pos, ::std::string const& name)
+        : entity(sc, pos, name), type(sc, pos, name), scope(sc, pos, name) {}
 
     variable_ptr
-    add_data_member( ::std::string const& name, type_ptr t );
+    add_data_member(::std::size_t pos, ::std::string const& name, type_ptr t );
     variable_ptr
     find_member( ::std::string const& name) const;
 protected:
@@ -613,13 +788,13 @@ public:
     using function_param = function::function_param;
     using function_params = function::function_params;
 public:
-    interface(scope_ptr sc, ::std::string const& name,
+    interface(scope_ptr sc, ::std::size_t pos, ::std::string const& name,
             interface_list const& ancestors = interface_list{})
-        : entity(sc, name), type(sc, name), scope(sc, name),
+        : entity(sc, pos, name), type(sc, pos, name), scope(sc, pos, name),
           ancestors_{ ancestors } {}
-    // TODO function members
+
     function_ptr
-    add_function(::std::string const& name, type_ptr t = type_ptr{},
+    add_function(::std::size_t pos, ::std::string const& name, type_ptr t = type_ptr{},
         bool is_const = false,
         function_params const& params = function_params{},
         exception_list const& t_spec = exception_list{});
@@ -647,8 +822,8 @@ protected:
 class reference : public type {
 public:
     reference(interface_ptr iface)
-        : entity(iface->owner(), iface->name()),
-          type(iface->owner(), iface->name()) {}
+        : entity(iface->owner(), 0, iface->name()),
+          type(iface->owner(), 0, iface->name()) {}
 };
 
 //----------------------------------------------------------------------------
@@ -660,14 +835,14 @@ using class_ptr = shared_entity<class_>;
 
 class class_ : public structure, public interface {
 public:
-    class_(scope_ptr sc, ::std::string const& name,
+    class_(scope_ptr sc, ::std::size_t pos, ::std::string const& name,
             class_ptr parent = class_ptr{},
             interface_list const& implements = interface_list{})
-        : entity(sc, name),
-          type(sc, name),
-          scope(sc, name),
-          structure(sc, name),
-          interface(sc, name, implements),
+        : entity(sc, pos, name),
+          type(sc, pos, name),
+          scope(sc, pos, name),
+          structure(sc, pos, name),
+          interface(sc, pos, name, implements),
           parent_(parent)
     {}
 private:
@@ -685,12 +860,12 @@ private:
  */
 class exception : public structure {
 public:
-    exception(scope_ptr sc, ::std::string const& name,
+    exception(scope_ptr sc, ::std::size_t pos, ::std::string const& name,
             exception_ptr parent = exception_ptr{})
-        : entity(sc, name),
-          type(sc, name),
-          scope(sc, name),
-          structure(sc, name),
+        : entity(sc, pos, name),
+          type(sc, pos, name),
+          scope(sc, pos, name),
+          structure(sc, pos, name),
           parent_(parent)
     {}
 private:

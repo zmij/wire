@@ -36,6 +36,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
           interface{"interface"}, class_{"class"}, exception{"exception"},
 
           const_{"const"}, throw_{"throw"}, using_{"using"},
+          true_{"true"}, false_{"false"},
 
           identifier{"[a-zA-Z_][a-zA-Z0-9_]*"},
           dec_literal{"-?([1-9][0-9]*)|0"},
@@ -49,6 +50,7 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
         self = source_advance
             | namespace_ | enum_ | struct_ | interface | class_ | exception
             | const_ | throw_ | using_
+            | true_ | false_
             | identifier
             | dec_literal | oct_literal | hex_literal | string_literal
             | scope_resolution | annotation_start | annotation_end
@@ -64,6 +66,8 @@ struct wire_tokens : ::boost::spirit::lex::lexer< Lexer > {
 
     token_def<> namespace_, enum_, struct_, interface, class_, exception;
     token_def<> const_, throw_, using_;
+
+    token_def<> true_, false_;
 
     token_def<> identifier;
     token_def<> dec_literal,  oct_literal, hex_literal, string_literal;

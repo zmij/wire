@@ -12,8 +12,6 @@
 #include <boost/variant.hpp>
 #include <boost/optional.hpp>
 
-#include <wire/idl/grammar/source_advance.hpp>
-
 namespace wire {
 namespace idl {
 namespace grammar {

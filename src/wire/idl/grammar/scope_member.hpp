@@ -91,9 +91,9 @@ struct data_initializer_grammar : parser_value_grammar< InputIterator, data_init
         using phx::ref;
 
         initializer =
-              (tok.dec_literal | tok.oct_literal
-                      | tok.hex_literal | tok.string_literal)   [ _val = create_di(_1) ]
-            | initializer_list                                  [ _val = create_di(_1) ]
+              (tok.dec_literal | tok.oct_literal | tok.hex_literal
+                      | tok.true_ | tok.false_ | tok.string_literal)    [ _val = create_di(_1) ]
+            | initializer_list                                          [ _val = create_di(_1) ]
         ;
 
         initializer_list =
@@ -336,7 +336,8 @@ struct enum_grammar : parser_value_grammar< InputIterator, enum_decl, Lexer > {
         enumerator = tok.identifier         [ phx::bind(&enumerator_decl::name, _val) = to_string(_1) ]
             >> -('=' >> enumerator_init     [ phx::bind(&enumerator_decl::init, _val) = _1 ])
         ;
-        enumerator_init = (tok.dec_literal | tok.oct_literal | tok.hex_literal) [ _val = to_string(_1) ]
+        enumerator_init = (tok.dec_literal | tok.oct_literal | tok.hex_literal
+                | tok.true_ | tok.false_ )                                      [ _val = to_string(_1) ]
             | expression                                                        [ _val = _1 ]
         ;
 

@@ -52,15 +52,6 @@ operator << (::std::ostream& os, qname const& val)
                     os << "::";
                 os << *c;
             }
-            if (!val.parameters.empty()) {
-                os << "<";
-                for (auto p = val.parameters.begin(); p != val.parameters.end(); ++p) {
-                    if (p != val.parameters.begin())
-                        os << ", ";
-                    os << *p;
-                }
-                os << ">";
-            }
         }
     }
     return os;
