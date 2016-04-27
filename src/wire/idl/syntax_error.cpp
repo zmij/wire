@@ -34,7 +34,7 @@ operator << (::std::ostream& os, error_level const& val)
 format_error_message(source_location const& loc, error_level lvl, ::std::string const& msg)
 {
     ::std::ostringstream os;
-    os << loc << " " << lvl << ": " << msg;
+    os << loc << ": " << lvl << ": " << msg;
     return os.str();
 }
 

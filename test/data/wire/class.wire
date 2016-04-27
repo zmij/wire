@@ -12,19 +12,45 @@
 
 namespace test {
 
+string const immutable = "Always here";
+bool const lie = false;
+
+exception oops;
+exception oops;
+
+enum class color {
+    red = 0,
+    green,
+    blue
+};
+
 exception oops {
     string message;
 };
+exception oops;
 
 interface shiny_one {
     using magic = array< byte, 4 >;
+
+    magic
+    get_some_magic(int32 key) const throw(oops);
 };
+
+using alias = shiny_one;
+using alias = shiny_one;
 
 interface backdoor {
     using key = uuid;
+
+    void
+    oops();
 };
 
+struct stuff;
+
 class mixin {
+    color c;
+    stuff s;
 };
 
 class base_class : shiny_one {

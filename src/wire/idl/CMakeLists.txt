@@ -22,6 +22,7 @@ set(
     wire_idl_SRCS
     ast.cpp
     qname.cpp
+    type_name.cpp
     preprocess.cpp
     parser.cpp
     syntax_error.cpp

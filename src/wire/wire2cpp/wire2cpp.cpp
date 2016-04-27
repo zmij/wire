@@ -133,15 +133,8 @@ try {
             std::string input_str = preproc.to_string();
 
             ast::namespace_::clear_global();
-            parser::parser_state parser;
-            lexer::wire_tokens< parser::parser_state::lexer_type > tokens;
-            auto sb     = input_str.data();
-            auto se     = sb + input_str.size();
-            auto end = tokens.end();
-            for (auto iter = tokens.begin(sb, se);
-                    iter != end && token_is_valid(*iter); ++iter) {
-                parser.process_token(tokens.current_location, *iter);
-            }
+            parser::parser p{ input_str };
+            p.parse();
         }
     }
 

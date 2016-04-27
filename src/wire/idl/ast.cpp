@@ -34,7 +34,7 @@ struct builtin_type : public type {
     scope_ptr
     owner() const override
     {
-        return namespace_::global();
+        return scope_ptr{};
     }
 };
 
@@ -46,20 +46,20 @@ struct templated_type_impl : templated_type {
 };
 
 parametrized_type_ptr
-templated_type::create_parametrized_type(scope_ptr sc) const
+templated_type::create_parametrized_type(scope_ptr sc, ::std::size_t pos) const
 {
-    return std::make_shared< parametrized_type >( sc, name(), params);
+    return std::make_shared< parametrized_type >( sc, pos, name(), params);
 }
 
 void
-parametrized_type::add_parameter(source_location const& loc, parameter const& param)
+parametrized_type::add_parameter(parameter const& param)
 {
     if (current == param_types.end()) {
         ::std::ostringstream os;
         os << "Extra " << (param.which() ? "integral" : "type")
             << " parameter for " << name() << " template on position "
             << params.size();
-        throw syntax_error(loc, os.str());
+        throw grammar_error(os.str());
     }
 
     if (param.which() == current->kind) {
@@ -69,39 +69,15 @@ parametrized_type::add_parameter(source_location const& loc, parameter const& pa
     } else {
         if (current->unbound) {
             ++current;
-            add_parameter(loc, param);
+            add_parameter(param);
         } else {
             ::std::ostringstream os;
             os << "Unexpected " << (param.which() ? "integral" : "type")
                 << " parameter for " << name() << " template on position "
                 << params.size();
-            throw syntax_error(loc, os.str());
+            throw grammar_error(os.str());
         }
     }
-}
-
-qname
-parametrized_type::get_qualified_name() const
-{
-    qname qn(name());
-    for (auto const& p : params) {
-        switch (p.which()) {
-            case template_param_type::type: {
-                type_ptr t = ::boost::get< type_ptr >(p);
-                ::std::ostringstream os;
-                os << t->get_qualified_name();
-                qn.parameters.push_back(os.str());
-                break;
-            }
-            case template_param_type::integral: {
-                qn.parameters.push_back(::boost::get< ::std::string >(p));
-                break;
-            }
-            default:
-                break;
-        }
-    }
-    return qn;
 }
 
 namespace {
@@ -159,15 +135,15 @@ find_builtin(::std::string const& name)
 //    entity class implementation
 //----------------------------------------------------------------------------
 entity::entity(::std::string const& name)
-    : name_{name}
+    : name_{name}, decl_pos_{0}
 {
     if (name.empty()) {
         throw std::runtime_error("Name is empty");
     }
 }
 
-entity::entity(scope_ptr sc, ::std::string const& name)
-    : owner_{sc}, name_{name}
+entity::entity(scope_ptr sc, ::std::size_t pos, ::std::string const& name)
+    : owner_{sc}, name_{name}, decl_pos_{pos}
 {
     if (!sc) {
         throw std::runtime_error("Scope pointer is empty");
@@ -199,25 +175,103 @@ entity::get_qualified_name() const
     return qn;
 }
 
+type_name
+entity::get_type_name() const
+{
+    return type_name { get_qualified_name(), type_name::template_params{}, false };
+}
+
+namespace_ptr
+entity::get_global() const
+{
+    scope_ptr sc = owner();
+    if (sc)
+        return sc->get_global();
+    return const_cast< entity* >(this)->shared_this< namespace_ >();
+}
+
 //----------------------------------------------------------------------------
 //    type class implementation
 //----------------------------------------------------------------------------
 bool
 type::is_built_in(qname const& qn)
 {
-    if (qn.parameters.empty()) {
-        type_ptr t = find_builtin(qn.name());
-        return t.get();
+    type_ptr t = find_builtin(qn.name());
+    return t.get();
+}
+
+//----------------------------------------------------------------------------
+//    forward_declaration class implementation
+//----------------------------------------------------------------------------
+
+forward_declaration::forward_type
+forward_declaration::parse_forward_type(::std::string const& what)
+{
+    if (what == "struct")
+        return forward_declaration::structure;
+    if (what == "interface")
+        return forward_declaration::interface;
+    if (what == "class")
+        return forward_declaration::class_;
+    if (what == "exception")
+        return forward_declaration::exception;
+    return forward_declaration::unknown;
+}
+
+forward_declaration::forward_declaration(scope_ptr sc, ::std::size_t pos,
+            ::std::string const& name, ::std::string const& what)
+    : entity(sc, pos, name), type(sc, pos, name), fw_(parse_forward_type(what))
+{
+    if (fw_ == unknown) {
+        ::std::ostringstream os;
+        os << "Cannot forward declare " << what;
+        throw grammar_error(pos, os.str());
     }
-    return false;
+}
+
+bool
+forward_declaration::is_resolved() const
+{
+    if (!resolved_) {
+        type_ptr t = owner()->find_type(name());
+        if (t.get() != this && !dynamic_entity_cast<forward_declaration>(t)) {
+            resolved_ = t;
+        }
+    }
+    return resolved_.get();
+}
+
+bool
+forward_declaration::is_compatible(entity_ptr en) const
+{
+    if (name() == en->name()) {
+        if (auto fwd = dynamic_entity_cast< forward_declaration >(en)) {
+            return fwd->fw_ == fw_;
+        }
+        if (dynamic_entity_cast< ast::exception >(en)) {
+            return fw_ == exception;
+        }
+        if (dynamic_entity_cast< ast::class_ >(en)) {
+            return fw_ == class_;
+        }
+        if (dynamic_entity_cast< ast::interface >(en)) {
+            return fw_ == interface;
+        }
+        if (dynamic_entity_cast< ast::structure >(en)) {
+            return fw_ == structure;
+        }
+        return false;
+    }
+
+    return true;
 }
 
 //----------------------------------------------------------------------------
 //    constant class implementation
 //----------------------------------------------------------------------------
-constant::constant(scope_ptr sc, ::std::string const& type,
-            ::std::string const& name, ::std::string const& literal)
-    : entity{sc, name}, literal_{literal}
+constant::constant(scope_ptr sc, ::std::size_t pos, ::std::string const& name,
+        type_ptr t, grammar::data_initializer const& init)
+    : entity{sc, pos, name}, type_(t), init_(init)
 {
 }
 
@@ -228,7 +282,7 @@ constant::constant(scope_ptr sc, ::std::string const& type,
 scope::find_scope(qname const& qn) const
 {
     if (qn.empty())
-        return ::std::make_pair(namespace_::global(), scope_ptr{});
+        return ::std::make_pair(get_global(), scope_ptr{});
     return find_scope(qn.search());
 }
 
@@ -265,9 +319,6 @@ scope::find_scope_of(qname_search const& search) const
     if (search.empty()) {
         return scope_ptr{};
     }
-    if (type::is_built_in(search.back())) {
-        return namespace_::global();
-    }
     auto sc = find_scope(search.scope());
     if (sc.first && !sc.first->local_entity_search(search)) {
         sc.first.reset();
@@ -277,6 +328,9 @@ scope::find_scope_of(qname_search const& search) const
         if (own) {
             return own->find_scope_of(search);
         }
+    }
+    if (!sc.first && type::is_built_in(search.back())) {
+        return get_global();
     }
     return sc.first;
 }
@@ -292,21 +346,73 @@ scope::find_entity(qname_search const& search) const
 {
     if (search.empty())
         return entity_ptr{};
-    type_ptr t = find_builtin(search.back());
-    if (t)
-        return t;
+    entity_ptr en;
     scope_ptr sc = find_scope_of(search);
     if (sc) {
-        return sc->local_entity_search(search);
+        en =  sc->local_entity_search(search);
     }
-    return entity_ptr{};
+    if (!en && search.size() == 1) {
+        type_ptr t = find_builtin(search.back());
+        if (t)
+            return t;
+    }
+    return en;
+}
+
+type_ptr
+scope::find_type(type_name const& tn, ::std::size_t pos) const
+{
+    type_ptr t = find_type(tn.name);
+    if (!t)
+        return t;
+    if (!tn.params.empty()) {
+        templated_type_ptr tt = dynamic_type_cast< templated_type >(t);
+        if (!tt) {
+            ::std::ostringstream os;
+            os << "Type " << t->get_type_name() << " cannot be parameterized";
+            throw grammar_error{os.str()};
+        }
+        parametrized_type_ptr pt = tt->create_parametrized_type(
+                const_cast< scope* >(this)->shared_this< scope >(), pos);
+        for (auto const& param : tn.params) {
+            switch (param.which()) {
+                case 0: {// type_name_ptr
+                    auto const& ptn = *::boost::get< type_name::type_name_ptr >(param);
+                    type_ptr tp = find_type( ptn , pos);
+                    if (!tp) {
+                        ::std::ostringstream os;
+                        os << "Template '" << tn.name << "' type parameter '" << ptn << "' not found";
+                        throw grammar_error{os.str()};
+                    }
+                    pt->add_parameter(tp);
+                    break;
+                }
+                case 1: // std::string
+                    pt->add_parameter(::boost::get< ::std::string >(param));
+                    break;
+                default:
+                    break;
+            }
+        }
+        t = pt;
+    }
+    if (tn.is_reference) {
+        interface_ptr iface = dynamic_type_cast< interface >(t);
+        if (!iface) {
+            ::std::ostringstream os;
+            os << "Cannot create a proxy to a non-interface type " << t->get_type_name();
+            throw grammar_error{os.str()};
+        }
+        t = ::std::make_shared< reference >(iface);
+    }
+    return t;
 }
 
 type_ptr
 scope::find_type(qname const& qn) const
 {
     if (qn.fully) {
-        return namespace_::global()->find_type(qn.search());
+        return get_global()->find_type(qn.search());
     }
     return find_type(qn.search(false));
 }
@@ -317,15 +423,12 @@ scope::find_type(qname_search const& search) const
     if (search.empty()) {
         return type_ptr{};
     }
-    type_ptr t = find_builtin(search.back());
-    if (t)
-        return t;
     if (search.fully && owner().get())
-        return namespace_::global()->find_type(search);
+        return get_global()->find_type(search);
 
     auto sc = find_scope(search.scope());
     if (sc.first) {
-        t = sc.first->local_type_search(search);
+        type_ptr t = sc.first->local_type_search(search);
         if (t)
             return t;
     }
@@ -336,7 +439,7 @@ scope::find_type(qname_search const& search) const
         }
     }
 
-    return type_ptr{};
+    return find_builtin(search.back());;
 }
 
 type_ptr
@@ -346,6 +449,10 @@ scope::local_type_search(qname_search const& search) const
         return type_ptr{};
 
     for (auto const t : types_) {
+        if (t->name() == search.back())
+            return t;
+    }
+    for (auto const t : forwards_) {
         if (t->name() == search.back())
             return t;
     }
@@ -372,22 +479,39 @@ scope::local_entity_search(qname_search const& search) const
         entity_ptr ent = local_type_search(search);
         if (ent)
             return ent;
-        // TODO Search for constants
+        for (auto const c : constants_) {
+            if (c->name() == search.back()) {
+                return c;
+            }
+        }
     }
     return entity_ptr{};
+}
+
+constant_ptr
+scope::add_constant(::std::size_t pos, ::std::string const& name, type_ptr t,
+        grammar::data_initializer const& init)
+{
+    constant_ptr cn = ::std::make_shared< constant >(
+            shared_this< scope >(), pos, name, t, init);
+    constants_.push_back(cn);
+    return cn;
 }
 
 //----------------------------------------------------------------------------
 //    function class implementation
 //----------------------------------------------------------------------------
-function::function(interface_ptr sc, ::std::string const& name,
+function::function(interface_ptr sc, ::std::size_t pos, ::std::string const& name,
         type_ptr ret, bool is_const,
         function_params const& params,
         exception_list const& t_spec)
-    : entity(sc, name),
-      ret_type_{ ret ? ret : namespace_::global()->find_type("void") },
+    : entity(sc, pos, name),
+      ret_type_{ ret },
       parameters_{ params }, is_const_(is_const), throw_spec_(t_spec)
 {
+    if (!ret_type_) {
+        ret_type_ = get_global()->find_type("void");
+    }
 }
 
 
@@ -419,26 +543,30 @@ namespace_::clear_global()
 }
 
 namespace_ptr
-namespace_::add_namespace(qname const& qn)
+namespace_::add_namespace(::std::size_t pos, qname const& qn)
 {
     if (qn.fully && owner()) {
         throw ::std::runtime_error("Cannot add a globally scoped namespace");
     }
-    return add_namespace(qname_search{false, qn.begin(), qn.end()});
+    return add_namespace(pos, qname_search{false, qn.begin(), qn.end()});
 }
 
 namespace_ptr
-namespace_::add_namespace(qname_search const& s)
+namespace_::add_namespace(::std::size_t pos, qname_search const& s)
 {
     auto f = nested_.find(*s.begin);
     if (f == nested_.end()) {
+        entity_ptr en = local_scope_search(qname{*s.begin}.search());
+        if (en) {
+            throw entity_conflict{ en, pos };
+        }
         auto ns = ::std::make_shared< namespace_ >(
-                shared_this< namespace_ >(), *s.begin );
+                shared_this< namespace_ >(), pos, *s.begin );
         f = nested_.emplace( *s.begin, ns ).first;
     }
     auto n = s.begin + 1;
     if (n != s.end) {
-        return f->second->add_namespace(qname_search{false, n, s.end});
+        return f->second->add_namespace(pos, qname_search{false, n, s.end});
     }
     return f->second;
 }
@@ -447,7 +575,7 @@ scope_ptr
 namespace_::local_scope_search(qname_search const& search) const
 {
     if (search.fully && !is_global()) {
-        return global()->local_scope_search(search);
+        return get_global()->local_scope_search(search);
     }
     if (search.empty()) {
         return const_cast<namespace_*>(this)->shared_this< namespace_ >();
@@ -488,7 +616,7 @@ namespace_ptr
 namespace_::find_namespace(qname_search const& search) const
 {
     if (search.fully && !is_global()) {
-        return global()->find_namespace(search);
+        return get_global()->find_namespace(search);
     }
     auto f = nested_.find(search.front());
     if (f != nested_.end()) {
@@ -514,23 +642,35 @@ namespace_::is_global() const
 //    enumeration class implementation
 //----------------------------------------------------------------------------
 void
-enumeration::add_enumerator(::std::string const& name, optional_value val)
+enumeration::add_enumerator(::std::size_t pos, ::std::string const& name, optional_value val)
 {
+    // check for entity in enclosing scope to avoid clashes
+    if (!constrained_) {
+        auto en = owner()->local_entity_search(qname{name}.search());
+        if (en) {
+            throw entity_conflict(en, pos);
+        }
+    }
     for (auto const& e : enumerators_) {
         if (e.first == name)
             throw ::std::runtime_error("Duplicate enumerator identifier");
     }
     enumerators_.emplace_back(name, val);
+    // TODO add entities to enclosing scope if not constrained
 }
 //----------------------------------------------------------------------------
 //    structure class implementation
 //----------------------------------------------------------------------------
 
 variable_ptr
-structure::add_data_member(::std::string const& name, type_ptr t)
+structure::add_data_member(::std::size_t pos, ::std::string const& name, type_ptr t)
 {
+    entity_ptr en = local_entity_search(qname{name}.search());
+    if (en) {
+        throw entity_conflict{ en, pos };
+    }
     variable_ptr member =
-            ::std::make_shared< variable >( shared_this<structure>(), name, t );
+            ::std::make_shared< variable >( shared_this<structure>(), pos, name, t );
     data_members_.push_back( member );
     return member;
 }
@@ -559,11 +699,16 @@ structure::local_entity_search(qname_search const& search) const
 //    interface class implementation
 //----------------------------------------------------------------------------
 function_ptr
-interface::add_function(::std::string const& name, type_ptr t, bool is_const,
+interface::add_function(::std::size_t pos, ::std::string const& name,
+        type_ptr t, bool is_const,
         function_params const& params, exception_list const& t_spec)
 {
+    entity_ptr en = local_scope_search(qname{name}.search());
+    if (en) {
+        throw entity_conflict{ en, pos };
+    }
     function_ptr func = ::std::make_shared<function>(
-            shared_this<interface>(), name, t, is_const, params, t_spec
+            shared_this<interface>(), pos, name, t, is_const, params, t_spec
         );
     functions_.push_back(func);
     return func;

@@ -84,7 +84,6 @@ struct qname {
 
     bool       fully = false;
     string_seq components;
-    string_seq parameters;
 
     qname() {}
     qname(bool f) : fully(f) {}
@@ -122,7 +121,7 @@ struct qname {
     name() const
     {
         if (empty()) {
-            throw ::std::runtime_error("Name is empty");
+            throw ::std::runtime_error("Name is empty (qualified name)");
         }
         return components.back();
     }
