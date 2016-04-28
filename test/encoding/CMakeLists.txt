@@ -1,7 +1,7 @@
-#	/tip-proto/test/CMakeLists.txt
-#	
-#	@author zmij
-#	@date Dec 10, 2015
+#    /tip-proto/test/CMakeLists.txt
+#
+#    @author zmij
+#    @date Dec 10, 2015
 
 cmake_minimum_required(VERSION 2.6)
 
@@ -29,6 +29,7 @@ set(test_SRCS
     uuid_io_test.cpp
     identity_io_test.cpp
     containers_io_test.cpp
+    optional_io_test.cpp
 )
 
 add_executable(test-wire ${test_SRCS})
