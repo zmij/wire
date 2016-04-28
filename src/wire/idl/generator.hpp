@@ -35,6 +35,9 @@ public:
 
     virtual void
     generate_struct( structure_ptr struct_ ) = 0;
+
+    virtual void
+    generate_exception( exception_ptr ex ) = 0;
 };
 
 }  /* namespace ast */

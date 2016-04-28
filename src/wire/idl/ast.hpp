@@ -311,7 +311,8 @@ protected:
     type(scope_ptr parent, ::std::size_t pos, ::std::string const& name)
         : entity(parent, pos, name) {}
 };
-using type_ptr =  ::std::shared_ptr< type >;
+using type_ptr =  shared_entity< type >;
+using type_const_ptr =  const_shared_entity< type >;
 using type_list = ::std::vector< type_ptr >;
 
 //----------------------------------------------------------------------------
@@ -437,7 +438,7 @@ public:
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
 
     parameters const&
-    params()
+    params() const
     { return params_; }
 private:
     friend parametrized_type_ptr
@@ -1034,6 +1035,9 @@ public:
     {}
     void
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
+    exception_const_ptr
+    get_parent() const
+    { return parent_; }
 private:
     entity_ptr
     local_entity_search(qname_search const& search) const override;

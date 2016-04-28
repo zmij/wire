@@ -20,7 +20,7 @@ generator::generate_type_decl(type_ptr t)
     } else if (auto iface = dynamic_entity_cast< interface >(t)) {
 
     } else if (auto exc = dynamic_entity_cast< exception >(t)) {
-
+        generate_exception(exc);
     } else if (auto st = dynamic_entity_cast< structure >(t)) {
         generate_struct(st);
     } else if (auto enum_ = dynamic_entity_cast< enumeration >(t)) {

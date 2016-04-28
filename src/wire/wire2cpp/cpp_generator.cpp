@@ -246,6 +246,12 @@ generator::~generator()
     header_ << "\n#endif /* " << header_guard_ << " */\n";
 }
 
+void generator::adjust_scope(ast::entity_ptr enum_)
+{
+    auto qn = enum_->get_qualified_name();
+    adjust_scope(qn.search().scope());
+}
+
 void
 generator::adjust_scope(qname_search const& target)
 {
@@ -285,8 +291,19 @@ generator::adjust_scope(qname_search const& target)
     }
 }
 
+void
+generator::pop_scope() {
+    scope_stack_.pop_back();
+    if (scope_stack_.empty()) {
+        for (auto f : free_functions_) {
+            f();
+        }
+        free_functions_.clear();
+    }
+}
+
 ::std::ostream&
- generator::write_qualified_name(::std::ostream& os, qname const& qn)
+generator::write_qualified_name(::std::ostream& os, qname const& qn)
 {
     qname_search current = current_scope_.search();
     qname_search target = qn.search(false);
@@ -307,7 +324,7 @@ generator::adjust_scope(qname_search const& target)
 
 
 ::std::ostream&
-generator::write_type_name(::std::ostream& os, ast::type_ptr t)
+generator::write_type_name(::std::ostream& os, ast::type_const_ptr t)
 {
     if (auto pt = ast::dynamic_entity_cast< ast::parametrized_type >(t)) {
         os << wire_to_cpp.at(pt->name()).type_name << " <";
@@ -375,8 +392,7 @@ generator::write_init(::std::ostream& os, grammar::data_initializer const& init)
 void
 generator::generate_constant(ast::constant_ptr c)
 {
-    auto qn = c->get_qualified_name();
-    adjust_scope(qn.search().scope());
+    adjust_scope(c);
 
     header_ << h_off_;
     write_type_name(header_, c->get_type()) << " const " << c->name() << " = ";
@@ -387,9 +403,7 @@ generator::generate_constant(ast::constant_ptr c)
 void
 generator::generate_enum(ast::enumeration_ptr enum_)
 {
-    auto qn = enum_->get_qualified_name();
-    adjust_scope(qn.search().scope());
-
+    adjust_scope(enum_);
     header_ << h_off_++ << "enum ";
     if (enum_->constrained())
         header_ << "class ";
@@ -407,8 +421,7 @@ generator::generate_enum(ast::enumeration_ptr enum_)
 void
 generator::generate_type_alias( ast::type_alias_ptr ta )
 {
-    auto qn = ta->get_qualified_name();
-    adjust_scope(qn.search().scope());
+    adjust_scope(ta);
 
     header_ << h_off_ << "using " << ta->name() << " = ";
     // TODO Custom mapping
@@ -419,8 +432,7 @@ generator::generate_type_alias( ast::type_alias_ptr ta )
 void
 generator::generate_struct( ast::structure_ptr struct_ )
 {
-    auto qn = struct_->get_qualified_name();
-    adjust_scope(qn.search().scope());
+    adjust_scope(struct_);
 
     header_ << "\n" << h_off_++ << "struct " << struct_->name() << " {\n";
     current_scope_.components.push_back(struct_->name());
@@ -454,18 +466,14 @@ generator::generate_struct( ast::structure_ptr struct_ )
 
     header_ << --h_off_ << "};\n\n";
     current_scope_.components.pop_back();
-    scope_stack_.pop_back();
 
+    pop_scope();
     if (!dm.empty()) {
         if (scope_stack_.empty()) {
-            for (auto f : free_functions_) {
-                f();
-            }
-            free_functions_.clear();
             generate_read_write(struct_);
         } else {
             free_functions_.push_back(
-                ::std::bind(&generator::generate_read_write, this, struct_));
+                    ::std::bind(&generator::generate_read_write, this, struct_));
         }
     }
 }
@@ -502,6 +510,76 @@ generator::generate_read_write( ast::structure_ptr struct_)
     header_ << ");\n"
             << h_off_ << "v.swap(tmp);\n";
     header_ << --h_off_ << "}\n\n";
+}
+
+void
+generator::generate_exception(ast::exception_ptr exc)
+{
+    adjust_scope(exc);
+
+    static const qname root_exception {"::wire::errors::user_exception"};
+
+    qname parent_name = exc->get_parent() ?
+            exc->get_parent()->get_qualified_name() : root_exception;
+
+    header_ << "\n" << "class " << exc->name()
+            << " : public ";
+    write_qualified_name(header_, parent_name);
+    header_ << " {\n";
+
+    current_scope_.components.push_back(exc->name());
+    scope_stack_.push_back(exc);
+
+    if (!exc->get_types().empty()) {
+        header_ << h_off_++ << "public:\n";
+        for (auto t : exc->get_types()) {
+            generate_type_decl(t);
+        }
+        --h_off_;
+    }
+    if (!exc->get_constants().empty()) {
+        header_ << h_off_++ << "public:\n";
+        for (auto c : exc->get_constants()) {
+            generate_constant(c);
+        }
+        --h_off_;
+    }
+
+    auto const& dm = exc->get_data_members();
+
+    // Constructors
+    header_ << h_off_++ << "public:\n"
+            << h_off_ << exc->name() << "(std::string const& msg) : ";
+    write_qualified_name(header_, parent_name) << "{msg} {}\n";
+    header_ << h_off_ << exc->name() << "(char const* msg) : ";
+    write_qualified_name(header_, parent_name) << "{msg} {}\n";
+    header_ << h_off_ << "template < typename ... T >\n"
+            << h_off_ << exc->name() << "(T const& ... args) : ";
+    write_qualified_name(header_, parent_name) << "(args ...) {}\n";
+    // TODO constructors with data members variations
+    --h_off_;
+
+    if (!dm.empty()) {
+        header_ << h_off_++ << "public:\n";
+        for (auto d : dm) {
+            header_ << h_off_;
+            write_type_name(header_, d->get_type()) << " " << d->name() << ";\n";
+        }
+        --h_off_;
+    }
+
+    // TODO Member functions
+
+    header_ << "};\n\n";
+    current_scope_.components.pop_back();
+
+    source_ << s_off_ << "/* data for " << exc->get_qualified_name() << " */\n";
+    source_ << s_off_++ << "namespace {\n";
+
+    source_ << --s_off_ << "} /* namespace for "
+            << exc->get_qualified_name() << " */\n";
+
+    pop_scope();
 }
 
 }  /* namespace cpp */

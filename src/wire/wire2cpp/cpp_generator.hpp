@@ -90,13 +90,17 @@ public:
     generate_class(ast::class_ptr class_);
 
     void
-    generate_exception(ast::exception_ptr ex);
+    generate_exception(ast::exception_ptr exc) override;
 private:
     void
     adjust_scope(qname_search const& qn);
+    void
+    adjust_scope(ast::entity_ptr en);
+    void
+    pop_scope();
 
     ::std::ostream&
-    write_type_name(::std::ostream&, ast::type_ptr t);
+    write_type_name(::std::ostream&, ast::type_const_ptr t);
 
     ::std::ostream&
     write_qualified_name(::std::ostream&, qname const& qn);
