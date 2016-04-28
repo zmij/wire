@@ -28,32 +28,38 @@ R"~(/*
 )~";
 
 struct type_mapping {
-    ::std::string type_name;
-    ::std::string header;
+    ::std::string                     type_name;
+    ::std::vector<::std::string>      headers;
 };
 
 ::std::map< ::std::string, type_mapping > const wire_to_cpp = {
-    /* Wire type      C++ Type                  Header                  */
-    /*--------------+-------------------------+-------------------------*/
-    { "void",       { "void",                   ""                      } },
-    { "bool",       { "bool",                   ""                      } },
-    { "char",       { "char",                   ""                      } },
-    { "byte",       { "::std::int8_t",          "<cstdint>"             } },
-    { "int32",      { "::std::int32_t",         "<cstdint>"             } },
-    { "int64",      { "::std::int64_t",         "<cstdint>"             } },
-    { "octet",      { "::std::uint8_t",         "<cstdint>"             } },
-    { "uint32",     { "::std::int32_t",         "<cstdint>"             } },
-    { "uint64",     { "::std::int64_t",         "<cstdint>"             } },
-    { "float",      { "float",                  ""                      } },
-    { "double",     { "double",                 ""                      } },
-    { "string",     { "::std::string",          "<string>"              } },
-    { "uuid",       { "::boost::uuids::uuid",   "<boost/uuid/uuid.hpp>" } },
+    /* Wire type      C++ Type                  Headers                                      */
+    /*--------------+-------------------------+----------------------------------------------*/
+    { "void",       { "void",                   {}                                          } },
+    { "bool",       { "bool",                   {}                                          } },
+    { "char",       { "char",                   {}                                          } },
+    { "byte",       { "::std::int8_t",          {"<cstdint>"}                               } },
+    { "int32",      { "::std::int32_t",         {"<cstdint>"}                               } },
+    { "int64",      { "::std::int64_t",         {"<cstdint>"}                               } },
+    { "octet",      { "::std::uint8_t",         {"<cstdint>"}                               } },
+    { "uint32",     { "::std::int32_t",         {"<cstdint>"}                               } },
+    { "uint64",     { "::std::int64_t",         {"<cstdint>"}                               } },
+    { "float",      { "float",                  {}                                          } },
+    { "double",     { "double",                 {}                                          } },
+    { "string",     { "::std::string",          {"<string>"}                                } },
+    { "uuid",       { "::boost::uuids::uuid",   {"<boost/uuid/uuid.hpp>",
+                                                "<wire/encoding/detail/uuid_io.hpp>"}       } },
 
-    { "variant",    { "::boost::variant",       "<boost/variant.hpp>"   } },
-    { "optional",   { "::boost::optional",      "<boost/optional.hpp>"  } },
-    { "sequence",   { "::std::vector",          "<vector>"              } },
-    { "array",      { "::std::array",           "<array>"               } },
-    { "dictionary", { "::std::map",             "<map>"                 } },
+    { "variant",    { "::boost::variant",       {"<boost/variant.hpp>",
+                                                "<wire/encoding/detail/variant_io.hpp>"}    } },
+    { "optional",   { "::boost::optional",      {"<boost/optional.hpp>",
+                                                "<wire/encoding/detail/optional_io.hpp>"}   } },
+    { "sequence",   { "::std::vector",          {"<vector>",
+                                                "<wire/encoding/detail/containers_io.hpp>"} } },
+    { "array",      { "::std::array",           {"<array>",
+                                                "<wire/encoding/detail/containers_io.hpp>"} } },
+    { "dictionary", { "::std::map",             {"<map>",
+                                                "<wire/encoding/detail/containers_io.hpp>"} } },
 
 };
 
@@ -165,8 +171,8 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
         if (auto t = ast::dynamic_entity_cast< ast::type >(d)) {
             if (ast::type::is_built_in(d->get_qualified_name())) {
                 auto const& tm = wire_to_cpp.at(d->name());
-                if (!tm.header.empty()) {
-                    standard_headers.insert(tm.header);
+                if (!tm.headers.empty()) {
+                    standard_headers.insert(tm.headers.begin(), tm.headers.end());
                 }
             }
         }
