@@ -140,8 +140,9 @@ try {
             parser::parser p{ input_str };
 
             auto ns = p.parse();
-
-            wire::idl::cpp::generator gen(gen_options, ns);
+            auto cu = ns->current_compilation_unit();
+            wire::idl::cpp::generator gen(gen_options, preproc_opts, ns);
+            cu->generate(gen);
         }
     }
 

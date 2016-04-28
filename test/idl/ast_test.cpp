@@ -59,7 +59,7 @@ TEST(AST, BuiltinTypes)
 {
     auto glob = global_namespace::create();
 
-    ASSERT_TRUE(glob->types().empty());
+    ASSERT_TRUE(glob->get_types().empty());
     ASSERT_TRUE(glob->nested().empty());
 
     EXPECT_TRUE(type::is_built_in("void"));
@@ -165,7 +165,7 @@ TEST(AST, ScopeLookup)
      */
     auto glob = global_namespace::create();
 
-    ASSERT_TRUE(glob->types().empty());
+    ASSERT_TRUE(glob->get_types().empty());
     ASSERT_TRUE(glob->nested().empty());
 
     auto inner_ns = glob->add_namespace(0, "outer::inner");
@@ -210,7 +210,7 @@ TEST(AST, ScopeOfLookup)
      * }
      */
     auto glob = global_namespace::create();
-    ASSERT_TRUE(glob->types().empty());
+    ASSERT_TRUE(glob->get_types().empty());
     ASSERT_TRUE(glob->nested().empty());
 
     auto ns = glob->add_namespace(0, "outer::inner");
@@ -251,7 +251,7 @@ TEST(AST, EntityLookup)
      */
     auto glob = global_namespace::create();
 
-    ASSERT_TRUE(glob->types().empty());
+    ASSERT_TRUE(glob->get_types().empty());
     ASSERT_TRUE(glob->nested().empty());
 
     auto inner_ns = glob->add_namespace(0, "outer::inner");
@@ -350,7 +350,7 @@ TEST(AST, TypeLookup)
      */
     auto glob = global_namespace::create();
 
-    ASSERT_TRUE(glob->types().empty());
+    ASSERT_TRUE(glob->get_types().empty());
     ASSERT_TRUE(glob->nested().empty());
 
     auto inner_ns = glob->add_namespace(0, "outer::inner");

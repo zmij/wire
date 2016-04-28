@@ -11,6 +11,8 @@
 #include <wire/sugar.wire>
 #include <wire/core/identity.wire>
 
+#include "class.wire"
+
 [[cpp_namespace(foo, bar)]] /* File-level attributes */
 
 namespace test {
@@ -50,7 +52,7 @@ struct some_struct {
 
 interface some_service {
     wire::core::identity
-    do_very_good( string s, int32 i ) const;
+    do_very_good( string s, int32 i ) const throw (oops);
 };
 
 interface another_service : some_service {

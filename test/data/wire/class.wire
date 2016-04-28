@@ -11,6 +11,8 @@
 #include <wire/sugar.wire>
 #include <wire/core/identity.wire>
 
+#include "interface.wire"
+
 namespace test {
 
 string const immutable = "Always here";

@@ -25,6 +25,7 @@ set(
     type_name.cpp
     preprocess.cpp
     parser.cpp
+    generator.cpp
     syntax_error.cpp
 )
 

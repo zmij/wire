@@ -15,9 +15,23 @@ namespace test {
 using buffer = array< byte, 1024 >;
 
 struct test_struct {
+    enum class traffic_colors {
+        red     =   0x01,
+        yellow,
+        green
+    };
+
     int32                           value;
     sequence<variant<string, uuid>> ids;
     buffer                          buffer;
+};
+
+struct outer {
+    struct inner {
+        buffer          some_data;
+    };
+
+    inner stuff;
 };
 
 }  /* namespace test */

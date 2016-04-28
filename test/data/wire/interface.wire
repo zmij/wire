@@ -10,6 +10,8 @@
 
 #include <wire/sugar.wire>
 
+#include "exception.wire"
+
 namespace test {
 
 exception no_service {

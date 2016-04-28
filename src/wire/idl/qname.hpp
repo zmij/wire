@@ -139,6 +139,8 @@ struct qname {
 
 ::std::ostream&
 operator << (::std::ostream& os, qname const& val);
+::std::ostream&
+operator << (::std::ostream& os, qname_search const& val);
 
 }  /* namespace idl */
 }  /* namespace wire */

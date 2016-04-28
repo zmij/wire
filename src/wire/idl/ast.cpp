@@ -8,6 +8,7 @@
 #include <wire/idl/ast.hpp>
 #include <wire/idl/qname.hpp>
 #include <wire/idl/syntax_error.hpp>
+#include <wire/idl/generator.hpp>
 #include <sstream>
 
 #include <iostream>
@@ -17,6 +18,68 @@ namespace wire {
 namespace idl {
 namespace ast {
 
+//----------------------------------------------------------------------------
+//    compilation unit class implementation
+//----------------------------------------------------------------------------
+
+entity_const_set
+compilation_unit::dependecies() const
+{
+    entity_const_set deps;
+    for (auto const& e : entities) {
+        e->collect_dependencies(deps);
+    }
+    return deps;
+}
+
+entity_const_set
+compilation_unit::external_dependencies() const
+{
+    entity_const_set deps;
+    for (auto const& e : entities) {
+        e->collect_dependencies(deps,
+            [&](entity_const_ptr e) { return e->unit()->name != name; });
+    }
+
+    return deps;
+}
+
+compilation_unit_const_set
+compilation_unit::dependent_units() const
+{
+    compilation_unit_const_set units;
+
+    entity_const_set deps = external_dependencies();
+    ::std::transform(deps.begin(), deps.end(),
+        ::std::inserter(units, units.end()),
+         [](entity_const_ptr e) { return e->unit(); });
+
+    return units;
+}
+
+void
+compilation_unit::generate(generator& gen) const
+{
+    // TODO Topological sort of local entities
+    for (auto const& e : entities) {
+        if (auto t = dynamic_entity_cast< type >(e)) {
+            gen.generate_type_decl(t);
+        } else if (auto c = dynamic_entity_cast< constant >(e)) {
+            gen.generate_constant(c);
+        } else {
+            throw grammar_error(e->decl_position(), "Unexpected entity");
+        }
+    }
+}
+
+//----------------------------------------------------------------------------
+struct builtin_unit : compilation_unit {
+    builtin_unit() : compilation_unit("__BUILTINS__") {}
+
+    bool
+    is_builtin() const override
+    { return true; }
+};
 
 //----------------------------------------------------------------------------
 //    builtin class implementation
@@ -48,22 +111,23 @@ struct templated_type_impl : templated_type {
 parametrized_type_ptr
 templated_type::create_parametrized_type(scope_ptr sc, ::std::size_t pos) const
 {
-    return std::make_shared< parametrized_type >( sc, pos, name(), params);
+    return parametrized_type_ptr{ new parametrized_type(
+        sc, pos, name(), shared_this< templated_type >()) };
 }
 
 void
 parametrized_type::add_parameter(parameter const& param)
 {
-    if (current == param_types.end()) {
+    if (current == tmpl_type->formal_parameters().end()) {
         ::std::ostringstream os;
         os << "Extra " << (param.which() ? "integral" : "type")
             << " parameter for " << name() << " template on position "
-            << params.size();
+            << params_.size();
         throw grammar_error(os.str());
     }
 
     if (param.which() == current->kind) {
-        params.push_back(param);
+        params_.push_back(param);
         if (!current->unbound)
             ++current;
     } else {
@@ -74,8 +138,23 @@ parametrized_type::add_parameter(parameter const& param)
             ::std::ostringstream os;
             os << "Unexpected " << (param.which() ? "integral" : "type")
                 << " parameter for " << name() << " template on position "
-                << params.size();
+                << params_.size();
             throw grammar_error(os.str());
+        }
+    }
+}
+
+void
+parametrized_type::collect_dependencies(entity_const_set& deps, entity_predicate pred) const
+{
+    if (pred(tmpl_type))
+        deps.insert(tmpl_type);
+    for (auto const& p : params_) {
+        if (p.which() == template_param_type::type) {
+            type_ptr t = ::boost::get< type_ptr >(p);
+            if (pred(t))
+                deps.insert(t);
+            t->collect_dependencies(deps, pred);
         }
     }
 }
@@ -111,7 +190,7 @@ builtin_types()
         MAKE_TEMPLATE_WIRE_TYPE(templated_type_impl, array,
                 {{template_param_type::type, false}, {template_param_type::integral, false}}),
         MAKE_TEMPLATE_WIRE_TYPE(templated_type_impl, dictionary,
-                {{template_param_type::type, false}}),
+                {{template_param_type::type, false}, {template_param_type::type, false}}),
         MAKE_TEMPLATE_WIRE_TYPE(templated_type_impl, optional,
                 {{template_param_type::type, false}}),
     };
@@ -129,13 +208,20 @@ find_builtin(::std::string const& name)
     return type_ptr{};
 }
 
+compilation_unit_ptr
+builtins_unit()
+{
+    static compilation_unit_ptr builtins_ = ::std::make_shared< builtin_unit >();
+    return builtins_;
+}
+
 }  /* namespace  */
 
 //----------------------------------------------------------------------------
 //    entity class implementation
 //----------------------------------------------------------------------------
 entity::entity(::std::string const& name)
-    : name_{name}, decl_pos_{0}
+    : name_{name}, decl_pos_{0}, compilation_unit_{ builtins_unit() }
 {
     if (name.empty()) {
         throw std::runtime_error("Name is empty");
@@ -513,6 +599,31 @@ scope::add_constant(::std::size_t pos, ::std::string const& name, type_ptr t,
     return cn;
 }
 
+void
+scope::collect_dependencies(entity_const_set& deps, entity_predicate pred) const
+{
+    for (auto const& t : types_) {
+        t->collect_dependencies(deps, pred);
+    }
+    for (auto const& c : constants_) {
+        c->collect_dependencies(deps, pred);
+    }
+}
+
+void
+scope::collect_elements(entity_const_set& elems, entity_predicate pred) const
+{
+    for (auto const& t : types_) {
+        if (pred(t))
+            elems.insert(t);
+        t->collect_elements(elems, pred);
+    }
+    for (auto const& c : constants_) {
+        if (pred(c))
+            elems.insert(c);
+    }
+}
+
 //----------------------------------------------------------------------------
 //    function class implementation
 //----------------------------------------------------------------------------
@@ -529,7 +640,21 @@ function::function(interface_ptr sc, ::std::size_t pos, ::std::string const& nam
     }
 }
 
-
+void
+function::collect_dependencies(entity_const_set& deps, entity_predicate pred) const
+{
+    if (pred(ret_type_))
+        deps.insert(ret_type_);
+    for (auto const& p : parameters_) {
+        if (pred(p.first))
+            deps.insert(p.first);
+        p.first->collect_dependencies(deps, pred);
+    }
+    for (auto const& e : throw_spec_) {
+        if (pred(e))
+            deps.insert(e);
+    }
+}
 //----------------------------------------------------------------------------
 //    namespace_ class implementation
 //----------------------------------------------------------------------------
@@ -725,6 +850,24 @@ structure::local_entity_search(qname_search const& search) const
     return ent;
 }
 
+void
+structure::collect_dependencies(entity_const_set& deps, entity_predicate pred) const
+{
+    scope::collect_dependencies(deps, pred);
+    for (auto const& m : data_members_) {
+        m->collect_dependencies(deps, pred);
+    }
+}
+
+void
+structure::collect_elements(entity_const_set& elems, entity_predicate pred) const
+{
+    scope::collect_elements(elems, pred);
+    for (auto const& m : data_members_) {
+        if (pred(m))
+            elems.insert(m);
+    }
+}
 //----------------------------------------------------------------------------
 //    interface class implementation
 //----------------------------------------------------------------------------
@@ -801,6 +944,29 @@ interface::local_type_search(qname_search const& search) const
     return t;
 }
 
+void
+interface::collect_dependencies(entity_const_set& deps, entity_predicate pred) const
+{
+    scope::collect_dependencies(deps, pred);
+    for (auto const& a : ancestors_) {
+        if (pred(a))
+            deps.insert(a);
+    }
+    for (auto const& f : functions_) {
+        f->collect_dependencies(deps, pred);
+    }
+}
+
+void
+interface::collect_elements(entity_const_set& elems, entity_predicate pred) const
+{
+    scope::collect_elements(elems, pred);
+    for (auto const& f : functions_) {
+        if (pred(f))
+            elems.insert(f);
+    }
+}
+
 //----------------------------------------------------------------------------
 //    reference class implementation
 //----------------------------------------------------------------------------
@@ -808,6 +974,16 @@ reference::reference(type_ptr iface)
     : entity(iface->owner(), 0, iface->name()),
       type(iface->owner(), 0, iface->name())
 {
+}
+
+void
+reference::collect_dependencies(entity_const_set& deps, entity_predicate pred) const
+{
+    auto ref_t = owner()->find_type(name());
+    if (ref_t) {
+        if (pred(ref_t))
+            deps.insert(ref_t);
+    }
 }
 
 
@@ -840,7 +1016,37 @@ class_::local_type_search(qname_search const& search) const
     return t;
 }
 
+void
+class_::collect_dependencies(entity_const_set& deps, entity_predicate pred) const
+{
+    scope::collect_dependencies(deps, pred);
+    for (auto const& m : data_members_) {
+        m->collect_dependencies(deps, pred);
+    }
+    for (auto const& a : ancestors_) {
+        if (pred(a))
+            deps.insert(a);
+    }
+    for (auto const& f : functions_) {
+        f->collect_dependencies(deps, pred);
+    }
+    if (parent_ && pred(parent_))
+        deps.insert(parent_);
+}
 
+void
+class_::collect_elements(entity_const_set& elems, entity_predicate pred) const
+{
+    scope::collect_elements(elems, pred);
+    for (auto const& m : data_members_) {
+        if (pred(m))
+            elems.insert(m);
+    }
+    for (auto const& f : functions_) {
+        if (pred(f))
+            elems.insert(f);
+    }
+}
 //----------------------------------------------------------------------------
 //    exception class implementation
 //----------------------------------------------------------------------------
@@ -867,6 +1073,15 @@ exception::local_type_search(qname_search const& search) const
     }
     return t;
 }
+
+void
+exception::collect_dependencies(entity_const_set& deps, entity_predicate pred) const
+{
+    structure::collect_dependencies(deps, pred);
+    if (parent_ && pred(parent_))
+        deps.insert(parent_);
+}
+
 }  // namespace ast
 }  // namespace idl
 }  // namespace wire

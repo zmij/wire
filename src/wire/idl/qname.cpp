@@ -57,5 +57,22 @@ operator << (::std::ostream& os, qname const& val)
     return os;
 }
 
+::std::ostream&
+operator << (::std::ostream& os, qname_search const& val)
+{
+    ::std::ostream::sentry s(os);
+    if (s) {
+        if (val.fully)
+            os << "::";
+        for (auto c = val.begin; c != val.end; ++c) {
+            if (c != val.begin)
+                os << "::";
+            os << *c;
+        }
+    }
+    return os;
+}
+
+
 }  /* namespace idl */
 }  /* namespace wire */

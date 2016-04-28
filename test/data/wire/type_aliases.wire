@@ -1,0 +1,73 @@
+/*
+ * type_aliases.wire
+ *
+ *  Created on: Apr 28, 2016
+ *      Author: zmij
+ */
+
+#ifndef DATA_WIRE_TYPE_ALIASES_WIRE_
+#define DATA_WIRE_TYPE_ALIASES_WIRE_
+
+#include <wire/sugar.wire>
+
+namespace test {
+
+namespace seq {
+
+// Sequences
+using byte_seq          = sequence< byte >;
+[[cpp_container("::std::list", "<list>")]]
+using int32_seq         = sequence< int32 >;
+[[cpp_container("::std::deque", "<deque>")]]
+using int64_seq         = sequence< int64 >;
+[[cpp_container("::std::set", "<set>")]]
+using octet_seq         = sequence< octet >;
+[[cpp_container("::std::multiset", "<set>")]]
+using uint32_seq        = sequence< uint32 >;
+[[cpp_container("::std::unordered_set", "<unordered_set>")]]
+using uint64_seq        = sequence< uint64 >;
+[[cpp_container("::std::unordered_multiset", "<unordered_set>")]]
+using string_seq        = sequence< string >;
+using uuid_seq          = sequence< uuid >;
+
+namespace bound {
+
+// Arrays
+using float_point       = array< float, 3 >;
+using double_point      = array< double, 3 >;
+using matrix_4x4        = array< array< double, 4 >, 4 >;
+
+}  /* namespace bound */
+
+}  /* namespace seq */
+
+namespace dicts {
+
+// Dictionaries
+using int_to_string     = dictionary< int32, string >;
+[[cpp_container("::std::multimap", "<map>")]]
+using string_to_uuid    = dictionary< string, uuid >;
+[[cpp_container("::std::unordered_map", "<unordered_map>")]]
+using uuid_to_string    = dictionary< uuid, string >;
+[[cpp_container("::std::unordered_multimap", "<unordered_map>")]]
+using int_to_uuid       = dictionary< int32, uuid >;
+
+}  /* namespace dicts */
+
+namespace other {
+
+// Variant
+using variant_id        = variant< int32, uuid, string >;
+
+// Optional
+using optional_string   = optional< string >;
+
+// Ref to other namespace
+using string_seq = ::test::seq::string_seq;
+
+}  /* namespace other */
+
+}  /* namespace test */
+
+
+#endif /* DATA_WIRE_TYPE_ALIASES_WIRE_ */

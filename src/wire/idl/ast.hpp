@@ -50,41 +50,55 @@ namespace idl {
 namespace ast {
 
 class entity;
-using entity_ptr = ::std::shared_ptr< entity >;
+using entity_ptr                    = ::std::shared_ptr< entity >;
+using entity_const_ptr              = ::std::shared_ptr< entity const >;
+using entity_set                    = ::std::set< entity_ptr >;
+using entity_const_set              = ::std::set< entity_const_ptr >;
+using entity_predicate              = ::std::function< bool( entity_const_ptr ) >;
 
 template < typename T >
-using shared_entity = ::std::shared_ptr< typename ::std::decay<T>::type >;
+using shared_entity                 = ::std::shared_ptr< typename ::std::decay<T>::type >;
 template < typename T >
-using const_shared_entity = ::std::shared_ptr< typename ::std::decay<T>::type const >;
+using const_shared_entity           = ::std::shared_ptr< typename ::std::decay<T>::type const >;
 
 template < typename T >
-using weak_entity = ::std::weak_ptr< typename ::std::decay<T>::type >;
+using weak_entity                   = ::std::weak_ptr< typename ::std::decay<T>::type >;
 template < typename T >
-using const_weak_entity = ::std::weak_ptr< typename ::std::decay<T>::type const >;
+using const_weak_entity             = ::std::weak_ptr< typename ::std::decay<T>::type const >;
 
 class scope;
-using scope_ptr = shared_entity<scope>;
-using scope_weak_ptr = weak_entity<scope>;
+using scope_ptr                     = shared_entity<scope>;
+using scope_weak_ptr                = weak_entity<scope>;
 
 class namespace_;
-using namespace_ptr = ::std::shared_ptr< namespace_ >;
-using namespace_list = ::std::map< ::std::string, namespace_ptr >;
+using namespace_ptr                 = ::std::shared_ptr< namespace_ >;
+using namespace_list                = ::std::map< ::std::string, namespace_ptr >;
 
 class global_namespace;
-using global_namespace_ptr = ::std::shared_ptr< global_namespace >;
+using global_namespace_ptr          = ::std::shared_ptr< global_namespace >;
 
 class structure;
-using structure_ptr = shared_entity< structure >;
+using structure_ptr                 = shared_entity< structure >;
 
 class interface;
-using interface_ptr = shared_entity< interface >;
-using interface_list = ::std::vector< interface_ptr >;
+using interface_ptr                 = shared_entity< interface >;
+using interface_list                = ::std::vector< interface_ptr >;
 
 class class_;
 
 class exception;
-using exception_ptr = shared_entity<exception>;
-using exception_list = ::std::vector< exception_ptr >;
+using exception_ptr                 = shared_entity<exception>;
+using exception_const_ptr           = const_shared_entity<exception>;
+using exception_list                = ::std::vector< exception_ptr >;
+
+struct compilation_unit;
+using compilation_unit_ptr          = ::std::shared_ptr< compilation_unit >;
+using compilation_unit_const_ptr    = ::std::shared_ptr< compilation_unit const >;
+using compilation_unit_weak_ptr     = ::std::weak_ptr<compilation_unit>;
+using compilation_unit_set          = ::std::set< compilation_unit_ptr >;
+using compilation_unit_const_set    = ::std::set< compilation_unit_const_ptr >;
+
+class generator;
 
 //----------------------------------------------------------------------------
 struct compilation_unit {
@@ -95,10 +109,24 @@ struct compilation_unit {
 
     compilation_unit( ::std::string const& n )
         : name{n} {}
-};
+    virtual ~compilation_unit() {}
 
-using compilation_unit_ptr = ::std::shared_ptr< compilation_unit >;
-using compilation_unit_weak_ptr = ::std::weak_ptr<compilation_unit>;
+    void
+    generate(generator&) const;
+
+    entity_const_set
+    dependecies() const;
+
+    entity_const_set
+    external_dependencies() const;
+
+    compilation_unit_const_set
+    dependent_units() const;
+
+    virtual bool
+    is_builtin() const
+    { return false; }
+};
 
 //----------------------------------------------------------------------------
 template < typename T, typename U >
@@ -154,6 +182,32 @@ public:
         annotations_.insert(annotations_.end(), ann.begin(), ann.end());
     }
 
+    compilation_unit_ptr
+    unit() const
+    { return compilation_unit_.lock(); }
+
+    global_namespace_ptr
+    get_global() const;
+
+    entity_const_set
+    depends_on() const
+    {
+        entity_const_set deps;
+        collect_dependencies(deps);
+        return deps;
+    }
+    void
+    collect_dependencies(entity_const_set& deps) const
+    {
+        collect_dependencies(deps, [](entity_const_ptr) {return true;});
+    }
+    virtual void
+    collect_dependencies(entity_const_set& deps, entity_predicate pred) const
+    {}
+
+    virtual void
+    collect_elements(entity_const_set& elems, entity_predicate pred) const
+    {}
     /**
      * Functor for comparing entities by name
      */
@@ -173,8 +227,6 @@ public:
         }
         //@}
     };
-    global_namespace_ptr
-    get_global() const;
 protected:
     /**
      * Constructor for the global namespace only.
@@ -221,8 +273,6 @@ private:
     grammar::annotation_list    annotations_;
     compilation_unit_weak_ptr   compilation_unit_;
 };
-
-using entity_set = ::std::set<entity_ptr, entity::name_compare>;
 
 //----------------------------------------------------------------------------
 class entity_conflict : public ::std::runtime_error {
@@ -325,9 +375,19 @@ public:
     type_ptr
     alias() const
     { return type_; }
+
+    void
+    collect_dependencies(entity_const_set& deps, entity_predicate pred) const override
+    {
+        if (pred(type_))
+            deps.insert(type_);
+        type_->collect_dependencies(deps, pred);
+    }
 private:
     type_ptr    type_;
 };
+
+using type_alias_ptr = shared_entity< type_alias >;
 
 //----------------------------------------------------------------------------
 struct template_param_type {
@@ -340,29 +400,7 @@ struct template_param_type {
 
 using template_param_types = ::std::vector< template_param_type >;
 
-//----------------------------------------------------------------------------
-class parametrized_type : public type {
-public:
-    using parameter = ::boost::variant< type_ptr, ::std::string >;
-    using parameters = ::std::vector< parameter >;
-public:
-    parametrized_type(scope_ptr sc, ::std::size_t pos, ::std::string const& name,
-            template_param_types const& argst)
-        : entity(sc, pos, name), type(sc, pos, name),
-          param_types{argst}, current{param_types.begin()}
-        {}
-
-    void
-    add_parameter(parameter const&);
-
-//    qname
-//    get_qualified_name() const override;
-private:
-    template_param_types const&           param_types;
-    template_param_types::const_iterator  current;
-    parameters                            params;
-};
-
+class parametrized_type;
 using parametrized_type_ptr = shared_entity< parametrized_type >;
 
 //----------------------------------------------------------------------------
@@ -371,6 +409,10 @@ class templated_type : public type {
 public:
     parametrized_type_ptr
     create_parametrized_type(scope_ptr sc, ::std::size_t pos) const;
+
+    template_param_types const&
+    formal_parameters() const
+    { return params; }
 protected:
     templated_type(::std::string const& name, template_param_types&& args)
         : entity(name), type(name), params{ ::std::move(args) }
@@ -379,6 +421,39 @@ protected:
     template_param_types params;
 };
 using templated_type_ptr = shared_entity< templated_type >;
+using templated_type_const_ptr = const_shared_entity< templated_type >;
+
+
+//----------------------------------------------------------------------------
+class parametrized_type : public type {
+public:
+    using parameter = ::boost::variant< type_ptr, ::std::string >;
+    using parameters = ::std::vector< parameter >;
+public:
+    void
+    add_parameter(parameter const&);
+
+    void
+    collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
+
+    parameters const&
+    params()
+    { return params_; }
+private:
+    friend parametrized_type_ptr
+    templated_type::create_parametrized_type(scope_ptr sc, ::std::size_t pos) const;
+
+    parametrized_type(scope_ptr sc, ::std::size_t pos, ::std::string const& name,
+            templated_type_const_ptr tmpl)
+        : entity(sc, pos, name), type(sc, pos, name),
+          tmpl_type(tmpl),
+          current{tmpl_type->formal_parameters().begin()}
+        {}
+private:
+    templated_type_const_ptr                tmpl_type;
+    template_param_types::const_iterator    current;
+    parameters                              params_;
+};
 
 //----------------------------------------------------------------------------
 /**
@@ -388,6 +463,21 @@ class constant : public entity {
 public:
     constant( scope_ptr sc, ::std::size_t pos, ::std::string const& name,
             type_ptr t, grammar::data_initializer const&);
+    void
+    collect_dependencies(entity_const_set& deps, entity_predicate pred) const override
+    {
+        if (pred(type_))
+            deps.insert(type_);
+        type_->collect_dependencies(deps, pred);
+    }
+
+    type_ptr
+    get_type() const
+    { return type_; }
+
+    grammar::data_initializer
+    get_init() const
+    { return init_; }
 private:
     type_ptr                    type_;
     grammar::data_initializer   init_;
@@ -404,6 +494,18 @@ class variable : public entity {
 public:
     variable(scope_ptr sc, ::std::size_t pos, ::std::string const& name, type_ptr t)
         : entity(sc, pos, name), type_(t) {/*TODO Check type is not void*/}
+
+    void
+    collect_dependencies(entity_const_set& deps, entity_predicate pred) const override
+    {
+        if (pred(type_))
+            deps.insert(type_);
+        type_->collect_dependencies(deps, pred);
+    }
+
+    type_ptr
+    get_type() const
+    { return type_; }
 private:
     type_ptr type_;
 };
@@ -432,6 +534,9 @@ public:
     bool
     is_const() const
     { return is_const_; }
+
+    void
+    collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
 private:
     type_ptr         ret_type_;
     function_params  parameters_;
@@ -530,7 +635,7 @@ public:
      * @return
      */
     type_list const&
-    types() const
+    get_types() const
     { return types_; }
 
     constant_ptr
@@ -541,8 +646,13 @@ public:
      * @return
      */
     constant_list const&
-    constants() const
+    get_constants() const
     { return constants_; }
+
+    void
+    collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
+    void
+    collect_elements(entity_const_set& elems, entity_predicate pred) const override;
 protected:
     scope() : entity() {}
     /**
@@ -779,6 +889,14 @@ public:
     void
     add_enumerator(::std::size_t pos, ::std::string const& name,
         optional_value = optional_value{});
+
+    bool
+    constrained() const
+    { return constrained_; }
+
+    enumerator_list const&
+    get_enumerators() const
+    { return enumerators_; }
 private:
     bool            constrained_;
     enumerator_list enumerators_;
@@ -797,8 +915,17 @@ public:
 
     variable_ptr
     add_data_member(::std::size_t pos, ::std::string const& name, type_ptr t );
+
+    variable_list const&
+    get_data_members() const
+
+    { return data_members_; }
     variable_ptr
     find_member( ::std::string const& name) const;
+    void
+    collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
+    void
+    collect_elements(entity_const_set& elems, entity_predicate pred) const override;
 protected:
     entity_ptr
     local_entity_search(qname_search const& search) const override;
@@ -827,6 +954,11 @@ public:
         exception_list const& t_spec = exception_list{});
     function_ptr
     find_function(::std::string const& name) const;
+
+    void
+    collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
+    void
+    collect_elements(entity_const_set& elems, entity_predicate pred) const override;
 protected:
     entity_ptr
     ancestors_entity_search(qname_search const& search) const;
@@ -849,6 +981,8 @@ protected:
 class reference : public type {
 public:
     reference(type_ptr iface);
+    void
+    collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
 };
 
 //----------------------------------------------------------------------------
@@ -857,11 +991,12 @@ public:
  */
 class class_;
 using class_ptr = shared_entity<class_>;
+using class_const_ptr = const_shared_entity< class_ >;
 
 class class_ : public structure, public interface {
 public:
     class_(scope_ptr sc, ::std::size_t pos, ::std::string const& name,
-            class_ptr parent = class_ptr{},
+            class_const_ptr parent = class_const_ptr{},
             interface_list const& implements = interface_list{})
         : entity(sc, pos, name),
           type(sc, pos, name),
@@ -870,13 +1005,17 @@ public:
           interface(sc, pos, name, implements),
           parent_(parent)
     {}
+    void
+    collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
+    void
+    collect_elements(entity_const_set& elems, entity_predicate pred) const override;
 private:
     entity_ptr
     local_entity_search(qname_search const& search) const override;
     type_ptr
     local_type_search(qname_search const& search) const override;
 private:
-    class_ptr parent_;
+    class_const_ptr parent_;
 };
 
 //----------------------------------------------------------------------------
@@ -886,20 +1025,22 @@ private:
 class exception : public structure {
 public:
     exception(scope_ptr sc, ::std::size_t pos, ::std::string const& name,
-            exception_ptr parent = exception_ptr{})
+            exception_const_ptr parent = exception_const_ptr{})
         : entity(sc, pos, name),
           type(sc, pos, name),
           scope(sc, pos, name),
           structure(sc, pos, name),
           parent_(parent)
     {}
+    void
+    collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
 private:
     entity_ptr
     local_entity_search(qname_search const& search) const override;
     type_ptr
     local_type_search(qname_search const& search) const override;
 private:
-    exception_ptr parent_;
+    exception_const_ptr parent_;
 };
 
 //----------------------------------------------------------------------------
@@ -913,6 +1054,18 @@ dynamic_entity_cast(::std::shared_ptr< U > const& e)
         "Cast should be used for idl::ast::entity objects only");
 
     return ::std::dynamic_pointer_cast<T>(e);
+}
+
+template < typename T, typename U >
+const_shared_entity< T >
+dynamic_entity_cast(::std::shared_ptr< U const > const& e)
+{
+    static_assert(::std::is_base_of< entity, U >::value,
+        "Cast should be used for idl::ast::entity objects only");
+    static_assert(::std::is_base_of< entity, T >::value,
+        "Cast should be used for idl::ast::entity objects only");
+
+    return ::std::dynamic_pointer_cast<T const>(e);
 }
 
 template < typename T  >
