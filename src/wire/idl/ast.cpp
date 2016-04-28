@@ -410,14 +410,14 @@ scope::find_type(type_name const& tn, ::std::size_t pos) const
     if (tn.is_reference) {
         interface_ptr iface = dynamic_type_cast< interface >(t);
         if (!iface) {
-//            forward_declaration_ptr fwd = dynamic_type_cast< forward_declaration >(t);
-//            if (!(fwd && fwd->kind() == forward_declaration::interface)) {
+            forward_declaration_ptr fwd = dynamic_type_cast< forward_declaration >(t);
+            if (!(fwd && fwd->kind() == forward_declaration::interface)) {
                 ::std::ostringstream os;
                 os << "Cannot create a proxy to a non-interface type " << t->get_type_name();
                 throw grammar_error{os.str()};
-//            }
+            }
         }
-        t = ::std::make_shared< reference >(iface);
+        t = ::std::make_shared< reference >(t);
     }
     return t;
 }
