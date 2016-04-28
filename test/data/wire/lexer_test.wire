@@ -31,6 +31,13 @@ strings const lipsum = {
     "Lorem", "\\ipsum \"dolor\"", "dolor", "sit", "amet"
 };
 
+using lines = sequence < strings >;
+lines const lipsum2 = {
+    { "Lorem ipsum dolor sit amet", "consectetur adipiscing elit" },
+    { "sed do eiusmod tempor incididunt ut labore et dolore magna aliqua" },
+    { "Ut enim ad minim veniam" }
+};
+
 interface some_service;
 
 exception something_bad {

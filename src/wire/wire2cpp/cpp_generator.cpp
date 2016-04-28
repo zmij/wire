@@ -346,15 +346,25 @@ generator::write_init(::std::ostream& os, grammar::data_initializer const& init)
             break;
         }
         case 1: {
-            os << "{";
             grammar::data_initializer::initializer_list const& list =
                     ::boost::get<grammar::data_initializer::initializer_list>(init.value);
-            for (auto p = list.begin(); p != list.end(); ++p) {
-                if (p != list.begin())
-                    os << ", ";
-                write_init(os, *(*p));
+            if (list.size() < 3) {
+                os << "{";
+                for (auto p = list.begin(); p != list.end(); ++p) {
+                    if (p != list.begin())
+                        os << ", ";
+                    write_init(os, *(*p));
+                }
+                os << "}";
+            } else {
+                os << "{\n" << ++h_off_;
+                for (auto p = list.begin(); p != list.end(); ++p) {
+                    if (p != list.begin())
+                        os << ",\n" << h_off_;
+                    write_init(os, *(*p));
+                }
+                os << "\n" << --h_off_ << "}";
             }
-            os << "}";
             break;
         }
     }
