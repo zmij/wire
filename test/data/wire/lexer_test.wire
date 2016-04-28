@@ -33,6 +33,7 @@ interface some_service;
 
 exception something_bad {
     string message;
+    some_service* help;
 };
 
 exception something_very_bad : something_bad {

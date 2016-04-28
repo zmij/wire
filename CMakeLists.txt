@@ -31,6 +31,7 @@ set(
     system
     thread
     program_options
+    filesystem
 )
 set(BOOST_VERSION 1.58) # We want endian library.
 

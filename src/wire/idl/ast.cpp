@@ -205,7 +205,7 @@ type::is_built_in(qname const& qn)
 //    forward_declaration class implementation
 //----------------------------------------------------------------------------
 
-forward_declaration::forward_type
+forward_declaration::forward_kind
 forward_declaration::parse_forward_type(::std::string const& what)
 {
     if (what == "struct")
@@ -240,6 +240,16 @@ forward_declaration::is_resolved() const
         }
     }
     return resolved_.get();
+}
+
+type_ptr
+forward_declaration::forwarded_type() const
+{
+    if (!is_resolved()) {
+        // create a dummy
+
+    }
+    return resolved_;
 }
 
 bool
@@ -400,9 +410,12 @@ scope::find_type(type_name const& tn, ::std::size_t pos) const
     if (tn.is_reference) {
         interface_ptr iface = dynamic_type_cast< interface >(t);
         if (!iface) {
-            ::std::ostringstream os;
-            os << "Cannot create a proxy to a non-interface type " << t->get_type_name();
-            throw grammar_error{os.str()};
+//            forward_declaration_ptr fwd = dynamic_type_cast< forward_declaration >(t);
+//            if (!(fwd && fwd->kind() == forward_declaration::interface)) {
+                ::std::ostringstream os;
+                os << "Cannot create a proxy to a non-interface type " << t->get_type_name();
+                throw grammar_error{os.str()};
+//            }
         }
         t = ::std::make_shared< reference >(iface);
     }
@@ -787,6 +800,16 @@ interface::local_type_search(qname_search const& search) const
     }
     return t;
 }
+
+//----------------------------------------------------------------------------
+//    reference class implementation
+//----------------------------------------------------------------------------
+reference::reference(type_ptr iface)
+    : entity(iface->owner(), 0, iface->name()),
+      type(iface->owner(), 0, iface->name())
+{
+}
+
 
 //----------------------------------------------------------------------------
 //    class class implementation

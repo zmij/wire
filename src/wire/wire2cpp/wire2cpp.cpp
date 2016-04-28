@@ -13,6 +13,8 @@
 #include <wire/idl/lexer.hpp>
 #include <wire/idl/parser.hpp>
 
+#include <wire/wire2cpp/cpp_generator.hpp>
+
 #include <iterator>
 #include <algorithm>
 
@@ -44,8 +46,9 @@ try {
     using input_stream_iterator = ::std::istream_iterator<char>;
     using output_stream_iterator = ::std::ostream_iterator<char>;
 
-    wire::idl::preprocess_options   preproc_opts;
-    wire::cpp::options              options;
+    wire::idl::preprocess_options       preproc_opts;
+    wire::cpp::options                  options;
+    wire::idl::cpp::generate_options    gen_options;
 
     po::options_description gen_opts_desc{"General options"};
     gen_opts_desc.add_options()
@@ -65,12 +68,15 @@ try {
     ;
     po::options_description out_opts_desc{"Output options"};
     out_opts_desc.add_options()
-        ("header-output-dir",
+        ("header-output-dir,o",
+            po::value< ::std::string >(&gen_options.header_output_dir),
             "Directory to place generated headers")
-        ("header-include-root",
-            "Root path of include files, for calculating a relative path for inclusion")
-        ("cpp-output-dir",
+        ("cpp-output-dir,c",
+            po::value< ::std::string >(&gen_options.source_output_dir),
             "Directory to place generated source files")
+        ("header-include-root,i",
+            po::value< ::std::string >(&gen_options.header_include_dir),
+            "Root path of include files, for calculating a relative path for inclusion")
     ;
 
     po::options_description generate_opts_desc{"Generate options"};
@@ -134,13 +140,8 @@ try {
             parser::parser p{ input_str };
 
             auto ns = p.parse();
-            ast::compilation_unit_ptr cmp_unit = ns->current_compilation_unit();
 
-            ::std::cerr << "Will generate declarations for the following:\n"
-                << cmp_unit->name << "\n";
-            for (auto const& e : cmp_unit->entities) {
-                ::std::cerr << "\t" << e->get_qualified_name() << "\n";
-            }
+            wire::idl::cpp::generator gen(gen_options, ns);
         }
     }
 

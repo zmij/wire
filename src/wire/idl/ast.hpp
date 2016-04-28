@@ -267,7 +267,7 @@ using type_list = ::std::vector< type_ptr >;
 //----------------------------------------------------------------------------
 class forward_declaration : public type {
 public:
-    enum forward_type {
+    enum forward_kind {
         unknown,
         structure,
         interface,
@@ -287,13 +287,20 @@ public:
         resolved_ = t;
     }
 
+    type_ptr
+    forwarded_type() const;
+
     bool
     is_compatible(entity_ptr en) const;
 
-    static forward_type
+    forward_kind
+    kind() const
+    { return fw_; }
+
+    static forward_kind
     parse_forward_type(::std::string const& what);
 private:
-    forward_type        fw_;
+    forward_kind        fw_;
     mutable type_ptr    resolved_;
 };
 
@@ -841,9 +848,7 @@ protected:
  */
 class reference : public type {
 public:
-    reference(interface_ptr iface)
-        : entity(iface->owner(), 0, iface->name()),
-          type(iface->owner(), 0, iface->name()) {}
+    reference(type_ptr iface);
 };
 
 //----------------------------------------------------------------------------
