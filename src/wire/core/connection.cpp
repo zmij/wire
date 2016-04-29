@@ -294,8 +294,15 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
                     }
                     break;
             }
-        } // else discard the reply (it can be timed out)
+        } else {
+            // else discard the reply (it can be timed out)
+            ::std::cerr << "No waiting callback for reply\n";
+        }
+    } catch (::std::exception const& e) {
+        ::std::cerr << "Exception when reading reply:" << e.what() << "\n";
+        process_event(events::connection_failure{ std::current_exception() });
     } catch (...) {
+        ::std::cerr << "Exception when reading reply\n";
         process_event(events::connection_failure{ std::current_exception() });
     }
 }

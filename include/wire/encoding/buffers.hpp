@@ -12,7 +12,6 @@
 #include <wire/encoding/wire_io.hpp>
 #include <wire/encoding/message.hpp>
 #include <wire/encoding/detail/buffer_iterator.hpp>
-#include <wire/encoding/detail/encaps.hpp>
 
 #include <memory>
 #include <iterator>
@@ -213,7 +212,7 @@ public:
     /** Constant reverse input iterator */
     using const_reverse_iterator    = detail::buffer_sequence::const_reverse_iterator;
 
-    using encapsulation_type        = detail::incoming_encaps;
+    using encapsulation_type        = detail::buffer_sequence::in_encaps;
     using encaps_guard              = detail::encaps_guard<encapsulation_type>;
 public:
     incoming(message const&);
@@ -304,7 +303,6 @@ public:
     current_encapsulation();
     //@}
 private:
-    friend class detail::incoming_encaps;
     void
     create_pimpl(message const&);
 

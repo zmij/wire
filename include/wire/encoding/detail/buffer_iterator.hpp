@@ -15,6 +15,7 @@
 #include <deque>
 #include <wire/version.hpp>
 #include <wire/encoding/message.hpp>
+#include <wire/errors/exceptions.hpp>
 
 namespace wire {
 namespace encoding {
@@ -190,7 +191,7 @@ struct buffer_sequence {
     /** @name Encapsulations */
     struct out_encaps_state {
         using type_map = ::std::map< ::std::string, ::std::size_t >;
-        buffer_sequence*    out_;
+        buffer_sequence*    seq_;
         size_type           size_before_;
         size_type           buffer_before_;
         version             encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
@@ -204,24 +205,66 @@ struct buffer_sequence {
         size_type
         size() const
         {
-            if (!out_)
+            if (!seq_)
                 return 0;
-            return out_->size() - size_before_;
+            return seq_->size() - size_before_;
         }
 
         bool
         empty() const
         {
-            if (!out_)
+            if (!seq_)
                 return true;
-            return out_->size() == size_before_;
+            return seq_->size() == size_before_;
         }
 
         void
         write_type_name(::std::string const& name);
     };
+    struct in_encaps_state {
+        using type_map = ::std::vector< ::std::string >;
+        buffer_sequence*    seq_;
+        version             encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
+        size_type           size_ = 0;
+
+        const_iterator      begin_;
+        const_iterator      end_;
+
+        type_map            type_map_;
+
+        in_encaps_state(buffer_sequence* seq, const_iterator beg);
+
+        size_type
+        size() const
+        { return size_; }
+
+        bool
+        empty() const
+        { return begin_ == end_; }
+
+        template < typename InputIterator >
+        void
+        read_type_name(InputIterator& iter, ::std::string& name)
+        {
+            ::std::size_t type_idx;
+            read(iter, end_, type_idx);
+            if (type_idx == 0) {
+                read(iter, end_, name);
+                type_map_.push_back(name);
+            } else {
+                if (type_idx > type_map_.size()) {
+                    throw errors::unmarshal_error("Invalid type index in encapsulation");
+                }
+                name = type_map_[ type_idx - 1 ];
+            }
+        }
+
+    };
     using out_encapsulation_stack = ::std::deque<out_encaps_state>;
     using out_encaps_iterator = out_encapsulation_stack::iterator;
+
+    using in_encapsulation_stack = ::std::deque< in_encaps_state >;
+    using in_encaps_iterator = in_encapsulation_stack::iterator;
 
     class out_encaps;
     class in_encaps;
@@ -373,10 +416,12 @@ struct buffer_sequence {
     out_encaps
     begin_out_encapsulation();
     out_encaps
-    current_out_encapsulation();
+    current_out_encapsulation() const;
 
-    void
-    end_out_encaps(out_encaps_iterator iter);
+    in_encaps
+    begin_in_encapsulation(const_iterator);
+    in_encaps
+    current_in_encapsulation() const;
     //@}
 private:
     friend class buffer_iterator<buffer_sequence, pointer>;
@@ -413,36 +458,125 @@ protected:
     begin_out_encaps();
     out_encaps_iterator
     current_out_encaps();
+    void
+    end_out_encaps(out_encaps_iterator iter);
+
+    in_encaps_iterator
+    begin_in_encaps(const_iterator beg);
+    in_encaps_iterator
+    current_in_encaps();
+    void
+    end_in_encaps(in_encaps_iterator iter);
 protected:
     buffer_sequence_type        buffers_;
     out_encapsulation_stack     out_encaps_stack_;
+    in_encapsulation_stack      in_encaps_stack_;
 };
 
+//----------------------------------------------------------------------------
 class buffer_sequence::out_encaps {
 public:
     out_encaps(out_encaps const&) = default;
     out_encaps(out_encaps&&) = default;
 
     bool
-    empty() const;
+    empty() const
+    { return iter_->empty(); }
     size_type
-    size() const;
+    size() const
+    { return iter_->size(); }
 
     void
-    end_encaps();
+    end_encaps()
+    { seq_->end_out_encaps(iter_); }
 
     void
-    write_type_name(::std::string const& name);
+    write_type_name(::std::string const& name)
+    { iter_->write_type_name(name); }
 private:
     friend class buffer_sequence;
-    out_encaps(buffer_sequence* );
+    out_encaps(buffer_sequence* seq)
+        : seq_(seq), iter_(seq->current_out_encaps()) {}
 private:
     buffer_sequence*    seq_;
     out_encaps_iterator iter_;
 };
 
+//----------------------------------------------------------------------------
 class buffer_sequence::in_encaps {
+public:
+    in_encaps(in_encaps const&) = default;
+    in_encaps(in_encaps&&) = default;
 
+    bool
+    empty() const
+    { return iter_->empty(); }
+    size_type
+    size() const
+    { return iter_->size(); }
+
+    void
+    end_encaps()
+    { seq_->end_in_encaps(iter_); }
+
+    template < typename InputIterator >
+    void
+    read_type_name(InputIterator& beg, ::std::string& name)
+    {
+        iter_->read_type_name(beg, name);
+    }
+
+    const_iterator
+    begin() const
+    { return iter_->begin_; }
+    const_iterator
+    end() const
+    { return iter_->end_; }
+
+    version const&
+    encoding_version() const
+    { return iter_->encoding_version; }
+private:
+    friend class buffer_sequence;
+    in_encaps(buffer_sequence* seq)
+        : seq_{seq}, iter_{seq->current_in_encaps()} {}
+private:
+    buffer_sequence*    seq_;
+    in_encaps_iterator  iter_;
+};
+
+template< typename EncapsType >
+class encaps_guard {
+public:
+    using encaps_type = EncapsType;
+public:
+    explicit
+    encaps_guard(encaps_type const& e) : encaps_{e} {}
+    ~encaps_guard() { encaps_.end_encaps(); }
+
+    encaps_type&
+    encaps()
+    { return encaps_; }
+
+    encaps_type const&
+    encaps() const
+    { return encaps_; }
+
+    ::std::size_t
+    size() const
+    { return encaps_.size(); }
+    bool
+    empty() const
+    { return encaps_.empty(); }
+private:
+    encaps_guard(encaps_guard const&) = delete;
+    encaps_guard(encaps_guard&&) = delete;
+    encaps_guard&
+    operator = (encaps_guard const&) = delete;
+    encaps_guard&
+    operator = (encaps_guard&&) = delete;
+private:
+    encaps_type encaps_;
 };
 
 }  // namespace detail

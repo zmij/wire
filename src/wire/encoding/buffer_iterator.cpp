@@ -370,8 +370,30 @@ buffer_sequence::out_encaps_iterator
 buffer_sequence::current_out_encaps()
 {
     if (out_encaps_stack_.empty())
-        throw errors::marshal_error("There is no current encapsulation");
+        throw errors::marshal_error("There is no current outgoing encapsulation");
     return --out_encaps_stack_.end();
+}
+
+buffer_sequence::in_encaps_iterator
+buffer_sequence::begin_in_encaps(const_iterator beg)
+{
+    in_encaps_stack_.emplace_back(this, beg);
+    return --in_encaps_stack_.end();
+}
+
+void
+buffer_sequence::end_in_encaps(in_encaps_iterator iter)
+{
+    if (in_encaps_stack_.end() == ++iter)
+        in_encaps_stack_.pop_back();
+}
+
+buffer_sequence::in_encaps_iterator
+buffer_sequence::current_in_encaps()
+{
+    if (in_encaps_stack_.empty())
+        throw errors::marshal_error("There is no current incoming encapsulation");
+    return --in_encaps_stack_.end();
 }
 
 buffer_sequence::out_encaps
@@ -382,32 +404,44 @@ buffer_sequence::begin_out_encapsulation()
 }
 
 buffer_sequence::out_encaps
-buffer_sequence::current_out_encapsulation()
+buffer_sequence::current_out_encapsulation() const
 {
-    return out_encaps{this};
+    return out_encaps{const_cast<buffer_sequence*>(this)};
 }
 
+buffer_sequence::in_encaps
+buffer_sequence::begin_in_encapsulation(const_iterator beg)
+{
+    begin_in_encaps(beg);
+    return in_encaps{this};
+}
+
+buffer_sequence::in_encaps
+buffer_sequence::current_in_encapsulation() const
+{
+    return in_encaps{const_cast<buffer_sequence*>(this)};
+}
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 buffer_sequence::out_encaps_state::out_encaps_state(buffer_sequence* out)
-    : out_{out},
-      size_before_{out_->size()},
-      buffer_before_{ out_->buffers_size()  - 1 }
+    : seq_{out},
+      size_before_{seq_->size()},
+      buffer_before_{ seq_->buffers_size()  - 1 }
 {
 }
 
 buffer_sequence::out_encaps_state::out_encaps_state(out_encaps_state&& rhs)
-    : out_{rhs.out_},
+    : seq_{rhs.seq_},
       size_before_{rhs.size_before_},
       buffer_before_{ rhs.buffer_before_ }
 {
-    rhs.out_ = nullptr;
+    rhs.seq_ = nullptr;
 }
 
 buffer_sequence::out_encaps_state::~out_encaps_state()
 {
-    if (out_) {
-        buffer_type& buff = out_->buffer_at(buffer_before_);
+    if (seq_) {
+        buffer_type& buff = seq_->buffer_at(buffer_before_);
         write(::std::back_inserter(buff), encoding_version, size());
     }
 }
@@ -416,7 +450,7 @@ void
 buffer_sequence::out_encaps_state::write_type_name(::std::string const& name)
 {
     auto f = types_.find(name);
-    auto& b = out_->back_buffer();
+    auto& b = seq_->back_buffer();
     auto o = ::std::back_inserter(b);
     if (f == types_.end()) {
         types_.insert(::std::make_pair(name, types_.size() + 1));
@@ -427,34 +461,12 @@ buffer_sequence::out_encaps_state::write_type_name(::std::string const& name)
 }
 
 //----------------------------------------------------------------------------
-//----------------------------------------------------------------------------
-buffer_sequence::out_encaps::out_encaps(buffer_sequence* seq)
-    : seq_(seq), iter_(seq->current_out_encaps())
+buffer_sequence::in_encaps_state::in_encaps_state(buffer_sequence* seq, const_iterator beg)
+    : seq_{seq}, begin_{beg}
 {
-}
-
-bool
-buffer_sequence::out_encaps::empty() const
-{
-    return iter_->empty();
-}
-
-buffer_sequence::size_type
-buffer_sequence::out_encaps::size() const
-{
-    return iter_->size();
-}
-
-void
-buffer_sequence::out_encaps::end_encaps()
-{
-    seq_->end_out_encaps(iter_);
-}
-
-void
-buffer_sequence::out_encaps::write_type_name(::std::string const& name)
-{
-    iter_->write_type_name(name);
+    end_ = seq_->end();
+    read(begin_, end_, encoding_version, size_);
+    end_ = begin_ + size_;
 }
 
 }  // namespace detail

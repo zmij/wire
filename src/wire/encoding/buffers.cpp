@@ -232,61 +232,9 @@ outgoing::current_encapsulation()
 //    incoming implementation
 //----------------------------------------------------------------------------
 struct incoming::impl : detail::buffer_sequence {
-    struct encaps_state {
-        using type_map = ::std::vector< ::std::string >;
-        incoming*       in;
-        version         encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
-        size_type       size_ = 0;
-
-        const_iterator  begin_;
-        const_iterator  end_;
-
-        type_map        type_map_;
-
-        encaps_state(incoming* in, const_iterator b)
-            : in(in), begin_(b)
-        {
-            end_ = in->end();
-            read(begin_, end_, encoding_version, size_);
-            // TODO Check correct encoding version
-            end_ = begin_ + size_;
-        }
-
-        size_type
-        size() const
-        {
-            return size_;
-        }
-
-        bool
-        empty() const
-        {
-            return begin_ == end_;
-        }
-
-        void
-        read_type_name(const_iterator& iter, ::std::string& name)
-        {
-            ::std::size_t type_idx;
-            read(iter, end_, type_idx);
-            if (type_idx == 0) {
-                // String type name follows
-                read(iter, end_, name);
-                type_map_.push_back(name);
-            } else {
-                if (type_idx > type_map_.size()) {
-                    throw errors::unmarshal_error("Invalid type index in encapsulation");
-                }
-                name = type_map_[ type_idx - 1 ];
-            }
-        }
-    };
-    using encapsulation_stack = std::list< encaps_state >;
-    using encaps_iterator = encapsulation_stack::iterator;
 
     incoming*                   container_;
     encoding::message           message_;
-    encapsulation_stack         encapsulations_;
 
     impl(incoming* in, message const& m)
         : container_{in},
@@ -334,29 +282,6 @@ struct incoming::impl : detail::buffer_sequence {
     complete()
     {
         return message_.size <= size();
-    }
-
-    encaps_iterator
-    begin_encaps(const_iterator iter)
-    {
-        encapsulations_.emplace_back(container_, iter);
-        return --encapsulations_.end();
-    }
-
-    void
-    end_encaps(encaps_iterator iter)
-    {
-        if (encapsulations_.end() == ++iter) {
-            encapsulations_.pop_back();
-        }
-    }
-
-    encaps_iterator
-    current_encaps()
-    {
-        if (encapsulations_.empty())
-            throw errors::unmarshal_error("No current encapsulation");
-        return --encapsulations_.end();
     }
 };
 
@@ -486,135 +411,14 @@ incoming::crend() const
 incoming::encapsulation_type
 incoming::begin_encapsulation(const_iterator b)
 {
-    pimpl_->begin_encaps(b);
-    return encapsulation_type{ this };
+    return pimpl_->begin_in_encapsulation(b);
 }
 
 incoming::encapsulation_type
 incoming::current_encapsulation()
 {
-    return encapsulation_type{ this };
+    return pimpl_->current_in_encapsulation();
 }
-
-//----------------------------------------------------------------------------
-//  incoming encaps implementation
-//----------------------------------------------------------------------------
-namespace detail {
-
-struct incoming_encaps::impl {
-    using encaps_state = incoming::impl::encaps_state;
-    using encaps_iter = incoming::impl::encaps_iterator;
-
-    incoming*   in_;
-    encaps_iter encaps_iter_;
-
-    impl(incoming* in)
-        : in_{in},
-          encaps_iter_{in_ ? in_->pimpl_->current_encaps() : encaps_iter{}}
-    {
-    }
-
-    incoming::size_type
-    size() const
-    {
-        return in_ ? encaps_iter_->size() : 0;
-    }
-
-    bool
-    empty() const
-    {
-        return in_ ? encaps_iter_->empty() : 0;
-    }
-
-    void
-    end_encaps()
-    {
-        if (in_) {
-            in_->pimpl_->end_encaps(encaps_iter_);
-        }
-    }
-
-    const_iterator
-    cbegin()
-    {
-        if (in_) {
-            return encaps_iter_->begin_;
-        }
-        return const_iterator{};
-    }
-
-    const_iterator
-    cend()
-    {
-        if (in_) {
-            return encaps_iter_->end_;
-        }
-        return const_iterator{};
-    }
-
-    version const&
-    ver()
-    {
-        if (in_) {
-            return encaps_iter_->encoding_version;
-        }
-        throw errors::unmarshal_error("Invalid encapsulation");
-    }
-};
-
-incoming_encaps::incoming_encaps(incoming* in)
-    : pimpl_{ ::std::make_shared< impl >(in)}
-{
-}
-
-incoming_encaps::incoming_encaps(incoming_encaps const& rhs)
-    : pimpl_{ rhs.pimpl_ }
-{
-}
-
-incoming_encaps::incoming_encaps(incoming_encaps&& rhs)
-    : pimpl_{ ::std::move(rhs.pimpl_) }
-{
-    rhs.pimpl_.reset();
-}
-
-::std::size_t
-incoming_encaps::size() const
-{
-    return pimpl_->size();
-}
-
-bool
-incoming_encaps::empty() const
-{
-    return pimpl_->empty();
-}
-
-void
-incoming_encaps::end_encaps()
-{
-    pimpl_->end_encaps();
-}
-
-incoming_encaps::const_iterator
-incoming_encaps::begin() const
-{
-    return pimpl_->cbegin();
-}
-
-incoming_encaps::const_iterator
-incoming_encaps::end() const
-{
-    return pimpl_->cend();
-}
-
-version const&
-incoming_encaps::encoding_version() const
-{
-    return pimpl_->ver();
-}
-
-}  /* namespace detail */
 
 }  // namespace encoding
 }  // namespace wire
