@@ -51,7 +51,7 @@ public:
     /** Constant reverse input iterator */
     using const_reverse_iterator    = detail::buffer_sequence::const_reverse_iterator;
 
-    using encapsulation_type        = detail::outgoing_encaps;
+    using encapsulation_type        = detail::buffer_sequence::out_encaps;
     using encaps_guard              = detail::encaps_guard<encapsulation_type>;
 public:
     outgoing();
@@ -170,8 +170,6 @@ public:
     encapsulation_type
     current_encapsulation();
     //@}
-private:
-    friend class detail::outgoing_encaps;
 private:
     struct impl;
     using pimpl = ::std::shared_ptr<impl>;

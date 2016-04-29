@@ -18,121 +18,33 @@ namespace wire {
 namespace encoding {
 
 struct outgoing::impl : detail::buffer_sequence {
-    struct encaps_state {
-        using type_map = ::std::map< ::std::string, ::std::size_t >;
-        outgoing*   out_;
-        size_type   size_before_;
-        size_type   buffer_before_;
-        version     encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
-
-        type_map    types_;
-
-        encaps_state(outgoing* o)
-            : out_(o),
-              size_before_(out_ ? out_->size() : 0),
-              buffer_before_(out_ ? out_->pimpl_->buffers_size() - 1 : 0)
-        {
-        }
-        encaps_state(encaps_state const& rhs)
-            : out_(rhs.out_),
-              size_before_(rhs.size_before_),
-              buffer_before_(rhs.buffer_before_)
-        {
-        }
-        encaps_state(encaps_state&& rhs)
-            : out_(rhs.out_),
-              size_before_(rhs.size_before_),
-              buffer_before_(rhs.buffer_before_)
-        {
-            rhs.out_ = nullptr;
-        }
-        ~encaps_state()
-        {
-            if (out_) {
-                size_type sz = size();
-                buffer_type& b = out_->pimpl_->buffer_at(buffer_before_);
-                auto o = ::std::back_inserter(b);
-                write(o, encoding_version);
-                write(o, sz);
-            }
-        }
-
-        size_type
-        size() const
-        {
-            if (!out_)
-                return 0;
-            return out_->size() - size_before_;
-        }
-
-        bool
-        empty() const
-        {
-            if (!out_)
-                return true;
-            return out_->size() == size_before_;
-        }
-
-        void
-        write_type_name(::std::string const& name)
-        {
-            auto f = types_.find(name);
-            auto& b = out_->pimpl_->back_buffer();
-            auto o = ::std::back_inserter(b);
-            if (f == types_.end()) {
-                types_.insert(::std::make_pair(name, types_.size() + 1));
-                write(o, (::std::size_t)0, name);
-            } else {
-                write(o, f->second);
-            }
-        }
-    };
-    using encapsulation_stack = std::list< encaps_state >;
-    using encaps_iterator = encapsulation_stack::iterator;
-
     buffer_type                header_;
     outgoing*                  container_;
     message::message_flags     flags_;
-    encapsulation_stack        encapsulations_;
 
     impl(outgoing* out)
         : buffer_sequence{1},
           container_(out),
-          flags_(message::request),
-          encapsulations_({encaps_state{ nullptr }})
+          flags_(message::request)
     {
     }
     impl(outgoing* out, message::message_flags flags)
         : buffer_sequence{1},
           container_(out),
-          flags_(flags),
-          encapsulations_({encaps_state{ nullptr }})
+          flags_(flags)
     {
     }
     impl(impl const& rhs)
         : buffer_sequence(rhs),
           container_(rhs.container_),
-          flags_(rhs.flags_),
-          encapsulations_(rhs.encapsulations_)
+          flags_(rhs.flags_)
     {
     }
     impl(outgoing* out, impl const& rhs)
         : buffer_sequence(rhs),
           container_(out),
-          flags_(rhs.flags_),
-          encapsulations_({encaps_state{ nullptr }})
+          flags_(rhs.flags_)
     {
-        auto start = rhs.encapsulations_.begin();
-        std::transform(
-            ++start, rhs.encapsulations_.end(),
-            std::back_inserter(encapsulations_),
-            [this](encaps_state const& encaps)
-            {
-                encaps_state tmp{encaps};
-                tmp.out_ = container_;
-                return std::move(tmp);
-            }
-        );
     }
 
     buffer_type&
@@ -159,53 +71,17 @@ struct outgoing::impl : detail::buffer_sequence {
         return std::move(buffs);
     }
 
-    buffer_type&
-    back_buffer()
-    {
-        return buffers_.back();
-    }
-
-    void
-    start_buffer()
-    {
-        buffers_.push_back({});
-    }
-
-    encaps_iterator
-    begin_encaps()
-    {
-        encapsulations_.emplace_back(container_);
-        start_buffer();
-        return --encapsulations_.end();
-    }
-    void
-    end_encaps(encaps_iterator iter)
-    {
-        if (encapsulations_.end() == ++iter) {
-            encapsulations_.pop_back();
-        }
-        start_buffer();
-    }
-
-    encaps_iterator
-    current_encaps()
-    {
-        if (encapsulations_.empty())
-            throw errors::marshal_error("No current encapsulation");
-        return --encapsulations_.end();
-    }
-
     void
     insert_encaps(outgoing&& encaps)
     {
-        encapsulations_.emplace_back(container_);
+        auto iter = begin_out_encaps();
         buffer_sequence_type buffers = std::move(encaps.pimpl_->buffers_);
         for( auto p = buffers.begin(); p != buffers.end(); ++p) {
             if (p->size() > 0) {
                 buffers_.push_back( std::move(*p) );
             }
         }
-        encapsulations_.pop_back();
+        end_out_encaps(iter);
         start_buffer();
     }
 };
@@ -340,94 +216,17 @@ outgoing::insert_encapsulation(outgoing&& encaps)
     pimpl_->insert_encaps(std::move(encaps));
 }
 
-detail::outgoing_encaps
+outgoing::encapsulation_type
 outgoing::begin_encapsulation()
 {
-    pimpl_->begin_encaps();
-    return detail::outgoing_encaps{this};
+    return pimpl_->begin_out_encapsulation();
 }
 
-detail::outgoing_encaps
+outgoing::encapsulation_type
 outgoing::current_encapsulation()
 {
-    return detail::outgoing_encaps{this};
+    return pimpl_->current_out_encapsulation();
 }
-
-//----------------------------------------------------------------------------
-//  outgoing encaps implementation
-//----------------------------------------------------------------------------
-
-namespace detail {
-
-struct outgoing_encaps::impl {
-    using encaps_state = outgoing::impl::encaps_state;
-    using encaps_iter = outgoing::impl::encaps_iterator;
-
-    outgoing*   out_;
-    encaps_iter encaps_iter_;
-
-    impl(outgoing* o)
-        : out_{o},
-          encaps_iter_{out_ ? out_->pimpl_->current_encaps() : encaps_iter{}}
-    {
-    }
-
-    outgoing::size_type
-    size() const
-    {
-        return out_ ? encaps_iter_->size() : 0;
-    }
-
-    bool
-    empty() const
-    {
-        return out_ ? encaps_iter_->empty() : true;
-    }
-
-    void
-    end_encaps()
-    {
-        if (out_) {
-            out_->pimpl_->end_encaps(encaps_iter_);
-        }
-    }
-};
-
-outgoing_encaps::outgoing_encaps(outgoing* out)
-    : pimpl_{::std::make_shared<impl>(out)}
-{
-}
-
-outgoing_encaps::outgoing_encaps(outgoing_encaps const& rhs)
-    : pimpl_{rhs.pimpl_}
-{
-}
-
-outgoing_encaps::outgoing_encaps(outgoing_encaps&& rhs)
-    : pimpl_{::std::move(rhs.pimpl_)}
-{
-    rhs.pimpl_.reset();
-}
-
-::std::size_t
-outgoing_encaps::size() const
-{
-    return pimpl_->size();
-}
-
-bool
-outgoing_encaps::empty() const
-{
-    return pimpl_->empty();
-}
-
-void
-outgoing_encaps::end_encaps()
-{
-    pimpl_->end_encaps();
-}
-
-}  /* namespace detail */
 
 //----------------------------------------------------------------------------
 //    incoming implementation

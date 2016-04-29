@@ -74,7 +74,7 @@ public:
     operator++(int)
     { return *this; }
 
-    ::wire::encoding::detail::outgoing_encaps
+    ::wire::encoding::outgoing::encapsulation_type
     encapsulation()
     {
         return container->current_encapsulation();

@@ -23,37 +23,6 @@ class incoming;
 
 namespace detail {
 
-class outgoing_encaps {
-public:
-    outgoing_encaps(outgoing_encaps const&);
-    outgoing_encaps(outgoing_encaps&&);
-
-    ::std::size_t
-    size() const;
-    bool
-    empty() const;
-
-    void
-    end_encaps();
-
-    //@{
-    /** @name Encapsulation operations */
-    void
-    write_type_name(::std::string const& name);
-    //@}
-private:
-    friend class encoding::outgoing;
-    outgoing_encaps(outgoing* o);
-    outgoing_encaps&
-    operator = (outgoing_encaps const&) = delete;
-    outgoing_encaps&
-    operator = (outgoing_encaps&&) = delete;
-private:
-    struct impl;
-    using pimpl = std::shared_ptr<impl>;
-    pimpl pimpl_;
-};
-
 class incoming_encaps {
 public:
     /** Normal input iterator for input buffer */

@@ -10,6 +10,11 @@
 
 #include <vector>
 #include <cstdint>
+#include <string>
+#include <map>
+#include <deque>
+#include <wire/version.hpp>
+#include <wire/encoding/message.hpp>
 
 namespace wire {
 namespace encoding {
@@ -182,6 +187,47 @@ struct buffer_sequence {
     //@}
 
     //@{
+    /** @name Encapsulations */
+    struct out_encaps_state {
+        using type_map = ::std::map< ::std::string, ::std::size_t >;
+        buffer_sequence*    out_;
+        size_type           size_before_;
+        size_type           buffer_before_;
+        version             encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
+
+        type_map            types_;
+
+        out_encaps_state(buffer_sequence* out);
+        out_encaps_state(out_encaps_state&& rhs);
+        ~out_encaps_state();
+
+        size_type
+        size() const
+        {
+            if (!out_)
+                return 0;
+            return out_->size() - size_before_;
+        }
+
+        bool
+        empty() const
+        {
+            if (!out_)
+                return true;
+            return out_->size() == size_before_;
+        }
+
+        void
+        write_type_name(::std::string const& name);
+    };
+    using out_encapsulation_stack = ::std::deque<out_encaps_state>;
+    using out_encaps_iterator = out_encapsulation_stack::iterator;
+
+    class out_encaps;
+    class in_encaps;
+    //@}
+
+    //@{
     /** @name Constructors */
     buffer_sequence();
     buffer_sequence(size_type number);
@@ -317,6 +363,21 @@ struct buffer_sequence {
     buffer_at(size_type index) const
     { return buffers_[index]; }
     //@}
+
+    //@{
+    /** @name Outgoing encapsulation */
+    void
+    start_buffer()
+    { buffers_.push_back({}); }
+
+    out_encaps
+    begin_out_encapsulation();
+    out_encaps
+    current_out_encapsulation();
+
+    void
+    end_out_encaps(out_encaps_iterator iter);
+    //@}
 private:
     friend class buffer_iterator<buffer_sequence, pointer>;
     friend class buffer_iterator<buffer_sequence, const_pointer>;
@@ -348,7 +409,40 @@ private:
     difference_type
     difference(const_iterator const& a, const_iterator const& b) const;
 protected:
-    buffer_sequence_type buffers_;
+    out_encaps_iterator
+    begin_out_encaps();
+    out_encaps_iterator
+    current_out_encaps();
+protected:
+    buffer_sequence_type        buffers_;
+    out_encapsulation_stack     out_encaps_stack_;
+};
+
+class buffer_sequence::out_encaps {
+public:
+    out_encaps(out_encaps const&) = default;
+    out_encaps(out_encaps&&) = default;
+
+    bool
+    empty() const;
+    size_type
+    size() const;
+
+    void
+    end_encaps();
+
+    void
+    write_type_name(::std::string const& name);
+private:
+    friend class buffer_sequence;
+    out_encaps(buffer_sequence* );
+private:
+    buffer_sequence*    seq_;
+    out_encaps_iterator iter_;
+};
+
+class buffer_sequence::in_encaps {
+
 };
 
 }  // namespace detail
