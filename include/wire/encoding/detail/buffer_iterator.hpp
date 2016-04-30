@@ -63,6 +63,7 @@ enum iter_position {
 
 struct buffer_sequence;
 
+//----------------------------------------------------------------------------
 template < typename Container, typename Pointer >
 class buffer_iterator : public ::std::iterator< ::std::random_access_iterator_tag,
     typename buffer_traits<Container, Pointer>::value_type,
@@ -83,6 +84,7 @@ public:
                                       >;
     using pointer                   = typename iterator_type::pointer;
     using reference                 = typename iterator_type::reference;
+    using encapsulation_type        = typename Container::in_encaps;
 public:
     buffer_iterator();
     buffer_iterator(buffer_iterator const&);
@@ -140,6 +142,15 @@ public:
     difference_type
     operator - (buffer_iterator<Container, _P> const&) const;
     //@}
+
+    //{@
+    /** @name Encapsulation access */
+    encapsulation_type
+    incoming_encapsulation() const
+    {
+        return container_->current_in_encapsulation();
+    }
+    //@}
 private:
     //using impl = typename Container::impl;
     friend class buffer_sequence;
@@ -155,12 +166,13 @@ private:
     buffer_iterator(container_pointer c, iter_position pos)
         : container_(c), buffer_(), current_(), position_(pos) {}
 private:
-    container_pointer        container_;
+    container_pointer       container_;
     buffer_iterator_type    buffer_;
-    value_iterator_type        current_;
-    iter_position            position_;
+    value_iterator_type     current_;
+    iter_position           position_;
 };
 
+//----------------------------------------------------------------------------
 struct buffer_sequence {
     /** Internal buffers storage type */
     using buffer_type               = ::std::vector<uint8_t>;
@@ -189,6 +201,8 @@ struct buffer_sequence {
 
     //@{
     /** @name Encapsulations */
+    class out_encaps;
+    class in_encaps;
     struct out_encaps_state {
         using type_map = ::std::map< ::std::string, ::std::size_t >;
         buffer_sequence*    seq_;
@@ -265,9 +279,6 @@ struct buffer_sequence {
 
     using in_encapsulation_stack = ::std::deque< in_encaps_state >;
     using in_encaps_iterator = in_encapsulation_stack::iterator;
-
-    class out_encaps;
-    class in_encaps;
     //@}
 
     //@{
@@ -545,6 +556,7 @@ private:
     in_encaps_iterator  iter_;
 };
 
+//----------------------------------------------------------------------------
 template< typename EncapsType >
 class encaps_guard {
 public:
