@@ -5,12 +5,24 @@
  *      Author: sergey.fedorov
  */
 
+/**
+ * @page wire2cpp Wire to C++ mapping
+ *
+ *  ## Annotations
+ *
+ *  ### cpp_container
+ *
+ *  Applicable to sequence and dictionary
+ *
+ */
+
 #ifndef WIRE_WIRE2CPP_CPP_GENERATOR_HPP_
 #define WIRE_WIRE2CPP_CPP_GENERATOR_HPP_
 
 #include <wire/idl/ast.hpp>
 #include <wire/idl/preprocess.hpp>
 #include <wire/idl/generator.hpp>
+#include <wire/idl/grammar/declarations.hpp>
 
 #include <fstream>
 #include <deque>
@@ -19,6 +31,12 @@
 namespace wire {
 namespace idl {
 namespace cpp {
+
+namespace annotations {
+
+::std::string const CPP_CONTAINER = "cpp_container";
+
+}  /* namespace annotations */
 
 struct generate_options {
     ::std::string    header_include_dir;
@@ -100,13 +118,17 @@ private:
     pop_scope();
 
     ::std::ostream&
-    write_type_name(::std::ostream&, ast::type_const_ptr t);
+    write_type_name(::std::ostream&, ast::type_const_ptr t,
+            grammar::annotation_list const& = grammar::annotation_list{});
 
     ::std::ostream&
     write_qualified_name(::std::ostream&, qname const& qn);
 
     ::std::ostream&
     write_init(::std::ostream&, grammar::data_initializer const& init);
+
+    ::std::ostream&
+    write_data_member(::std::ostream&, offset const&, ast::variable_ptr var);
 
     void
     generate_read_write( ast::structure_ptr struct_);

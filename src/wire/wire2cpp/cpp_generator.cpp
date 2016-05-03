@@ -65,6 +65,17 @@ struct type_mapping {
 
 ::std::size_t tab_width = 4;
 
+void
+strip_quotes(::std::string& str)
+{
+    if (!str.empty() && str.front() == '"') {
+        str.erase(str.begin());
+    }
+    if (!str.empty() && str.back() == '"') {
+        str.erase(--str.end());
+    }
+}
+
 }  /* namespace  */
 
 ::std::ostream&
@@ -179,17 +190,26 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
     }
 
     // Collect custom headers and types from type aliases
-//    ast::entity_const_set type_aliases;
-//    for (auto const& e : unit_->entities) {
-//        e->collect_elements(type_aliases,
-//        [](ast::entity_const_ptr e){
-//            return ast::dynamic_entity_cast< ast::type_alias >(e).get();
-//        });
-//    }
-//
-//    for (auto const& ta : type_aliases) {
-//        ;
-//    }
+    ast::entity_const_set type_aliases;
+    for (auto const& e : unit_->entities) {
+        e->collect_elements(type_aliases,
+        [](ast::entity_const_ptr e){
+            return ast::dynamic_entity_cast< ast::type_alias >(e).get();
+        });
+    }
+
+    for (auto ta : type_aliases) {
+        auto const& anns = ta->get_annotations();
+        auto f = find(anns, annotations::CPP_CONTAINER);
+        if (f != anns.end()) {
+            if (f->arguments.size() < 2)
+                throw grammar_error(ta->decl_position(),
+                        "Invalid cpp_container annotation");
+            ::std::string header = f->arguments[1]->name;
+            strip_quotes(header);
+            standard_headers.insert(header);
+        }
+    }
 
     for (auto const& hdr : standard_headers) {
         header_ << "#include " << hdr << "\n";
@@ -322,12 +342,23 @@ generator::write_qualified_name(::std::ostream& os, qname const& qn)
     return os;
 }
 
-
 ::std::ostream&
-generator::write_type_name(::std::ostream& os, ast::type_const_ptr t)
+generator::write_type_name(::std::ostream& os, ast::type_const_ptr t,
+        grammar::annotation_list const& annotations)
 {
     if (auto pt = ast::dynamic_entity_cast< ast::parametrized_type >(t)) {
-        os << wire_to_cpp.at(pt->name()).type_name << " <";
+        ::std::string tmpl_name = wire_to_cpp.at(pt->name()).type_name;
+        if (pt->name() == ast::ARRAY || pt->name() == ast::SEQUENCE || pt->name() == ast::DICTONARY) {
+            auto ann = find(annotations, annotations::CPP_CONTAINER);
+            if (ann != annotations.end()) {
+                if (ann->arguments.empty()) {
+                    throw grammar_error(t->decl_position(), "Invalid cpp_container annotation");
+                }
+                tmpl_name = ann->arguments.front()->name;
+                strip_quotes(tmpl_name);
+            }
+        }
+        os << tmpl_name << " <";
         for (auto p = pt->params().begin(); p != pt->params().end(); ++p) {
             if (p != pt->params().begin())
                 os << ", ";
@@ -347,6 +378,12 @@ generator::write_type_name(::std::ostream& os, ast::type_const_ptr t)
     } else {
         if (ast::type::is_built_in(t->get_qualified_name())) {
             os << wire_to_cpp.at(t->name()).type_name;
+        } else if (auto ref = ast::dynamic_entity_cast< ast::reference >(t)) {
+            write_qualified_name(os, t->get_qualified_name()) << "_prx";
+        } else if (auto cl = ast::dynamic_type_cast< ast::class_ >(t)) {
+            write_qualified_name(os, t->get_qualified_name()) << "_ptr";
+        } else if (auto iface = ast::dynamic_type_cast< ast::interface >(t)) {
+            write_qualified_name(os, t->get_qualified_name()) << "_ptr";
         } else {
             write_qualified_name(os, t->get_qualified_name());
         }
@@ -388,6 +425,15 @@ generator::write_init(::std::ostream& os, grammar::data_initializer const& init)
     return os;
 }
 
+::std::ostream&
+generator::write_data_member(::std::ostream& os, offset const& off, ast::variable_ptr var)
+{
+    os << off;
+    write_type_name(header_, var->get_type(), var->get_annotations())
+        << " " << var->name() << ";\n";
+    return os;
+}
+
 
 void
 generator::generate_constant(ast::constant_ptr c)
@@ -425,7 +471,7 @@ generator::generate_type_alias( ast::type_alias_ptr ta )
 
     header_ << h_off_ << "using " << ta->name() << " = ";
     // TODO Custom mapping
-    write_type_name(header_, ta->alias());
+    write_type_name(header_, ta->alias(), ta->get_annotations());
     header_ << ";\n";
 }
 
@@ -448,6 +494,7 @@ generator::generate_struct( ast::structure_ptr struct_ )
 
     auto const& dm = struct_->get_data_members();
     for (auto d : dm) {
+        write_data_member(header_, h_off_, d);
         header_ << h_off_;
         write_type_name(header_, d->get_type()) << " " << d->name() << ";\n";
     }

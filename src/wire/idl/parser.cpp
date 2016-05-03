@@ -94,10 +94,7 @@ void
 parser_state::start_namespace(::std::size_t pos, ::std::string const& name)
 try {
     scopes_.push_back(current().start_namespace(pos, name));
-    if (!current_annotations_.empty()) {
-        ast_scope()->add_annotations(current_annotations_);
-        current_annotations_.clear();
-    }
+    attach_annotations(ast_scope());
 } catch (syntax_error const&) {
     throw;
 } catch (ast::entity_conflict const& e) {
@@ -117,10 +114,7 @@ parser_state::start_structure(::std::size_t pos, ::std::string const& name)
 try {
     ast::structure_ptr st = ast_scope()->add_type< ast::structure >(pos, name);
     scopes_.push_back( ::std::make_shared< structure_scope >(st) );
-    if (!current_annotations_.empty()) {
-        st->add_annotations(current_annotations_);
-        current_annotations_.clear();
-    }
+    attach_annotations(st);
 } catch (syntax_error const&) {
     throw;
 } catch (ast::entity_conflict const& e) {
@@ -162,10 +156,7 @@ try {
     }
     ast::interface_ptr iface = ast_scope()->add_type< ast::interface >(pos, name, ancestors);
     scopes_.push_back(::std::make_shared< interface_scope >(iface));
-    if (!current_annotations_.empty()) {
-        iface->add_annotations(current_annotations_);
-        current_annotations_.clear();
-    }
+    attach_annotations(iface);
 } catch (syntax_error const&) {
     throw;
 } catch (ast::entity_conflict const& e) {
@@ -220,10 +211,7 @@ try {
     }
     ast::class_ptr cl = ast_scope()->add_type< ast::class_ >(pos, name, parent, ancestors);
     scopes_.push_back(::std::make_shared< class_scope >(cl));
-    if (!current_annotations_.empty()) {
-        cl->add_annotations(current_annotations_);
-        current_annotations_.clear();
-    }
+    attach_annotations(cl);
 } catch (syntax_error const&) {
     throw;
 } catch (ast::entity_conflict const& e) {
@@ -261,10 +249,7 @@ try {
     }
     ast::exception_ptr ex = ast_scope()->add_type< ast::exception >( pos, name, parent );
     scopes_.push_back(::std::make_shared< exception_scope >(ex));
-    if (!current_annotations_.empty()) {
-        ex->add_annotations(current_annotations_);
-        current_annotations_.clear();
-    }
+    attach_annotations(ex);
 } catch (syntax_error const&) {
     throw;
 } catch (ast::entity_conflict const& e) {
@@ -295,10 +280,7 @@ try {
     for (auto const& v : decl.enumerators) {
         en->add_enumerator(pos, v.name, v.init);
     }
-    if (!current_annotations_.empty()) {
-        en->add_annotations(current_annotations_);
-        current_annotations_.clear();
-    }
+    attach_annotations(en);
 } catch (syntax_error const&) {
     throw;
 } catch (ast::entity_conflict const& e) {
@@ -323,10 +305,7 @@ try {
         throw grammar_error{pos, os.str()};
     }
     ast::type_ptr ta =  ast_scope()->add_type< ast::type_alias >(pos, decl.first, aliased);
-    if (!current_annotations_.empty()) {
-        ta->add_annotations(current_annotations_);
-        current_annotations_.clear();
-    }
+    attach_annotations(ta);
 } catch (syntax_error const&) {
     throw;
 } catch (ast::entity_conflict const& e) {
@@ -345,10 +324,7 @@ parser_state::forward_declare(::std::size_t pos, grammar::fwd_decl const& decl)
 try {
     ast::forward_declaration_ptr fwd =
             ast_scope()->add_type< ast::forward_declaration >(pos, decl.second, decl.first);
-    if (!current_annotations_.empty()) {
-        fwd->add_annotations(current_annotations_);
-        current_annotations_.clear();
-    }
+    attach_annotations(fwd);
 } catch (syntax_error const&) {
     throw;
 } catch (ast::entity_conflict const& e) {
@@ -385,10 +361,7 @@ try {
     // sequences, maps and arrays - initializer lists
     // struct - initializer lists
     ast::constant_ptr var = ast_scope()->add_constant(pos, decl.name, t, *decl.init);
-    if (!current_annotations_.empty()) {
-        var->add_annotations(current_annotations_);
-        current_annotations_.clear();
-    }
+    attach_annotations(var);
 } catch (syntax_error const&) {
     throw;
 } catch (ast::entity_conflict const& e) {
@@ -406,10 +379,7 @@ void
 parser_state::add_data_member(::std::size_t pos, grammar::data_member_decl const& decl)
 try {
     ast::variable_ptr var = current().add_data_member(pos, decl);
-    if (!current_annotations_.empty()) {
-        var->add_annotations(current_annotations_);
-        current_annotations_.clear();
-    }
+    attach_annotations(var);
 } catch (syntax_error const&) {
     throw;
 } catch (ast::entity_conflict const& e) {
@@ -427,10 +397,7 @@ void
 parser_state::add_func_member(::std::size_t pos, grammar::function_decl const& decl)
 try {
     ast::function_ptr func = current().add_func_member(pos, decl);
-    if (!current_annotations_.empty()) {
-        func->add_annotations(current_annotations_);
-        current_annotations_.clear();
-    }
+    attach_annotations(func);
 } catch (syntax_error const&) {
     throw;
 } catch (ast::entity_conflict const& e) {
@@ -449,6 +416,15 @@ parser_state::add_annotations(::std::size_t pos, grammar::annotation_list const&
 {
     current_annotations_.insert(current_annotations_.end(),
             annotations.begin(), annotations.end());
+}
+
+void
+parser_state::attach_annotations(ast::entity_ptr en)
+{
+    if (!current_annotations_.empty()) {
+        en->add_annotations(current_annotations_);
+        current_annotations_.clear();
+    }
 }
 
 //----------------------------------------------------------------------------

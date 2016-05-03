@@ -206,8 +206,7 @@ public:
     {}
 
     virtual void
-    collect_elements(entity_const_set& elems, entity_predicate pred) const
-    {}
+    collect_elements(entity_const_set& elems, entity_predicate pred) const;
     /**
      * Functor for comparing entities by name
      */
@@ -1084,6 +1083,20 @@ dynamic_type_cast(type_ptr t)
         return dynamic_type_cast<T>(ta->alias());
     }
 
+    return dynamic_entity_cast<T>(t);
+}
+
+template < typename T >
+const_shared_entity< T >
+dynamic_type_cast(type_const_ptr t)
+{
+    static_assert(::std::is_base_of< entity, T >::value,
+        "Cast should be used for idl::ast::entity objects only");
+
+    const_shared_entity< type_alias > ta = dynamic_entity_cast< type_alias >(t);
+    if (ta) {
+        return dynamic_type_cast<T>(ta->alias());
+    }
     return dynamic_entity_cast<T>(t);
 }
 

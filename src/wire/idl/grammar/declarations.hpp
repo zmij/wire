@@ -77,6 +77,9 @@ struct annotation {
 
 using annotation_list = ::std::vector< annotation >;
 
+annotation_list::const_iterator
+find(annotation_list const&, ::std::string const& name);
+
 }  /* namespace grammar */
 }  /* namespace idl */
 }  /* namespace wire */

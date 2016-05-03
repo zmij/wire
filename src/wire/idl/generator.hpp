@@ -14,6 +14,16 @@ namespace wire {
 namespace idl {
 namespace ast {
 
+::std::string const ARRAY       = "array";
+::std::string const SEQUENCE    = "sequence";
+::std::string const DICTONARY   = "dictionary";
+
+namespace annotations {
+
+::std::string const WEAK = "weak";
+
+}  /* namespace annotations */
+
 class generator {
 public:
     virtual ~generator() {}

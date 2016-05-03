@@ -277,6 +277,14 @@ entity::get_global() const
     return const_cast< entity* >(this)->shared_this< global_namespace >();
 }
 
+void
+entity::collect_elements(entity_const_set& elems, entity_predicate pred) const
+{
+    auto shared = shared_from_this();
+    if (pred(shared))
+        elems.insert(shared);
+}
+
 //----------------------------------------------------------------------------
 //    type class implementation
 //----------------------------------------------------------------------------
@@ -613,6 +621,7 @@ scope::collect_dependencies(entity_const_set& deps, entity_predicate pred) const
 void
 scope::collect_elements(entity_const_set& elems, entity_predicate pred) const
 {
+    entity::collect_elements(elems, pred);
     for (auto const& t : types_) {
         if (pred(t))
             elems.insert(t);

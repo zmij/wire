@@ -27,6 +27,7 @@ set(
     parser.cpp
     generator.cpp
     syntax_error.cpp
+    grammar/declarations.cpp
 )
 
 add_library(${WIRE_IDL_LIB} SHARED ${wire_idl_SRCS})

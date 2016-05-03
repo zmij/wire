@@ -72,6 +72,9 @@ public:
 
     source_location
     get_location(::std::size_t pos) const;
+
+    void
+    attach_annotations(ast::entity_ptr en);
 private:
     parser_scope&
     current();
