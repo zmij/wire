@@ -24,21 +24,23 @@ exception no_service {
 interface good_service {
     [[cpp_container("::std::list", "<list>"), some_other_very_useful_annotation]]
     using good_list = sequence< string >;
+    [[sync]]
     void
     do_good(good_list errands) const throw (no_service);
 };
 
 interface bad_service {
     using bad_list = sequence< string >;
-    void
-    do_bad();
+    bad_list
+    do_bad(string why);
 };
 
 interface controversial : good_service, bad_service {
     void
-    set_good(good_service* svc);
+    set_good(/*good_service* svc*/);
 
-    good_service*
+    //good_service*
+    void
     get_good() const;
 };
 

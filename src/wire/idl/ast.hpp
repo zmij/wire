@@ -535,8 +535,23 @@ public:
     is_const() const
     { return is_const_; }
 
+    bool
+    is_void() const;
+
     void
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
+
+    type_ptr
+    get_return_type() const
+    { return ret_type_; }
+
+    function_params const&
+    get_params() const
+    { return parameters_; }
+
+    exception_list const&
+    throw_specification() const
+    { return throw_spec_; }
 private:
     type_ptr         ret_type_;
     function_params  parameters_;
@@ -959,6 +974,22 @@ public:
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
     void
     collect_elements(entity_const_set& elems, entity_predicate pred) const override;
+
+    interface_list const&
+    get_ancestors() const
+    { return ancestors_; }
+
+    /**
+     * Collect all ancestors in depth-first search
+     * @param ifaces
+     * @param pred
+     */
+    void
+    collect_ancestors(interface_list& ifaces, entity_predicate pred) const;
+
+    function_list const&
+    get_functions() const
+    { return functions_; }
 protected:
     entity_ptr
     ancestors_entity_search(qname_search const& search) const;

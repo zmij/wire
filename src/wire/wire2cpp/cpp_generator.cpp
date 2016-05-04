@@ -103,7 +103,6 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
       current_scope_{true}
 {
     auto cwd = fs::current_path();
-    ::std::cerr << "Current dir " << cwd << "\n";
 
     fs::path origin(unit_->name);
     fs::path header_path{ opts.header_output_dir };
@@ -145,7 +144,6 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
             in_path = fs::canonical(in_path);
         }
         if (fs::exists(in_path)) {
-            ::std::cerr << "Include directory " << in_path << "\n";
             includes_rooted.push_back(in_path.string());
         }
     }
@@ -170,19 +168,9 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
     }
 
     //------------------------------------------------------------------------
-    ::std::cerr << "Will generate declarations for the following:\n"
-        << origin.filename().string()
-        << " -> " << header_path << " " << source_path << "\n";
-
-    for (auto const& e : unit_->entities) {
-        ::std::cerr << "\t" << e->get_qualified_name() << "\n";
-    }
-
     ::std::set< ::std::string > standard_headers {"<memory>"};
-    ::std::cerr << "Dependencies of this compilation unit:\n";
     auto deps = unit_->external_dependencies();
     for (auto const& d : deps) {
-        ::std::cerr << "\t" << d->get_qualified_name() << "\n";
         if (auto t = ast::dynamic_entity_cast< ast::type >(d)) {
             if (ast::type::is_built_in(d->get_qualified_name())) {
                 auto const& tm = wire_to_cpp.at(d->name());
@@ -215,19 +203,15 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
         }
     }
 
-    header_ << "#include <wire/encoding/wire_io.hpp>\n";
     for (auto const& hdr : standard_headers) {
         header_ << "#include " << hdr << "\n";
     }
+    header_ << "#include <wire/encoding/wire_io.hpp>\n";
     //------------------------------------------------------------------------
-    ::std::cerr << "Depends on compilation units:\n";
     auto units = unit_->dependent_units();
     for (auto const& u : units) {
 
-        if (u->is_builtin()) {
-            ::std::cerr << "\t" << u->name << "\n";
-            //header_ << "#include <wire/types.hpp>\n";
-        } else {
+        if (!u->is_builtin()) {
             fs::path fp(u->name);
             if (fp.is_relative() && !fp.has_parent_path()) {
                 ::std::cerr << "\t" << u->name << "\n";
@@ -262,6 +246,11 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
     }
 
     header_ << "#include <wire/errors/user_exception.hpp>\n";
+    header_ << "#include <wire/core/object.hpp>\n";
+    header_ << "#include <wire/core/callbacks.hpp>\n";
+
+    source_ << "#include <wire/core/dispatch_request.hpp>\n";
+    source_ << "#include <unordered_map>\n";
 
     header_ << "\n";
     source_ << "\n";
@@ -294,8 +283,8 @@ generator::adjust_scope(qname_search const& target)
         to_close.push_front(*c);
     }
     for (auto const& ns : to_close) {
-        header_ << "} /* namespace " << ns << " */\n";
-        source_ << "} /* namespace " << ns << " */\n";
+        header_ << h_off_ << "} /* namespace " << ns << " */";
+        source_ << s_off_ << "} /* namespace " << ns << " */";
     }
 
     if (!to_close.empty()) {
@@ -308,8 +297,8 @@ generator::adjust_scope(qname_search const& target)
 
     bool space = t != target.end;
     for (; t != target.end; ++t) {
-        header_ << "namespace " << *t << " {\n";
-        source_ << "namespace " << *t << " {\n";
+        header_ << h_off_ << "namespace " << *t << " {";
+        source_ << s_off_ << "namespace " << *t << " {";
         current_scope_.components.push_back(*t);
     }
     if (space) {
@@ -410,6 +399,20 @@ generator::write_type_name(::std::ostream& os, ast::type_const_ptr t,
 }
 
 ::std::ostream&
+generator::write_arg_type(::std::ostream& os, ast::type_const_ptr t,
+        grammar::annotation_list const& annotations)
+{
+    write_type_name(os, t, annotations);
+    if (!ast::type::is_built_in(t->get_qualified_name())) {
+        // TODO Check if it is a ptr to a class or a ptr or a proxy to an interface
+        os << " const&";
+    } else if (t->name() == "string" || t->name() == "uuid") {
+        os << " const&";
+    }
+    return os;
+}
+
+::std::ostream&
 generator::write_init(::std::ostream& os, offset& off, grammar::data_initializer const& init)
 {
     switch (init.value.which()) {
@@ -450,6 +453,111 @@ generator::write_data_member(::std::ostream& os, offset const& off, ast::variabl
     write_type_name(header_, var->get_type(), var->get_annotations())
         << " " << var->name() << ";";
     return os;
+}
+
+void
+generator::generate_dispatch_function_member(ast::function_ptr func)
+{
+    offset_guard hdr{h_off_};
+    offset_guard src{s_off_};
+
+    auto ann = find(func->get_annotations(), ast::annotations::SYNC);
+    bool async_dispatch = ann == func->get_annotations().end();
+    auto const& params = func->get_params();
+
+    ::std::ostringstream formal_params;
+    for (auto const& p : params) {
+        write_arg_type(formal_params, p.first) << " " << p.second << ", ";
+    }
+
+    if (async_dispatch) {
+        ::std::ostringstream ret_cb_name;
+        if (!func->is_void()) {
+            ret_cb_name << func->name() << "_return_callback";
+            header_ << h_off_ << "using " << ret_cb_name.str() << " = "
+                << "::std::function< void(";
+            write_arg_type(header_, func->get_return_type(), func->get_annotations())
+                << ") >;";
+        } else {
+            ret_cb_name << "::wire::core::callbacks::void_callback";
+        }
+
+        header_ << h_off_ << "/* Async dispatch */"
+                << h_off_ << "virtual void"
+                << h_off_ << func->name() << "(" << formal_params.str()
+                << ret_cb_name.str() << ", "
+                << "::wire::core::current const& = ::wire::core::no_current) = 0;";
+    } else {
+        header_ << h_off_ << "/* Sync dispatch */"
+                << h_off_ << "virtual ";
+        write_type_name(header_, func->get_return_type(), func->get_annotations())
+                << h_off_ << func->name() << "(" << formal_params.str()
+                << "::wire::core::current const& = ::wire::core::no_current) = 0;";
+    }
+    header_ << h_off_ << "void"
+            << h_off_ << "__" << func->name()
+            << "(::wire::core::dispatch_request const&, ::wire::core::current const&);\n";
+
+    current_scope_.components.pop_back();
+
+    source_ << s_off_ << "void"
+            << s_off_ << func->owner()->name() << "::__" << func->name()
+            << "(::wire::core::dispatch_request const& __req, ::wire::core::current const& __curr)"
+            << s_off_ << "{";
+
+    ++s_off_;
+    // Unmarshal params
+    ::std::ostringstream call_params;
+    if (!params.empty()) {
+        source_ << s_off_ << "auto __beg = __req.encaps_start;"
+                << s_off_ << "auto __end = __req.encaps_end;";
+        for (auto p = params.begin(); p != params.end(); ++p) {
+            source_ << s_off_;
+            write_type_name(source_, p->first) << " " << p->second << ";";
+            if (p != params.begin())
+                call_params << ", ";
+            call_params << p->second;
+        }
+        source_ << s_off_ << "::wire::encoding::read(__beg, __end, " << call_params.str() << ");";
+    }
+
+    ::std::ostringstream fcall;
+    fcall << func->name() << "(" << call_params.str();
+    if (!params.empty())
+        fcall << ", ";
+    if (async_dispatch) {
+        // Generate callback
+        source_ << s_off_ << fcall.str();
+        source_ << ++s_off_ << "[__req](";
+        if (!func->is_void()) {
+            write_arg_type(source_, func->get_return_type(), func->get_annotations())
+                    << " _res";
+        }
+        source_ << ")"
+                << s_off_++ << "{";
+        source_ << s_off_ << "::wire::encoding::outgoing __out;";
+        if (!func->is_void()) {
+            source_ << s_off_
+                    << "::wire::encoding::write(::std::back_inserter(__out), _res);";
+        }
+        source_ << s_off_ << "__req.result(::std::move(__out));";
+        source_ << --s_off_ << "}, __curr);";
+        --s_off_;
+    } else {
+        fcall << "__curr)";
+        source_ << s_off_ << "::wire::encoding::outgoing __out;";
+        if (func->is_void()) {
+            source_ << s_off_ << fcall.str() << ";";
+        } else {
+            source_ << s_off_ << "::wire::encoding::write(::std::back_inserter(__out), "
+                    << fcall.str() << ");";
+        }
+        source_ << s_off_ << "__req.result(::std::move(__out));";
+    }
+
+    source_ << --s_off_ << "}\n";
+
+    current_scope_.components.push_back(func->owner()->name());
 }
 
 
@@ -575,6 +683,47 @@ generator::generate_read_write( ast::structure_ptr struct_)
     header_ << --h_off_ << "}\n";
 }
 
+::std::string
+generator::generate_type_id_funcs(ast::entity_ptr elem)
+{
+    offset_guard hdr{h_off_};
+    offset_guard src{s_off_};
+
+    header_ << h_off_ << "static constexpr ::std::string const&"
+            << h_off_ << "wire_static_type_id();";
+
+    header_ << h_off_ << "static constexpr ::std::uint64_t"
+            << h_off_ << "wire_static_type_id_hash();";
+
+    current_scope_.components.pop_back();
+    // Source
+    auto eqn = elem->get_qualified_name();
+    auto pfx = constant_prefix(eqn);
+    ::std::ostringstream qnos;
+    qnos << eqn;
+    auto eqn_str = qnos.str();
+    source_ << s_off_ << "/* data for " << eqn << " */";
+    source_ << s_off_++ << "namespace {\n";
+    source_ << s_off_ << "::std::string const " << pfx << "TYPE_ID = \"" << eqn_str
+            << "\";";
+    source_ << s_off_ << "::std::uint64_t const " << pfx << "TYPE_ID_HASH = 0x"
+            << ::std::hex << hash::murmur_hash(eqn_str) << ";";
+    source_ << "\n" << --s_off_ << "} /* namespace for " << eqn << " */\n";
+    source_ << s_off_ << "constexpr ::std::string const&" << s_off_;
+    write_qualified_name(source_, eqn) << "::wire_static_type_id()" << s_off_++
+            << "{";
+    source_ << s_off_ << "return " << pfx << "TYPE_ID;";
+    source_ << --s_off_ << "}\n";
+    source_ << s_off_ << "constexpr ::std::uint64_t" << s_off_;
+    write_qualified_name(source_, eqn) << "::wire_static_type_id_hash()"
+            << s_off_++ << "{";
+    source_ << s_off_ << "return " << pfx << "TYPE_ID_HASH;";
+    source_ << --s_off_ << "}\n";
+
+    current_scope_.components.push_back(elem->name());
+    return eqn_str;
+}
+
 void
 generator::generate_exception(ast::exception_ptr exc)
 {
@@ -630,7 +779,7 @@ generator::generate_exception(ast::exception_ptr exc)
     header_ << h_off_ << "/* templated constructor to format a ::std::runtime_error message */"
             << h_off_ << "template < typename ... T >"
             << h_off_ << exc->name() << "(T const& ... args) : ";
-    write_qualified_name(header_, parent_name) << "(args ...) "
+    write_qualified_name(header_, parent_name) << "(args ...)"
             << members_init.str() << "{}";
 
     // TODO constructors with data members variations
@@ -649,7 +798,7 @@ generator::generate_exception(ast::exception_ptr exc)
                 init << "," << (h_off_ + 1) << "  ";
                 msg << ", ";
             }
-            write_type_name(args, (*p)->get_type()) << " const& " << (*p)->name() << "_";
+            write_arg_type(args, (*p)->get_type()) << " " << (*p)->name() << "_";
             init << (*p)->name() << "{" << (*p)->name() << "_}";
             msg << (*p)->name() << "_";
 
@@ -663,7 +812,7 @@ generator::generate_exception(ast::exception_ptr exc)
             for (auto const& r : rest) {
                 header_ << "," << h_off_ << "  " << r;
             }
-            header_ << "{}";
+            header_ << " {}";
             --h_off_;
         }
     }
@@ -678,14 +827,10 @@ generator::generate_exception(ast::exception_ptr exc)
         --h_off_;
     }
 
+    header_ << h_off_++ << "public:";
+    auto qn_str = generate_type_id_funcs(exc);
     {
         // Member functions
-        header_ << h_off_++ << "public:";
-        header_ << h_off_ << "static ::std::string const&"
-                << h_off_ << "wire_static_type_id();";
-
-        header_ << h_off_ << "static ::std::uint64_t"
-                << h_off_ << "wire_static_type_id_hash();";
 
         header_ << h_off_ << "void"
                 << h_off_ << "__wire_write(output_iterator o) override;";
@@ -704,45 +849,15 @@ generator::generate_exception(ast::exception_ptr exc)
                 << exc->name() << ">;\n";
 
     // Source
-    auto eqn = exc->get_qualified_name();
-    auto pfx = constant_prefix(eqn);
-    ::std::ostringstream qnos;
-    qnos << eqn;
-    auto eqn_str = qnos.str();
-
-    source_ << s_off_ << "/* data for " << eqn << " */";
-    source_ << s_off_++ << "namespace {\n";
-
-    source_ << s_off_ << "::std::string const " << pfx << "TYPE_ID = \""
-            << eqn << "\";";
-    source_ << s_off_ << "::std::uint64_t const " << pfx << "TYPE_ID_HASH = 0x"
-            << ::std::hex << hash::murmur_hash( eqn_str ) << ";";
-
-    source_ << "\n" << --s_off_ << "} /* namespace for "
-            << eqn << " */\n";
-
-    source_ << s_off_ << "::std::string const&"
-            << s_off_;
-    write_qualified_name(source_, eqn) << "::wire_static_type_id()"
-            << s_off_++ << "{";
-    source_ << s_off_ << "return " << pfx << "TYPE_ID;";
-    source_ << --s_off_ << "}\n";
-
-    source_ << s_off_ << "::std::uint64_t"
-            << s_off_;
-    write_qualified_name(source_, eqn) << "::wire_static_type_id_hash()"
-            << s_off_++ << "{";
-    source_ << s_off_ << "return " << pfx << "TYPE_ID_HASH;";
-    source_ << --s_off_ << "}\n";
     // generate io funcs in cpp
-
     //------------------------------------------------------------------------
     //  Wire write function for an exception
     //------------------------------------------------------------------------
     source_ << s_off_ << "void"
             << s_off_;
-    write_qualified_name(source_, eqn) << "::__wire_write(output_iterator o)"
-            << s_off_ << "{";
+    write_qualified_name(source_, exc->get_qualified_name())
+        << "::__wire_write(output_iterator o)"
+        << s_off_ << "{";
 
     ++s_off_;
 
@@ -752,7 +867,7 @@ generator::generate_exception(ast::exception_ptr exc)
     if (!exc->get_parent()) {
         flags = "::wire::encoding::segment_header::last_segment";
     }
-    ::std::string type_id_func = eqn_str.size() > sizeof(::std::uint64_t) ?
+    ::std::string type_id_func = qn_str.size() > sizeof(::std::uint64_t) ?
             "wire_static_type_id_hash" : "wire_static_type_id";
     source_ << s_off_ << "encaps.start_segment(" << type_id_func << "(), " << flags << ");";
 
@@ -777,7 +892,8 @@ generator::generate_exception(ast::exception_ptr exc)
     //------------------------------------------------------------------------
     source_ << s_off_ << "void"
             << s_off_;
-    write_qualified_name(source_, eqn) << "::__wire_read(input_iterator& begin, input_iterator end, "
+    write_qualified_name(source_, exc->get_qualified_name())
+        << "::__wire_read(input_iterator& begin, input_iterator end, "
                     "bool read_head)"
             << s_off_ << "{";
     ++s_off_;
@@ -803,6 +919,94 @@ generator::generate_exception(ast::exception_ptr exc)
 
     source_ << --s_off_ << "}\n";
 
+    pop_scope();
+}
+
+void
+generator::generate_interface(ast::interface_ptr iface)
+{
+    adjust_scope(iface);
+
+    static const qname root_interface {"::wire::core::object"};
+
+    header_ << h_off_ << "class " << iface->name();
+
+    auto const& ancestors = iface->get_ancestors();
+    if (!ancestors.empty()) {
+        header_ << ++h_off_ << ": ";
+        for ( auto a = ancestors.begin(); a != ancestors.end(); ++a ) {
+            if (a != ancestors.begin())
+                header_ << "," << h_off_ << "  ";
+            header_ << "public virtual ";
+            write_qualified_name(header_, (*a)->get_qualified_name());
+        }
+        --h_off_;
+    } else {
+        header_ << " : public virtual " << root_interface;
+    }
+    header_ << " {";
+
+    current_scope_.components.push_back(iface->name());
+    scope_stack_.push_back(iface);
+
+    if (!iface->get_types().empty()) {
+        header_ << h_off_++ << "public:";
+        for (auto t : iface->get_types()) {
+            generate_type_decl(t);
+        }
+        --h_off_;
+    }
+    if (!iface->get_constants().empty()) {
+        header_ << h_off_++ << "public:";
+        for (auto c : iface->get_constants()) {
+            generate_constant(c);
+        }
+        --h_off_;
+    }
+    {
+        // Constructor
+        header_ << h_off_ << "public:";
+        header_ << ++h_off_ << iface->name() << "()";
+        header_ << ++h_off_ << ": ";
+        write_qualified_name(header_, root_interface) << "()";
+        ast::interface_list anc;
+
+        iface->collect_ancestors(anc, [](ast::entity_const_ptr){ return true; });
+
+        for (auto a : anc) {
+            header_ << "," << h_off_ << "  ";
+            write_qualified_name(header_, a->get_qualified_name()) << "()";
+        }
+
+        header_ << " {}\n";
+        h_off_ -= 2;
+    }
+
+    header_ << h_off_++ << "public:";
+    auto qn_str = generate_type_id_funcs(iface);
+    auto const& funcs = iface->get_functions();
+    if (!funcs.empty()) {
+        header_ << --h_off_ << "public:";
+        ++h_off_;
+        // Dispatch methods
+        for (auto f : funcs) {
+            generate_dispatch_function_member(f);
+        }
+        --h_off_;
+    }
+
+    header_ << --h_off_ << "};\n";
+    current_scope_.components.pop_back();
+
+    header_ << h_off_ << "using " << iface->name()
+            << "_ptr = ::std::shared_ptr< " << iface->name() << ">;";
+    header_ << h_off_ << "using " << iface->name()
+            << "_weak_ptr = ::std::weak_ptr< " << iface->name() << ">;";
+
+    header_ << h_off_ << "/** TODO Generate proxy object */";
+    header_ << h_off_ << "using " << iface->name()
+            << "_prx = ::std::shared_ptr< " << iface->name() << ">; // THIS IS A TEMPORARY FAKE";
+    header_ << "\n";
     pop_scope();
 }
 

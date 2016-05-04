@@ -18,7 +18,7 @@ generator::generate_type_decl(type_ptr t)
     if ( auto cl = dynamic_entity_cast< class_ >(t) ) {
 
     } else if (auto iface = dynamic_entity_cast< interface >(t)) {
-
+        generate_interface(iface);
     } else if (auto exc = dynamic_entity_cast< exception >(t)) {
         generate_exception(exc);
     } else if (auto st = dynamic_entity_cast< structure >(t)) {

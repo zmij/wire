@@ -106,6 +106,14 @@ operator + (offset const& off, ::std::size_t sz)
     return tmp;
 }
 
+struct offset_guard {
+    offset& off_;
+    ::std::size_t init;
+
+    offset_guard(offset& off) : off_{off}, init{off.sz} {}
+    ~offset_guard() { off_.sz = init; }
+};
+
 class generator : public ast::generator {
 public:
     using include_dir_list = ::std::vector< std::string >;
@@ -127,13 +135,13 @@ public:
     generate_struct(ast::structure_ptr struct_) override;
 
     void
-    generate_interface(ast::interface_ptr iface);
+    generate_exception(ast::exception_ptr exc) override;
+
+    void
+    generate_interface(ast::interface_ptr iface) override;
 
     void
     generate_class(ast::class_ptr class_);
-
-    void
-    generate_exception(ast::exception_ptr exc) override;
 private:
     void
     adjust_scope(qname_search const& qn);
@@ -148,6 +156,9 @@ private:
     ::std::ostream&
     write_type_name(::std::ostream&, ast::type_const_ptr t,
             grammar::annotation_list const& = grammar::annotation_list{});
+    ::std::ostream&
+    write_arg_type(::std::ostream&, ast::type_const_ptr t,
+            grammar::annotation_list const& = grammar::annotation_list{});
 
     ::std::ostream&
     write_qualified_name(::std::ostream&, qname const& qn);
@@ -159,7 +170,14 @@ private:
     write_data_member(::std::ostream&, offset const&, ast::variable_ptr var);
 
     void
+    generate_dispatch_function_member(ast::function_ptr func);
+
+    void
     generate_read_write( ast::structure_ptr struct_);
+
+    ::std::string
+    generate_type_id_funcs(ast::entity_ptr elem);
+
 private:
     using free_function = ::std::function< void() >;
 private:

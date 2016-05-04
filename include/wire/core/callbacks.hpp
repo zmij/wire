@@ -15,12 +15,12 @@ namespace wire {
 namespace core {
 namespace callbacks {
 
-typedef std::function< void() >						void_callback;
+using void_callback         = ::std::function< void() >;
 
 template < typename ... T >
-using callback = std::function< void (T ... ) >;
+using callback              = ::std::function< void (T ... ) >;
 
-typedef callback< ::std::exception_ptr >			exception_callback;
+using exception_callback    = callback< ::std::exception_ptr >;
 
 
 }  // namespace callbacks

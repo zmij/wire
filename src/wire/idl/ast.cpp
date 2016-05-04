@@ -649,6 +649,12 @@ function::function(interface_ptr sc, ::std::size_t pos, ::std::string const& nam
     }
 }
 
+bool
+function::is_void() const
+{
+    return ret_type_->name() == "void";
+}
+
 void
 function::collect_dependencies(entity_const_set& deps, entity_predicate pred) const
 {
@@ -973,6 +979,29 @@ interface::collect_elements(entity_const_set& elems, entity_predicate pred) cons
     for (auto const& f : functions_) {
         if (pred(f))
             elems.insert(f);
+    }
+}
+
+void
+interface::collect_ancestors(interface_list& ifaces, entity_predicate pred) const
+{
+    // first the grand-ancestors
+    for (auto a : ancestors_) {
+        a->collect_ancestors(ifaces, pred);
+    }
+    // then the ancestors
+    for (auto a : ancestors_) {
+        if (pred(a)) {
+            bool already_there = false;
+            for (auto i : ifaces) {
+                if (i == a) {
+                    already_there = true;
+                    break;
+                }
+            }
+            if (!already_there)
+                ifaces.push_back(a);
+        }
     }
 }
 

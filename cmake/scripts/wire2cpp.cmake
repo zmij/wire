@@ -60,7 +60,7 @@ function(wire2cpp)
         add_custom_command(
             OUTPUT ${cpp_file} ${hpp_file}
             COMMAND wire2cpp ${wire2cpp_options} ${CMAKE_CURRENT_SOURCE_DIR}/${wire_file}
-            DEPENDS ${wire_file}
+            DEPENDS ${wire_file} wire2cpp
             COMMENT "Generate C++ sources from ${wire_file}"
         )
     endforeach()

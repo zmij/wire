@@ -22,6 +22,8 @@ namespace annotations {
 
 ::std::string const WEAK = "weak";
 
+::std::string const SYNC = "sync";
+
 }  /* namespace annotations */
 
 class generator {
@@ -48,6 +50,9 @@ public:
 
     virtual void
     generate_exception( exception_ptr ex ) = 0;
+
+    virtual void
+    generate_interface(interface_ptr iface) = 0;
 };
 
 }  /* namespace ast */
