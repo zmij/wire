@@ -67,23 +67,23 @@ struct reserve_traits_impl;
 
 template < typename T >
 struct reserve_traits_impl< T, true > {
-	typedef T									container_type;
-	typedef typename container_type::size_type	size_type;
+    using container_type        = T;
+    using size_type             = typename container_type::size_type;
 
-	static void
-	reserve(container_type& c, size_type sz)
-	{
-		c.reserve(sz);
-	}
+    static void
+    reserve(container_type& c, size_type sz)
+    {
+        c.reserve(sz);
+    }
 };
 
 template < typename T >
 struct reserve_traits_impl< T, false > {
-	typedef T									container_type;
-	typedef typename container_type::size_type	size_type;
+    using container_type        = T;
+    using size_type             = typename container_type::size_type;
 
-	static void
-	reserve(container_type& c, size_type sz) {}
+    static void
+    reserve(container_type& c, size_type sz) {}
 };
 
 template < typename T >
@@ -94,26 +94,26 @@ struct add_traits_impl;
 
 template < typename T >
 struct add_traits_impl< T, true > {
-	typedef T									container_type;
-	typedef typename container_type::value_type	element_type;
+    using container_type        = T;
+    using element_type          = typename container_type::value_type;
 
-	static void
-	add(container_type& c, element_type&& e)
-	{
-		c.insert(std::move(e));
-	}
+    static void
+    add(container_type& c, element_type&& e)
+    {
+        c.insert(std::move(e));
+    }
 };
 
 template < typename T >
 struct add_traits_impl< T, false > {
-	typedef T									container_type;
-	typedef typename container_type::value_type	element_type;
+    using container_type        = T;
+    using element_type          = typename container_type::value_type;
 
-	static void
-	add(container_type& c, element_type&& e)
-	{
-		c.push_back(std::move(e));
-	}
+    static void
+    add(container_type& c, element_type&& e)
+    {
+        c.push_back(std::move(e));
+    }
 };
 
 template < typename T >
@@ -121,22 +121,22 @@ struct add_traits : add_traits_impl< T, add_via_insert< T >::value > {};
 
 template < typename T >
 struct container_traits {
-	typedef T									container_type;
-	typedef typename container_type::size_type	size_type;
-	typedef typename container_type::value_type	element_type;
-	typedef reserve_traits< T >					reserve_type;
-	typedef add_traits< T >						add_type;
+    using container_type        = T;
+    using size_type             = typename container_type::size_type;
+    using element_type          = typename container_type::value_type;
+    using reserve_type          = reserve_traits< T >;
+    using add_type              = add_traits< T >;
 
-	static void
-	reserve(container_type& c, size_type sz)
-	{
-		reserve_type::reserve(c, sz);
-	}
-	static void
-	add(container_type& c, element_type&& e)
-	{
-		add_type::add(c, ::std::move(e));
-	}
+    static void
+    reserve(container_type& c, size_type sz)
+    {
+        reserve_type::reserve(c, sz);
+    }
+    static void
+    add(container_type& c, element_type&& e)
+    {
+        add_type::add(c, ::std::move(e));
+    }
 };
 
 template < typename T, bool is_byte >
@@ -144,165 +144,165 @@ struct container_writer_impl;
 
 template < typename T >
 struct container_writer_impl< T, false > {
-	typedef T													container_type;
-	typedef typename container_type::size_type					size_type;
-	typedef typename arg_type_helper<container_type>::in_type	in_type;
+    using container_type        = T;
+    using size_type             = typename container_type::size_type;
+    using in_type               = typename arg_type_helper<container_type>::in_type;
 
-	template < typename OutputIterator >
-	static void
-	output(OutputIterator o, in_type v)
-	{
-		typedef octet_output_iterator_concept< OutputIterator >	output_iterator_check;
-		size_type sz = v.size();
-		write(o, sz);
-		for (auto const& e : v) {
-			write(o, e);
-		}
-	}
+    template < typename OutputIterator >
+    static void
+    output(OutputIterator o, in_type v)
+    {
+        using output_iterator_check = octet_output_iterator_concept< OutputIterator >;
+        size_type sz = v.size();
+        write(o, sz);
+        for (auto const& e : v) {
+            write(o, e);
+        }
+    }
 };
 
 template < typename T >
 struct container_writer_impl< T, true > {
-	typedef T													container_type;
-	typedef typename container_type::size_type					size_type;
-	typedef typename arg_type_helper<container_type>::in_type	in_type;
+    using container_type        = T;
+    using size_type             = typename container_type::size_type;
+    using in_type               = typename arg_type_helper<container_type>::in_type;
 
-	template < typename OutputIterator >
-	static void
-	output(OutputIterator o, in_type v)
-	{
-		typedef octet_output_iterator_concept< OutputIterator >	output_iterator_check;
-		size_type sz = v.size();
-		write(o, sz);
-		std::copy(v.begin(), v.end(), o);
-	}
+    template < typename OutputIterator >
+    static void
+    output(OutputIterator o, in_type v)
+    {
+        using output_iterator_check = octet_output_iterator_concept< OutputIterator >;
+        size_type sz = v.size();
+        write(o, sz);
+        std::copy(v.begin(), v.end(), o);
+    }
 };
 
 template < typename T >
 struct container_writer;
 
 template < template<typename, typename ...> class Container,
-	typename Element, typename ... Rest >
+    typename Element, typename ... Rest >
 struct container_writer< Container<Element, Rest ...> >
-	: container_writer_impl< Container<Element, Rest ... >, sizeof(Element) == 1 > {};
+    : container_writer_impl< Container<Element, Rest ... >, sizeof(Element) == 1 > {};
 
 template < typename T, bool is_byte >
 struct container_reader_impl;
 
 template < typename T >
 struct container_reader_impl< T, false > {
-	typedef T													container_type;
-	typedef typename container_type::value_type					element_type;
-	typedef typename container_type::size_type					size_type;
-	typedef typename arg_type_helper<container_type>::out_type	out_type;
-	typedef container_traits<container_type>					traits;
+    using container_type        = T;
+    using element_type          = typename container_type::value_type;
+    using size_type             = typename container_type::size_type;
+    using out_type              = typename arg_type_helper<container_type>::out_type;
+    using traits                = container_traits<container_type>;
 
-	template < typename InputIterator >
-	static void
-	input(InputIterator& begin, InputIterator end, out_type v)
-	{
-		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
-		size_type sz;
-		read(begin, end, sz);
-		if (sz > 0) {
-			container_type tmp;
-			traits::reserve(tmp, sz);
-			for (size_type i = 0; i < sz; ++i) {
-				element_type e;
-				read(begin, end, e);
-				traits::add(tmp, std::move(e));
-			}
-			std::swap(v, tmp);
-		}
-	}
+    template < typename InputIterator >
+    static void
+    input(InputIterator& begin, InputIterator end, out_type v)
+    {
+        using input_iterator_check = octet_input_iterator_concept< InputIterator >;
+        size_type sz;
+        read(begin, end, sz);
+        if (sz > 0) {
+            container_type tmp;
+            traits::reserve(tmp, sz);
+            for (size_type i = 0; i < sz; ++i) {
+                element_type e;
+                read(begin, end, e);
+                traits::add(tmp, std::move(e));
+            }
+            std::swap(v, tmp);
+        }
+    }
 };
 
 template < typename T >
 struct container_reader_impl< T, true > {
-	typedef T													container_type;
-	typedef typename container_type::value_type					element_type;
-	typedef typename container_type::size_type					size_type;
-	typedef typename arg_type_helper<container_type>::out_type	out_type;
-	typedef container_traits<container_type>					traits;
+    using container_type        = T;
+    using element_type          = typename container_type::value_type;
+    using size_type             = typename container_type::size_type;
+    using out_type              = typename arg_type_helper<container_type>::out_type;
+    using traits                = container_traits<container_type>;
 
-	template < typename InputIterator >
-	static void
-	input(InputIterator& begin, InputIterator end, out_type v)
-	{
-		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
-		size_type sz;
-		read(begin, end, sz);
-		if (sz > 0) {
-			container_type tmp;
-			copy_max(begin, end, std::back_inserter(tmp), sz);
-			std::swap(v, tmp);
-		}
-	}
+    template < typename InputIterator >
+    static void
+    input(InputIterator& begin, InputIterator end, out_type v)
+    {
+        using input_iterator_check = octet_input_iterator_concept< InputIterator >;
+        size_type sz;
+        read(begin, end, sz);
+        if (sz > 0) {
+            container_type tmp;
+            copy_max(begin, end, std::back_inserter(tmp), sz);
+            std::swap(v, tmp);
+        }
+    }
 };
 
 template < typename T >
 struct container_reader;
 
 template < template<typename, typename ...> class Container,
-	typename Element, typename ... Rest >
+    typename Element, typename ... Rest >
 struct container_reader< Container<Element, Rest ...> > :
-	container_reader_impl< Container<Element, Rest ...>, sizeof(Element) == 1 > {};
+    container_reader_impl< Container<Element, Rest ...>, sizeof(Element) == 1 > {};
 
 template < typename T >
 struct dictionary_writer;
 
 template < template<typename, typename, typename ...> class Dictionary,
-	typename Key, typename Value, typename ... Rest >
+    typename Key, typename Value, typename ... Rest >
 struct dictionary_writer< Dictionary<Key, Value, Rest ...> > {
-	typedef Dictionary<Key, Value, Rest ...>						dictionary_type;
-	typedef typename dictionary_type::size_type						size_type;
-	typedef typename arg_type_helper< dictionary_type >::in_type	in_type;
+    using dictionary_type       = Dictionary<Key, Value, Rest ...>;
+    using size_type             = typename dictionary_type::size_type;
+    using in_type               = typename arg_type_helper< dictionary_type >::in_type;
 
-	template < typename OutputIterator >
-	static void
-	output(OutputIterator o, in_type v)
-	{
-		typedef octet_output_iterator_concept< OutputIterator >	output_iterator_check;
-		size_type sz = v.size();
-		write(o, sz);
-		for (auto const& e : v) {
-			write(o, e);
-		}
-	}
+    template < typename OutputIterator >
+    static void
+    output(OutputIterator o, in_type v)
+    {
+        using output_iterator_check = octet_output_iterator_concept< OutputIterator >;
+        size_type sz = v.size();
+        write(o, sz);
+        for (auto const& e : v) {
+            write(o, e);
+        }
+    }
 };
 
 template < typename T >
 struct dictionary_reader;
 
 template < template<typename, typename, typename ...> class Dictionary,
-	typename Key, typename Value, typename ... Rest >
+    typename Key, typename Value, typename ... Rest >
 struct dictionary_reader< Dictionary<Key, Value, Rest ...> > {
-	typedef Dictionary<Key, Value, Rest ...>						dictionary_type;
-	typedef Key														key_type;
-	typedef Value													value_type;
-	typedef std::pair< key_type, value_type >						element_type;
-	typedef typename dictionary_type::size_type						size_type;
-	typedef typename arg_type_helper< dictionary_type >::out_type	out_type;
-	typedef container_traits<dictionary_type>						traits;
+    using dictionary_type       = Dictionary<Key, Value, Rest ...>;
+    using key_type              = Key;
+    using value_type            = Value;
+    using element_type          = std::pair< key_type, value_type >;
+    using size_type             = typename dictionary_type::size_type;
+    using out_type              = typename arg_type_helper< dictionary_type >::out_type;
+    using traits                = container_traits<dictionary_type>;
 
-	template < typename InputIterator >
-	static void
-	input(InputIterator& begin, InputIterator end, out_type v)
-	{
-		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
-		size_type sz;
-		read(begin, end, sz);
-		if (sz > 0) {
-			dictionary_type tmp;
-			traits::reserve(tmp, sz);
-			for (size_type i = 0; i < sz; ++i) {
-				element_type e;
-				read(begin, end, e);
-				traits::add(tmp, std::move(e));
-			}
-			std::swap(v, tmp);
-		}
-	}
+    template < typename InputIterator >
+    static void
+    input(InputIterator& begin, InputIterator end, out_type v)
+    {
+        using input_iterator_check = octet_input_iterator_concept< InputIterator >;
+        size_type sz;
+        read(begin, end, sz);
+        if (sz > 0) {
+            dictionary_type tmp;
+            traits::reserve(tmp, sz);
+            for (size_type i = 0; i < sz; ++i) {
+                element_type e;
+                read(begin, end, e);
+                traits::add(tmp, std::move(e));
+            }
+            std::swap(v, tmp);
+        }
+    }
 };
 
 

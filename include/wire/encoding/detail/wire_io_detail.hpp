@@ -14,6 +14,7 @@
 #include <wire/encoding/detail/string_io.hpp>
 #include <wire/encoding/detail/struct_io.hpp>
 #include <wire/encoding/detail/containers_io.hpp>
+#include <wire/encoding/detail/array_io.hpp>
 
 namespace wire {
 namespace encoding {
@@ -21,48 +22,56 @@ namespace detail {
 
 template < typename T >
 struct writer_impl< T, SCALAR_FIXED >
-	: fixed_size_writer< T > {};
+    : fixed_size_writer< T > {};
 template < typename T >
 struct reader_impl< T, SCALAR_FIXED >
-	: fixed_size_reader< T > {};
+    : fixed_size_reader< T > {};
 
 template < typename T >
 struct writer_impl<T, SCALAR_VARINT >
-	: varint_writer< T, std::is_signed< typename std::decay<T>::type >::value > {};
+    : varint_writer< T, std::is_signed< typename std::decay<T>::type >::value > {};
 template < typename T >
 struct reader_impl< T, SCALAR_VARINT >
-	: varint_reader< T, std::is_signed< typename std::decay<T>::type >::value > {};
+    : varint_reader< T, std::is_signed< typename std::decay<T>::type >::value > {};
 
 template <>
 struct writer_impl< std::string, SCALAR_WITH_SIZE >
-	: string_writer {};
+    : string_writer {};
 template <>
 struct reader_impl< std::string, SCALAR_WITH_SIZE >
-	: string_reader {};
+    : string_reader {};
 
 template < typename T >
 struct writer_impl < T, STRUCT >
-	: struct_writer< T > {};
+    : struct_writer< T > {};
 
 template < typename T >
 struct reader_impl < T, STRUCT >
-	: struct_reader< T > {};
+    : struct_reader< T > {};
+
+template < typename T >
+struct writer_impl< T, ARRAY_FIXED>
+    : array_writer<T> {};
+
+template < typename T >
+struct reader_impl< T, ARRAY_FIXED>
+    : array_reader<T> {};
 
 template < typename T >
 struct writer_impl< T, ARRAY_VARLEN >
-	: container_writer< T > {};
+    : container_writer< T > {};
 
 template < typename T >
 struct reader_impl< T, ARRAY_VARLEN >
-	: container_reader< T > {};
+    : container_reader< T > {};
 
 template < typename T >
 struct writer_impl< T, DICTIONARY >
-	: dictionary_writer< T > {};
+    : dictionary_writer< T > {};
 
 template < typename T >
 struct reader_impl< T, DICTIONARY >
-	: dictionary_reader< T > {};
+    : dictionary_reader< T > {};
 
 }  // namespace detail
 }  // namespace encoding
