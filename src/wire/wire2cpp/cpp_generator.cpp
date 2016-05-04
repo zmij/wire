@@ -9,11 +9,13 @@
 
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 #include <cctype>
 #include <algorithm>
 #include <boost/filesystem.hpp>
 
 #include <wire/idl/syntax_error.hpp>
+#include <wire/util/murmur_hash.hpp>
 
 namespace wire {
 namespace idl {
@@ -176,7 +178,7 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
         ::std::cerr << "\t" << e->get_qualified_name() << "\n";
     }
 
-    ::std::set< ::std::string > standard_headers;
+    ::std::set< ::std::string > standard_headers {"<memory>"};
     ::std::cerr << "Dependencies of this compilation unit:\n";
     auto deps = unit_->external_dependencies();
     for (auto const& d : deps) {
@@ -213,10 +215,10 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
         }
     }
 
+    header_ << "#include <wire/encoding/wire_io.hpp>\n";
     for (auto const& hdr : standard_headers) {
         header_ << "#include " << hdr << "\n";
     }
-    header_ << "#include <wire/encoding/wire_io.hpp>\n";
     //------------------------------------------------------------------------
     ::std::cerr << "Depends on compilation units:\n";
     auto units = unit_->dependent_units();
@@ -258,6 +260,9 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
             }
         }
     }
+
+    header_ << "#include <wire/errors/user_exception.hpp>\n";
+
     header_ << "\n";
     source_ << "\n";
 }
@@ -608,21 +613,60 @@ generator::generate_exception(ast::exception_ptr exc)
     // Constructors
     header_ << h_off_++ << "public:";
 
+    ::std::ostringstream members_init;
+    if (!data_members.empty()) {
+        for (auto dm : data_members) {
+            members_init << ", " << dm->name() << "{}";
+        }
+    }
+
+    //@{ Default constructor
     header_ << h_off_ << "/* default constructor, for use in factories */"
             << h_off_ << exc->name() << "() : ";
-    write_qualified_name(header_, parent_name) << "{} {}";
-
-    header_ << h_off_ << "explicit"
-            << h_off_ << exc->name() << "(std::string const& msg) : ";
-    write_qualified_name(header_, parent_name) << "{msg} {}";
-    header_ << h_off_ << exc->name() << "(char const* msg) : ";
-    write_qualified_name(header_, parent_name) << "{msg} {}";
+    write_qualified_name(header_, parent_name) << "{}"
+            << members_init.str() << " {}";
+    //@}
 
     header_ << h_off_ << "/* templated constructor to format a ::std::runtime_error message */"
             << h_off_ << "template < typename ... T >"
             << h_off_ << exc->name() << "(T const& ... args) : ";
-    write_qualified_name(header_, parent_name) << "(args ...) {}";
+    write_qualified_name(header_, parent_name) << "(args ...) "
+            << members_init.str() << "{}";
+
     // TODO constructors with data members variations
+    if (!data_members.empty()) {
+        ::std::ostringstream args;
+        ::std::ostringstream init;
+        ::std::ostringstream msg;
+
+        ::std::deque<::std::string> rest;
+        for (auto dm : data_members) {
+            rest.push_back(dm->name() + "{}");
+        }
+        for (auto p = data_members.begin(); p != data_members.end(); ++p) {
+            if (p != data_members.begin()) {
+                args << ", ";
+                init << "," << (h_off_ + 1) << "  ";
+                msg << ", ";
+            }
+            write_type_name(args, (*p)->get_type()) << " const& " << (*p)->name() << "_";
+            init << (*p)->name() << "{" << (*p)->name() << "_}";
+            msg << (*p)->name() << "_";
+
+            rest.pop_front();
+
+            header_ << h_off_ << exc->name() << "(" << args.str() << ")";
+            header_ << ++h_off_ << ": ";
+            write_qualified_name(header_, parent_name)
+                    << "(wire_static_type_id(), " << msg.str() << "), "
+                    << h_off_ << "  " << init.str();
+            for (auto const& r : rest) {
+                header_ << "," << h_off_ << "  " << r;
+            }
+            header_ << "{}";
+            --h_off_;
+        }
+    }
     --h_off_;
 
     if (!data_members.empty()) {
@@ -638,7 +682,10 @@ generator::generate_exception(ast::exception_ptr exc)
         // Member functions
         header_ << h_off_++ << "public:";
         header_ << h_off_ << "static ::std::string const&"
-                << h_off_ << "static_type_id();";
+                << h_off_ << "wire_static_type_id();";
+
+        header_ << h_off_ << "static ::std::uint64_t"
+                << h_off_ << "wire_static_type_id_hash();";
 
         header_ << h_off_ << "void"
                 << h_off_ << "__wire_write(output_iterator o) override;";
@@ -659,23 +706,34 @@ generator::generate_exception(ast::exception_ptr exc)
     // Source
     auto eqn = exc->get_qualified_name();
     auto pfx = constant_prefix(eqn);
+    ::std::ostringstream qnos;
+    qnos << eqn;
+    auto eqn_str = qnos.str();
 
     source_ << s_off_ << "/* data for " << eqn << " */";
     source_ << s_off_++ << "namespace {\n";
 
     source_ << s_off_ << "::std::string const " << pfx << "TYPE_ID = \""
             << eqn << "\";";
+    source_ << s_off_ << "::std::uint64_t const " << pfx << "TYPE_ID_HASH = 0x"
+            << ::std::hex << hash::murmur_hash( eqn_str ) << ";";
 
     source_ << "\n" << --s_off_ << "} /* namespace for "
             << eqn << " */\n";
 
     source_ << s_off_ << "::std::string const&"
             << s_off_;
-    write_qualified_name(source_, eqn) << "::static_type_id()"
+    write_qualified_name(source_, eqn) << "::wire_static_type_id()"
             << s_off_++ << "{";
     source_ << s_off_ << "return " << pfx << "TYPE_ID;";
     source_ << --s_off_ << "}\n";
 
+    source_ << s_off_ << "::std::uint64_t"
+            << s_off_;
+    write_qualified_name(source_, eqn) << "::wire_static_type_id_hash()"
+            << s_off_++ << "{";
+    source_ << s_off_ << "return " << pfx << "TYPE_ID_HASH;";
+    source_ << --s_off_ << "}\n";
     // generate io funcs in cpp
 
     //------------------------------------------------------------------------
@@ -694,7 +752,9 @@ generator::generate_exception(ast::exception_ptr exc)
     if (!exc->get_parent()) {
         flags = "::wire::encoding::segment_header::last_segment";
     }
-    source_ << s_off_ << "encaps.start_segment(static_type_id(), " << flags << ");";
+    ::std::string type_id_func = eqn_str.size() > sizeof(::std::uint64_t) ?
+            "wire_static_type_id_hash" : "wire_static_type_id";
+    source_ << s_off_ << "encaps.start_segment(" << type_id_func << "(), " << flags << ");";
 
     if (!data_members.empty()) {
         source_ << s_off_ << "::wire::encoding::write(o";
@@ -725,13 +785,8 @@ generator::generate_exception(ast::exception_ptr exc)
     source_ << s_off_ << "auto encaps = begin.incoming_encapsulation();";
     source_ << s_off_++ << "if (read_head) {";
     source_ << s_off_ <<    "::wire::encoding::segment_header seg_head;"
-            << s_off_ <<    "encaps.read_segment_header(begin, end, seg_head);"
-            << s_off_ <<    "if (seg_head.type_id != static_type_id()) {";
-    source_ << ++s_off_ <<      "throw ::wire::errors::unmarshal_error(";
-    source_ << ++s_off_ <<          "\"Incorrect type id \", seg_head.type_id,"
-            << s_off_ <<            "\" expected \", static_type_id());";
-    --s_off_;
-    source_ << --s_off_ <<  "}";
+            << s_off_ <<    "encaps.read_segment_header(begin, end, seg_head);";
+    source_ << s_off_ << "__check_segment_header< " << exc->name() << " >(seg_head);";
     source_ << --s_off_ << "}\n";
 
     if (!data_members.empty()) {

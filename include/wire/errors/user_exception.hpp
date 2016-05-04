@@ -10,6 +10,7 @@
 
 #include <wire/errors/exceptions.hpp>
 #include <wire/encoding/buffers.hpp>
+#include <wire/encoding/segment.hpp>
 
 namespace wire {
 namespace errors {
@@ -35,6 +36,29 @@ public:
 
     virtual void
     __wire_read(input_iterator& begin, input_iterator end, bool read_head = true) = 0;
+
+    template < typename T >
+    void
+    __check_segment_header(encoding::segment_header const& seg_head)
+    {
+        switch (seg_head.type_id.which()) {
+            case 0: {
+                if (::boost::get< ::std::string >(seg_head.type_id) != T::wire_static_type_id()) {
+                    throw unmarshal_error("Incorrect type id ", seg_head.type_id,
+                            " expected ", T::wire_static_type_id());
+                }
+                break;
+            }
+            case 1:
+                if (::boost::get< ::std::uint64_t >(seg_head.type_id) != T::wire_static_type_id_hash()) {
+                    throw unmarshal_error("Incorrect type id ", seg_head.type_id,
+                            " expected ", T::wire_static_type_id_hash());
+                }
+                break;
+            default:
+                throw unmarshal_error("Unexpected data type in segment type id");
+        }
+    }
 };
 
 

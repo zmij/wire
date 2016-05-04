@@ -35,11 +35,12 @@ set(test_SRCS
     exception_io_test.cpp
 )
 
-add_executable(test-wire ${test_SRCS})
-target_link_libraries(test-wire
+add_executable(test-wire-encoding ${test_SRCS})
+target_link_libraries(test-wire-encoding
     ${GTEST_BOTH_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     ${WIRE_LIB}
+    ${WIRE_UTIL_LIB}
 )
 
 if (GTEST_XML_OUTPUT)
@@ -49,8 +50,8 @@ if (GTEST_XML_OUTPUT)
 endif()
 
 add_test(
-    NAME test-wire
-    COMMAND test-wire ${BASE_TEST_ARGS}
+    NAME test-wire-encoding
+    COMMAND test-wire-encoding ${BASE_TEST_ARGS}
 )
 
 add_executable(varint-decode varint-decode.cpp)

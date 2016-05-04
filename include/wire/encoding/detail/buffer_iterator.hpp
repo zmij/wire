@@ -471,7 +471,7 @@ struct buffer_sequence::savepoint {
 
 //----------------------------------------------------------------------------
 struct buffer_sequence::out_encaps_state {
-    using type_map = ::std::map< ::std::string, size_type >;
+    using type_map = ::std::map< segment_header::type_id_type, size_type >;
     struct segment : segment_header {
         savepoint       sp_;
         size_type       type_idx_;
@@ -480,6 +480,11 @@ struct buffer_sequence::out_encaps_state {
             : segment_header{f, name, 0}, sp_{s}, type_idx_{ti}
         {
         }
+        segment(buffer_sequence& s, flags_type f, ::std::uint64_t const& name_hash, size_type ti)
+            : segment_header{f, name_hash, 0}, sp_{s}, type_idx_{ti}
+        {
+        }
+
         ~segment();
     };
 
@@ -511,12 +516,14 @@ struct buffer_sequence::out_encaps_state {
     void
     start_segment(segment_header::flags_type flags, ::std::string const& name);
     void
+    start_segment(segment_header::flags_type flags, ::std::uint64_t const& name_hash);
+    void
     end_segment();
 };
 
 //----------------------------------------------------------------------------
 struct buffer_sequence::in_encaps_state {
-    using type_map = ::std::vector< ::std::string >;
+    using type_map = ::std::vector< segment_header::type_id_type >;
     buffer_sequence*    seq_;
     version             encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
     size_type           size_ = 0;
@@ -542,9 +549,17 @@ struct buffer_sequence::in_encaps_state {
     {
         read(begin, end_, sh.flags);
         if (sh.flags & segment_header::string_type_id) {
-            read(begin, end_, sh.type_id);
+            ::std::string type_id;
+            read(begin, end_, type_id);
+            sh.type_id = type_id;
             type_map_.push_back(sh.type_id);
             ::std::cerr << "Read string type id " << sh.type_id << "\n";
+        } else if (sh.flags & segment_header::hash_type_id) {
+            ::std::uint64_t type_id;
+            read(begin, end_, type_id);
+            sh.type_id = type_id;
+            type_map_.push_back(sh.type_id);
+            ::std::cerr << "Read hash type id " << sh.type_id << "\n";
         } else {
             size_type type_idx;
             read(begin, end_, type_idx);
@@ -582,6 +597,12 @@ public:
             segment_header::flags_type flags = segment_header::none)
     {
         iter_->start_segment(flags, name);
+    }
+    void
+    start_segment(::std::uint64_t const& name_hash,
+            segment_header::flags_type flags = segment_header::none)
+    {
+        iter_->start_segment(flags, name_hash);
     }
     void
     end_segment()

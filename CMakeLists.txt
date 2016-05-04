@@ -52,6 +52,7 @@ include_directories(
 add_definitions("-std=c++11")
 
 set(${LIB_NAME}_LIB ${lib_name})
+set(${LIB_NAME}_UTIL_LIB ${lib_name}-util)
 set(${LIB_NAME}_IDL_LIB ${lib_name}-idl)
 
 if(_TIP_IRI_SUBTREE)

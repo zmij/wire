@@ -461,13 +461,36 @@ buffer_sequence::out_encaps_state::start_segment(segment_header::flags_type flag
     size_type ti = 0;
     if (f == types_.end()) {
         types_.insert(::std::make_pair(name, types_.size() + 1));
-        flags = static_cast<segment_header::flags_type>(flags | segment_header::string_type_id);
+        flags = static_cast<segment_header::flags_type>(
+                (flags & ~segment_header::hash_type_id) | segment_header::string_type_id);
         ti = types_.size();
     } else {
         ti = f->second;
     }
 
     current_segment_.reset( new segment{ *sp_.seq_, flags, name, ti } );
+    sp_.seq_->start_buffer();
+}
+
+void
+buffer_sequence::out_encaps_state::start_segment(segment_header::flags_type flags,
+        ::std::uint64_t const& name_hash)
+{
+    if (!sp_.seq_)
+        throw errors::marshal_error("Output encapsulation is invalid");
+
+    auto f = types_.find(name_hash);
+    size_type ti = 0;
+    if (f == types_.end()) {
+        types_.insert(::std::make_pair(name_hash, types_.size() + 1));
+        flags = static_cast<segment_header::flags_type>(
+                (flags & ~segment_header::string_type_id) | segment_header::hash_type_id);
+        ti = types_.size();
+    } else {
+        ti = f->second;
+    }
+
+    current_segment_.reset( new segment{ *sp_.seq_, flags, name_hash, ti } );
     sp_.seq_->start_buffer();
 }
 
@@ -485,7 +508,10 @@ buffer_sequence::out_encaps_state::segment::~segment()
         write(out, flags);
         if (flags & string_type_id) {
             ::std::cerr << "Write string type id " << type_id << "\n";
-            write(out, type_id);
+            write(out, ::boost::get<::std::string>(type_id));
+        } else if (flags & hash_type_id) {
+            ::std::cerr << "Write hash type id " << type_id << "\n";
+            write(out, ::boost::get<::std::uint64_t>(type_id));
         } else {
             ::std::cerr << "Write type id index " << type_idx_ << "\n";
             write(out, type_idx_);

@@ -79,7 +79,32 @@ struct offset {
             --sz;
         return tmp;
     }
+
+    offset&
+    operator += (::std::size_t off)
+    {
+        sz += off;
+        return *this;
+    }
+
+    offset&
+    operator -= (::std::size_t off)
+    {
+        if (sz < off)
+            sz = 0;
+        else
+            sz -= off;
+        return *this;
+    }
 };
+
+inline offset
+operator + (offset const& off, ::std::size_t sz)
+{
+    offset tmp{off};
+    tmp += sz;
+    return tmp;
+}
 
 class generator : public ast::generator {
 public:

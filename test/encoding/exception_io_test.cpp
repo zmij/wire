@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 #include <wire/errors/user_exception.hpp>
 #include <wire/encoding/buffers.hpp>
+#include <wire/util/murmur_hash.hpp>
 
 
 namespace wire {
@@ -31,17 +32,24 @@ public:
     base(T const& ... args) : user_exception(args ... ) {}
 
     static ::std::string const&
-    static_type_id()
+    wire_static_type_id()
     {
         static ::std::string _type_id = BASE;
         return _type_id;
+    }
+
+    static ::std::uint64_t
+    wire_static_type_id_hash()
+    {
+        static ::std::uint64_t _hash = hash::murmur_hash(BASE);
+        return _hash;
     }
 
     void
     __wire_write(output_iterator out) override
     {
         auto encaps = out.encapsulation();
-        encaps.start_segment(static_type_id(), ::wire::encoding::segment_header::last_segment);
+        encaps.start_segment(wire_static_type_id(), ::wire::encoding::segment_header::last_segment);
 
         encaps.end_segment();
     }
@@ -53,13 +61,7 @@ public:
         if (read_head) {
             ::wire::encoding::segment_header sh;
             encaps.read_segment_header(begin, end, sh);
-            if (sh.type_id != static_type_id()) {
-                errors::unmarshal_error err(
-                    "Incorrect type id ", sh.type_id,
-                    " expected ", static_type_id());
-                ::std::cerr << err.what() << "\n";
-                throw err;
-            }
+            __check_segment_header< base >(sh);
         }
     }
 };
@@ -68,20 +70,28 @@ class derived : public base {
 public:
     derived() : base{}, some_int{} {};
 
-    derived(::std::int32_t i) : base(static_type_id(), i), some_int{i} {}
+    derived(::std::int32_t i) : base(wire_static_type_id(), i), some_int{i} {}
 
     static ::std::string const&
-    static_type_id()
+    wire_static_type_id()
     {
         static ::std::string _type_id = DERIVED;
         return _type_id;
     }
 
+    static ::std::uint64_t
+    wire_static_type_id_hash()
+    {
+        static ::std::uint64_t _hash = hash::murmur_hash(DERIVED);
+        return _hash;
+    }
+
+
     void
     __wire_write(output_iterator out) override
     {
         auto encaps = out.encapsulation();
-        encaps.start_segment(static_type_id(), ::wire::encoding::segment_header::none);
+        encaps.start_segment(wire_static_type_id_hash(), ::wire::encoding::segment_header::none);
         write(out, some_int);
         encaps.end_segment();
         base::__wire_write(out);
@@ -94,13 +104,7 @@ public:
         if (read_head) {
             ::wire::encoding::segment_header sh;
             encaps.read_segment_header(begin, end, sh);
-            if (sh.type_id != static_type_id()) {
-                errors::unmarshal_error err(
-                    "Incorrect type id ", sh.type_id,
-                    " expected ", static_type_id());
-                ::std::cerr << err.what() << "\n";
-                throw err;
-            }
+            __check_segment_header< derived >(sh);
         }
         read(begin, end, some_int);
         base::__wire_read(begin, encaps.end(), true);
