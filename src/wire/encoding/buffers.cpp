@@ -438,5 +438,11 @@ incoming::current_encapsulation()
     return pimpl_->current_in_encapsulation();
 }
 
+void
+incoming::debug_print(::std::ostream& os) const
+{
+    debug_output(os, *pimpl_);
+}
+
 }  // namespace encoding
 }  // namespace wire

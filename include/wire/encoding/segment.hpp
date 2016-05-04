@@ -17,6 +17,7 @@ struct segment_header {
     enum flags_type {
         none            = 0x00,
         string_type_id  = 0x01,
+        hash_type_id    = 0x02,
         last_segment    = 0x04
     };
 

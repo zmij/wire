@@ -72,6 +72,14 @@ struct qname_search {
             throw ::std::range_error("Qname search object is empty (get scope)");
         return {fully, begin, end - 1};
     }
+
+    qname_search&
+    operator++()
+    {
+        fully = false;
+        ++begin;
+        return *this;
+    }
 };
 
 /**

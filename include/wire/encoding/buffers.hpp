@@ -336,6 +336,10 @@ public:
     encapsulation_type
     current_encapsulation();
     //@}
+    //@{
+    void
+    debug_print(::std::ostream&) const;
+    //@}
 private:
     void
     create_pimpl(message const&);

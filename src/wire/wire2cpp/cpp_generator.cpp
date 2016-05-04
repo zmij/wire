@@ -339,12 +339,12 @@ generator::constant_prefix(qname const& qn) const
 generator::write_qualified_name(::std::ostream& os, qname const& qn)
 {
     qname_search current = current_scope_.search();
-    qname_search target = qn.search(false);
+    qname_search target = qn.search();
 
     auto c = current.begin;
 
     for (; c != current.end && !target.empty() && *c == *target.begin;
-            ++c, ++target.begin);
+            ++c, ++target);
 
     if (target.empty()) {
         os << qn;
@@ -603,55 +603,49 @@ generator::generate_exception(ast::exception_ptr exc)
         --h_off_;
     }
 
-    auto const& dm = exc->get_data_members();
+    auto const& data_members = exc->get_data_members();
 
     // Constructors
-    header_ << h_off_++ << "public:"
+    header_ << h_off_++ << "public:";
+
+    header_ << h_off_ << "/* default constructor, for use in factories */"
+            << h_off_ << exc->name() << "() : ";
+    write_qualified_name(header_, parent_name) << "{} {}";
+
+    header_ << h_off_ << "explicit"
             << h_off_ << exc->name() << "(std::string const& msg) : ";
     write_qualified_name(header_, parent_name) << "{msg} {}";
     header_ << h_off_ << exc->name() << "(char const* msg) : ";
     write_qualified_name(header_, parent_name) << "{msg} {}";
-    header_ << h_off_ << "template < typename ... T >\n"
+
+    header_ << h_off_ << "/* templated constructor to format a ::std::runtime_error message */"
+            << h_off_ << "template < typename ... T >"
             << h_off_ << exc->name() << "(T const& ... args) : ";
     write_qualified_name(header_, parent_name) << "(args ...) {}";
     // TODO constructors with data members variations
     --h_off_;
 
-    if (!dm.empty()) {
+    if (!data_members.empty()) {
         header_ << h_off_++ << "public:";
-        for (auto d : dm) {
+        for (auto dm : data_members) {
             header_ << h_off_;
-            write_type_name(header_, d->get_type()) << " " << d->name() << ";";
+            write_type_name(header_, dm->get_type()) << " " << dm->name() << ";";
         }
         --h_off_;
     }
 
-    // TODO Member functions
     {
+        // Member functions
         header_ << h_off_++ << "public:";
         header_ << h_off_ << "static ::std::string const&"
                 << h_off_ << "static_type_id();";
 
-        header_ << h_off_ << "template< typename OutputIterator >"
-                << h_off_ << "void"
-                << h_off_ << "__write(OutputIterator o)"
-                << h_off_ << "{";
+        header_ << h_off_ << "void"
+                << h_off_ << "__wire_write(output_iterator o) override;";
 
-        ++h_off_;
-
-        header_ << h_off_ << "auto encaps = o.encapsulation();";
-
-        ::std::string flags = "::wire::encoding::segment_header::none";
-        if (!exc->get_parent()) {
-            flags = "::wire::encoding::segment_header::last_segment";
-        }
-        header_ << h_off_ << "encaps.start_segment(static_type_id(), " << flags << ");";
-
-        // TODO Fields
-
-        header_ << h_off_ << parent_name << "::__write(o);";
-
-        header_ << --h_off_ << "}";
+        header_ << h_off_ << "void"
+                << h_off_ << "__wire_read(input_iterator& begin, input_iterator end, "
+                        "bool read_head = true) override;";
     }
 
     header_ << --h_off_ << "};\n";
@@ -660,7 +654,7 @@ generator::generate_exception(ast::exception_ptr exc)
     header_ << h_off_ << "using " << exc->name() << "_ptr = ::std::shared_ptr<"
                 << exc->name() << ">;"
             << h_off_ << "using " << exc->name() << "_weak_ptr = ::std::weak_ptr<"
-                << exc->name() << ">";
+                << exc->name() << ">;\n";
 
     // Source
     auto eqn = exc->get_qualified_name();
@@ -670,7 +664,7 @@ generator::generate_exception(ast::exception_ptr exc)
     source_ << s_off_++ << "namespace {\n";
 
     source_ << s_off_ << "::std::string const " << pfx << "TYPE_ID = \""
-            << eqn << "\"";
+            << eqn << "\";";
 
     source_ << "\n" << --s_off_ << "} /* namespace for "
             << eqn << " */\n";
@@ -679,9 +673,80 @@ generator::generate_exception(ast::exception_ptr exc)
             << s_off_;
     write_qualified_name(source_, eqn) << "::static_type_id()"
             << s_off_++ << "{";
-    source_ << s_off_ << "return " << pfx << "TYPE_ID;"
-            << --s_off_ << "}\n";
+    source_ << s_off_ << "return " << pfx << "TYPE_ID;";
+    source_ << --s_off_ << "}\n";
 
+    // generate io funcs in cpp
+
+    //------------------------------------------------------------------------
+    //  Wire write function for an exception
+    //------------------------------------------------------------------------
+    source_ << s_off_ << "void"
+            << s_off_;
+    write_qualified_name(source_, eqn) << "::__wire_write(output_iterator o)"
+            << s_off_ << "{";
+
+    ++s_off_;
+
+    source_ << s_off_ << "auto encaps = o.encapsulation();";
+
+    ::std::string flags = "::wire::encoding::segment_header::none";
+    if (!exc->get_parent()) {
+        flags = "::wire::encoding::segment_header::last_segment";
+    }
+    source_ << s_off_ << "encaps.start_segment(static_type_id(), " << flags << ");";
+
+    if (!data_members.empty()) {
+        source_ << s_off_ << "::wire::encoding::write(o";
+        for (auto dm : data_members) {
+            source_ << ", " << dm->name();
+        }
+        source_ << ");";
+    }
+
+    source_ << s_off_ << "encaps.end_segment();";
+
+    if (exc->get_parent()) {
+        source_ << s_off_ << parent_name << "::__wire_write(o);";
+    }
+
+    source_ << --s_off_ << "}\n";
+
+    //------------------------------------------------------------------------
+    //  Wire read function for an exception
+    //------------------------------------------------------------------------
+    source_ << s_off_ << "void"
+            << s_off_;
+    write_qualified_name(source_, eqn) << "::__wire_read(input_iterator& begin, input_iterator end, "
+                    "bool read_head)"
+            << s_off_ << "{";
+    ++s_off_;
+
+    source_ << s_off_ << "auto encaps = begin.incoming_encapsulation();";
+    source_ << s_off_++ << "if (read_head) {";
+    source_ << s_off_ <<    "::wire::encoding::segment_header seg_head;"
+            << s_off_ <<    "encaps.read_segment_header(begin, end, seg_head);"
+            << s_off_ <<    "if (seg_head.type_id != static_type_id()) {";
+    source_ << ++s_off_ <<      "throw ::wire::errors::unmarshal_error(";
+    source_ << ++s_off_ <<          "\"Incorrect type id \", seg_head.type_id,"
+            << s_off_ <<            "\" expected \", static_type_id());";
+    --s_off_;
+    source_ << --s_off_ <<  "}";
+    source_ << --s_off_ << "}\n";
+
+    if (!data_members.empty()) {
+        source_ << s_off_ << "::wire::encoding::read(begin, end";
+        for (auto dm : data_members) {
+            source_ << ", " << dm->name();
+        }
+        source_ << ");";
+    }
+
+    if (exc->get_parent()) {
+        source_ << s_off_ << parent_name << "::__wire_read(begin, encaps.end(), true);";
+    }
+
+    source_ << --s_off_ << "}\n";
 
     pop_scope();
 }

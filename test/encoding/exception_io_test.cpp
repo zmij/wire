@@ -47,7 +47,7 @@ public:
     }
 
     void
-    __wire_read(input_iterator& begin, input_iterator end, bool read_head) override
+    __wire_read(input_iterator& begin, input_iterator end, bool read_head = true) override
     {
         auto encaps = begin.incoming_encapsulation();
         if (read_head) {
@@ -88,7 +88,7 @@ public:
     }
 
     void
-    __wire_read(input_iterator& begin, input_iterator end, bool read_head) override
+    __wire_read(input_iterator& begin, input_iterator end, bool read_head = true) override
     {
         auto encaps = begin.incoming_encapsulation();
         if (read_head) {

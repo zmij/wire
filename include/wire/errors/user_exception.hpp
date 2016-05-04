@@ -22,8 +22,6 @@ public:
     user_exception() : runtime_error{""} {}
     explicit
     user_exception(std::string const& msg) : runtime_error{msg} {}
-    explicit
-    user_exception(char const* msg) : runtime_error{msg} {}
 
     template < typename ... T >
     user_exception(T const& ... args)
