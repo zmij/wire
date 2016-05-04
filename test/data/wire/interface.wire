@@ -22,7 +22,7 @@ exception no_service {
 };
 
 interface good_service {
-    [[cpp_container("::std::list"), some_other_very_useful_annotation]]
+    [[cpp_container("::std::list", "<list>"), some_other_very_useful_annotation]]
     using good_list = sequence< string >;
     void
     do_good(good_list errands) const throw (no_service);

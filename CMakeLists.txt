@@ -25,6 +25,7 @@ else()
 endif()
 
 option(BUILD_TESTS "Build tests for ${lib_name} library" ON)
+include(cmake/scripts/wire2cpp.cmake)
 
 set(
     BOOST_COMPONENTS
@@ -48,6 +49,10 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_BINARY_DIR}/src
     ${Boost_INCLUDE_DIRS}
+)
+wire_include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/idl
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 add_definitions("-std=c++11")
 
