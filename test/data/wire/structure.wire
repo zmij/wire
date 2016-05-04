@@ -23,7 +23,7 @@ struct test_struct {
 
     int32                           value;
     sequence<variant<string, uuid>> ids;
-    buffer                          buffer;
+    buffer                          buff;
 };
 
 struct outer {

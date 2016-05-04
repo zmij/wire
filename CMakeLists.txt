@@ -52,7 +52,6 @@ include_directories(
 )
 wire_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/idl
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 add_definitions("-std=c++11")
 

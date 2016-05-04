@@ -87,7 +87,7 @@ TEST(Parser, Structure)
     EXPECT_TRUE(glob->find_entity("test::test_struct::value").get());
     EXPECT_TRUE(glob->find_entity("::test::test_struct::value").get());
     EXPECT_TRUE(glob->find_entity("test::test_struct::ids").get());
-    EXPECT_TRUE(glob->find_entity("::test::test_struct::buffer").get());
+    EXPECT_TRUE(glob->find_entity("::test::test_struct::buff").get());
 }
 
 TEST(Parser, Exception)

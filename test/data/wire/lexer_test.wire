@@ -11,7 +11,7 @@
 #include <wire/sugar.wire>
 #include <wire/core/identity.wire>
 
-#include "class.wire"
+//#include "class.wire"
 
 [[cpp_namespace(foo, bar)]] /* File-level attributes */
 
@@ -19,7 +19,7 @@ namespace test {
 
 string const foo = "bar";
 int32 const bar = 42;
-int32 const bar = -42;
+int32 const minus_bar = -42;
 int64 const oct = 0123;
 int64 const hex = 0x0affcde7;
 const float pi = 3.14;
@@ -42,7 +42,7 @@ interface some_service;
 
 exception something_bad {
     string message;
-    some_service* help;
+    //some_service* help;
 };
 
 exception something_very_bad : something_bad {
@@ -55,6 +55,10 @@ struct some_struct {
     ::wire::core::identity  id;
     string                  str;
     string_seq              str_seq;
+};
+
+exception oops {
+
 };
 
 interface some_service {
