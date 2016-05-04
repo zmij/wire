@@ -228,6 +228,12 @@ outgoing::current_encapsulation()
     return pimpl_->current_out_encapsulation();
 }
 
+void
+outgoing::debug_print(::std::ostream& os) const
+{
+    debug_output(os, *pimpl_);
+}
+
 //----------------------------------------------------------------------------
 //    incoming implementation
 //----------------------------------------------------------------------------

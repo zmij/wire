@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <string>
 #include <map>
-#include <deque>
+#include <list>
 #include <wire/version.hpp>
 #include <wire/encoding/message.hpp>
 #include <wire/encoding/segment.hpp>
@@ -156,7 +156,7 @@ public:
     //@}
 private:
     //using impl = typename Container::impl;
-    friend class buffer_sequence;
+    friend struct buffer_sequence;
     template < typename C, typename T >
     friend class buffer_iterator;
 
@@ -210,10 +210,10 @@ struct buffer_sequence {
     struct savepoint;
     struct out_encaps_state;
     struct in_encaps_state;
-    using out_encapsulation_stack = ::std::deque<out_encaps_state>;
+    using out_encapsulation_stack = ::std::list<out_encaps_state>;
     using out_encaps_iterator = out_encapsulation_stack::iterator;
 
-    using in_encapsulation_stack = ::std::deque< in_encaps_state >;
+    using in_encapsulation_stack = ::std::list< in_encaps_state >;
     using in_encaps_iterator = in_encapsulation_stack::iterator;
     //@}
 
@@ -352,6 +352,10 @@ struct buffer_sequence {
     inline buffer_type const&
     buffer_at(size_type index) const
     { return buffers_[index]; }
+
+    buffer_sequence_type const&
+    buffers() const
+    { return buffers_; }
     //@}
 
     //@{
@@ -359,6 +363,12 @@ struct buffer_sequence {
     void
     start_buffer()
     { buffers_.push_back({}); }
+    void
+    pop_empty_buffer()
+    {
+        if (buffers_.size() > 1 && buffers_.back().empty())
+            buffers_.pop_back();
+    }
 
     out_encaps
     begin_out_encapsulation();
@@ -579,7 +589,7 @@ public:
         iter_->end_segment();
     }
 private:
-    friend class buffer_sequence;
+    friend struct buffer_sequence;
     out_encaps(buffer_sequence* seq)
         : seq_(seq), iter_(seq->current_out_encaps()) {}
 private:
@@ -622,7 +632,7 @@ public:
     encoding_version() const
     { return iter_->encoding_version; }
 private:
-    friend class buffer_sequence;
+    friend struct buffer_sequence;
     in_encaps(buffer_sequence* seq)
         : seq_{seq}, iter_{seq->current_in_encaps()} {}
 private:
@@ -683,6 +693,8 @@ private:
     encaps_type encaps_;
 };
 
+::std::ostream&
+debug_output(::std::ostream&, buffer_sequence const&);
 }  // namespace detail
 }  // namespace encoding
 }  // namespace wire

@@ -171,6 +171,11 @@ public:
     encapsulation_type
     current_encapsulation();
     //@}
+
+    //@{
+    void
+    debug_print(::std::ostream&) const;
+    //@}
 private:
     friend class incoming;
     struct impl;

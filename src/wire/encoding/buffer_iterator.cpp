@@ -12,6 +12,8 @@
 #include <wire/encoding/wire_io.hpp>
 
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 
 namespace wire {
 namespace encoding {
@@ -466,6 +468,7 @@ buffer_sequence::out_encaps_state::start_segment(segment_header::flags_type flag
     }
 
     current_segment_.reset( new segment{ *sp_.seq_, flags, name, ti } );
+    sp_.seq_->start_buffer();
 }
 
 void
@@ -488,6 +491,7 @@ buffer_sequence::out_encaps_state::segment::~segment()
             write(out, type_idx_);
         }
         write(out, sz);
+        sp_.seq_->pop_empty_buffer();
     }
 }
 
@@ -498,6 +502,55 @@ buffer_sequence::in_encaps_state::in_encaps_state(buffer_sequence* seq, const_it
     end_ = seq_->end();
     read(begin_, end_, encoding_version, size_);
     end_ = begin_ + size_;
+}
+
+//----------------------------------------------------------------------------
+::std::ostream&
+debug_output(::std::ostream& os, buffer_sequence const& bs)
+{
+    int line_size{0};
+    int buff_no{0};
+    ::std::ostringstream char_rep;
+    for (auto const& b : bs.buffers()) {
+        os << "\nBuffer " << buff_no << "\n";
+        for (int i = 0; i < line_size; i++) {
+            if (i == 8) {
+                os << "  ";
+                char_rep.put(' ');
+            }
+            os << "   ";
+            char_rep.put(' ');
+        }
+        for (auto c : b) {
+            if (line_size == 8) {
+                os << "  ";
+                char_rep << " ";
+            }
+            os << ::std::setw(2) << ::std::setfill('0') << ::std::hex << (int)c << " ";
+            if (isprint(c)) {
+                char_rep.put(c);
+            } else {
+                char_rep.put('.');
+            }
+            line_size++;
+            if (line_size == 16) {
+                os << "| " << char_rep.str() << "\n";
+                char_rep.str("");
+                line_size = 0;
+            }
+        }
+        if (line_size > 0) {
+            for (int i = line_size; i < 16; ++i) {
+                if (i == 8)
+                    os << "  ";
+                os << "   ";
+            }
+            os << "| " << char_rep.str() << "\n";
+            char_rep.str("");
+        }
+        ++buff_no;
+    }
+    return os;
 }
 
 }  // namespace detail

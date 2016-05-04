@@ -124,6 +124,7 @@ TEST(IO, UserException)
         EXPECT_FALSE(encaps.empty());
     }
     ::std::cerr << "Out buffer size " << out.size() << "\n";
+    out.debug_print(::std::cerr);
 
     incoming in{ message{}, ::std::move(out) };
     {
