@@ -257,6 +257,13 @@ struct incoming::impl : detail::buffer_sequence {
     {
     }
 
+    impl(incoming* in, message const& m, detail::buffer_sequence&& bs)
+        : container_{in},
+          buffer_sequence(::std::move(bs)),
+          message_{m}
+    {
+    }
+
     void
     insert_back(buffer_type const& b)
     {
@@ -297,6 +304,11 @@ incoming::incoming(message const& m, buffer_type const& b)
 
 incoming::incoming(message const& m, buffer_type&& b)
     : pimpl_(::std::make_shared<impl>(this, m, std::move(b) ))
+{
+}
+
+incoming::incoming(message const& m, outgoing&& out)
+    : pimpl_(::std::make_shared<impl>(this, m, ::std::move(*out.pimpl_)))
 {
 }
 

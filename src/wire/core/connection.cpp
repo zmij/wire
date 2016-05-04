@@ -11,7 +11,9 @@
 #include <wire/core/dispatch_request.hpp>
 #include <wire/core/current.hpp>
 #include <wire/core/object.hpp>
+
 #include <wire/encoding/message.hpp>
+#include <wire/errors/user_exception.hpp>
 
 #include <iterator>
 

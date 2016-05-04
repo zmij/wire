@@ -21,6 +21,7 @@ set(test_SRCS
     bits_tests.cpp
     concatenate_test.cpp
     encoding_test.cpp
+    varint_io_test.cpp
     variant_io_test.cpp
     message_io_test.cpp
     outgoing_buffer_test.cpp
@@ -30,6 +31,8 @@ set(test_SRCS
     identity_io_test.cpp
     containers_io_test.cpp
     optional_io_test.cpp
+    segment_io_test.cpp
+    exception_io_test.cpp
 )
 
 add_executable(test-wire ${test_SRCS})

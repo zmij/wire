@@ -117,6 +117,9 @@ private:
     void
     pop_scope();
 
+    ::std::string
+    constant_prefix( qname const& ) const;
+
     ::std::ostream&
     write_type_name(::std::ostream&, ast::type_const_ptr t,
             grammar::annotation_list const& = grammar::annotation_list{});
@@ -125,7 +128,7 @@ private:
     write_qualified_name(::std::ostream&, qname const& qn);
 
     ::std::ostream&
-    write_init(::std::ostream&, grammar::data_initializer const& init);
+    write_init(::std::ostream&, offset& off, grammar::data_initializer const& init);
 
     ::std::ostream&
     write_data_member(::std::ostream&, offset const&, ast::variable_ptr var);

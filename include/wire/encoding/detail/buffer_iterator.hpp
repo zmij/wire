@@ -15,7 +15,10 @@
 #include <deque>
 #include <wire/version.hpp>
 #include <wire/encoding/message.hpp>
+#include <wire/encoding/segment.hpp>
 #include <wire/errors/exceptions.hpp>
+
+#include <iostream>
 
 namespace wire {
 namespace encoding {
@@ -203,77 +206,10 @@ struct buffer_sequence {
     /** @name Encapsulations */
     class out_encaps;
     class in_encaps;
-    struct out_encaps_state {
-        using type_map = ::std::map< ::std::string, ::std::size_t >;
-        buffer_sequence*    seq_;
-        size_type           size_before_;
-        size_type           buffer_before_;
-        version             encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
 
-        type_map            types_;
-
-        out_encaps_state(buffer_sequence* out);
-        out_encaps_state(out_encaps_state&& rhs);
-        ~out_encaps_state();
-
-        size_type
-        size() const
-        {
-            if (!seq_)
-                return 0;
-            return seq_->size() - size_before_;
-        }
-
-        bool
-        empty() const
-        {
-            if (!seq_)
-                return true;
-            return seq_->size() == size_before_;
-        }
-
-        void
-        write_type_name(::std::string const& name);
-    };
-    struct in_encaps_state {
-        using type_map = ::std::vector< ::std::string >;
-        buffer_sequence*    seq_;
-        version             encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
-        size_type           size_ = 0;
-
-        const_iterator      begin_;
-        const_iterator      end_;
-
-        type_map            type_map_;
-
-        in_encaps_state(buffer_sequence* seq, const_iterator beg);
-
-        size_type
-        size() const
-        { return size_; }
-
-        bool
-        empty() const
-        { return begin_ == end_; }
-
-        template < typename InputIterator >
-        void
-        read_type_name(InputIterator& iter, ::std::string& name)
-        {
-            ::std::size_t type_idx;
-            read(iter, end_, type_idx);
-            if (type_idx == 0) {
-                read(iter, end_, name);
-                type_map_.push_back(name);
-            } else {
-                if (type_idx > type_map_.size()) {
-                    throw errors::unmarshal_error("Invalid type index in encapsulation");
-                }
-                name = type_map_[ type_idx - 1 ];
-            }
-        }
-
-    };
+    struct savepoint;
+    struct out_encaps_state;
+    struct in_encaps_state;
     using out_encapsulation_stack = ::std::deque<out_encaps_state>;
     using out_encaps_iterator = out_encapsulation_stack::iterator;
 
@@ -485,6 +421,136 @@ protected:
 };
 
 //----------------------------------------------------------------------------
+struct buffer_sequence::savepoint {
+    buffer_sequence*    seq_;
+    size_type           size_before_;
+    size_type           buffer_before_;
+
+    explicit
+    savepoint(buffer_sequence& s)
+        : seq_{&s},
+          size_before_{s.size()},
+          buffer_before_{ s.buffers_size() - 1 }
+    {
+    }
+
+    buffer_type&
+    buffer()
+    { return seq_->buffer_at(buffer_before_); }
+
+    buffer_type&
+    back_buffer()
+    { return seq_->back_buffer(); }
+
+    size_type
+    size() const
+    {
+        if (!seq_)
+            return 0;
+        return seq_->size() - size_before_;
+    }
+
+    bool
+    empty() const
+    {
+        if (!seq_)
+            return true;
+        return seq_->size() == size_before_;
+    }
+};
+
+//----------------------------------------------------------------------------
+struct buffer_sequence::out_encaps_state {
+    using type_map = ::std::map< ::std::string, size_type >;
+    struct segment : segment_header {
+        savepoint       sp_;
+        size_type       type_idx_;
+
+        segment(buffer_sequence& s, flags_type f, ::std::string const& name, size_type ti)
+            : segment_header{f, name, 0}, sp_{s}, type_idx_{ti}
+        {
+        }
+        ~segment();
+    };
+
+    using segment_ptr = ::std::unique_ptr<segment>;
+
+
+    savepoint           sp_;
+    version             encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
+    type_map            types_;
+    segment_ptr         current_segment_;
+
+
+    out_encaps_state(buffer_sequence& out);
+    out_encaps_state(out_encaps_state&& rhs);
+    ~out_encaps_state();
+
+    size_type
+    size() const
+    {
+        return sp_.size();
+    }
+
+    bool
+    empty() const
+    {
+        return sp_.empty();
+    }
+
+    void
+    start_segment(segment_header::flags_type flags, ::std::string const& name);
+    void
+    end_segment();
+};
+
+//----------------------------------------------------------------------------
+struct buffer_sequence::in_encaps_state {
+    using type_map = ::std::vector< ::std::string >;
+    buffer_sequence*    seq_;
+    version             encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
+    size_type           size_ = 0;
+
+    const_iterator      begin_;
+    const_iterator      end_;
+
+    type_map            type_map_;
+
+    in_encaps_state(buffer_sequence* seq, const_iterator beg);
+
+    size_type
+    size() const
+    { return size_; }
+
+    bool
+    empty() const
+    { return begin_ == end_; }
+
+    template< typename InputIterator >
+    void
+    read_segment_header(InputIterator& begin, InputIterator& end, segment_header& sh)
+    {
+        read(begin, end_, sh.flags);
+        if (sh.flags & segment_header::string_type_id) {
+            read(begin, end_, sh.type_id);
+            type_map_.push_back(sh.type_id);
+            ::std::cerr << "Read string type id " << sh.type_id << "\n";
+        } else {
+            size_type type_idx;
+            read(begin, end_, type_idx);
+            if (type_idx > type_map_.size()) {
+                throw errors::unmarshal_error("Invalid type index in encapsulation");
+            }
+            sh.type_id = type_map_[ type_idx - 1 ];
+            ::std::cerr << "Read type index " << type_idx << " ("
+                    << sh.type_id << ")\n";
+        }
+        read(begin, end_, sh.size);
+        end = begin + sh.size;
+    }
+};
+
+//----------------------------------------------------------------------------
 class buffer_sequence::out_encaps {
 public:
     out_encaps(out_encaps const&) = default;
@@ -502,8 +568,16 @@ public:
     { seq_->end_out_encaps(iter_); }
 
     void
-    write_type_name(::std::string const& name)
-    { iter_->write_type_name(name); }
+    start_segment(::std::string const& name,
+            segment_header::flags_type flags = segment_header::none)
+    {
+        iter_->start_segment(flags, name);
+    }
+    void
+    end_segment()
+    {
+        iter_->end_segment();
+    }
 private:
     friend class buffer_sequence;
     out_encaps(buffer_sequence* seq)
@@ -530,11 +604,11 @@ public:
     end_encaps()
     { seq_->end_in_encaps(iter_); }
 
-    template < typename InputIterator >
+    template< typename InputIterator >
     void
-    read_type_name(InputIterator& beg, ::std::string& name)
+    read_segment_header(InputIterator& begin, InputIterator& end, segment_header& sh)
     {
-        iter_->read_type_name(beg, name);
+        iter_->read_segment_header(begin, end, sh);
     }
 
     const_iterator
@@ -560,7 +634,11 @@ private:
 template< typename EncapsType >
 class encaps_guard {
 public:
-    using encaps_type = EncapsType;
+    using encaps_type       = EncapsType;
+    using pointer           = encaps_type*;
+    using const_pointer     = encaps_type const*;
+    using reference         = encaps_type&;
+    using const_reference   = encaps_type const&;
 public:
     explicit
     encaps_guard(encaps_type const& e) : encaps_{e} {}
@@ -580,6 +658,20 @@ public:
     bool
     empty() const
     { return encaps_.empty(); }
+
+    pointer
+    operator->()
+    { return &encaps_; }
+    const_pointer
+    operator->() const
+    { return &encaps_; }
+
+    reference
+    operator*()
+    { return encaps_; }
+    const_reference
+    operator*() const
+    { return encaps_; }
 private:
     encaps_guard(encaps_guard const&) = delete;
     encaps_guard(encaps_guard&&) = delete;

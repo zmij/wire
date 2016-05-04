@@ -20,6 +20,8 @@
 namespace wire {
 namespace encoding {
 
+class incoming;
+
 class outgoing {
 public:
     /** Internal buffers storage type */
@@ -170,6 +172,7 @@ public:
     current_encapsulation();
     //@}
 private:
+    friend class incoming;
     struct impl;
     using pimpl = ::std::shared_ptr<impl>;
     pimpl pimpl_;
@@ -215,11 +218,37 @@ public:
     using encapsulation_type        = detail::buffer_sequence::in_encaps;
     using encaps_guard              = detail::encaps_guard<encapsulation_type>;
 public:
+    /**
+     * Construct incoming buffer sequence with a message header
+     * @param
+     */
     incoming(message const&);
+    /**
+     * Construct incoming buffer sequence and copy buffers
+     * @param
+     * @param begin
+     * @param end
+     */
     template < typename InputIterator >
     incoming(message const&, InputIterator& begin, InputIterator end);
+    /**
+     * Construct incoming buffer sequence and copy a buffer
+     * @param
+     * @param
+     */
     incoming(message const&, buffer_type const&);
+    /**
+     * Construct incoming buffer and move a buffer
+     * @param
+     * @param
+     */
     incoming(message const&, buffer_type&&);
+    /**
+     * Construct incoming buffer from an outgoing buffer
+     * @param
+     * @param
+     */
+    incoming(message const&, outgoing&&);
 
     message const&
     header() const;

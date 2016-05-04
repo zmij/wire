@@ -11,6 +11,8 @@
 #include <wire/errors/exceptions.hpp>
 #include <wire/encoding/wire_io.hpp>
 
+#include <iostream>
+
 namespace wire {
 namespace encoding {
 namespace detail {
@@ -352,7 +354,7 @@ buffer_sequence::difference(const_iterator const& a, const_iterator const& b) co
 buffer_sequence::out_encaps_iterator
 buffer_sequence::begin_out_encaps()
 {
-    out_encaps_stack_.emplace_back(this);
+    out_encaps_stack_.emplace_back(*this);
     start_buffer();
     return --out_encaps_stack_.end();
 }
@@ -423,40 +425,69 @@ buffer_sequence::current_in_encapsulation() const
 }
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
-buffer_sequence::out_encaps_state::out_encaps_state(buffer_sequence* out)
-    : seq_{out},
-      size_before_{seq_->size()},
-      buffer_before_{ seq_->buffers_size()  - 1 }
+
+buffer_sequence::out_encaps_state::out_encaps_state(buffer_sequence& out)
+    : sp_{out}
 {
 }
 
 buffer_sequence::out_encaps_state::out_encaps_state(out_encaps_state&& rhs)
-    : seq_{rhs.seq_},
-      size_before_{rhs.size_before_},
-      buffer_before_{ rhs.buffer_before_ }
+    : sp_{rhs.sp_},
+      encoding_version{rhs.encoding_version},
+      types_{::std::move(rhs.types_)},
+      current_segment_{ ::std::move(rhs.current_segment_) }
 {
-    rhs.seq_ = nullptr;
+    rhs.sp_.seq_ = nullptr;
 }
 
 buffer_sequence::out_encaps_state::~out_encaps_state()
 {
-    if (seq_) {
-        buffer_type& buff = seq_->buffer_at(buffer_before_);
+    if (sp_.seq_) {
+        buffer_type& buff = sp_.buffer();
         write(::std::back_inserter(buff), encoding_version, size());
     }
 }
 
 void
-buffer_sequence::out_encaps_state::write_type_name(::std::string const& name)
+buffer_sequence::out_encaps_state::start_segment(segment_header::flags_type flags,
+        ::std::string const& name)
 {
+    if (!sp_.seq_)
+        throw errors::marshal_error("Output encapsulation is invalid");
+
     auto f = types_.find(name);
-    auto& b = seq_->back_buffer();
-    auto o = ::std::back_inserter(b);
+    size_type ti = 0;
     if (f == types_.end()) {
         types_.insert(::std::make_pair(name, types_.size() + 1));
-        write(o, (::std::size_t)0, name);
+        flags = static_cast<segment_header::flags_type>(flags | segment_header::string_type_id);
+        ti = types_.size();
     } else {
-        write(o, f->second);
+        ti = f->second;
+    }
+
+    current_segment_.reset( new segment{ *sp_.seq_, flags, name, ti } );
+}
+
+void
+buffer_sequence::out_encaps_state::end_segment()
+{
+    current_segment_.reset();
+}
+
+buffer_sequence::out_encaps_state::segment::~segment()
+{
+    if (sp_.seq_) {
+        auto out = ::std::back_inserter(sp_.buffer());
+        auto sz = sp_.size();
+        write(out, flags);
+        if (flags & string_type_id) {
+            ::std::cerr << "Write string type id " << type_id << "\n";
+            write(out, type_id);
+        } else {
+            ::std::cerr << "Write type id index " << type_idx_ << "\n";
+            write(out, type_idx_);
+        }
+        write(out, sz);
     }
 }
 

@@ -8,6 +8,7 @@
 #include <wire/wire2cpp/cpp_generator.hpp>
 
 #include <iostream>
+#include <sstream>
 #include <cctype>
 #include <algorithm>
 #include <boost/filesystem.hpp>
@@ -83,6 +84,7 @@ operator << (::std::ostream& os, offset const& val)
 {
     ::std::ostream::sentry s(os);
     if (s) {
+        os << "\n";
         for (size_t i = 0; i < val.sz * tab_width; ++i) {
             os << " ";
         }
@@ -322,6 +324,17 @@ generator::pop_scope() {
     }
 }
 
+::std::string
+generator::constant_prefix(qname const& qn) const
+{
+    ::std::ostringstream os;
+    for (auto c : qn.components) {
+        ::std::transform(c.begin(), c.end(), c.begin(), toupper);
+        os << c << "_";
+    }
+    return os.str();
+}
+
 ::std::ostream&
 generator::write_qualified_name(::std::ostream& os, qname const& qn)
 {
@@ -392,7 +405,7 @@ generator::write_type_name(::std::ostream& os, ast::type_const_ptr t,
 }
 
 ::std::ostream&
-generator::write_init(::std::ostream& os, grammar::data_initializer const& init)
+generator::write_init(::std::ostream& os, offset& off, grammar::data_initializer const& init)
 {
     switch (init.value.which()) {
         case 0: {
@@ -407,17 +420,17 @@ generator::write_init(::std::ostream& os, grammar::data_initializer const& init)
                 for (auto p = list.begin(); p != list.end(); ++p) {
                     if (p != list.begin())
                         os << ", ";
-                    write_init(os, *(*p));
+                    write_init(os, off, *(*p));
                 }
                 os << "}";
             } else {
-                os << "{\n" << ++h_off_;
+                os << "{" << ++off;
                 for (auto p = list.begin(); p != list.end(); ++p) {
                     if (p != list.begin())
-                        os << ",\n" << h_off_;
-                    write_init(os, *(*p));
+                        os << "," << off;
+                    write_init(os, off, *(*p));
                 }
-                os << "\n" << --h_off_ << "}";
+                os << --off << "}";
             }
             break;
         }
@@ -430,7 +443,7 @@ generator::write_data_member(::std::ostream& os, offset const& off, ast::variabl
 {
     os << off;
     write_type_name(header_, var->get_type(), var->get_annotations())
-        << " " << var->name() << ";\n";
+        << " " << var->name() << ";";
     return os;
 }
 
@@ -442,8 +455,8 @@ generator::generate_constant(ast::constant_ptr c)
 
     header_ << h_off_;
     write_type_name(header_, c->get_type()) << " const " << c->name() << " = ";
-    write_init(header_, c->get_init());
-    header_ << ";\n";
+    write_init(header_, h_off_, c->get_init());
+    header_ << ";";
 }
 
 void
@@ -453,15 +466,15 @@ generator::generate_enum(ast::enumeration_ptr enum_)
     header_ << h_off_++ << "enum ";
     if (enum_->constrained())
         header_ << "class ";
-    write_type_name(header_, enum_) << "{\n";
+    write_type_name(header_, enum_) << "{";
     for (auto e : enum_->get_enumerators()) {
         header_ << h_off_ << e.first;
         if (e.second.is_initialized()) {
             header_ << " = " << *e.second;
         }
-        header_ << ",\n";
+        header_ << ",";
     }
-    header_ << --h_off_ << "};\n\n";
+    header_ << --h_off_ << "};\n";
 }
 
 void
@@ -472,7 +485,7 @@ generator::generate_type_alias( ast::type_alias_ptr ta )
     header_ << h_off_ << "using " << ta->name() << " = ";
     // TODO Custom mapping
     write_type_name(header_, ta->alias(), ta->get_annotations());
-    header_ << ";\n";
+    header_ << ";";
 }
 
 void
@@ -480,7 +493,7 @@ generator::generate_struct( ast::structure_ptr struct_ )
 {
     adjust_scope(struct_);
 
-    header_ << "\n" << h_off_++ << "struct " << struct_->name() << " {\n";
+    header_ << h_off_++ << "struct " << struct_->name() << " {";
     current_scope_.components.push_back(struct_->name());
     scope_stack_.push_back(struct_);
 
@@ -495,23 +508,21 @@ generator::generate_struct( ast::structure_ptr struct_ )
     auto const& dm = struct_->get_data_members();
     for (auto d : dm) {
         write_data_member(header_, h_off_, d);
-        header_ << h_off_;
-        write_type_name(header_, d->get_type()) << " " << d->name() << ";\n";
     }
 
     if (!dm.empty()) {
-        header_ << "\n" << h_off_ << "void\n"
-                << h_off_ << "swap(" << struct_->name() << "& rhs)\n"
-                << h_off_ << "{\n";
+        header_ << "\n" << h_off_ << "void"
+                << h_off_ << "swap(" << struct_->name() << "& rhs)"
+                << h_off_ << "{";
 
-        header_ << ++h_off_ << "using ::std::swap;\n";
+        header_ << ++h_off_ << "using ::std::swap;";
         for (auto d : dm) {
-            header_ << h_off_ << "swap(" << d->name() << ", rhs." << d->name() << ");\n";
+            header_ << h_off_ << "swap(" << d->name() << ", rhs." << d->name() << ");";
         }
-        header_ << --h_off_ << "}\n";
+        header_ << --h_off_ << "}";
     }
 
-    header_ << --h_off_ << "};\n\n";
+    header_ << --h_off_ << "};\n";
     current_scope_.components.pop_back();
 
     pop_scope();
@@ -529,34 +540,34 @@ void
 generator::generate_read_write( ast::structure_ptr struct_)
 {
     auto const& dm = struct_->get_data_members();
-    header_ << h_off_ << "template < typename OutputIterator >\n"
-            << h_off_ << "void\n"
+    header_ << h_off_ << "template < typename OutputIterator >"
+            << h_off_ << "void"
             << h_off_ << "wire_write(OutputIterator o, ";
-    write_type_name(header_, struct_) << " const& v)\n"
-            << h_off_ << "{\n";
+    write_type_name(header_, struct_) << " const& v)"
+            << h_off_ << "{";
 
     header_ << ++h_off_ << "::wire::encoding::write(o";
     for (auto d : dm) {
         header_ << ", v." << d->name();
     }
-    header_ << ");\n";
-    header_ << --h_off_ << "}\n\n";
+    header_ << ");";
+    header_ << --h_off_ << "}\n";
 
-    header_ << h_off_ << "template < typename InputIterator >\n"
-            << h_off_ << "void\n"
+    header_ << h_off_ << "template < typename InputIterator >"
+            << h_off_ << "void"
             << h_off_ << "wire_read(InputIterator& begin, InputIterator end, ";
-    write_type_name(header_, struct_) << "& v)\n"
-            << h_off_ << "{\n";
+    write_type_name(header_, struct_) << "& v)"
+            << h_off_ << "{";
 
     header_ << ++h_off_;
-    write_type_name(header_, struct_) << " tmp;\n"
+    write_type_name(header_, struct_) << " tmp;"
             << h_off_ << "::wire::encoding::read(begin, end";
     for (auto d : dm) {
         header_ << ", v." << d->name();
     }
-    header_ << ");\n"
-            << h_off_ << "v.swap(tmp);\n";
-    header_ << --h_off_ << "}\n\n";
+    header_ << ");"
+            << h_off_ << "v.swap(tmp);";
+    header_ << --h_off_ << "}\n";
 }
 
 void
@@ -569,23 +580,23 @@ generator::generate_exception(ast::exception_ptr exc)
     qname parent_name = exc->get_parent() ?
             exc->get_parent()->get_qualified_name() : root_exception;
 
-    header_ << "\n" << "class " << exc->name()
+    header_ << h_off_ << "class " << exc->name()
             << " : public ";
     write_qualified_name(header_, parent_name);
-    header_ << " {\n";
+    header_ << " {";
 
     current_scope_.components.push_back(exc->name());
     scope_stack_.push_back(exc);
 
     if (!exc->get_types().empty()) {
-        header_ << h_off_++ << "public:\n";
+        header_ << h_off_++ << "public:";
         for (auto t : exc->get_types()) {
             generate_type_decl(t);
         }
         --h_off_;
     }
     if (!exc->get_constants().empty()) {
-        header_ << h_off_++ << "public:\n";
+        header_ << h_off_++ << "public:";
         for (auto c : exc->get_constants()) {
             generate_constant(c);
         }
@@ -595,36 +606,82 @@ generator::generate_exception(ast::exception_ptr exc)
     auto const& dm = exc->get_data_members();
 
     // Constructors
-    header_ << h_off_++ << "public:\n"
+    header_ << h_off_++ << "public:"
             << h_off_ << exc->name() << "(std::string const& msg) : ";
-    write_qualified_name(header_, parent_name) << "{msg} {}\n";
+    write_qualified_name(header_, parent_name) << "{msg} {}";
     header_ << h_off_ << exc->name() << "(char const* msg) : ";
-    write_qualified_name(header_, parent_name) << "{msg} {}\n";
+    write_qualified_name(header_, parent_name) << "{msg} {}";
     header_ << h_off_ << "template < typename ... T >\n"
             << h_off_ << exc->name() << "(T const& ... args) : ";
-    write_qualified_name(header_, parent_name) << "(args ...) {}\n";
+    write_qualified_name(header_, parent_name) << "(args ...) {}";
     // TODO constructors with data members variations
     --h_off_;
 
     if (!dm.empty()) {
-        header_ << h_off_++ << "public:\n";
+        header_ << h_off_++ << "public:";
         for (auto d : dm) {
             header_ << h_off_;
-            write_type_name(header_, d->get_type()) << " " << d->name() << ";\n";
+            write_type_name(header_, d->get_type()) << " " << d->name() << ";";
         }
         --h_off_;
     }
 
     // TODO Member functions
+    {
+        header_ << h_off_++ << "public:";
+        header_ << h_off_ << "static ::std::string const&"
+                << h_off_ << "static_type_id();";
 
-    header_ << "};\n\n";
+        header_ << h_off_ << "template< typename OutputIterator >"
+                << h_off_ << "void"
+                << h_off_ << "__write(OutputIterator o)"
+                << h_off_ << "{";
+
+        ++h_off_;
+
+        header_ << h_off_ << "auto encaps = o.encapsulation();";
+
+        ::std::string flags = "::wire::encoding::segment_header::none";
+        if (!exc->get_parent()) {
+            flags = "::wire::encoding::segment_header::last_segment";
+        }
+        header_ << h_off_ << "encaps.start_segment(static_type_id(), " << flags << ");";
+
+        // TODO Fields
+
+        header_ << h_off_ << parent_name << "::__write(o);";
+
+        header_ << --h_off_ << "}";
+    }
+
+    header_ << --h_off_ << "};\n";
     current_scope_.components.pop_back();
 
-    source_ << s_off_ << "/* data for " << exc->get_qualified_name() << " */\n";
+    header_ << h_off_ << "using " << exc->name() << "_ptr = ::std::shared_ptr<"
+                << exc->name() << ">;"
+            << h_off_ << "using " << exc->name() << "_weak_ptr = ::std::weak_ptr<"
+                << exc->name() << ">";
+
+    // Source
+    auto eqn = exc->get_qualified_name();
+    auto pfx = constant_prefix(eqn);
+
+    source_ << s_off_ << "/* data for " << eqn << " */";
     source_ << s_off_++ << "namespace {\n";
 
-    source_ << --s_off_ << "} /* namespace for "
-            << exc->get_qualified_name() << " */\n";
+    source_ << s_off_ << "::std::string const " << pfx << "TYPE_ID = \""
+            << eqn << "\"";
+
+    source_ << "\n" << --s_off_ << "} /* namespace for "
+            << eqn << " */\n";
+
+    source_ << s_off_ << "::std::string const&"
+            << s_off_;
+    write_qualified_name(source_, eqn) << "::static_type_id()"
+            << s_off_++ << "{";
+    source_ << s_off_ << "return " << pfx << "TYPE_ID;"
+            << --s_off_ << "}\n";
+
 
     pop_scope();
 }
