@@ -495,9 +495,11 @@ struct buffer_sequence::out_encaps_state {
     version             encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
     type_map            types_;
     segment_ptr         current_segment_;
+    bool                is_default_;
 
 
-    out_encaps_state(buffer_sequence& out);
+    out_encaps_state(buffer_sequence& out, bool is_default = false);
+    out_encaps_state(out_encaps_state const& rhs);
     out_encaps_state(out_encaps_state&& rhs);
     ~out_encaps_state();
 
@@ -533,15 +535,27 @@ struct buffer_sequence::in_encaps_state {
 
     type_map            type_map_;
 
-    in_encaps_state(buffer_sequence* seq, const_iterator beg);
+    bool                is_default_ = false;
+
+    in_encaps_state(buffer_sequence& seq, const_iterator beg);
+    explicit
+    in_encaps_state(buffer_sequence& seq); // default encaps
 
     size_type
     size() const
-    { return size_; }
+    { return is_default_ ? seq_->size() : size_; }
 
     bool
     empty() const
-    { return begin_ == end_; }
+    { return is_default_ ? seq_->empty() : begin_ == end_; }
+
+    const_iterator
+    begin() const
+    { return is_default_ ? seq_->cbegin() : begin_; }
+
+    const_iterator
+    end() const
+    { return is_default_ ? seq_->cend() : end_; }
 
     template< typename InputIterator >
     void
@@ -644,10 +658,10 @@ public:
 
     const_iterator
     begin() const
-    { return iter_->begin_; }
+    { return iter_->begin(); }
     const_iterator
     end() const
-    { return iter_->end_; }
+    { return iter_->end(); }
 
     version const&
     encoding_version() const

@@ -27,12 +27,14 @@ struct outgoing::impl : detail::buffer_sequence {
           container_(out),
           flags_(message::request)
     {
+        out_encaps_stack_.emplace_back(*this, true);
     }
     impl(outgoing* out, message::message_flags flags)
         : buffer_sequence{1},
           container_(out),
           flags_(flags)
     {
+        out_encaps_stack_.emplace_back(*this, true);
     }
     impl(impl const& rhs)
         : buffer_sequence(rhs),
@@ -68,7 +70,7 @@ struct outgoing::impl : detail::buffer_sequence {
                 buffs.push_back(ASIO_NS::buffer(b));
             }
         }
-        return std::move(buffs);
+        return buffs;
     }
 
     void
@@ -243,31 +245,35 @@ struct incoming::impl : detail::buffer_sequence {
     encoding::message           message_;
 
     impl(incoming* in, message const& m)
-        : container_{in},
-          buffer_sequence{},
+        : buffer_sequence{},
+          container_{in},
           message_{m}
     {
+        in_encaps_stack_.emplace_back(*this);
     }
 
     impl(incoming* in, message const& m, buffer_type const& b)
-        : container_{in},
-          buffer_sequence{b},
+        : buffer_sequence{b},
+          container_{in},
           message_{m}
     {
+        in_encaps_stack_.emplace_back(*this);
     }
 
     impl(incoming* in, message const& m, buffer_type&& b)
-        : container_{in},
-          buffer_sequence{std::move(b)},
+        : buffer_sequence{std::move(b)},
+          container_{in},
           message_{m}
     {
+        in_encaps_stack_.emplace_back(*this);
     }
 
     impl(incoming* in, message const& m, detail::buffer_sequence&& bs)
-        : container_{in},
-          buffer_sequence(::std::move(bs)),
+        : buffer_sequence(::std::move(bs)),
+          container_{in},
           message_{m}
     {
+        in_encaps_stack_.emplace_back(*this);
     }
 
     void

@@ -37,7 +37,7 @@ transport_type_traits< transport_type::tcp >::create_endpoint(
 	resolver_type resolver(*svc);
 	resolver_type::query query(ed.host, ::std::to_string(ed.port));
 	endpoint_type proto_ep = *resolver.resolve(query);
-	return ::std::move(proto_ep);
+	return proto_ep;
 }
 
 endpoint
@@ -55,7 +55,7 @@ transport_type_traits< transport_type::ssl >::create_endpoint(
 	resolver_type resolver(*svc);
 	resolver_type::query query(ed.host, ::std::to_string(ed.port));
 	endpoint_type proto_ep = *resolver.resolve(query);
-	return ::std::move(proto_ep);
+	return proto_ep;
 }
 
 endpoint
@@ -73,7 +73,7 @@ transport_type_traits< transport_type::udp >::create_endpoint(
 	resolver_type resolver(*svc);
 	resolver_type::query query(ed.host, ::std::to_string(ed.port));
 	endpoint_type proto_ep = *resolver.resolve(query);
-	return ::std::move(proto_ep);
+	return proto_ep;
 }
 
 endpoint
@@ -88,7 +88,7 @@ transport_type_traits< transport_type::socket >::create_endpoint(
 {
 	// TODO System-assigned endpoint from an empty enpoint
 	endpoint_data const& ed = ep.get< endpoint_data >();
-	return ::std::move(endpoint_type{ ed.path });
+	return endpoint_type{ ed.path };
 }
 
 endpoint
@@ -186,7 +186,7 @@ ssl_transport::create_context(detail::ssl_options const& opts)
 		ctx.use_certificate_chain_file(opts.cert_file);
 		ctx.use_private_key_file(opts.key_file, ASIO_NS::ssl::context::pem);
 	}
-	return ::std::move(ctx);
+	return ctx;
 }
 
 ssl_transport::ssl_transport(asio_config::io_service_ptr io_svc,

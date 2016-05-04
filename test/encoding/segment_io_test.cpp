@@ -27,51 +27,51 @@ TEST(IO, Segment)
 {
     outgoing out;
     {
-        outgoing::encaps_guard encaps{ out.begin_encapsulation() };
-        encaps->start_segment(BASE, segment_header::last_segment);
-        encaps->start_segment(DERIVED);
-        encaps->start_segment(BASE, segment_header::last_segment);
-        encaps->start_segment(DERIVED);
-        encaps->start_segment(BASE, segment_header::last_segment);
-        encaps->start_segment(BASE, segment_header::last_segment);
-        encaps->end_segment();
+        auto encaps = out.current_encapsulation();
+        encaps.start_segment(BASE, segment_header::last_segment);
+        encaps.start_segment(DERIVED);
+        encaps.start_segment(BASE, segment_header::last_segment);
+        encaps.start_segment(DERIVED);
+        encaps.start_segment(BASE, segment_header::last_segment);
+        encaps.start_segment(BASE, segment_header::last_segment);
+        encaps.end_segment();
         EXPECT_FALSE(encaps.empty());
     }
 
     incoming in{ message{}, ::std::move(out) };
     {
-        incoming::encaps_guard encaps{ in.begin_encapsulation(in.begin()) };
+        auto encaps = in.current_encapsulation();
         EXPECT_FALSE(encaps.empty());
 
-        auto f = encaps->begin();
-        auto l = encaps->end();
+        auto f = encaps.begin();
+        auto l = encaps.end();
         segment_header sh;
-        EXPECT_NO_THROW(encaps->read_segment_header(f, l, sh));
+        EXPECT_NO_THROW(encaps.read_segment_header(f, l, sh));
         EXPECT_EQ(BASE, ::boost::get<::std::string>(sh.type_id));
         EXPECT_TRUE(sh.flags & segment_header::string_type_id);
 
-        l = encaps->end();
-        EXPECT_NO_THROW(encaps->read_segment_header(f, l, sh));
+        l = encaps.end();
+        EXPECT_NO_THROW(encaps.read_segment_header(f, l, sh));
         EXPECT_EQ(DERIVED, ::boost::get<::std::string>(sh.type_id));
         EXPECT_TRUE(sh.flags & segment_header::string_type_id);
 
-        l = encaps->end();
-        EXPECT_NO_THROW(encaps->read_segment_header(f, l, sh));
+        l = encaps.end();
+        EXPECT_NO_THROW(encaps.read_segment_header(f, l, sh));
         EXPECT_EQ(BASE, ::boost::get<::std::string>(sh.type_id));
         EXPECT_FALSE(sh.flags & segment_header::string_type_id);
 
-        l = encaps->end();
-        EXPECT_NO_THROW(encaps->read_segment_header(f, l, sh));
+        l = encaps.end();
+        EXPECT_NO_THROW(encaps.read_segment_header(f, l, sh));
         EXPECT_EQ(DERIVED, ::boost::get<::std::string>(sh.type_id));
         EXPECT_FALSE(sh.flags & segment_header::string_type_id);
 
-        l = encaps->end();
-        EXPECT_NO_THROW(encaps->read_segment_header(f, l, sh));
+        l = encaps.end();
+        EXPECT_NO_THROW(encaps.read_segment_header(f, l, sh));
         EXPECT_EQ(BASE, ::boost::get<::std::string>(sh.type_id));
         EXPECT_FALSE(sh.flags & segment_header::string_type_id);
 
-        l = encaps->end();
-        EXPECT_NO_THROW(encaps->read_segment_header(f, l, sh));
+        l = encaps.end();
+        EXPECT_NO_THROW(encaps.read_segment_header(f, l, sh));
         EXPECT_EQ(BASE, ::boost::get<::std::string>(sh.type_id));
         EXPECT_FALSE(sh.flags & segment_header::string_type_id);
     }

@@ -42,11 +42,38 @@ buffer_sequence::buffer_sequence(buffer_type&& b)
 buffer_sequence::buffer_sequence(buffer_sequence const& rhs)
     : buffers_{rhs.buffers_}
 {
+    ::std::transform(
+        rhs.out_encaps_stack_.begin(), rhs.out_encaps_stack_.end(),
+        ::std::back_inserter(out_encaps_stack_),
+        [&]( out_encaps_state const& r )
+        {
+            out_encaps_state res{r};
+            res.sp_.seq_ = this;
+            if (res.current_segment_) {
+                res.current_segment_->sp_.seq_ = this;
+            }
+            return res;
+        });
+    // TODO Copy input encaps
 }
 
 buffer_sequence::buffer_sequence(buffer_sequence&& rhs)
     : buffers_{std::move(rhs.buffers_)}
 {
+    // TODO Close all out encaps
+    ::std::transform(
+        rhs.out_encaps_stack_.begin(), rhs.out_encaps_stack_.end(),
+        ::std::back_inserter(out_encaps_stack_),
+        [&]( out_encaps_state const& r )
+        {
+            out_encaps_state res{r};
+            res.sp_.seq_ = this;
+            if (res.current_segment_) {
+                res.current_segment_->sp_.seq_ = this;
+            }
+            return res;
+        });
+    // TODO Copy input encaps
 }
 
 void
@@ -381,7 +408,7 @@ buffer_sequence::current_out_encaps()
 buffer_sequence::in_encaps_iterator
 buffer_sequence::begin_in_encaps(const_iterator beg)
 {
-    in_encaps_stack_.emplace_back(this, beg);
+    in_encaps_stack_.emplace_back(*this, beg);
     return --in_encaps_stack_.end();
 }
 
@@ -428,8 +455,17 @@ buffer_sequence::current_in_encapsulation() const
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
-buffer_sequence::out_encaps_state::out_encaps_state(buffer_sequence& out)
-    : sp_{out}
+buffer_sequence::out_encaps_state::out_encaps_state(buffer_sequence& out, bool is_default)
+    : sp_{out}, is_default_{is_default}
+{
+}
+
+buffer_sequence::out_encaps_state::out_encaps_state(out_encaps_state const& rhs)
+    : sp_{rhs.sp_},
+      encoding_version{rhs.encoding_version},
+      types_{rhs.types_},
+    current_segment_{ rhs.current_segment_ ? new segment{*rhs.current_segment_} : nullptr },
+      is_default_{rhs.is_default_}
 {
 }
 
@@ -437,14 +473,15 @@ buffer_sequence::out_encaps_state::out_encaps_state(out_encaps_state&& rhs)
     : sp_{rhs.sp_},
       encoding_version{rhs.encoding_version},
       types_{::std::move(rhs.types_)},
-      current_segment_{ ::std::move(rhs.current_segment_) }
+      current_segment_{ ::std::move(rhs.current_segment_) },
+      is_default_{rhs.is_default_}
 {
     rhs.sp_.seq_ = nullptr;
 }
 
 buffer_sequence::out_encaps_state::~out_encaps_state()
 {
-    if (sp_.seq_) {
+    if (!is_default_ && sp_.seq_) {
         buffer_type& buff = sp_.buffer();
         write(::std::back_inserter(buff), encoding_version, size());
     }
@@ -522,12 +559,19 @@ buffer_sequence::out_encaps_state::segment::~segment()
 }
 
 //----------------------------------------------------------------------------
-buffer_sequence::in_encaps_state::in_encaps_state(buffer_sequence* seq, const_iterator beg)
-    : seq_{seq}, begin_{beg}
+buffer_sequence::in_encaps_state::in_encaps_state(buffer_sequence& seq, const_iterator beg)
+    : seq_{&seq}, begin_{beg}
 {
     end_ = seq_->end();
     read(begin_, end_, encoding_version, size_);
     end_ = begin_ + size_;
+}
+
+buffer_sequence::in_encaps_state::in_encaps_state(buffer_sequence& seq)
+    : seq_(&seq), begin_{seq_->begin()}, is_default_{true}
+{
+    size_ = seq_->size();
+    end_ = seq_->end();
 }
 
 //----------------------------------------------------------------------------

@@ -117,7 +117,7 @@ TEST(IO, UserException)
 {
     outgoing out;
     {
-        outgoing::encaps_guard encaps{ out.begin_encapsulation() };
+        auto encaps = out.current_encapsulation();
         auto o = ::std::back_inserter(out);
         base e("ooops");
         e.__wire_write(o);
@@ -132,20 +132,20 @@ TEST(IO, UserException)
 
     incoming in{ message{}, ::std::move(out) };
     {
-        incoming::encaps_guard encaps{ in.begin_encapsulation(in.begin()) };
+        auto encaps = in.current_encapsulation();
         EXPECT_FALSE(encaps.empty());
 
         base e;
-        auto f = encaps->begin();
-        auto l = encaps->end();
-        ::std::cerr << "Encaps size " << encaps->size() << "\n";
-        ::std::cerr << "Data left " << (encaps->end() - f) << "\n";
+        auto f = encaps.begin();
+        auto l = encaps.end();
+        ::std::cerr << "Encaps size " << encaps.size() << "\n";
+        ::std::cerr << "Data left " << (encaps.end() - f) << "\n";
         EXPECT_NO_THROW(e.__wire_read(f, l, true));
-        ::std::cerr << "Data left " << (encaps->end() - f) << "\n";
+        ::std::cerr << "Data left " << (encaps.end() - f) << "\n";
         derived d;
-        l = encaps->end();
+        l = encaps.end();
         EXPECT_NO_THROW(d.__wire_read(f, l, true));
-        ::std::cerr << "Data left " << (encaps->end() - f) << "\n";
+        ::std::cerr << "Data left " << (encaps.end() - f) << "\n";
         EXPECT_EQ(100500, d.some_int);
     }
 }
