@@ -101,6 +101,11 @@ using compilation_unit_const_set    = ::std::set< compilation_unit_const_ptr >;
 class generator;
 
 //----------------------------------------------------------------------------
+template < typename T, typename U >
+shared_entity< T >
+dynamic_entity_cast(::std::shared_ptr< U > const& e);
+
+//----------------------------------------------------------------------------
 struct compilation_unit {
     using entity_list = ::std::vector< entity_ptr >;
 
@@ -123,15 +128,35 @@ struct compilation_unit {
     compilation_unit_const_set
     dependent_units() const;
 
+    void
+    collect_elements(entity_const_set&,
+            entity_predicate pred = [](entity_const_ptr){ return true; }) const;
+
+    bool
+    has_classes() const;
+    bool
+    has_interfaces() const;
+    bool
+    has_exceptions() const;
+
     virtual bool
     is_builtin() const
     { return false; }
+
+    template < typename T >
+    bool
+    has() const
+    {
+        entity_const_set ents;
+        collect_elements(ents,
+        [](entity_const_ptr e)
+        {
+            return (bool)dynamic_entity_cast<T>(e);
+        });
+        return !ents.empty();
+    }
 };
 
-//----------------------------------------------------------------------------
-template < typename T, typename U >
-shared_entity< T >
-dynamic_entity_cast(::std::shared_ptr< U > const& e);
 //----------------------------------------------------------------------------
 /**
  * Base AST entity class

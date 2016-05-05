@@ -36,7 +36,7 @@ interface bad_service {
 };
 
 interface controversial : good_service, bad_service {
-    void
+    bool
     set_good(/*good_service* svc*/);
 
     //good_service*

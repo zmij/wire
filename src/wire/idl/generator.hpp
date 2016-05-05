@@ -18,6 +18,9 @@ namespace ast {
 ::std::string const SEQUENCE    = "sequence";
 ::std::string const DICTONARY   = "dictionary";
 
+::std::string const STRING      = "string";
+::std::string const UUID        = "uuid";
+
 namespace annotations {
 
 ::std::string const WEAK = "weak";

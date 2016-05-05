@@ -17,5 +17,4 @@ target_link_libraries(wire2cpp
     ${Boost_PROGRAM_OPTIONS_LIBRARIES}
     ${Boost_FILESYSTEM_LIBRARIES}
     ${WIRE_IDL_LIB}
-    ${WIRE_UTIL_LIB}
 )

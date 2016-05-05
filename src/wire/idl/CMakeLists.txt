@@ -33,6 +33,7 @@ set(
 add_library(${WIRE_IDL_LIB} SHARED ${wire_idl_SRCS})
 target_link_libraries(
     ${WIRE_IDL_LIB}
+    ${WIRE_UTIL_LIB}
     ${Boost_PROGRAM_OPTIONS_LIBRARIES}
     ${Boost_IOSTREAMS_LIBRARIES}
     ${Boost_SYSTEM_LIBRARIES}

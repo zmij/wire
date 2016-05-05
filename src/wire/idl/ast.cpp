@@ -58,6 +58,36 @@ compilation_unit::dependent_units() const
 }
 
 void
+compilation_unit::collect_elements(entity_const_set& ent, entity_predicate pred) const
+{
+
+    for (auto e : entities) {
+        e->collect_elements(ent, pred);
+        if (pred(e)) {
+            ent.insert(e);
+        }
+    }
+}
+
+bool
+compilation_unit::has_classes() const
+{
+    return has< class_ >();
+}
+
+bool
+compilation_unit::has_interfaces() const
+{
+    return has< interface >();
+}
+
+bool
+compilation_unit::has_exceptions() const
+{
+    return has< exception >();
+}
+
+void
 compilation_unit::generate(generator& gen) const
 {
     // TODO Topological sort of local entities

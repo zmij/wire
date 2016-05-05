@@ -106,12 +106,52 @@ operator + (offset const& off, ::std::size_t sz)
     return tmp;
 }
 
+inline offset
+operator - (offset const& off, ::std::size_t sz)
+{
+    offset tmp{off};
+    tmp -= sz;
+    return tmp;
+}
+
 struct offset_guard {
     offset& off_;
     ::std::size_t init;
 
     offset_guard(offset& off) : off_{off}, init{off.sz} {}
     ~offset_guard() { off_.sz = init; }
+};
+
+struct relative_name {
+    qname_search    current;
+    qname           qn;
+};
+
+struct type_name_rules {
+    static grammar::annotation_list const empty_annotations;
+
+    qname_search                    current;
+    ast::type_const_ptr             type;
+    grammar::annotation_list const& annotations = empty_annotations;
+    bool                            is_arg = false;
+
+    type_name_rules( qname_search const& scope, ast::type_const_ptr t,
+            grammar::annotation_list const& al = empty_annotations,
+            bool argument = false)
+        : current{scope}, type{t}, annotations{al}, is_arg{argument}
+    {}
+    type_name_rules( qname const& scope, ast::type_const_ptr t,
+            grammar::annotation_list const& al = empty_annotations,
+            bool argument = false)
+        : current{scope.search()}, type{t}, annotations{al}, is_arg{argument}
+    {}
+
+    type_name_rules(qname_search const scope, ast::type_const_ptr t, bool arg)
+        : current{ scope }, type{t}, is_arg{arg}
+    {}
+    type_name_rules(qname const& scope, ast::type_const_ptr t, bool arg)
+        : current{ scope.search() }, type{t}, is_arg{arg}
+    {}
 };
 
 class generator : public ast::generator {
@@ -153,15 +193,19 @@ private:
     ::std::string
     constant_prefix( qname const& ) const;
 
-    ::std::ostream&
-    write_type_name(::std::ostream&, ast::type_const_ptr t,
-            grammar::annotation_list const& = grammar::annotation_list{});
-    ::std::ostream&
-    write_arg_type(::std::ostream&, ast::type_const_ptr t,
-            grammar::annotation_list const& = grammar::annotation_list{});
+    type_name_rules
+    arg_type(ast::type_const_ptr t,
+            grammar::annotation_list const& al = grammar::annotation_list{})
+    { return { current_scope_.search(), t, al, true }; }
 
-    ::std::ostream&
-    write_qualified_name(::std::ostream&, qname const& qn);
+    type_name_rules
+    type_name( ast::type_const_ptr t,
+            grammar::annotation_list const& al = type_name_rules::empty_annotations )
+    { return { current_scope_.search(), t, al }; };
+
+    relative_name
+    rel_name(qname const& qn)
+    { return { current_scope_.search(), qn }; }
 
     ::std::ostream&
     write_init(::std::ostream&, offset& off, grammar::data_initializer const& init);
@@ -170,14 +214,19 @@ private:
     write_data_member(::std::ostream&, offset const&, ast::variable_ptr var);
 
     void
-    generate_dispatch_function_member(ast::function_ptr func);
-
-    void
     generate_read_write( ast::structure_ptr struct_);
 
     ::std::string
     generate_type_id_funcs(ast::entity_ptr elem);
+    void
+    generate_dispatch_function_member(ast::function_ptr func);
+    void
+    generate_invocation_function_member(ast::function_ptr func);
 
+    void
+    generate_dispatch_interface(ast::interface_ptr iface);
+    void
+    generate_proxy_interface(ast::interface_ptr iface);
 private:
     using free_function = ::std::function< void() >;
 private:
