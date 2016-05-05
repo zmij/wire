@@ -61,6 +61,7 @@ reference::parse_string(::std::string const& str)
 {
     endpoint_list eps;
     //eps.in
+    return reference_ptr{};
 }
 
 

@@ -72,16 +72,14 @@ template < typename OutputIterator >
 void
 wire_write(OutputIterator o, identity const& v)
 {
-    encoding::write(o, v.category);
-    encoding::write(o, v.id);
+    encoding::write(o, v.category, v.id);
 }
 
 template < typename InputIterator >
 void
 wire_read(InputIterator& begin, InputIterator end, identity& v)
 {
-    encoding::read(begin, end, v.category);
-    encoding::read(begin, end, v.id);
+    encoding::read(begin, end, v.category, v.id);
 }
 
 ::std::size_t
@@ -89,6 +87,8 @@ hash(identity const&);
 
 ::std::ostream&
 operator << (::std::ostream& os, identity const& val);
+::std::istream&
+operator >> (::std::istream& is, identity& val);
 
 }  // namespace core
 }  // namespace wire
