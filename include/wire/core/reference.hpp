@@ -18,6 +18,16 @@
 namespace wire {
 namespace core {
 
+struct reference_data {
+    identity                            object_id;
+    ::boost::optional<::std::string>    facet;
+    optional_identity                   adapter;
+    endpoint_list                       endpoints;
+};
+
+::std::ostream&
+operator << (::std::ostream& os, reference_data const& val);
+
 /**
  * Class for a reference.
  */
@@ -25,6 +35,13 @@ class reference {
 public:
     virtual ~reference() = default;
 
+    /**
+     * Parse a stringified reference.
+     * Reference format:
+     *  reference = identity ('[' facet ']')? ('@' adapter)|(endpoints)
+     * @param
+     * @return
+     */
     static reference_ptr
     parse_string(::std::string const&);
 private:
@@ -36,9 +53,15 @@ private:
 
 using reference_ptr = ::std::shared_ptr<reference>;
 
+/**
+ * Fixed reference
+ */
 class fixed_reference : public reference {
 private:
     connection_weak_ptr connection_;
+};
+
+class routed_reference : public reference {
 };
 
 }  // namespace core

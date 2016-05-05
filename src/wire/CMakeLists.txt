@@ -20,6 +20,7 @@ set(wire_lib_SRCS
     core/identity.cpp
     core/object.cpp
     core/proxy.cpp
+    core/reference.cpp
 )
 add_library(${WIRE_LIB} SHARED ${wire_lib_SRCS})
 set_target_properties(

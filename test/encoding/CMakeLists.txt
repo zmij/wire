@@ -29,10 +29,12 @@ set(test_SRCS
     endpoints_grammar_test.cpp
     uuid_io_test.cpp
     identity_io_test.cpp
+    identity_grammar_test.cpp
     containers_io_test.cpp
     optional_io_test.cpp
     segment_io_test.cpp
     exception_io_test.cpp
+    reference_grammar_test.cpp
 )
 
 add_executable(test-wire-encoding ${test_SRCS})
