@@ -107,23 +107,13 @@ struct endpoint_grammar :
     socket_endpoint_grammar< InputIterator >        socket_endpoint;
 };
 
-struct set_insert_func {
-    using result = void;
+template < typename InputIterator, typename EndpointContainer >
+struct endpoints_grammar;
 
-    template < template <typename ...> class Container, typename Elem, typename ... Rest >
-    void
-    operator()(Container<Elem, Rest ...>& set, Elem const& elem) const
-    {
-        set.insert(elem);
-    }
-};
-
-::boost::phoenix::function< set_insert_func > const set_insert = set_insert_func{};
-
-template < typename InputIterator >
-struct endpoints_grammar :
-        parser_value_grammar< InputIterator, endpoint_list > {
-    using value_type = endpoint_list;
+template < typename InputIterator, template < typename ... > class Container, typename ... Rest >
+struct endpoints_grammar< InputIterator, Container< endpoint, Rest ... > > :
+        parser_value_grammar< InputIterator, Container< endpoint, Rest ... > > {
+    using value_type = Container< endpoint, Rest ... >;
 
     endpoints_grammar() : endpoints_grammar::base_type(root)
     {

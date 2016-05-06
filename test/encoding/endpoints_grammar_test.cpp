@@ -66,7 +66,9 @@ GRAMMAR_PARSE_TEST(grammar::parse::endpoint_grammar, Endpoint, endpoint,
     )
 );
 
-GRAMMAR_TEST(grammar::parse::endpoints_grammar, EndpointList,
+template < typename InputIterator >
+using endpoint_list_grammar = grammar::parse::endpoints_grammar< InputIterator, endpoint_list >;
+GRAMMAR_TEST(endpoint_list_grammar, EndpointList,
     ::testing::Values(
         "socket:///tmp/.socket,tcp://localhost:5432,udp://127.0.0.1:5432",
         "socket:///tmp/.socket,tcp://localhost:5432,udp://127.0.0.1:5432",
@@ -78,6 +80,19 @@ GRAMMAR_TEST(grammar::parse::endpoints_grammar, EndpointList,
     )
 );
 
+template < typename InputIterator >
+using endpoint_set_grammar = grammar::parse::endpoints_grammar< InputIterator, endpoint_set >;
+GRAMMAR_TEST(endpoint_set_grammar, EndpointSet,
+    ::testing::Values(
+        "socket:///tmp/.socket,tcp://localhost:5432,udp://127.0.0.1:5432",
+        "socket:///tmp/.socket,tcp://localhost:5432,udp://127.0.0.1:5432",
+        "socket:///blabla/.123123/adfa/socket"
+    ),
+    ::testing::Values(
+        "socket:///tmp/.socket, tcp://localhost:5432, udp://127.0.0.1:5432",
+        "/", " "
+    )
+);
 
 }  // namespace test
 }  // namespace core

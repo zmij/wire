@@ -46,8 +46,7 @@ struct reference_grammar : parser_value_grammar< InputIterator, reference_data >
     parser_value_rule< InputIterator, reference_data >  ref;
     identity_grammar<InputIterator>                     id;
     parser_value_rule< InputIterator, ::std::string >   facet;
-    endpoints_grammar<InputIterator>                    endpoints;
-    //parser_rule< InputIterator >                        space;
+    endpoints_grammar<InputIterator, endpoint_list>     endpoints;
 };
 
 }  /* namespace parse */
