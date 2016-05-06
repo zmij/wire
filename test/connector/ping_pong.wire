@@ -1,0 +1,45 @@
+/*
+ * test.wire
+ *
+ *  Created on: May 6, 2016
+ *      Author: zmij
+ */
+
+#ifndef CONNECTOR_PING_PONG_WIRE_
+#define CONNECTOR_PING_PONG_WIRE_
+
+#include <wire/sugar.wire>
+
+namespace test {
+
+struct data {
+    string  str;
+};
+
+exception oops {
+    string message;
+};
+
+interface ping_pong {
+    [[sync]]
+    int32
+    test_int(int32 val);
+
+    string
+    test_string(string val);
+
+    data
+    test_struct(data val);
+
+    [[sync]]
+    void
+    error() throw (oops);
+
+    void
+    async_error() throw (oops);
+};
+
+}  /* namespace test */
+
+
+#endif /* CONNECTOR_PING_PONG_WIRE_ */

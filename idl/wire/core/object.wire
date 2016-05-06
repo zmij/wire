@@ -39,7 +39,6 @@ interface object {
      * Get the list of typenames for the object
      * @return
      */
-    [[cpp_container(vector)]]
     sequence< string >
     wire_types() const;
 };

@@ -14,17 +14,17 @@ namespace core {
 
 namespace {
 
-typedef void(object::*object_dispatch_func)(dispatch_request const&, current const&);
-const ::std::unordered_map<::std::string, object_dispatch_func>	object_dispatch_map {
-	{ "wire_is_a",	&object::__wire_is_a },
-	{ "wire_ping",	&object::__wire_ping },
-	{ "wire_type",	&object::__wire_type },
-	{ "wire_types",	&object::__wire_types },
+using object_dispatch_func = void(object::*)(dispatch_request const&, current const&);
+const ::std::unordered_map<::std::string, object_dispatch_func>    object_dispatch_map {
+    { "wire_is_a",    &object::__wire_is_a },
+    { "wire_ping",    &object::__wire_ping },
+    { "wire_type",    &object::__wire_type },
+    { "wire_types",    &object::__wire_types },
 };
 
 ::std::string OBJECT_TYPE_ID = "::wire::core::object";
 ::std::vector< ::std::string > OBJECT_TYPE_IDS {
-	object::wire_static_type()
+    object::wire_static_type_id()
 };
 
 }  // namespace
@@ -32,7 +32,7 @@ const ::std::unordered_map<::std::string, object_dispatch_func>	object_dispatch_
 bool
 object::wire_is_a(std::string const& id, current const&) const
 {
-	return id == wire_static_type();
+    return id == wire_static_type_id();
 }
 
 void
@@ -43,75 +43,97 @@ object::wire_ping(current const&) const
 ::std::string const&
 object::wire_type(current const&) const
 {
-	return wire_static_type();
+    return wire_static_type_id();
 }
 
 ::std::vector< ::std::string > const &
 object::wire_types(current const&) const
 {
-	return OBJECT_TYPE_IDS;
+    return OBJECT_TYPE_IDS;
 }
 
 void
 object::__wire_is_a(dispatch_request const& req, current const& c)
 {
-	::std::string arg;
-	auto b = req.encaps_start;
-	decltype(b) e = req.encaps_end;
-	encoding::read(b, e, arg);
-	encoding::outgoing out;
-	encoding::write(std::back_inserter(out), wire_is_a(arg, c));
-	req.result(std::move(out));
+    ::std::string arg;
+    auto b = req.encaps_start;
+    decltype(b) e = req.encaps_end;
+    encoding::read(b, e, arg);
+    encoding::outgoing out;
+    encoding::write(std::back_inserter(out), wire_is_a(arg, c));
+    req.result(std::move(out));
 }
 
 void
 object::__wire_ping(dispatch_request const& req, current const& c)
 {
-	wire_ping(c);
-	encoding::outgoing out;
-	req.result(std::move(out));
+    wire_ping(c);
+    encoding::outgoing out;
+    req.result(std::move(out));
 }
 
 void
 object::__wire_type(dispatch_request const& req, current const& c)
 {
-	encoding::outgoing out;
-	encoding::write(std::back_inserter(out), wire_type(c));
-	req.result(std::move(out));
+    encoding::outgoing out;
+    encoding::write(std::back_inserter(out), wire_type(c));
+    req.result(std::move(out));
 }
 
 void
 object::__wire_types(dispatch_request const& req, current const& c)
 {
-	encoding::outgoing out;
-	encoding::write(std::back_inserter(out), wire_types(c));
-	req.result(std::move(out));
+    encoding::outgoing out;
+    encoding::write(std::back_inserter(out), wire_types(c));
+    req.result(std::move(out));
+}
+
+bool
+object::__wire_dispatch(dispatch_request const& req, current const& c,
+        dispatch_seen_list& seen)
+{
+    if (seen.count(wire_static_type_id_hash()))
+        return false;
+    seen.insert(wire_static_type_id_hash());
+    if (c.operation.type() == encoding::operation_specs::name_string) {
+        auto f = object_dispatch_map.find(c.operation.name());
+        if (f != object_dispatch_map.end()) {
+            (this->*f->second)(req, c);
+            return true;
+        }
+        return false;
+    } else {
+        throw errors::no_operation(
+                wire_static_type_id(), "::", c.operation.name());
+    }
 }
 
 void
 object::__dispatch(dispatch_request const& req, current const& c)
 {
-	try {
-		if (c.operation.type() == encoding::operation_specs::name_string) {
-			auto f = object_dispatch_map.find(c.operation.name());
-			if (f != object_dispatch_map.end()) {
-				(this->*f->second)(req, c);
-			}
-		} else {
-			throw errors::no_operation(
-					wire_static_type(), "::", c.operation.name());
-		}
-	} catch (...) {
-		if (req.exception) {
-			req.exception(::std::current_exception());
-		}
-	}
+    try {
+        dispatch_seen_list seen;
+        if (!__wire_dispatch(req, c, seen)) {
+            throw errors::no_operation{
+                wire_static_type_id(), "::", c.operation.name()};
+        }
+    } catch (...) {
+        if (req.exception) {
+            req.exception(::std::current_exception());
+        }
+    }
 }
 
-constexpr ::std::string const&
-object::wire_static_type()
+::std::string const&
+object::wire_static_type_id()
 {
-	return OBJECT_TYPE_ID;
+    return OBJECT_TYPE_ID;
+}
+
+::std::int64_t
+object::wire_static_type_id_hash()
+{
+    return 0;
 }
 
 }  // namespace core

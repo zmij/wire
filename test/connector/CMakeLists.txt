@@ -1,7 +1,7 @@
-#	/wire/test/connector/CMakeLists.txt
-#	
-#	@author zmij
-#	@date Mar 1, 2016
+#    /wire/test/connector/CMakeLists.txt
+#
+#    @author zmij
+#    @date Mar 1, 2016
 
 cmake_minimum_required(VERSION 2.6)
 
@@ -14,18 +14,27 @@ endif()
 
 # Add your package dependencies for test here
 
-include_directories(${GTEST_INCLUDE_DIRS})
+wire2cpp(
+    ping_pong.wire
+    HEADER_DIR include/test
+    INCLUDE_ROOT test
+    OUTPUT wired_SRCS
+)
+
+include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR}/include)
 
 set(
-	test_connector_SRCS
-	connector_configuration_test.cpp
+    test_connector_SRCS
+    connector_configuration_test.cpp
+    ${wired_SRCS}
+    ping_pong_impl.cpp
 )
 add_executable(test-wire-connector ${test_connector_SRCS})
 target_link_libraries(
-	test-wire-connector
-	${GTEST_BOTH_LIBRARIES}
-	${CMAKE_THREAD_LIBS_INIT}
-	${WIRE_LIB}
+    test-wire-connector
+    ${GTEST_BOTH_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${WIRE_LIB}
 )
 
 if (GTEST_XML_OUTPUT)

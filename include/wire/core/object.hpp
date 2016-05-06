@@ -17,44 +17,51 @@ namespace core {
 
 class dispatcher_object {
 public:
-	virtual
-	~dispatcher_object() = default;
+    virtual
+    ~dispatcher_object() = default;
 
-	virtual void
-	__dispatch(dispatch_request const&, current const&) = 0;
+    virtual void
+    __dispatch(dispatch_request const&, current const&) = 0;
 };
 
 class object : public dispatcher_object {
 public:
-	virtual
-	~object() = default;
+    using type_list = ::std::vector< ::std::string >;
+    using dispatch_seen_list = ::std::set< ::std::uint64_t >;
+public:
+    virtual
+    ~object() = default;
 
-	virtual bool
-	wire_is_a(std::string const&, current const& = no_current) const;
-	void
-	__wire_is_a(dispatch_request const&, current const&);
+    virtual bool
+    wire_is_a(std::string const&, current const& = no_current) const;
+    void
+    __wire_is_a(dispatch_request const&, current const&);
 
-	virtual void
-	wire_ping(current const& = no_current) const;
-	void
-	__wire_ping(dispatch_request const&, current const&);
+    virtual void
+    wire_ping(current const& = no_current) const;
+    void
+    __wire_ping(dispatch_request const&, current const&);
 
-	virtual ::std::string const&
-	wire_type(current const& = no_current) const;
-	void
-	__wire_type(dispatch_request const&, current const&);
+    virtual ::std::string const&
+    wire_type(current const& = no_current) const;
+    void
+    __wire_type(dispatch_request const&, current const&);
 
-	virtual ::std::vector< ::std::string > const&
-	wire_types(current const& = no_current) const;
-	void
-	__wire_types(dispatch_request const&, current const&);
+    virtual type_list const&
+    wire_types(current const& = no_current) const;
+    void
+    __wire_types(dispatch_request const&, current const&);
 
-	virtual void
-	__dispatch(dispatch_request const&, current const&);
+    void
+    __dispatch(dispatch_request const&, current const&);
 
-	static constexpr ::std::string const&
-	wire_static_type();
-private:
+    static ::std::string const&
+    wire_static_type_id();
+    static ::std::int64_t
+    wire_static_type_id_hash();
+protected:
+    virtual bool
+    __wire_dispatch(dispatch_request const&, current const&, dispatch_seen_list&);
 };
 
 }  // namespace core

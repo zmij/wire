@@ -1010,7 +1010,8 @@ public:
      * @param pred
      */
     void
-    collect_ancestors(interface_list& ifaces, entity_predicate pred) const;
+    collect_ancestors(interface_list& ifaces,
+            entity_predicate pred = [](entity_const_ptr){ return true; }) const;
 
     function_list const&
     get_functions() const

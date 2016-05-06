@@ -219,6 +219,8 @@ private:
     ::std::string
     generate_type_id_funcs(ast::entity_ptr elem);
     void
+    generate_wire_functions(ast::interface_ptr iface);
+    void
     generate_dispatch_function_member(ast::function_ptr func);
     void
     generate_invocation_function_member(ast::function_ptr func);
