@@ -8,6 +8,7 @@
 #include <wire/core/connector.hpp>
 #include <wire/core/adapter.hpp>
 #include <wire/core/detail/configuration_options.hpp>
+#include <wire/core/reference.hpp>
 
 #include <boost/program_options.hpp>
 
@@ -21,12 +22,12 @@ namespace core {
 namespace po = boost::program_options;
 
 struct connector::impl {
-    connector_weak_ptr            owner_;
-    asio_config::io_service_ptr    io_service_;
+    connector_weak_ptr           owner_;
+    asio_config::io_service_ptr  io_service_;
     detail::connector_options    options_;
 
-    po::options_description        cmd_line_options_;
-    po::options_description        cfg_file_options_;
+    po::options_description      cmd_line_options_;
+    po::options_description      cfg_file_options_;
 
     args_type                    unrecognized_cmd_;
     ::std::string                unrecognized_cfg_;
@@ -213,6 +214,19 @@ struct connector::impl {
     object_prx
     string_to_proxy(::std::string const& name)
     {
+        ::std::istringstream is;
+        reference_data ref;
+        if ((bool)is >> ref) {
+            if (!ref.endpoints.empty()) {
+                // Find a connection or create a new one
+            } else if (ref.adapter.is_initialized()) {
+                throw ::std::runtime_error("Adapter location is not implemented yet");
+            } else {
+                throw ::std::runtime_error("Invalid reference string");
+            }
+        } else {
+            throw ::std::runtime_error("Invalid reference string");
+        }
         return object_prx{};
     }
 };
