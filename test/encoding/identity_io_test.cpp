@@ -30,6 +30,17 @@ TEST(IO, Identity)
     EXPECT_EQ(id0, id1);
 }
 
+TEST(StreamIO, Identity)
+{
+    identity id0{ identity::random("test") };
+    ::std::ostringstream os;
+    os << id0;
+    ::std::istringstream is{os.str()};
+    identity id1;
+    EXPECT_TRUE((bool)(is >> id1));
+    EXPECT_EQ(id0, id1);
+}
+
 } // namespace test
 }  // namespace core
 }  // namespace wire

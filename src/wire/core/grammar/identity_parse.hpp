@@ -33,8 +33,8 @@ struct identity_grammar : parser_value_grammar< InputIterator, identity > {
 
         identifier %= char_("a-zA-Z0-9_") >> *char_("a-zA-Z0-9._:-");
         id = -(identifier [ phx::bind(&identity::category, _val) = _1 ] >> "/")
-            >> (identifier [ phx::bind(&identity::id, _val) = _1 ])
-            |  (uuid  [ phx::bind(&identity::id, _val) = _1 ])
+            >> ((uuid  [ phx::bind(&identity::id, _val) = _1 ])
+             | (identifier [ phx::bind(&identity::id, _val) = _1 ]))
         ;
     }
 
