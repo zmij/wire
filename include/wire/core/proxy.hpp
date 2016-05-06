@@ -9,8 +9,12 @@
 #define WIRE_CORE_PROXY_HPP_
 
 #include <wire/core/proxy_fwd.hpp>
+#include <wire/core/reference_fwd.hpp>
+#include <wire/core/connection_fwd.hpp>
+
 #include <wire/core/callbacks.hpp>
 #include <wire/core/context.hpp>
+#include <wire/core/identity_fwd.hpp>
 
 #include <future>
 #include <functional>
@@ -22,6 +26,9 @@ namespace core {
 
 class object_proxy : public ::std::enable_shared_from_this< object_proxy > {
 public:
+    object_proxy(reference_ptr ref) : ref_{ref}
+    { /* TODO Throw if ref is empty */ }
+
     virtual ~object_proxy() = default;
 
     bool
@@ -31,6 +38,17 @@ public:
     { return !(*this == rhs); }
     bool
     operator < (object_proxy const&) const;
+public:
+    identity const&
+    wire_identity() const;
+
+    reference const&
+    wire_get_reference() const
+    { return *ref_; }
+
+    connection_ptr
+    wire_get_connection() const;
+
 public:
 
     bool
@@ -166,7 +184,8 @@ public:
 
         return promise->get_future();
     }
-
+private:
+    reference_ptr   ref_;
 };
 
 }  // namespace core

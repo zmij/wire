@@ -16,6 +16,8 @@
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/callbacks.hpp>
 #include <wire/core/adapter_fwd.hpp>
+#include <wire/core/context.hpp>
+
 #include <wire/util/function_traits.hpp>
 
 #include <wire/encoding/buffers.hpp>
@@ -71,19 +73,19 @@ public:
     template < typename Handler, typename ... Args >
     typename std::enable_if< (util::is_callable<Handler>::value &&
             util::function_traits< Handler >::arity > 0), void >::type
-    invoke_async(identity const& id, std::string const& op,
+    invoke_async(identity const& id, std::string const& op, context_type const& ctx,
             Handler response,
             callbacks::exception_callback exception,
             callbacks::callback< bool > sent,
             Args const& ... args)
     {
-        typedef util::function_traits<Handler>    handler_traits;
-        typedef typename handler_traits::decayed_args_tuple_type args_tuple;
+        using handler_traits = util::function_traits<Handler>;
+        using args_tuple = typename handler_traits::decayed_args_tuple_type;
 
         using encoding::incoming;
         encoding::outgoing out;
-        write(std::back_inserter(out), args ...);
-        invoke_async(id, op, std::move(out),
+        encoding::write(std::back_inserter(out), args ...);
+        invoke_async(id, op, ctx, std::move(out),
             [response, exception](incoming::const_iterator begin, incoming::const_iterator end){
                 try {
                     args_tuple args;
@@ -100,16 +102,16 @@ public:
 
     template < typename ... Args >
     void
-    invoke_async(identity const& id, std::string const& op,
-            callbacks::void_callback response,
-            callbacks::exception_callback exception,
-            callbacks::callback< bool > sent,
+    invoke_async(identity const& id, std::string const& op, context_type const& ctx,
+            callbacks::void_callback        response,
+            callbacks::exception_callback   exception,
+            callbacks::callback< bool >     sent,
             Args const& ... args)
     {
         using encoding::incoming;
         encoding::outgoing out;
         write(std::back_inserter(out), args ...);
-        invoke_async(id, op, std::move(out),
+        invoke_async(id, op, ctx, std::move(out),
             [response](incoming::const_iterator, incoming::const_iterator){
                 if (response) {
                     response();
@@ -119,7 +121,7 @@ public:
     }
 
     void
-    invoke_async(identity const&, std::string const& op,
+    invoke_async(identity const&, std::string const& op, context_type const& ctx,
             encoding::outgoing&&,
             encoding::reply_callback,
             callbacks::exception_callback exception,
@@ -131,7 +133,7 @@ private:
     operator = (connection const&) = delete;
 private:
     struct impl;
-    typedef std::shared_ptr<impl> pimpl;
+    using pimpl = std::shared_ptr<impl>;
     pimpl pimpl_;
 };
 

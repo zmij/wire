@@ -318,10 +318,8 @@ private:
     endpoint_data    endpoint_data_;
 };
 
-using endpoint_list = ::std::unordered_set<endpoint>;
-
-::std::istream&
-operator >> (::std::istream& is, endpoint_list& val);
+using endpoint_list = ::std::vector<endpoint>;
+using endpoint_set = ::std::unordered_set<endpoint>;
 
 template < typename OutputIterator >
 void
@@ -349,6 +347,16 @@ operator >> (::std::istream& in, transport_type& val);
 operator << (::std::ostream& os, endpoint const& val);
 ::std::istream&
 operator >> (::std::istream& is, endpoint& val);
+
+::std::ostream&
+operator << (::std::ostream& os, endpoint_list const& val);
+::std::istream&
+operator >> (::std::istream& is, endpoint_list& val);
+
+::std::ostream&
+operator << (::std::ostream& os, endpoint_set const& val);
+::std::istream&
+operator >> (::std::istream& is, endpoint_set& val);
 }  // namespace core
 }  // namespace wire
 

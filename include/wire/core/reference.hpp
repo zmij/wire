@@ -27,23 +27,33 @@ struct reference_data {
 
 ::std::ostream&
 operator << (::std::ostream& os, reference_data const& val);
+::std::istream&
+operator >> (::std::istream& is, reference_data& val);
 
 /**
  * Class for a reference.
  */
 class reference {
 public:
+    reference(connector_ptr cn, identity const& oid,
+            ::std::string const& facet = ::std::string{})
+        : connector_{cn}, object_id_{oid}, facet_{facet} {}
     virtual ~reference() = default;
 
-    /**
-     * Parse a stringified reference.
-     * Reference format:
-     *  reference = identity ('[' facet ']')? ('@' adapter)|(endpoints)
-     * @param
-     * @return
-     */
-    static reference_ptr
-    parse_string(::std::string const&);
+    identity const&
+    object_id() const
+    { return object_id_; }
+
+    ::std::string const&
+    facet() const
+    { return facet_; }
+
+    connector_ptr
+    get_connector() const
+    { return connector_.lock(); }
+
+    virtual connection_ptr
+    get_connection() const = 0;
 private:
     connector_weak_ptr  connector_;
 
@@ -57,8 +67,16 @@ using reference_ptr = ::std::shared_ptr<reference>;
  * Fixed reference
  */
 class fixed_reference : public reference {
+public:
+    fixed_reference(connector_ptr cn, identity const& oid,
+            endpoint const& ep, ::std::string const& facet = ::std::string{})
+        : reference{cn, oid, facet}, endpoint_{ep} {}
+
+    connection_ptr
+    get_connection() const override;
 private:
-    connection_weak_ptr connection_;
+    endpoint                    endpoint_;
+    connection_weak_ptr mutable connection_;
 };
 
 class routed_reference : public reference {

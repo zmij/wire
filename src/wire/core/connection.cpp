@@ -513,6 +513,7 @@ connection::close()
 
 void
 connection::invoke_async(identity const& id, std::string const& op,
+        context_type const& ctx,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
         callbacks::exception_callback exception,

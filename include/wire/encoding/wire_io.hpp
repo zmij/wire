@@ -19,24 +19,24 @@ template < typename OutputIterator, typename T >
 void
 write(OutputIterator o, T v, typename std::enable_if< std::is_fundamental<T>::value, T >::type*)
 {
-	typedef detail::writer< typename std::decay< T >::type > writer_type;
-	writer_type::output(o, v);
+    typedef detail::writer< typename std::decay< T >::type > writer_type;
+    writer_type::output(o, v);
 }
 
 template < typename OutputIterator, typename T >
 void
 write(OutputIterator o, T const& v, typename std::enable_if< !std::is_fundamental<T>::value, T >::type*)
 {
-	typedef detail::writer< typename std::decay< T >::type > writer_type;
-	writer_type::output(o, v);
+    typedef detail::writer< typename std::decay< T >::type > writer_type;
+    writer_type::output(o, v);
 }
 
 template < typename InputIterator, typename T >
 void
 read(InputIterator& begin, InputIterator end, T& value)
 {
-	typedef detail::reader< typename std::decay< T >::type > reader_type;
-	reader_type::input(begin, end, value);
+    typedef detail::reader< typename std::decay< T >::type > reader_type;
+    reader_type::input(begin, end, value);
 }
 
 namespace detail {
@@ -45,38 +45,38 @@ template < typename OutputIterator, typename T >
 void
 write_impl(OutputIterator o, T const& value)
 {
-	write(o, value);
+    write(o, value);
 }
 
 template < typename OutputIterator, typename T, typename ... Y >
 void
 write_impl(OutputIterator o, T const& arg, Y const& ... args)
 {
-	write(o, arg);
-	write_impl(o, args ...);
+    write(o, arg);
+    write_impl(o, args ...);
 }
 
 template < typename InputIterator, typename T >
 void
 read_impl(InputIterator& begin, InputIterator end, T& value)
 {
-	read(begin, end, value);
+    read(begin, end, value);
 }
 
 template < typename InputIterator, typename T, typename ... Y >
 void
 read_impl(InputIterator& begin, InputIterator end, T& arg, Y& ... args)
 {
-	read(begin, end, arg);
-	read_impl(begin, end, args ...);
+    read(begin, end, arg);
+    read_impl(begin, end, args ...);
 }
 
 template < typename InputIterator, size_t ... Indexes, typename ... T >
 void
 read_impl(InputIterator& begin, InputIterator end,
-		util::indexes_tuple< Indexes ... >, std::tuple< T ... >& args)
+        util::indexes_tuple< Indexes ... >, std::tuple< T ... >& args)
 {
-	read_impl(begin, end, std::get<Indexes>(args) ... );
+    read_impl(begin, end, std::get<Indexes>(args) ... );
 }
 
 }  // namespace detail
@@ -85,22 +85,29 @@ template < typename OutputIterator, typename ... T >
 void
 write(OutputIterator o, T const& ... args)
 {
-	detail::write_impl(o, args...);
+    detail::write_impl(o, args...);
+}
+
+template < typename OutputIterator >
+void
+write(OutputIterator o)
+{
+    // Effectively do nothing
 }
 
 template < typename InputIterator, typename ... T >
 void
 read(InputIterator& begin, InputIterator end, T& ... args)
 {
-	detail::read_impl(begin, end, args ...);
+    detail::read_impl(begin, end, args ...);
 }
 
 template < typename InputIterator, typename ... T >
 void
 read(InputIterator& begin, InputIterator end, std::tuple< T ... >& tuple)
 {
-	typedef typename util::index_builder< sizeof ... (T) >::type index_type;
-	detail::read_impl(begin, end, index_type(), tuple);
+    typedef typename util::index_builder< sizeof ... (T) >::type index_type;
+    detail::read_impl(begin, end, index_type(), tuple);
 }
 
 }  // namespace encoding

@@ -7,14 +7,18 @@
 
 #include <wire/core/connector.hpp>
 #include <wire/core/adapter.hpp>
-#include <wire/core/detail/configuration_options.hpp>
 #include <wire/core/reference.hpp>
+#include <wire/core/connection.hpp>
+#include <wire/core/proxy.hpp>
+
+#include <wire/core/detail/configuration_options.hpp>
 
 #include <boost/program_options.hpp>
 
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <mutex>
 
 namespace wire {
 namespace core {
@@ -22,15 +26,29 @@ namespace core {
 namespace po = boost::program_options;
 
 struct connector::impl {
-    connector_weak_ptr           owner_;
-    asio_config::io_service_ptr  io_service_;
-    detail::connector_options    options_;
+    using connection_container  = ::std::unordered_map<endpoint, connection_ptr>;
+    using mutex_type            = ::std::mutex;
+    using lock_guard            = ::std::lock_guard<mutex_type>;
 
-    po::options_description      cmd_line_options_;
-    po::options_description      cfg_file_options_;
+    connector_weak_ptr          owner_;
+    asio_config::io_service_ptr io_service_;
 
-    args_type                    unrecognized_cmd_;
-    ::std::string                unrecognized_cfg_;
+    //@{
+    /** @name Configuration */
+    detail::connector_options   options_;
+
+    po::options_description     cmd_line_options_;
+    po::options_description     cfg_file_options_;
+
+    args_type                   unrecognized_cmd_;
+    ::std::string               unrecognized_cfg_;
+    //@}
+
+    //@{
+    /** @name Connections */
+    mutex_type                  mtx_;
+    connection_container        outgoing_;
+    //@}
 
     impl(asio_config::io_service_ptr svc)
         : io_service_{svc}, options_{},
@@ -214,20 +232,44 @@ struct connector::impl {
     object_prx
     string_to_proxy(::std::string const& name)
     {
-        ::std::istringstream is;
-        reference_data ref;
-        if ((bool)is >> ref) {
-            if (!ref.endpoints.empty()) {
+        ::std::istringstream is{name};
+        reference_data ref_data;
+        if ((bool)(is >> ref_data)) {
+            if (!ref_data.endpoints.empty()) {
                 // Find a connection or create a new one
-            } else if (ref.adapter.is_initialized()) {
+                // TODO Decide which endpoint to use
+                reference_ptr ref{
+                    ::std::make_shared< fixed_reference >(
+                        owner_.lock(), ref_data.object_id,
+                        ref_data.endpoints.front(),
+                        ref_data.facet.is_initialized() ? *ref_data.facet : ::std::string{} ) };
+                return ::std::make_shared< object_proxy >(ref);
+            } else if (ref_data.adapter.is_initialized()) {
                 throw ::std::runtime_error("Adapter location is not implemented yet");
-            } else {
-                throw ::std::runtime_error("Invalid reference string");
             }
-        } else {
-            throw ::std::runtime_error("Invalid reference string");
         }
-        return object_prx{};
+        throw ::std::runtime_error("Invalid reference string");
+    }
+
+    connection_ptr
+    get_connection(endpoint const& ep)
+    {
+        lock_guard lock{ mtx_ };
+        auto f = outgoing_.find(ep);
+        if (f != outgoing_.end()) {
+            return f->second;
+        } else {
+            auto conn = ::std::make_shared< connection >(io_service_, ep,
+            [ep](){
+                ::std::cerr << "Connected to " << ep << "\n";
+            },
+            [ep](::std::exception_ptr ex) {
+                ::std::cerr << "Failed to connect to " << ep << "\n";
+            });
+            outgoing_.emplace(ep, conn);
+            return conn;
+        }
+        return connection_ptr{};
     }
 };
 
@@ -349,6 +391,12 @@ object_prx
 connector::string_to_proxy(::std::string const& str)
 {
     return pimpl_->string_to_proxy(str);
+}
+
+connection_ptr
+connector::get_outgoing_connection(endpoint const& ep)
+{
+    return pimpl_->get_connection(ep);
 }
 
 }  // namespace core

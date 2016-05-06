@@ -70,6 +70,14 @@ public:
 
     object_prx
     string_to_proxy(::std::string const& str);
+
+    /**
+     * Get an existing connection to the endpoint specified or create a new one.
+     * @param
+     * @return
+     */
+    connection_ptr
+    get_outgoing_connection(endpoint const&);
 private:
     struct impl;
     typedef std::shared_ptr<impl> pimpl;

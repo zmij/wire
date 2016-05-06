@@ -11,8 +11,16 @@
 #include <boost/spirit/include/support_istream_iterator.hpp>
 #include <boost/spirit/include/support_multi_pass.hpp>
 
+#include <sstream>
+
+#include <wire/core/connector.hpp>
+
 namespace wire {
 namespace core {
+
+//----------------------------------------------------------------------------
+//      Reference data implementation
+//----------------------------------------------------------------------------
 
 ::std::ostream&
 operator << (::std::ostream& os, reference_data const& val)
@@ -27,10 +35,7 @@ operator << (::std::ostream& os, reference_data const& val)
             os << "@" << *val.adapter;
         }
         if (!val.endpoints.empty()) {
-            os << " ";
-            for (auto ep = val.endpoints.begin(); ep != val.endpoints.end(); ++ep) {
-                os << *ep;
-            }
+            os << " " << val.endpoints;
         }
     }
     return os;
@@ -55,15 +60,29 @@ operator >> (::std::istream& is, reference_data& val)
     return is;
 }
 
+//----------------------------------------------------------------------------
+//      Base reference implementation
+//----------------------------------------------------------------------------
 
-reference_ptr
-reference::parse_string(::std::string const& str)
+
+//----------------------------------------------------------------------------
+//      Fixed reference implementation
+//----------------------------------------------------------------------------
+
+connection_ptr
+fixed_reference::get_connection() const
 {
-    endpoint_list eps;
-    //eps.in
-    return reference_ptr{};
+    connection_ptr conn = connection_.lock();
+    if (!conn) {
+        connector_ptr cntr = get_connector();
+        if (!cntr) {
+            throw ::std::runtime_error{"Connector is already destroyed"};
+        }
+        conn = cntr->get_outgoing_connection(endpoint_);
+        connection_ = conn;
+    }
+    return conn;
 }
-
 
 }  // namespace core
 }  // namespace wire

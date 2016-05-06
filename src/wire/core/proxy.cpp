@@ -6,6 +6,8 @@
  */
 
 #include <wire/core/proxy.hpp>
+#include <wire/core/reference.hpp>
+#include <wire/core/connection.hpp>
 
 namespace wire {
 namespace core {
@@ -22,6 +24,18 @@ object_proxy::operator <(object_proxy const& rhs) const
     return false;
 }
 
+identity const&
+object_proxy::wire_identity() const
+{
+    return wire_get_reference().object_id();
+}
+
+connection_ptr
+object_proxy::wire_get_connection() const
+{
+    return wire_get_reference().get_connection();
+}
+
 bool
 object_proxy::wire_is_a(::std::string const& type_id, context_type const& ctx)
 {
@@ -30,13 +44,15 @@ object_proxy::wire_is_a(::std::string const& type_id, context_type const& ctx)
 }
 
 void
-object_proxy::wire_is_a_async(::std::string const& type_id,
-            callbacks::callback< bool >        response,
-            callbacks::exception_callback    exception,
-            callbacks::callback< bool >        sent,
-            context_type const&                ctx)
+object_proxy::wire_is_a_async(::std::string const&  type_id,
+        callbacks::callback< bool >                 response,
+        callbacks::exception_callback               exception,
+        callbacks::callback< bool >                 sent,
+        context_type const&                         ctx)
 {
-
+    auto const& ref = wire_get_reference();
+    wire_get_connection()->invoke_async(
+        ref.object_id(), "wire_is_a", ctx, response, exception, sent, type_id);
 }
 
 void
@@ -49,12 +65,14 @@ object_proxy::wire_ping(context_type const& ctx)
 void
 object_proxy::wire_ping_async(
         callbacks::void_callback        response,
-        callbacks::exception_callback    exception,
-        callbacks::callback< bool >        sent,
+        callbacks::exception_callback   exception,
+        callbacks::callback< bool >     sent,
         context_type const&             ctx
 )
 {
-
+    auto const& ref = wire_get_reference();
+    wire_get_connection()->invoke_async(
+        ref.object_id(), "wire_ping", ctx, response, exception, sent);
 }
 
 ::std::string
@@ -66,13 +84,15 @@ object_proxy::wire_type(context_type const& ctx)
 
 void
 object_proxy::wire_type_async(
-        callbacks::callback< std::string const& >    response,
-        callbacks::exception_callback                exception,
-        callbacks::callback< bool >                    sent,
-        context_type const&                            ctx
+        callbacks::callback< std::string const& >   response,
+        callbacks::exception_callback               exception,
+        callbacks::callback< bool >                 sent,
+        context_type const&                         ctx
 )
 {
-
+    auto const& ref = wire_get_reference();
+    wire_get_connection()->invoke_async(
+        ref.object_id(), "wire_type", ctx, response, exception, sent);
 }
 
 ::std::vector< ::std::string >
@@ -84,13 +104,15 @@ object_proxy::wire_types(context_type const& ctx)
 
 void
 object_proxy::wire_types_async(
-        callbacks::callback< ::std::vector< ::std::string > const& >    result,
-        callbacks::exception_callback                    exception,
-        callbacks::callback<bool>                        sent,
-        context_type const&                                ctx
+        callbacks::callback< ::std::vector< ::std::string > const& >    response,
+        callbacks::exception_callback                                   exception,
+        callbacks::callback<bool>                                       sent,
+        context_type const&                                             ctx
 )
 {
-
+    auto const& ref = wire_get_reference();
+    wire_get_connection()->invoke_async(
+        ref.object_id(), "wire_types", ctx, response, exception, sent);
 }
 
 }  // namespace core
