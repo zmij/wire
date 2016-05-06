@@ -61,7 +61,8 @@ public:
     wire_static_type_id_hash();
 protected:
     virtual bool
-    __wire_dispatch(dispatch_request const&, current const&, dispatch_seen_list&);
+    __wire_dispatch(dispatch_request const&, current const&,
+            dispatch_seen_list&, bool throw_not_found);
 };
 
 }  // namespace core

@@ -939,7 +939,7 @@ generator::generate_wire_functions(ast::interface_ptr iface)
             << (h_off_ - 1) << "protected:"
             << h_off_ << "bool"
             << h_off_ << "__wire_dispatch(::wire::core::dispatch_request const&, ::wire::core::current const&,"
-            << (h_off_ +2) << "dispatch_seen_list&) override;"
+            << (h_off_ +2) << "dispatch_seen_list&, bool throw_not_found) override;"
     ;
 
     tmp_pop_scope _pop{current_scope_};
@@ -1015,8 +1015,9 @@ generator::generate_wire_functions(ast::interface_ptr iface)
     //------------------------------------------------------------------------
     // the dispatch function
     source_ << s_off_ << "bool"
-            << s_off_ << rel_name(eqn) << "::__wire_dispatch(::wire::core::dispatch_request const& req, ::wire::core::current const& c,"
-            << (s_off_ + 1) << "dispatch_seen_list& seen)"
+            << s_off_ << rel_name(eqn) << "::__wire_dispatch(::wire::core::dispatch_request const& req,"
+            << (s_off_ + 1) << "::wire::core::current const& c,"
+            << (s_off_ + 1) << "dispatch_seen_list& seen, bool throw_not_found)"
             << s_off_ << "{";
     source_ << ++s_off_ << "if (seen.count(wire_static_type_id_hash())) return false;"
             << s_off_ << "seen.insert(wire_static_type_id_hash());";
@@ -1027,20 +1028,24 @@ generator::generate_wire_functions(ast::interface_ptr iface)
             << (s_off_ + 1) << "(this->*f->second)(req, c);"
             << (s_off_ + 1) << "return true;"
             << s_off_ << "}";
-    source_ << s_off_ << "return ";
+    source_ << s_off_ << "bool res = ";
     ++s_off_;
     auto const& ancestors = iface->get_ancestors();
     if (!ancestors.empty()) {
         for (auto a = ancestors.begin(); a != ancestors.end(); ++a) {
             if (a != ancestors.begin())
                 source_ << " ||" << s_off_;
-            source_ << rel_name((*a)->get_qualified_name()) << "::__wire_dispatch(req, c, seen)";
+            source_ << rel_name((*a)->get_qualified_name()) << "::__wire_dispatch(req, c, seen, false)";
         }
     } else {
-        source_ << rel_name(root_interface) << "::__wire_dispatch(req, c, seen)";
+        source_ << rel_name(root_interface) << "::__wire_dispatch(req, c, seen, false)";
     }
     source_ << ";";
     --s_off_;
+    source_ << s_off_ << "if (!res && throw_not_found)"
+            << (s_off_ + 1) << "throw ::wire::errors::no_operation{"
+            << (s_off_ + 2) << "wire_static_type_id(), \"::\", c.operation.name()};";
+    source_ << s_off_ << "return res;";
     source_ << --s_off_ << "} else {"
             << (s_off_ + 1) << "throw ::wire::errors::no_operation{"
             << (s_off_ + 2) << "wire_static_type_id(), \"::\", c.operation.name()};";

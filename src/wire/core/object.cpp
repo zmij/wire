@@ -90,7 +90,7 @@ object::__wire_types(dispatch_request const& req, current const& c)
 
 bool
 object::__wire_dispatch(dispatch_request const& req, current const& c,
-        dispatch_seen_list& seen)
+        dispatch_seen_list& seen, bool throw_not_found)
 {
     if (seen.count(wire_static_type_id_hash()))
         return false;
@@ -101,6 +101,9 @@ object::__wire_dispatch(dispatch_request const& req, current const& c,
             (this->*f->second)(req, c);
             return true;
         }
+        if (throw_not_found)
+            throw errors::no_operation(
+                    wire_static_type_id(), "::", c.operation.name());
         return false;
     } else {
         throw errors::no_operation(
@@ -113,7 +116,7 @@ object::__dispatch(dispatch_request const& req, current const& c)
 {
     try {
         dispatch_seen_list seen;
-        if (!__wire_dispatch(req, c, seen)) {
+        if (!__wire_dispatch(req, c, seen, true)) {
             throw errors::no_operation{
                 wire_static_type_id(), "::", c.operation.name()};
         }
