@@ -188,6 +188,11 @@ private:
     reference_ptr   ref_;
 };
 
+template < typename Prx, typename ... Bases >
+class proxy : public virtual Bases ... {
+
+};
+
 }  // namespace core
 }  // namespace wire
 

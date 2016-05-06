@@ -366,6 +366,8 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
         header_ << "#include <wire/core/callbacks.hpp>\n";
         header_ << "#include <wire/core/proxy.hpp>\n";
 
+        source_ << "#include <wire/core/reference.hpp>\n";
+        source_ << "#include <wire/core/connection.hpp>\n";
         source_ << "#include <wire/core/dispatch_request.hpp>\n";
         source_ << "#include <unordered_map>\n";
     }
@@ -700,9 +702,19 @@ generator::generate_invocation_function_member(ast::function_ptr func)
                     << s_off_ << "::wire::core::callbacks::exception_callback _exception,"
                     << s_off_ << "::wire::core::callbacks::callback< bool > _sent,"
                     << s_off_ << "::wire::core::context_type const& _ctx)"
-                    << (s_off_ - 3) << "{"
-                    << (s_off_ - 2) << "/* TODO Make invocation " __FILE__ ":" << __LINE__ << " */"
-                    << (s_off_ - 3) << "}\n";
+                    << (s_off_ - 3) << "{";
+            s_off_ -= 2;
+            source_ << s_off_ << "auto const& ref = wire_get_reference();";
+            source_ << s_off_ << "wire_get_connection()->invoke_async("
+                    << (s_off_ + 1) << "ref.object_id(), \"" << func->name()
+                    << "\", _ctx, _response, _exception, _sent";
+            for (auto const& p : params) {
+                source_ << ", " << p.second;
+            }
+            source_ << ");";
+
+            --s_off_;
+            source_ << s_off_ << "}\n";
         }
     }
 }
@@ -1155,6 +1167,8 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
 void
 generator::generate_proxy_interface(ast::interface_ptr iface)
 {
+    static const qname base_proxy {"::wire::core::object_proxy"};
+
     source_ << s_off_ << "//" << ::std::setw(77) << ::std::setfill('-') << "-"
             << s_off_ << "//    Proxy interface for " << iface->get_qualified_name()
             << s_off_ << "//" << ::std::setw(77) << ::std::setfill('-') << "-";
@@ -1162,7 +1176,23 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
     header_ << h_off_ << "/**"
             << h_off_ << " *    Proxy interface for " << iface->get_qualified_name()
             << h_off_ << " */"
-            << h_off_ << "class " << iface->name() << "_proxy " << "{"
+            << h_off_ << "class " << iface->name() << "_proxy : "
+            << (h_off_ + 1) << "public virtual ::wire::core::proxy< " << iface->name();
+
+
+    auto const& ancestors = iface->get_ancestors();
+    if (!ancestors.empty()) {
+        h_off_ += 2;
+        for ( auto a : ancestors ) {
+            auto qn = a->get_qualified_name();
+            qn.components.back() += "_proxy";
+            header_ << "," << h_off_ << rel_name(qn);
+        }
+        h_off_ -= 2;
+    } else {
+        header_ << ", " << base_proxy;
+    }
+    header_ << "> {"
             << h_off_ << "public:";
 
     tmp_push_scope _push{current_scope_, iface->name() + "_proxy"};
