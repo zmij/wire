@@ -23,20 +23,20 @@ exception oops {
 interface ping_pong {
     [[sync]]
     int32
-    test_int(int32 val);
+    test_int(int32 val) const;
 
     string
     test_string(string val);
 
     data
-    test_struct(data val);
+    test_struct(data val) const;
 
     [[sync]]
     void
     error() throw (oops);
 
     void
-    async_error() throw (oops);
+    async_error() const throw (oops);
 };
 
 }  /* namespace test */

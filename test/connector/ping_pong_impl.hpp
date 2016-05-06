@@ -17,7 +17,7 @@ class ping_pong_server : public ::test::ping_pong {
 public:
     ::std::int32_t
     test_int(::std::int32_t val,
-            ::wire::core::current const& = ::wire::core::no_current) override;
+            ::wire::core::current const& = ::wire::core::no_current) const override;
 
     void
     test_string(::std::string const& val,
@@ -29,7 +29,7 @@ public:
     test_struct(::test::data const& val,
             test_struct_return_callback __resp,
             ::wire::core::callbacks::exception_callback __exception,
-            ::wire::core::current const& = ::wire::core::no_current) override;
+            ::wire::core::current const& = ::wire::core::no_current) const override;
 
     void
     error(::wire::core::current const& = ::wire::core::no_current) override;
@@ -37,7 +37,7 @@ public:
     void
     async_error(::wire::core::callbacks::void_callback __resp,
             ::wire::core::callbacks::exception_callback __exception,
-            ::wire::core::current const& = ::wire::core::no_current) override;
+            ::wire::core::current const& = ::wire::core::no_current) const override;
 };
 
 }  /* namespace test */
