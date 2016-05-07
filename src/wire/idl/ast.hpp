@@ -155,6 +155,9 @@ struct compilation_unit {
         });
         return !ents.empty();
     }
+
+    ::std::int64_t
+    get_hash() const noexcept;
 };
 
 //----------------------------------------------------------------------------
@@ -196,6 +199,12 @@ public:
 
     virtual type_name
     get_type_name() const;
+
+    ::std::int64_t
+    get_name_hash() const noexcept;
+
+    virtual ::std::int64_t
+    get_hash() const noexcept;
 
     grammar::annotation_list const&
     get_annotations() const
@@ -401,6 +410,10 @@ public:
     alias() const
     { return type_; }
 
+    ::std::int64_t
+    get_hash() const noexcept override
+    { return type_->get_hash(); }
+
     void
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override
     {
@@ -458,6 +471,8 @@ public:
     void
     add_parameter(parameter const&);
 
+    ::std::int64_t
+    get_hash() const noexcept override;
     void
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
 
@@ -503,6 +518,9 @@ public:
     grammar::data_initializer
     get_init() const
     { return init_; }
+
+    ::std::int64_t
+    get_hash() const noexcept override;
 private:
     type_ptr                    type_;
     grammar::data_initializer   init_;
@@ -531,6 +549,9 @@ public:
     type_ptr
     get_type() const
     { return type_; }
+
+    ::std::int64_t
+    get_hash() const noexcept override;
 private:
     type_ptr type_;
 };
@@ -577,6 +598,9 @@ public:
     exception_list const&
     throw_specification() const
     { return throw_spec_; }
+
+    ::std::int64_t
+    get_hash() const noexcept override;
 private:
     type_ptr         ret_type_;
     function_params  parameters_;
@@ -693,6 +717,9 @@ public:
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
     void
     collect_elements(entity_const_set& elems, entity_predicate pred) const override;
+
+    ::std::int64_t
+    get_hash() const noexcept override;
 protected:
     scope() : entity() {}
     /**
@@ -937,6 +964,9 @@ public:
     enumerator_list const&
     get_enumerators() const
     { return enumerators_; }
+
+    ::std::int64_t
+    get_hash() const noexcept override;
 private:
     bool            constrained_;
     enumerator_list enumerators_;
@@ -966,6 +996,9 @@ public:
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
     void
     collect_elements(entity_const_set& elems, entity_predicate pred) const override;
+
+    ::std::int64_t
+    get_hash() const noexcept override;
 protected:
     entity_ptr
     local_entity_search(qname_search const& search) const override;
@@ -1016,6 +1049,9 @@ public:
     function_list const&
     get_functions() const
     { return functions_; }
+
+    ::std::int64_t
+    get_hash() const noexcept override;
 protected:
     entity_ptr
     ancestors_entity_search(qname_search const& search) const;
@@ -1040,6 +1076,9 @@ public:
     reference(type_ptr iface);
     void
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
+
+    ::std::int64_t
+    get_hash() const noexcept override;
 };
 
 //----------------------------------------------------------------------------
@@ -1066,6 +1105,8 @@ public:
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
     void
     collect_elements(entity_const_set& elems, entity_predicate pred) const override;
+    ::std::int64_t
+    get_hash() const noexcept override;
 private:
     entity_ptr
     local_entity_search(qname_search const& search) const override;
@@ -1094,6 +1135,8 @@ public:
     exception_const_ptr
     get_parent() const
     { return parent_; }
+    ::std::int64_t
+    get_hash() const noexcept override;
 private:
     entity_ptr
     local_entity_search(qname_search const& search) const override;

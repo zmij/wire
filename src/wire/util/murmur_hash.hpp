@@ -84,6 +84,13 @@ murmur_hash(T const& v)
     return f(v);
 }
 
+template < typename T >
+hash_result
+combine(T const& v, hash_result o)
+{
+    return murmur_hash(v) ^ (o << 1);
+}
+
 }  /* namespace hash */
 }  /* namespace wire */
 

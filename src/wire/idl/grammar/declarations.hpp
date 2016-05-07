@@ -9,6 +9,7 @@
 #define WIRE_IDL_GRAMMAR_DECLARATIONS_HPP_
 
 #include <wire/idl/type_name.hpp>
+#include <wire/util/murmur_hash.hpp>
 #include <boost/variant.hpp>
 #include <boost/optional.hpp>
 
@@ -82,6 +83,19 @@ find(annotation_list const&, ::std::string const& name);
 
 }  /* namespace grammar */
 }  /* namespace idl */
+namespace hash {
+
+template <>
+struct murmur_hash_calc< idl::grammar::data_initializer > {
+    using base_type     = detail::hash_base< idl::grammar::data_initializer const& >;
+    using result_type   = typename base_type::result_type;
+    using argument_type = typename base_type::argument_type;
+
+    result_type
+    operator()(argument_type arg) const noexcept;
+};
+
+}  /* namespace hash */
 }  /* namespace wire */
 
 

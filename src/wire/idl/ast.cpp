@@ -9,6 +9,7 @@
 #include <wire/idl/qname.hpp>
 #include <wire/idl/syntax_error.hpp>
 #include <wire/idl/generator.hpp>
+#include <wire/util/murmur_hash.hpp>
 #include <sstream>
 
 #include <iostream>
@@ -102,6 +103,16 @@ compilation_unit::generate(generator& gen) const
     }
 }
 
+::std::int64_t
+compilation_unit::get_hash() const noexcept
+{
+    ::std::int64_t h = 0;
+    for (auto e : entities) {
+        h = hash::combine(e->get_hash(), h);
+    }
+    return h;
+}
+
 //----------------------------------------------------------------------------
 struct builtin_unit : compilation_unit {
     builtin_unit() : compilation_unit("__BUILTINS__") {}
@@ -172,6 +183,25 @@ parametrized_type::add_parameter(parameter const& param)
             throw grammar_error(os.str());
         }
     }
+}
+
+::std::int64_t
+parametrized_type::get_hash() const noexcept
+{
+    auto hash = tmpl_type->get_hash();
+    for (auto const& p : params_) {
+        switch (p.which()) {
+            case template_param_type::type:
+                hash = hash::combine(::boost::get< type_ptr >(p)->get_hash(), hash);
+                break;
+            case template_param_type::integral:
+                hash = hash::combine(::boost::get< ::std::string >(p), hash);
+                break;
+            default:
+                break;
+        }
+    }
+    return hash;
 }
 
 void
@@ -298,6 +328,20 @@ entity::get_type_name() const
     return type_name { get_qualified_name(), type_name::template_params{}, false };
 }
 
+::std::int64_t
+entity::get_name_hash() const noexcept
+{
+    ::std::ostringstream os;
+    os << get_qualified_name();
+    return hash::murmur_hash(os.str());
+}
+
+::std::int64_t
+entity::get_hash() const noexcept
+{
+    return get_name_hash();
+}
+
 global_namespace_ptr
 entity::get_global() const
 {
@@ -408,6 +452,20 @@ constant::constant(scope_ptr sc, ::std::size_t pos, ::std::string const& name,
         type_ptr t, grammar::data_initializer const& init)
     : entity{sc, pos, name}, type_(t), init_(init)
 {
+}
+
+::std::int64_t
+constant::get_hash() const noexcept
+{
+    auto h = type_->get_hash();
+    h = hash::combine(name(), h);
+    return hash::combine(init_, h);
+}
+
+::std::int64_t
+variable::get_hash() const noexcept
+{
+    return hash::combine(name(), type_->get_hash());
 }
 
 //----------------------------------------------------------------------------
@@ -663,6 +721,24 @@ scope::collect_elements(entity_const_set& elems, entity_predicate pred) const
     }
 }
 
+::std::int64_t
+scope::get_hash() const noexcept
+{
+    auto h = get_name_hash();
+
+    auto types = types_;
+    ::std::sort(types.begin(), types.end(), name_compare{});
+    for (auto t : types) {
+        h = hash::combine(t->get_hash(), h);
+    }
+    auto constants = constants_;
+    ::std::sort(constants.begin(), constants.end(), name_compare{});
+    for (auto c : constants_) {
+        h = hash::combine(c->get_hash(), h);
+    }
+    return h;
+}
+
 //----------------------------------------------------------------------------
 //    function class implementation
 //----------------------------------------------------------------------------
@@ -699,6 +775,19 @@ function::collect_dependencies(entity_const_set& deps, entity_predicate pred) co
         if (pred(e))
             deps.insert(e);
     }
+}
+
+::std::int64_t
+function::get_hash() const noexcept
+{
+    auto h = hash::combine(name(), ret_type_->get_hash());
+    for (auto const& p : parameters_) {
+        h = hash::combine(p.first->get_hash(), h);
+    }
+    for (auto e : throw_spec_) {
+        h = hash::combine(e->get_hash(), h);
+    }
+    return hash::combine(is_const_, h);
 }
 //----------------------------------------------------------------------------
 //    namespace_ class implementation
@@ -858,6 +947,19 @@ enumeration::add_enumerator(::std::size_t pos, ::std::string const& name, option
     enumerators_.emplace_back(name, val);
     // TODO add entities to enclosing scope if not constrained
 }
+
+::std::int64_t
+enumeration::get_hash() const noexcept
+{
+    auto h = get_name_hash();
+    for (auto const& e : enumerators_) {
+        h = hash::combine(e.first, h);
+        if (e.second.is_initialized()) {
+            h = hash::combine(*e.second, h);
+        }
+    }
+    return h;
+}
 //----------------------------------------------------------------------------
 //    structure class implementation
 //----------------------------------------------------------------------------
@@ -913,6 +1015,17 @@ structure::collect_elements(entity_const_set& elems, entity_predicate pred) cons
             elems.insert(m);
     }
 }
+
+::std::int64_t
+structure::get_hash() const noexcept
+{
+    auto h = scope::get_hash();
+    for (auto m : data_members_) {
+        h = hash::combine(m->get_hash(), h);
+    }
+    return h;
+}
+
 //----------------------------------------------------------------------------
 //    interface class implementation
 //----------------------------------------------------------------------------
@@ -1035,6 +1148,23 @@ interface::collect_ancestors(interface_list& ifaces, entity_predicate pred) cons
     }
 }
 
+::std::int64_t
+interface::get_hash() const noexcept
+{
+    auto h = scope::get_hash();
+    auto funcs = functions_;
+    ::std::sort(funcs.begin(), funcs.end(), name_compare{});
+    for (auto f : funcs) {
+        h = hash::combine(f->get_hash(), h);
+    }
+    auto ancs = ancestors_;
+    ::std::sort(ancs.begin(), ancs.end(), name_compare{});
+    for (auto a : ancs) {
+        h = hash::combine(a->get_hash(), h);
+    }
+    return h;
+}
+
 //----------------------------------------------------------------------------
 //    reference class implementation
 //----------------------------------------------------------------------------
@@ -1054,6 +1184,12 @@ reference::collect_dependencies(entity_const_set& deps, entity_predicate pred) c
     }
 }
 
+::std::int64_t
+reference::get_hash() const noexcept
+{
+    auto h = get_name_hash();
+    return hash::combine(1UL, h);
+}
 
 //----------------------------------------------------------------------------
 //    class class implementation
@@ -1115,6 +1251,19 @@ class_::collect_elements(entity_const_set& elems, entity_predicate pred) const
             elems.insert(f);
     }
 }
+
+::std::int64_t
+class_::get_hash() const noexcept
+{
+    auto h = interface::get_hash();
+    for (auto d : data_members_) {
+        h = hash::combine(d->get_hash(), h);
+    }
+    if (parent_) {
+        h = hash::combine(parent_->get_hash(), h);
+    }
+    return h;
+}
 //----------------------------------------------------------------------------
 //    exception class implementation
 //----------------------------------------------------------------------------
@@ -1148,6 +1297,16 @@ exception::collect_dependencies(entity_const_set& deps, entity_predicate pred) c
     structure::collect_dependencies(deps, pred);
     if (parent_ && pred(parent_))
         deps.insert(parent_);
+}
+
+::std::int64_t
+exception::get_hash() const noexcept
+{
+    auto h = structure::get_hash();
+    if (parent_) {
+        h = hash::combine(parent_->get_hash(), h);
+    }
+    return h;
 }
 
 }  // namespace ast
