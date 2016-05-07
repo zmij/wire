@@ -10,4 +10,4 @@ set(wire_util_SRCS
     murmur_hash.cpp
 )
 
-add_library(${WIRE_UTIL_LIB} ${wire_util_SRCS})
+add_library(${WIRE_UTIL_LIB} SHARED ${wire_util_SRCS})
