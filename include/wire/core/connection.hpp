@@ -73,7 +73,8 @@ public:
     template < typename Handler, typename ... Args >
     typename std::enable_if< (util::is_callable<Handler>::value &&
             util::function_traits< Handler >::arity > 0), void >::type
-    invoke_async(identity const& id, std::string const& op, context_type const& ctx,
+    invoke(identity const& id, std::string const& op, context_type const& ctx,
+            bool run_sync,
             Handler response,
             callbacks::exception_callback exception,
             callbacks::callback< bool > sent,
@@ -85,7 +86,7 @@ public:
         using encoding::incoming;
         encoding::outgoing out;
         encoding::write(std::back_inserter(out), args ...);
-        invoke_async(id, op, ctx, std::move(out),
+        invoke(id, op, ctx, run_sync, ::std::move(out),
             [response, exception](incoming::const_iterator begin, incoming::const_iterator end){
                 try {
                     args_tuple args;
@@ -102,7 +103,8 @@ public:
 
     template < typename ... Args >
     void
-    invoke_async(identity const& id, std::string const& op, context_type const& ctx,
+    invoke(identity const& id, std::string const& op, context_type const& ctx,
+            bool run_sync,
             callbacks::void_callback        response,
             callbacks::exception_callback   exception,
             callbacks::callback< bool >     sent,
@@ -111,7 +113,7 @@ public:
         using encoding::incoming;
         encoding::outgoing out;
         write(std::back_inserter(out), args ...);
-        invoke_async(id, op, ctx, std::move(out),
+        invoke(id, op, ctx, run_sync, ::std::move(out),
             [response](incoming::const_iterator, incoming::const_iterator){
                 if (response) {
                     response();
@@ -121,7 +123,8 @@ public:
     }
 
     void
-    invoke_async(identity const&, std::string const& op, context_type const& ctx,
+    invoke(identity const&, std::string const& op, context_type const& ctx,
+            bool run_sync,
             encoding::outgoing&&,
             encoding::reply_callback,
             callbacks::exception_callback exception,

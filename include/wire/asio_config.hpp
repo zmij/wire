@@ -20,24 +20,23 @@
 namespace wire {
 namespace asio_config {
 
-typedef ASIO_NS::io_service							io_service;
-typedef std::shared_ptr< io_service >				io_service_ptr;
+using io_service        = ASIO_NS::io_service;
+using io_service_ptr    = std::shared_ptr< io_service >;
 
-typedef ASIO_NS::ip::tcp							tcp;
-typedef ASIO_NS::ip::udp							udp;
-typedef ASIO_NS::local::stream_protocol				local_socket;
+using tcp               = ASIO_NS::ip::tcp;
+using udp               = ASIO_NS::ip::udp;
+using local_socket      = ASIO_NS::local::stream_protocol;
 
-typedef ASIO_NS::ip::address						address;
+using address           = ASIO_NS::ip::address;
 
-typedef boost::system::error_code					error_code;
-typedef std::function< void(error_code const&) >	asio_callback;
-typedef std::function< void(error_code const&,
-		std::size_t) >								asio_rw_callback;
+using error_code        = boost::system::error_code;
+using asio_callback     = std::function< void(error_code const&) >;
+using asio_rw_callback  = std::function< void(error_code const&, std::size_t) >;
 
-typedef ASIO_NS::ssl::context						ssl_context;
-typedef std::shared_ptr< ssl_context >				ssl_context_ptr;
+using ssl_context       = ASIO_NS::ssl::context;
+using ssl_context_ptr   = std::shared_ptr< ssl_context >;
 
-constexpr ASIO_NS::use_future_t<>					use_future;
+constexpr ASIO_NS::use_future_t<> use_future;
 
 }  // namespace asio_config
 }  // namespace wire

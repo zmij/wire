@@ -239,7 +239,8 @@ connection_impl_base::dispatch_incoming(encoding::incoming_ptr incoming)
 }
 
 void
-connection_impl_base::invoke_async(identity const& id, std::string const& op,
+connection_impl_base::invoke(identity const& id, std::string const& op, context_type const& ctx,
+        bool run_sync,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
         callbacks::exception_callback exception,
@@ -257,6 +258,11 @@ connection_impl_base::invoke_async(identity const& id, std::string const& op,
     callbacks::void_callback write_cb = sent ? [sent](){sent(true);} : callbacks::void_callback{};
     pending_replies_.insert(std::make_pair( r.number, pending_reply{ reply, exception } ));
     process_event(events::send_request{ out, write_cb });
+
+    if (run_sync) { // TODO Start a thread
+        while (pending_replies_.count(r.number))
+            io_service_->poll();
+    }
 }
 
 void
@@ -296,6 +302,7 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
                     }
                     break;
             }
+            pending_replies_.erase(f);
         } else {
             // else discard the reply (it can be timed out)
             ::std::cerr << "No waiting callback for reply\n";
@@ -437,14 +444,16 @@ struct connection::impl {
     }
 
     void
-    invoke_async(identity const& id, std::string const& op,
+    invoke(identity const& id, std::string const& op, context_type const& ctx,
+            bool run_sync,
             encoding::outgoing&& params,
             encoding::reply_callback reply,
             callbacks::exception_callback exception,
             callbacks::callback< bool > sent)
     {
         if (connection_) {
-            connection_->invoke_async(id, op, std::move(params), reply, exception, sent);
+            connection_->invoke(id, op, ctx, run_sync,
+                    ::std::move(params), reply, exception, sent);
         } /** @todo Throw exception */
     }
 
@@ -512,14 +521,15 @@ connection::close()
 }
 
 void
-connection::invoke_async(identity const& id, std::string const& op,
+connection::invoke(identity const& id, std::string const& op,
         context_type const& ctx,
+        bool run_sync,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
         callbacks::exception_callback exception,
         callbacks::callback< bool > sent)
 {
-    pimpl_->invoke_async(id, op, std::move(params), reply, exception, sent);
+    pimpl_->invoke(id, op, ctx, run_sync, ::std::move(params), reply, exception, sent);
 }
 
 

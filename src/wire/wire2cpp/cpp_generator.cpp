@@ -673,14 +673,16 @@ generator::generate_invocation_function_member(ast::function_ptr func)
     header_ << call_params.str()
             << result_callback.str() << " _response,"
             << h_off_ << "::wire::core::callbacks::exception_callback _exception = nullptr,"
-            << h_off_ << "::wire::core::callbacks::callback< bool > _sent = nullptr,"
-            << h_off_ << "::wire::core::context_type const& = ::wire::core::no_context);";
+            << h_off_ << "::wire::core::callbacks::callback< bool > _sent        = nullptr,"
+            << h_off_ << "::wire::core::context_type const&                      = ::wire::core::no_context,"
+            << h_off_ << "bool                                      run_sync     = false);";
     h_off_ -= 2;
 
     header_ << h_off_ << "template < template< typename > class _Promise = ::std::promise >"
             << h_off_ << "auto"
             << h_off_ << func->name() << "_async(" << call_params.str()
-            << "::wire::core::context_type const& _ctx = ::wire::core::no_context)";
+            << "::wire::core::context_type const& _ctx = ::wire::core::no_context,"
+            << h_off_ << "bool _run_async = false)";
 
 
     header_ << ++h_off_ << "-> decltype( ::std::declval< _Promise< "
@@ -704,7 +706,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
     }
     header_ << h_off_ << "[promise]( ::std::exception_ptr ex )"
             << h_off_ << "{ promise->set_exception(::std::move(ex)); },"
-            << h_off_ << "nullptr, _ctx";
+            << h_off_ << "nullptr, _ctx, _run_async";
     header_ << --h_off_ << ");\n";
     header_ << h_off_ << "return promise->get_future();";
 
@@ -728,7 +730,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
             for (auto const& p : params) {
                 source_ << p.second << ", ";
             }
-            source_ << "__ctx);"
+            source_ << "__ctx, true);"
                     << s_off_ << "return future.get();";
             source_ << --s_off_ << "}\n";
         }
@@ -741,13 +743,14 @@ generator::generate_invocation_function_member(ast::function_ptr func)
                     << result_callback.str() << " _response,"
                     << s_off_ << "::wire::core::callbacks::exception_callback _exception,"
                     << s_off_ << "::wire::core::callbacks::callback< bool > _sent,"
-                    << s_off_ << "::wire::core::context_type const& _ctx)"
+                    << s_off_ << "::wire::core::context_type const& _ctx,"
+                    << s_off_ << "bool _run_sync)"
                     << (s_off_ - 3) << "{";
             s_off_ -= 2;
             source_ << s_off_ << "auto const& ref = wire_get_reference();";
-            source_ << s_off_ << "wire_get_connection()->invoke_async("
+            source_ << s_off_ << "wire_get_connection()->invoke("
                     << (s_off_ + 1) << "ref.object_id(), \"" << func->name()
-                    << "\", _ctx, _response, _exception, _sent";
+                    << "\", _ctx, _run_sync, _response, _exception, _sent";
             for (auto const& p : params) {
                 source_ << ", " << p.second;
             }

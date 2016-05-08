@@ -60,12 +60,14 @@ public:
             callbacks::callback< bool >     response,
             callbacks::exception_callback   exception   = nullptr,
             callbacks::callback< bool >     sent        = nullptr,
-            context_type const&                         = no_context
+            context_type const&                         = no_context,
+            bool                            run_sync    = false
     );
 
     template < template< typename > class _Promise = ::std::promise >
     auto
-    wire_is_a_async(::std::string const& type_id, context_type const& ctx = no_context)
+    wire_is_a_async(::std::string const& type_id,
+            context_type const& ctx = no_context, bool run_sync = false)
         -> decltype(::std::declval<_Promise<bool>>().get_future())
     {
         auto promise = ::std::make_shared< _Promise<bool> >();
@@ -80,7 +82,7 @@ public:
             {
                 promise->set_exception(::std::move(ex));
             },
-            nullptr, ctx
+            nullptr, ctx, run_sync
         );
 
         return promise->get_future();
@@ -94,12 +96,13 @@ public:
             callbacks::void_callback        response,
             callbacks::exception_callback   exception   = nullptr,
             callbacks::callback< bool >     sent        = nullptr,
-            context_type const&                         = no_context
+            context_type const&                         = no_context,
+            bool                            run_sync    = false
     );
 
     template< template< typename > class _Promise = ::std::promise >
     auto
-    wire_ping_async(context_type const& ctx = no_context)
+    wire_ping_async(context_type const& ctx = no_context, bool run_sync = false)
         -> decltype(::std::declval<_Promise<void>>().get_future())
     {
         auto promise = ::std::make_shared< _Promise<void> >();
@@ -113,7 +116,7 @@ public:
             {
                 promise->set_exception(::std::move(ex));
             },
-            nullptr, ctx
+            nullptr, ctx, run_sync
         );
 
         return promise->get_future();
@@ -124,15 +127,16 @@ public:
 
     void
     wire_type_async(
-        callbacks::callback< ::std::string const& >   response,
+        callbacks::callback< ::std::string const& > response,
         callbacks::exception_callback               exception   = nullptr,
         callbacks::callback< bool >                 sent        = nullptr,
-        context_type const&                                     = no_context
+        context_type const&                                     = no_context,
+        bool                                        run_sync    = false
     );
 
     template < template< typename > class _Promise = ::std::promise >
     auto
-    wire_type_async(context_type const& ctx = no_context)
+    wire_type_async(context_type const& ctx = no_context, bool run_sync = false)
         -> decltype(::std::declval<_Promise<::std::string>>().get_future())
     {
         auto promise = ::std::make_shared<_Promise<::std::string>>();
@@ -146,7 +150,7 @@ public:
             {
                 promise->set_exception(::std::move(ex));
             },
-            nullptr, ctx
+            nullptr, ctx, run_sync
         );
 
         return promise->get_future();
@@ -158,14 +162,15 @@ public:
     void
     wire_types_async(
         callbacks::callback< ::std::vector< ::std::string > const& > result,
-        callbacks::exception_callback                    exception  = nullptr,
-        callbacks::callback<bool>                        sent       = nullptr,
-        context_type const&                                         = no_context
+        callbacks::exception_callback                   exception  = nullptr,
+        callbacks::callback<bool>                       sent       = nullptr,
+        context_type const&                                         = no_context,
+        bool                                            run_sync    = false
     );
 
     template < template< typename > class _Promise = ::std::promise >
     auto
-    wire_types_async(context_type const& ctx = no_context)
+    wire_types_async(context_type const& ctx = no_context, bool run_sync = false)
         -> decltype(::std::declval<_Promise<::std::vector< ::std::string >>>().get_future())
     {
         auto promise = ::std::make_shared<_Promise<::std::vector< ::std::string >>>();
@@ -179,7 +184,7 @@ public:
             {
                 promise->set_exception(::std::move(ex));
             },
-            nullptr, ctx
+            nullptr, ctx, run_sync
         );
 
         return promise->get_future();
