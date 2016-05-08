@@ -17,23 +17,23 @@ namespace wire {
 namespace core {
 
 struct adapter::impl {
-    typedef ::std::unordered_map< endpoint, connection > connections;
-    typedef ::std::unordered_map< identity, dispatcher_ptr > active_objects;
-    typedef ::std::unordered_map< ::std::string, dispatcher_ptr > default_servants;
+    using connections       = ::std::unordered_map< endpoint, connection >;
+    using active_objects    = ::std::unordered_map< identity, dispatcher_ptr >;
+    using default_servants  = ::std::unordered_map< ::std::string, dispatcher_ptr >;
 
     asio_config::io_service_ptr io_service_;
-    ::std::string                name_;
+    identity                    id_;
 
-    detail::adapter_options        options_;
+    detail::adapter_options     options_;
 
-    connections                    connections_;
-    active_objects                active_objects_;
+    connections                 connections_;
+    active_objects              active_objects_;
     default_servants            default_servants_;
 
     adapter_weak_ptr            owner_;
 
-    impl(connector_ptr c, ::std::string const& name, detail::adapter_options const& options)
-        : io_service_(c->io_service()), name_(name), options_(options)
+    impl(connector_ptr c, identity const& id, detail::adapter_options const& options)
+        : io_service_(c->io_service()), id_(id), options_(options)
     {
     }
 
@@ -46,7 +46,7 @@ struct adapter::impl {
                 options_.endpoints.push_back(endpoint::tcp("0.0.0.0", 0));
             }
             for (auto const& ep : options_.endpoints) {
-                connections_.emplace(ep, std::move(connection{ adp, ep }));
+                connections_.emplace(ep, ::std::move(connection{ adp, ep }));
             }
         } else {
             throw ::std::runtime_error("Adapter owning implementation was destroyed");
@@ -73,13 +73,13 @@ struct adapter::impl {
     void
     add_object(identity const& id, dispatcher_ptr disp)
     {
-        active_objects_.insert(std::make_pair(id, disp));
+        active_objects_.insert(::std::make_pair(id, disp));
     }
 
     void
-    add_default_servant(std::string const& category, dispatcher_ptr disp)
+    add_default_servant(::std::string const& category, dispatcher_ptr disp)
     {
-        default_servants_.insert(std::make_pair(category, disp));
+        default_servants_.insert(::std::make_pair(category, disp));
     }
 
     dispatcher_ptr
@@ -102,17 +102,17 @@ struct adapter::impl {
 };
 
 adapter_ptr
-adapter::create_adapter(connector_ptr c, ::std::string const& name,
+adapter::create_adapter(connector_ptr c, identity const& id,
         detail::adapter_options const& options)
 {
-    adapter_ptr a(new adapter{c, name, options});
+    adapter_ptr a(new adapter{c, id, options});
     a->pimpl_->owner_ = a;
     return a;
 }
 
-adapter::adapter(connector_ptr c, ::std::string const& name,
+adapter::adapter(connector_ptr c, identity const& id,
         detail::adapter_options const& options)
-    : pimpl_( ::std::make_shared<impl>(c, name, options) )
+    : pimpl_( ::std::make_shared<impl>(c, id, options) )
 {
 }
 
@@ -128,10 +128,10 @@ adapter::activate()
     pimpl_->activate();
 }
 
-::std::string const&
+identity const&
 adapter::name() const
 {
-    return pimpl_->name_;
+    return pimpl_->id_;
 }
 
 endpoint_list const&

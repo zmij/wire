@@ -26,16 +26,17 @@ struct identity {
     using uuid_type = ::boost::uuids::uuid;
     using id_type   = ::boost::variant< ::std::string, uuid_type >;
 
-    ::std::string category;
+    ::std::string  category;
     id_type        id;
 
-    identity() : category(), id() {};
-    identity(::std::string const& id) : category(), id(id) {}
+    identity() : category{}, id{} {};
+    identity(char const* s) : category{}, id{ ::std::string{s} } {}
+    identity(::std::string const& id) : category{}, id{id} {}
     identity(::std::string const& category, ::std::string const& id)
-        : category(category), id(id) {}
-    identity(uuid_type const& id) : category(), id(id) {}
+        : category{category}, id{id} {}
+    identity(uuid_type const& id) : category{}, id{id} {}
     identity(::std::string const& category, uuid_type const& id)
-        : category(category), id(id) {}
+        : category{category}, id{id} {}
 
     bool
     operator == (identity const& rhs) const
