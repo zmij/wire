@@ -21,6 +21,7 @@ set(wire_lib_SRCS
     core/object.cpp
     core/proxy.cpp
     core/reference.cpp
+    core/reference_io.cpp
 )
 add_library(${WIRE_LIB} SHARED ${wire_lib_SRCS})
 set_target_properties(

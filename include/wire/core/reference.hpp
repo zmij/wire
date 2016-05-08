@@ -19,10 +19,10 @@ namespace wire {
 namespace core {
 
 struct reference_data {
-    identity                            object_id;
-    ::boost::optional<::std::string>    facet;
-    optional_identity                   adapter;
-    endpoint_list                       endpoints;
+    identity                object_id;
+    ::std::string           facet;
+    optional_identity       adapter;
+    endpoint_list           endpoints;
 };
 
 ::std::ostream&
@@ -35,18 +35,17 @@ operator >> (::std::istream& is, reference_data& val);
  */
 class reference {
 public:
-    reference(connector_ptr cn, identity const& oid,
-            ::std::string const& facet = ::std::string{})
-        : connector_{cn}, object_id_{oid}, facet_{facet} {}
+    reference(connector_ptr cn, reference_data const& ref)
+        : connector_{cn}, ref_{ref} {}
     virtual ~reference() = default;
 
     identity const&
     object_id() const
-    { return object_id_; }
+    { return ref_.object_id; }
 
     ::std::string const&
     facet() const
-    { return facet_; }
+    { return ref_.facet; }
 
     connector_ptr
     get_connector() const
@@ -56,9 +55,8 @@ public:
     get_connection() const = 0;
 private:
     connector_weak_ptr  connector_;
-
-    identity            object_id_;
-    ::std::string       facet_;
+protected:
+    reference_data      ref_;
 };
 
 using reference_ptr = ::std::shared_ptr<reference>;
@@ -68,15 +66,13 @@ using reference_ptr = ::std::shared_ptr<reference>;
  */
 class fixed_reference : public reference {
 public:
-    fixed_reference(connector_ptr cn, identity const& oid,
-            endpoint const& ep, ::std::string const& facet = ::std::string{})
-        : reference{cn, oid, facet}, endpoint_{ep} {}
+    fixed_reference(connector_ptr cn, reference_data const& ref);
 
     connection_ptr
     get_connection() const override;
 private:
-    endpoint                    endpoint_;
-    connection_weak_ptr mutable connection_;
+    connection_weak_ptr mutable             connection_;
+    endpoint_list::const_iterator mutable   current_;
 };
 
 class routed_reference : public reference {

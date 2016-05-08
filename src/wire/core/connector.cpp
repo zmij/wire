@@ -237,12 +237,8 @@ struct connector::impl {
         if ((bool)(is >> ref_data)) {
             if (!ref_data.endpoints.empty()) {
                 // Find a connection or create a new one
-                // TODO Decide which endpoint to use
                 reference_ptr ref{
-                    ::std::make_shared< fixed_reference >(
-                        owner_.lock(), ref_data.object_id,
-                        ref_data.endpoints.front(),
-                        ref_data.facet.is_initialized() ? *ref_data.facet : ::std::string{} ) };
+                    ::std::make_shared< fixed_reference >( owner_.lock(), ref_data) };
                 return ::std::make_shared< object_proxy >(ref);
             } else if (ref_data.adapter.is_initialized()) {
                 throw ::std::runtime_error("Adapter location is not implemented yet");

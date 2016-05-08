@@ -6,10 +6,6 @@
  */
 
 #include <wire/core/reference.hpp>
-#include <wire/core/grammar/reference_parse.hpp>
-
-#include <boost/spirit/include/support_istream_iterator.hpp>
-#include <boost/spirit/include/support_multi_pass.hpp>
 
 #include <sstream>
 
@@ -19,48 +15,6 @@ namespace wire {
 namespace core {
 
 //----------------------------------------------------------------------------
-//      Reference data implementation
-//----------------------------------------------------------------------------
-
-::std::ostream&
-operator << (::std::ostream& os, reference_data const& val)
-{
-    ::std::ostream::sentry s(os);
-    if (s) {
-        os << val.object_id;
-        if (val.facet.is_initialized()) {
-            os << "[" << *val.facet << "]";
-        }
-        if (val.adapter.is_initialized()) {
-            os << "@" << *val.adapter;
-        }
-        if (!val.endpoints.empty()) {
-            os << " " << val.endpoints;
-        }
-    }
-    return os;
-}
-
-::std::istream&
-operator >> (::std::istream& is, reference_data& val)
-{
-    ::std::istream::sentry s(is);
-    if (s) {
-        namespace qi = ::boost::spirit::qi;
-        using istreambuf_iterator   = ::std::istreambuf_iterator<char>;
-        using stream_iterator       = ::boost::spirit::multi_pass< istreambuf_iterator >;
-        using grammar               = grammar::parse::reference_grammar<stream_iterator>;
-
-        stream_iterator in { istreambuf_iterator{ is } };
-        stream_iterator eos { istreambuf_iterator{} };
-
-        if (!qi::parse(in, eos, grammar{}, val))
-            is.setstate(::std::ios_base::badbit);
-    }
-    return is;
-}
-
-//----------------------------------------------------------------------------
 //      Base reference implementation
 //----------------------------------------------------------------------------
 
@@ -68,6 +22,12 @@ operator >> (::std::istream& is, reference_data& val)
 //----------------------------------------------------------------------------
 //      Fixed reference implementation
 //----------------------------------------------------------------------------
+fixed_reference::fixed_reference(connector_ptr cn, reference_data const& ref)
+    : reference{cn, ref}, current_{ref_.endpoints.begin()}
+{
+    if (ref_.endpoints.empty())
+        throw errors::runtime_error{ "Reference endpoint list is empty" };
+}
 
 connection_ptr
 fixed_reference::get_connection() const
@@ -78,7 +38,10 @@ fixed_reference::get_connection() const
         if (!cntr) {
             throw ::std::runtime_error{"Connector is already destroyed"};
         }
-        conn = cntr->get_outgoing_connection(endpoint_);
+        if (current_ == ref_.endpoints.end()) {
+            current_ = ref_.endpoints.begin();
+        }
+        conn = cntr->get_outgoing_connection(*current_++);
         connection_ = conn;
     }
     return conn;
