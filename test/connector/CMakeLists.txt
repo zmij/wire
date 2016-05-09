@@ -27,13 +27,23 @@ set(
     test_connector_SRCS
     connector_configuration_test.cpp
     ${wired_SRCS}
-    ping_pong_impl.cpp
 )
 add_executable(test-wire-connector ${test_connector_SRCS})
 target_link_libraries(
     test-wire-connector
     ${GTEST_BOTH_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
+    ${WIRE_LIB}
+)
+
+set(ping_pong_SRCS
+    ping_pong_sparring.cpp
+    ${wired_SRCS}
+    ping_pong_impl.cpp
+)
+
+add_executable(ping-pong-sparring ${ping_pong_SRCS})
+target_link_libraries(ping-pong-sparring
     ${WIRE_LIB}
 )
 

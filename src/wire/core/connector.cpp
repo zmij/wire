@@ -6,6 +6,7 @@
  */
 
 #include <wire/core/connector.hpp>
+#include <wire/core/identity.hpp>
 #include <wire/core/adapter.hpp>
 #include <wire/core/reference.hpp>
 #include <wire/core/connection.hpp>
@@ -162,8 +163,9 @@ struct connector::impl {
     }
 
     detail::adapter_options
-    configure_adapter(::std::string const& name, endpoint_list const& eps = endpoint_list{})
+    configure_adapter(identity const& id, endpoint_list const& eps = endpoint_list{})
     {
+        auto name = ::boost::lexical_cast< ::std::string >( id );
         detail::adapter_options aopts;
 
         po::options_description adapter_opts(name + " Adapter Options");
@@ -219,14 +221,14 @@ struct connector::impl {
     }
 
     adapter_ptr
-    create_adapter(::std::string const& name, endpoint_list const& eps = endpoint_list{})
+    create_adapter(identity const& id, endpoint_list const& eps = endpoint_list{})
     {
         connector_ptr conn = owner_.lock();
         if (!conn) {
             throw std::runtime_error("Connector already destroyed");
         }
-        detail::adapter_options opts = configure_adapter(name, eps);
-        return adapter::create_adapter(conn, name, opts);
+        detail::adapter_options opts = configure_adapter(id, eps);
+        return adapter::create_adapter(conn, id, opts);
     }
 
     object_prx
@@ -237,12 +239,8 @@ struct connector::impl {
         if ((bool)(is >> ref_data)) {
             if (!ref_data.endpoints.empty()) {
                 // Find a connection or create a new one
-                // TODO Decide which endpoint to use
                 reference_ptr ref{
-                    ::std::make_shared< fixed_reference >(
-                        owner_.lock(), ref_data.object_id,
-                        ref_data.endpoints.front(),
-                        ref_data.facet.is_initialized() ? *ref_data.facet : ::std::string{} ) };
+                    ::std::make_shared< fixed_reference >( owner_.lock(), ref_data) };
                 return ::std::make_shared< object_proxy >(ref);
             } else if (ref_data.adapter.is_initialized()) {
                 throw ::std::runtime_error("Adapter location is not implemented yet");
@@ -376,15 +374,15 @@ connector::io_service()
 }
 
 adapter_ptr
-connector::create_adapter(::std::string const& name)
+connector::create_adapter(identity const& id)
 {
-    return pimpl_->create_adapter(name);
+    return pimpl_->create_adapter(id);
 }
 
 adapter_ptr
-connector::create_adapter(::std::string const& name, endpoint_list const& eps)
+connector::create_adapter(identity const& id, endpoint_list const& eps)
 {
-    return pimpl_->create_adapter(name, eps);
+    return pimpl_->create_adapter(id, eps);
 }
 
 object_prx

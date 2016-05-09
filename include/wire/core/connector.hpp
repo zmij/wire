@@ -18,6 +18,7 @@
 #include <wire/core/connection_fwd.hpp>
 #include <wire/core/adapter_fwd.hpp>
 #include <wire/core/proxy_fwd.hpp>
+#include <wire/core/identity_fwd.hpp>
 
 namespace wire {
 namespace core {
@@ -64,9 +65,9 @@ public:
     stop();
 
     adapter_ptr
-    create_adapter(::std::string const& name);
+    create_adapter(identity const& id);
     adapter_ptr
-    create_adapter(::std::string const& name, endpoint_list const& eps);
+    create_adapter(identity const& id, endpoint_list const& eps);
 
     object_prx
     string_to_proxy(::std::string const& str);

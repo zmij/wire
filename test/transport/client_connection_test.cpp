@@ -200,7 +200,6 @@ TEST_F(Client, TCPSendRequest)
     current_transport = used_transport::value;
     add_args.insert(add_args.end(), {
         "--validate-message",
-        "-p44332",
         "--ping-pong",
         "-r2"
     });
@@ -221,7 +220,8 @@ TEST_F(Client, TCPSendRequest)
     c.connect_async(endpoint_,
     [&](){
         tests[0] = true;
-        c.invoke_async(identity::random("test"), std::string("ping_pong"), context_type{},
+        c.invoke(identity::random("test"), std::string("ping_pong"), context_type{},
+        false,
         [&](std::string const& str, bool flag, uint32_t i) {
             std::cerr << "Response received\n";
 
@@ -261,13 +261,12 @@ TEST_F(Client, TCPSendRequest)
     EXPECT_EQ(42, test_int);
 }
 
-TEST_F(Client, ProxyPingTest)
+TEST_F(Client, ProxyPingAsyncTest)
 {
     typedef transport_type_traits< transport_type::tcp > used_transport;
     current_transport = used_transport::value;
     add_args.insert(add_args.end(), {
         "--validate-message",
-        "-p44332",
         "--ping-pong",
         "-r2"
     });
@@ -316,6 +315,43 @@ TEST_F(Client, ProxyPingTest)
     EXPECT_TRUE(tests[0]);
     EXPECT_FALSE(tests[1]);
     EXPECT_TRUE(tests[2]);
+}
+
+TEST_F(Client, ProxyPingSyncTest)
+{
+    typedef transport_type_traits< transport_type::tcp > used_transport;
+    current_transport = used_transport::value;
+    add_args.insert(add_args.end(), {
+        "--validate-message",
+        "--ping-pong",
+        "-r2"
+    });
+    StartPartner();
+
+    ASSERT_NE(0, child_.pid);
+    ASSERT_EQ(used_transport::value, endpoint_.transport());
+    ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
+
+    connector_ptr conn = connector::create_connector(io_svc);
+    reference_data ref { identity::random("test"), {}, {}, { endpoint_ } };
+    ::std::ostringstream os;
+    os << ref;
+    ::std::cerr << "Reference is " << os.str() << "\n";
+
+    std::bitset< 2 > tests;
+
+    auto obj = conn->string_to_proxy(os.str());
+    ASSERT_TRUE(obj.get());
+    EXPECT_EQ(ref.object_id, obj->wire_identity());
+    try {
+        obj->wire_ping();
+        tests[0] = true;
+    } catch (::std::exception const& e) {
+        tests[1] = true;
+    }
+
+    EXPECT_TRUE(tests[0]);
+    EXPECT_FALSE(tests[1]);
 }
 
 TEST_F(Client, DISABLED_SSL)
