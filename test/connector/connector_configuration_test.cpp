@@ -30,7 +30,7 @@ TEST(Connector, Configure)
     EXPECT_THROW(conn->create_adapter("unconfigured"), ::boost::program_options::required_option);
     adapter_ptr adapter;
     EXPECT_NO_THROW(adapter = conn->create_adapter("configured_adapter"));
-    EXPECT_LT(0, adapter->endpoints().size());
+    EXPECT_LT(0, adapter->configured_endpoints().size());
 }
 
 }  // namespace test

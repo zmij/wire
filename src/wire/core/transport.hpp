@@ -384,6 +384,10 @@ struct transport_listener {
 
     endpoint
     local_endpoint() const;
+
+    bool
+    ready() const
+    { return ready_; }
 private:
     void
     start_accept();
@@ -400,6 +404,7 @@ private:
     asio_config::io_service_ptr io_service_;
     acceptor_type               acceptor_;
     session_factory             factory_;
+    bool                        ready_;
 };
 
 template<>

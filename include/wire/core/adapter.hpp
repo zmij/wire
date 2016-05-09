@@ -54,11 +54,18 @@ public:
     identity const&
     name() const;
     /**
-     * Get adapter endpoints list
+     * Get adapter configured endpoints list
      * @return
      */
     endpoint_list const&
-    endpoints() const;
+    configured_endpoints() const;
+
+    /**
+     * Get adapter active endpoints list
+     * @return
+     */
+    endpoint_list
+    active_endpoints() const;
 
     /**
      * Add servant object with random UUID

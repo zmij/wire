@@ -130,6 +130,8 @@ public:
             callbacks::exception_callback exception,
             callbacks::callback< bool > sent);
 
+    endpoint
+    local_endpoint() const;
 private:
     connection(connection const&) = delete;
     connection&

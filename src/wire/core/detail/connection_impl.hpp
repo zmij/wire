@@ -414,6 +414,22 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
             callbacks::exception_callback exception,
             callbacks::callback< bool > sent);
 
+    template < typename Pred >
+    void
+    wait_for( Pred pred ) const
+    {
+        while(!pred()) {
+            io_service_->poll();
+        }
+    }
+    template < typename Pred >
+    void
+    wait_until( Pred pred ) const
+    {
+        while(pred()) {
+            io_service_->poll();
+        }
+    }
     virtual endpoint
     local_endpoint() const = 0;
 
@@ -514,6 +530,7 @@ struct listen_connection_impl : connection_impl_base {
     endpoint
     local_endpoint() const override
     {
+        wait_for([&](){ return listener_.ready(); });
         return listener_.local_endpoint();
     }
 private:

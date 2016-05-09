@@ -66,8 +66,10 @@ struct adapter::impl {
     active_endpoints()
     {
         endpoint_list endpoints;
-        ;
-        return ::std::move(endpoints);
+        for (auto const& cn : connections_) {
+            endpoints.push_back(cn.second.local_endpoint());
+        }
+        return endpoints;
     }
 
     void
@@ -135,9 +137,15 @@ adapter::name() const
 }
 
 endpoint_list const&
-adapter::endpoints() const
+adapter::configured_endpoints() const
 {
     return pimpl_->options_.endpoints;
+}
+
+endpoint_list
+adapter::active_endpoints() const
+{
+    return pimpl_->active_endpoints();
 }
 
 void

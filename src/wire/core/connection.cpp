@@ -259,9 +259,10 @@ connection_impl_base::invoke(identity const& id, std::string const& op, context_
     pending_replies_.insert(std::make_pair( r.number, pending_reply{ reply, exception } ));
     process_event(events::send_request{ out, write_cb });
 
-    if (run_sync) { // TODO Start a thread
-        while (pending_replies_.count(r.number))
-            io_service_->poll();
+    if (run_sync) {
+        wait_until([&](){
+            return pending_replies_.count(r.number);
+        });
     }
 }
 
@@ -517,9 +518,9 @@ struct connection::impl {
     void
     close()
     {
-        if (connection_) {
-            connection_->close();
-        } /** @todo Throw exception */
+        if (!connection_)
+            throw errors::runtime_error{ "Connection is not initialized" };
+        connection_->close();
     }
 
     void
@@ -530,19 +531,27 @@ struct connection::impl {
             callbacks::exception_callback exception,
             callbacks::callback< bool > sent)
     {
-        if (connection_) {
-            connection_->invoke(id, op, ctx, run_sync,
-                    ::std::move(params), reply, exception, sent);
-        } /** @todo Throw exception */
+        if (!connection_)
+            throw errors::runtime_error{ "Connection is not initialized" };
+        connection_->invoke(id, op, ctx, run_sync,
+                ::std::move(params), reply, exception, sent);
     }
 
     void
     set_adapter(adapter_ptr adp)
     {
         adapter_ = adp;
-        if (connection_) {
-            connection_->adapter_ = adp;
-        }
+        if (!connection_)
+            throw errors::runtime_error{ "Connection is not initialized" };
+        connection_->adapter_ = adp;
+    }
+
+    endpoint
+    local_endpoint()
+    {
+        if (!connection_)
+            throw errors::runtime_error{ "Connection is not initialized" };
+        return connection_->local_endpoint();
     }
 };
 
@@ -611,6 +620,11 @@ connection::invoke(identity const& id, std::string const& op,
     pimpl_->invoke(id, op, ctx, run_sync, ::std::move(params), reply, exception, sent);
 }
 
+endpoint
+connection::local_endpoint() const
+{
+    return pimpl_->local_endpoint();
+}
 
 }  // namespace core
 }  // namespace wire

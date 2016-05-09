@@ -22,6 +22,9 @@ try {
     connector_ptr conn = connector::create_connector(io_service, argc, argv);
     adapter_ptr adptr = conn->create_adapter("ping_pong");
 
+    adptr->activate();
+    ::std::cerr << "Adapter active endpoints " << adptr->active_endpoints() << "\n";
+
     return 0;
 } catch (::std::exception const& e) {
     ::std::cerr << "Exception: " << e.what() << "\n";
