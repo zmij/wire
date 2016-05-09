@@ -8,6 +8,7 @@
 #include <wire/core/adapter.hpp>
 #include <wire/core/connection.hpp>
 #include <wire/core/connector.hpp>
+#include <wire/core/proxy.hpp>
 
 #include <wire/core/detail/configuration_options.hpp>
 
@@ -47,7 +48,7 @@ struct adapter::impl {
                 options_.endpoints.push_back(endpoint::tcp("0.0.0.0", 0));
             }
             for (auto const& ep : options_.endpoints) {
-                connections_.emplace(ep, ::std::move(connection{ adp, ep }));
+                connections_.emplace(ep, connection{ adp, ep });
             }
         } else {
             throw ::std::runtime_error("Adapter owning implementation was destroyed");
@@ -73,10 +74,13 @@ struct adapter::impl {
         return endpoints;
     }
 
-    void
+    object_prx
     add_object(identity const& id, dispatcher_ptr disp)
     {
         active_objects_.insert(::std::make_pair(id, disp));
+        return ::std::make_shared< object_proxy >(
+            reference::create_reference(
+                connector_.lock(), { id, {}, {}, active_endpoints() }));
     }
 
     void
@@ -155,16 +159,16 @@ adapter::active_endpoints() const
     return pimpl_->active_endpoints();
 }
 
-void
+object_prx
 adapter::add_object(dispatcher_ptr disp)
 {
-    pimpl_->add_object(identity::random(), disp);
+    return pimpl_->add_object(identity::random(), disp);
 }
 
-void
+object_prx
 adapter::add_object(identity const& id, dispatcher_ptr disp)
 {
-    pimpl_->add_object(id, disp);
+    return pimpl_->add_object(id, disp);
 }
 
 void

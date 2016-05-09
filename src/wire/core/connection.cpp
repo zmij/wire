@@ -520,7 +520,7 @@ struct connection::impl {
         }
         connection_ = detail::connection_impl_base::create_listen_connection(connector_.lock(), io_service_, ep.transport());
         connection_->adapter_ = adapter_;
-        //connection_->
+        connection_->listen(ep);
     }
 
     void
@@ -549,9 +549,9 @@ struct connection::impl {
     set_adapter(adapter_ptr adp)
     {
         adapter_ = adp;
-        if (!connection_)
-            throw errors::runtime_error{ "Connection is not initialized" };
-        connection_->adapter_ = adp;
+        if (connection_) {
+            connection_->adapter_ = adp;
+        }
     }
 
     endpoint

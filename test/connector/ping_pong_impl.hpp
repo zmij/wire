@@ -32,12 +32,23 @@ public:
             ::wire::core::current const& = ::wire::core::no_current) const override;
 
     void
+    test_callback(::test::callback_prx cb,
+            test_callback_return_callback __resp,
+            ::wire::core::callbacks::exception_callback __exception,
+            ::wire::core::current const& = ::wire::core::no_current) override;
+
+    void
     error(::wire::core::current const& = ::wire::core::no_current) override;
 
     void
     async_error(::wire::core::callbacks::void_callback __resp,
             ::wire::core::callbacks::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) const override;
+
+    void
+    stop(::wire::core::callbacks::void_callback __resp,
+            ::wire::core::callbacks::exception_callback __exception,
+            ::wire::core::current const& = ::wire::core::no_current) override;
 };
 
 }  /* namespace test */

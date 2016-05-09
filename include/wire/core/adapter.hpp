@@ -14,6 +14,7 @@
 #include <wire/core/adapter_fwd.hpp>
 #include <wire/core/connector_fwd.hpp>
 #include <wire/core/identity_fwd.hpp>
+#include <wire/core/proxy_fwd.hpp>
 #include <wire/core/endpoint.hpp>
 
 #include <string>
@@ -74,14 +75,14 @@ public:
      * Add servant object with random UUID
      * @param
      */
-    void // TODO Return a proxy
+    object_prx
     add_object(dispatcher_ptr);
     /**
      * Add servant object with identity
      * @param
      * @param
      */
-    void // TODO Return a proxy
+    object_prx
     add_object(identity const&, dispatcher_ptr);
 
     /**

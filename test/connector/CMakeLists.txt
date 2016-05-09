@@ -26,6 +26,7 @@ include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR}/include)
 set(
     test_connector_SRCS
     connector_configuration_test.cpp
+    ping_pong_test.cpp
     ${wired_SRCS}
 )
 add_executable(test-wire-connector ${test_connector_SRCS})

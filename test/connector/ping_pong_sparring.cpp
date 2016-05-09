@@ -10,6 +10,7 @@
 
 #include <wire/core/connector.hpp>
 #include <wire/core/adapter.hpp>
+#include <wire/core/proxy.hpp>
 
 int
 main(int argc, char* argv[])
@@ -20,11 +21,15 @@ try {
             ::std::make_shared< ::wire::asio_config::io_service >();
 
     connector_ptr conn = connector::create_connector(io_service, argc, argv);
-    adapter_ptr adptr = conn->create_adapter("ping_pong");
+    adapter_ptr adptr = conn->create_adapter(
+            "ping_pong", { ::wire::core::endpoint::tcp("127.0.0.1", 60066) });
 
     adptr->activate();
-    ::std::cerr << "Adapter active endpoints " << adptr->active_endpoints() << "\n";
+    auto prx = adptr->add_object({"ping_pong"},
+            ::std::make_shared< wire::test::ping_pong_server >() );
+    ::std::cerr << *prx << "\n";
 
+    io_service->run();
     return 0;
 } catch (::std::exception const& e) {
     ::std::cerr << "Exception: " << e.what() << "\n";

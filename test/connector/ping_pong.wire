@@ -45,6 +45,9 @@ interface ping_pong {
 
     void
     async_error() const throw (oops);
+
+    void
+    stop();
 };
 
 }  /* namespace test */

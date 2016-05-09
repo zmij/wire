@@ -296,25 +296,25 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
     struct transition_table : ::boost::mpl::vector<
             /*    Start            Event                        Next                Action            Guard            */
         /* Start client connection */
-        Row<    unplugged,        events::connect,            connecting,            connect,        none                    >,
-        Row<    connecting,        events::connected,            wait_validate,        on_connected,    is_stream_oriented        >,
-        Row<    connecting,        events::connected,            connected,            none,            Not<is_stream_oriented>    >,
+        Row<    unplugged,        events::connect,              connecting,           connect,         none                    >,
+        Row<    connecting,       events::connected,            wait_validate,        on_connected,    is_stream_oriented      >,
+        Row<    connecting,       events::connected,            connected,            none,            Not<is_stream_oriented> >,
         /* Start server connection */
-        Row<    unplugged,        events::start,                wait_validate,        send_validate,    none                    >,
-        Row<    unplugged,        events::start,                connected,            none,            Not<is_stream_oriented>    >,
+        Row<    unplugged,        events::start,                wait_validate,        send_validate,    none                   >,
+        Row<    unplugged,        events::start,                connected,            none,            Not<is_stream_oriented> >,
         /* Validate connection */
-        Row<    wait_validate,    events::receive_validate,    connected,            none,            is_server                >,
-        Row<    wait_validate,    events::receive_validate,    connected,            send_validate,    Not<is_server>            >,
+        Row<    wait_validate,    events::receive_validate,     connected,            none,            is_server               >,
+        Row<    wait_validate,    events::receive_validate,     connected,            send_validate,   Not<is_server>          >,
         /* Close connection */
-        Row<    unplugged,        events::close,                terminated,            none,            none                    >,
-        Row<    connecting,        events::close,                terminated,            none,            none                    >,
-        Row<    wait_validate,    events::close,                terminated,            none,            none                    >,
-        Row<    connected,        events::close,                terminated,            send_close,        none                    >,
-        Row<    connected,        events::receive_close,        terminated,            none,            none                    >,
+        Row<    unplugged,        events::close,                terminated,           none,            none                    >,
+        Row<    connecting,       events::close,                terminated,           none,            none                    >,
+        Row<    wait_validate,    events::close,                terminated,           none,            none                    >,
+        Row<    connected,        events::close,                terminated,           send_close,      none                    >,
+        Row<    connected,        events::receive_close,        terminated,           none,            none                    >,
         /* Connection failure */
-        Row<    connecting,        events::connection_failure,    terminated,            none,            none                    >,
-        Row<    wait_validate,    events::connection_failure,    terminated,            none,            none                    >,
-        Row<    connected,        events::connection_failure,    terminated,            none,            none                    >
+        Row<    connecting,       events::connection_failure,   terminated,           none,            none                    >,
+        Row<    wait_validate,    events::connection_failure,   terminated,           none,            none                    >,
+        Row<    connected,        events::connection_failure,   terminated,           none,            none                    >
     > {};
     //@}
 
