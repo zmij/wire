@@ -56,7 +56,7 @@ ac.
 
 TEST(OutgoingBuffer, Construction)
 {
-    outgoing out;
+    outgoing out{ core::connector_ptr{} };
     EXPECT_TRUE(out.empty());
     EXPECT_EQ(0, out.size());
 
@@ -73,7 +73,7 @@ TEST(OutgoingBuffer, Construction)
 
 TEST(OutgoingBuffer, ForwardIterators)
 {
-    outgoing out;
+    outgoing out{ core::connector_ptr{} };
     outgoing::iterator b = out.begin();
     outgoing::iterator e = out.end();
     outgoing::const_iterator cb = out.cbegin();
@@ -111,14 +111,14 @@ TEST(OutgoingBuffer, ForwardIterators)
     }
 
     {
-        outgoing out1;
+        outgoing out1{ core::connector_ptr{} };
         EXPECT_DEATH({ out.begin() - out1.begin(); }, "Iterator belongs to container");
     }
 }
 
 TEST(OutgoingBuffer, ReverseIterators)
 {
-    outgoing out;
+    outgoing out{ core::connector_ptr{} };
     for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
         out.push_back(i);
     }
@@ -130,7 +130,7 @@ TEST(OutgoingBuffer, ReverseIterators)
 
 TEST(OutgoingBuffer, Encapsulation)
 {
-    outgoing out;
+    outgoing out{ core::connector_ptr{} };
     for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
         out.push_back(i);
     }
@@ -150,7 +150,7 @@ TEST(OutgoingBuffer, NestedEncapsulation)
 {
     const size_t INNER_ENCAPS_HEADER = 3;
     const size_t OUTER_ENCAPS_HEADER = 4;
-    outgoing out;
+    outgoing out{ core::connector_ptr{} };
     for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
         out.push_back(i);
     }
@@ -179,7 +179,7 @@ TEST(OutgoingBuffer, NestedEncapsulation)
         EXPECT_EQ(INSERT_CHARS*3 + INNER_ENCAPS_HEADER, outer.size());
         EXPECT_EQ(INSERT_CHARS*4 + INNER_ENCAPS_HEADER, out.size()); // Before encapsulation is closed
 
-        outgoing opaque;
+        outgoing opaque{ core::connector_ptr{} };
         for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
             opaque.push_back(i);
         }
@@ -194,13 +194,13 @@ TEST(OutgoingBuffer, NestedEncapsulation)
 
 TEST(OutgoingBuffer, MessageHeaders)
 {
-    outgoing out{message::request};
+    outgoing out{ core::connector_ptr{}, message::request};
     request req{ 0, operation_specs{  core::identity::random(), "", "pewpew" },
             request::normal };
     EXPECT_NO_THROW(write(std::back_inserter(out), req));
     EXPECT_LT(0, out.size());
     {
-        outgoing encaps;
+        outgoing encaps{ core::connector_ptr{} };
         EXPECT_NO_THROW(write(std::back_inserter(encaps), LIPSUM_TEST_STRING));
         out.insert_encapsulation(std::move(encaps));
     }

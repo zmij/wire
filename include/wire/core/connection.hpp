@@ -11,12 +11,15 @@
 #include <wire/asio_config.hpp>
 
 #include <wire/core/connection_fwd.hpp>
+
 #include <wire/core/endpoint.hpp>
 #include <wire/core/identity.hpp>
-#include <wire/core/object_fwd.hpp>
 #include <wire/core/callbacks.hpp>
-#include <wire/core/adapter_fwd.hpp>
 #include <wire/core/context.hpp>
+
+#include <wire/core/connector_fwd.hpp>
+#include <wire/core/object_fwd.hpp>
+#include <wire/core/adapter_fwd.hpp>
 
 #include <wire/util/function_traits.hpp>
 
@@ -32,12 +35,12 @@ public:
     /**
      * Create connection with no endpoint.
      */
-    connection(asio_config::io_service_ptr);
+    connection(connector_ptr cnctr, asio_config::io_service_ptr);
     /**
      * Create connection and start asynchronous connect.
      * @param
      */
-    connection(asio_config::io_service_ptr, endpoint const&,
+    connection(connector_ptr cnctr, asio_config::io_service_ptr, endpoint const&,
             callbacks::void_callback = nullptr,
             callbacks::exception_callback = nullptr);
 
@@ -53,6 +56,8 @@ public:
     connection&
     operator = (connection&&);
 
+    connector_ptr
+    get_connector() const;
     /**
      * Start asynchronous connect
      * @param endpoint
@@ -63,6 +68,7 @@ public:
     connect_async(endpoint const&,
             callbacks::void_callback = nullptr,
             callbacks::exception_callback = nullptr);
+
 
     void
     close();
@@ -84,7 +90,7 @@ public:
         using args_tuple = typename handler_traits::decayed_args_tuple_type;
 
         using encoding::incoming;
-        encoding::outgoing out;
+        encoding::outgoing out{ get_connector() };
         encoding::write(std::back_inserter(out), args ...);
         invoke(id, op, ctx, run_sync, ::std::move(out),
             [response, exception](incoming::const_iterator begin, incoming::const_iterator end){
@@ -111,7 +117,7 @@ public:
             Args const& ... args)
     {
         using encoding::incoming;
-        encoding::outgoing out;
+        encoding::outgoing out{ get_connector() };
         write(std::back_inserter(out), args ...);
         invoke(id, op, ctx, run_sync, ::std::move(out),
             [response](incoming::const_iterator, incoming::const_iterator){

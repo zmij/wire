@@ -21,7 +21,7 @@ enum some_enum {
 
 TEST(IO, Varint)
 {
-    outgoing out;
+    outgoing out{ core::connector_ptr{} };
     {
         outgoing::encaps_guard encaps{ out.begin_encapsulation() };
         auto o = ::std::back_inserter(out);

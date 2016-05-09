@@ -26,12 +26,12 @@ typedef connection_impl< transport_type::tcp > tcp_connection_impl;
 typedef listen_connection_impl< transport_type::tcp > tcp_listen_connection_impl;
 
 connection_impl_ptr
-connection_impl_base::create_connection(asio_config::io_service_ptr io_svc,
+connection_impl_base::create_connection(connector_ptr cnctr, asio_config::io_service_ptr io_svc,
         transport_type _type)
 {
     switch (_type) {
         case transport_type::tcp :
-            return ::std::make_shared< tcp_connection_impl >( io_svc );
+            return ::std::make_shared< tcp_connection_impl >( cnctr, io_svc );
         default:
             break;
     }
@@ -39,15 +39,16 @@ connection_impl_base::create_connection(asio_config::io_service_ptr io_svc,
 }
 
 connection_impl_ptr
-connection_impl_base::create_listen_connection(asio_config::io_service_ptr io_svc,
+connection_impl_base::create_listen_connection(connector_ptr cnctr, asio_config::io_service_ptr io_svc,
         transport_type _type)
 {
     switch (_type) {
         case transport_type::tcp:
             return ::std::make_shared< tcp_listen_connection_impl >(
+                cnctr,
                 io_svc,
-                []( asio_config::io_service_ptr svc ){
-                    return ::std::make_shared< tcp_connection_impl >( svc );
+                [cnctr]( asio_config::io_service_ptr svc ){
+                    return ::std::make_shared< tcp_connection_impl >( cnctr, svc );
                 });
             break;
         default:
@@ -88,6 +89,7 @@ connection_impl_base::send_validate_message()
 {
     encoding::outgoing_ptr out =
         ::std::make_shared<encoding::outgoing>(
+                get_connector(),
                 encoding::message::validate_flags);
     write_async(out);
 }
@@ -102,7 +104,10 @@ connection_impl_base::close()
 void
 connection_impl_base::send_close_message()
 {
-    encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(encoding::message::close);
+    encoding::outgoing_ptr out =
+            ::std::make_shared<encoding::outgoing>(
+                    get_connector(),
+                    encoding::message::close);
     write_async(out);
 }
 
@@ -201,7 +206,7 @@ connection_impl_base::read_incoming_message(incoming_buffer_ptr buffer, std::siz
                                 << " size " << m.size << "\n";
 
                         encoding::incoming_ptr incoming =
-                            std::make_shared< encoding::incoming >( m, b, e );
+                            std::make_shared< encoding::incoming >( get_connector(), m, b, e );
                         if (!incoming->complete()) {
                             incoming_ = incoming;
                         } else {
@@ -247,7 +252,9 @@ connection_impl_base::invoke(identity const& id, std::string const& op, context_
         callbacks::callback< bool > sent)
 {
     using encoding::request;
-    encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(encoding::message::request);
+    encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(
+            get_connector(),
+            encoding::message::request);
     request r{
         ++request_no_,
         encoding::operation_specs{ id, "", op },
@@ -365,7 +372,7 @@ connection_impl_base::send_not_found(
 {
     using namespace encoding;
     outgoing_ptr out =
-            ::std::make_shared<outgoing>(message::reply);
+            ::std::make_shared<outgoing>(get_connector(), message::reply);
     reply::reply_status status =
             static_cast<reply::reply_status>(reply::no_object + subj);
     reply rep { req_num, status };
@@ -379,7 +386,7 @@ connection_impl_base::send_exception(uint32_t req_num, errors::user_exception co
 {
     using namespace encoding;
     outgoing_ptr out =
-            ::std::make_shared<outgoing>(message::reply);
+            ::std::make_shared<outgoing>(get_connector(), message::reply);
     reply rep { req_num, reply::user_exception };
     auto o = ::std::back_inserter(*out);
     write(o, rep);
@@ -392,7 +399,7 @@ connection_impl_base::send_exception(uint32_t req_num, ::std::exception const& e
 {
     using namespace encoding;
     outgoing_ptr out =
-            ::std::make_shared<outgoing>(message::reply);
+            ::std::make_shared<outgoing>(get_connector(), message::reply);
     reply rep { req_num, reply::unknown_user_exception };
     auto o = ::std::back_inserter(*out);
     write(o, rep);
@@ -407,7 +414,7 @@ connection_impl_base::send_unknown_exception(uint32_t req_num)
 {
     using namespace encoding;
     outgoing_ptr out =
-            ::std::make_shared<outgoing>(message::reply);
+            ::std::make_shared<outgoing>(get_connector(), message::reply);
     reply rep { req_num, reply::unknown_exception };
     auto o = ::std::back_inserter(*out);
     write(o, rep);
@@ -441,7 +448,7 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
                     buffer, en.begin(), en.end(), en.size(),
                     [_this, req](outgoing&& res) mutable {
                         outgoing_ptr out =
-                                ::std::make_shared<outgoing>(message::reply);
+                                ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
                         reply rep {
                             req.number,
                             reply::success
@@ -482,12 +489,13 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
 }  // namespace detail
 
 struct connection::impl {
-    asio_config::io_service_ptr    io_service_;
+    connector_weak_ptr          connector_;
+    asio_config::io_service_ptr io_service_;
     adapter_weak_ptr            adapter_;
     detail::connection_impl_ptr connection_;
 
-    impl(asio_config::io_service_ptr io_service)
-        : io_service_(io_service)
+    impl(connector_ptr cnctr, asio_config::io_service_ptr io_service)
+        : connector_{cnctr}, io_service_{io_service}
     {
     }
     void
@@ -498,7 +506,7 @@ struct connection::impl {
             // Do something with the old connection
             // Or throw exception
         }
-        connection_ = detail::connection_impl_base::create_connection(io_service_, ep.transport());
+        connection_ = detail::connection_impl_base::create_connection(connector_.lock(), io_service_, ep.transport());
         connection_->adapter_ = adapter_;
         connection_->connect_async(ep, cb, eb);
     }
@@ -510,7 +518,7 @@ struct connection::impl {
             // Do something with the old connection
             // Or throw exception
         }
-        connection_ = detail::connection_impl_base::create_listen_connection(io_service_, ep.transport());
+        connection_ = detail::connection_impl_base::create_listen_connection(connector_.lock(), io_service_, ep.transport());
         connection_->adapter_ = adapter_;
         //connection_->
     }
@@ -555,20 +563,20 @@ struct connection::impl {
     }
 };
 
-connection::connection(asio_config::io_service_ptr io_svc)
-    : pimpl_(::std::make_shared<impl>(io_svc))
+connection::connection(connector_ptr cnctr, asio_config::io_service_ptr io_svc)
+    : pimpl_(::std::make_shared<impl>(cnctr, io_svc))
 {
 }
 
-connection::connection(asio_config::io_service_ptr io_svc, endpoint const& ep,
+connection::connection(connector_ptr cnctr, asio_config::io_service_ptr io_svc, endpoint const& ep,
         callbacks::void_callback cb, callbacks::exception_callback eb)
-    : pimpl_(::std::make_shared<impl>(io_svc))
+    : pimpl_(::std::make_shared<impl>(cnctr, io_svc))
 {
     pimpl_->connect_async(ep, cb, eb);
 }
 
 connection::connection(adapter_ptr adp, endpoint const& ep)
-    : pimpl_(::std::make_shared<impl>(adp->io_service()))
+    : pimpl_(::std::make_shared<impl>(adp->get_connector(), adp->io_service()))
 {
     pimpl_->set_adapter(adp);
     pimpl_->start_accept(ep);
@@ -587,6 +595,12 @@ connection::operator =(connection&& rhs)
     pimpl_ = rhs.pimpl_;
     rhs.pimpl_.reset();
     return *this;
+}
+
+connector_ptr
+connection::get_connector() const
+{
+    return pimpl_->connector_.lock();
 }
 
 void

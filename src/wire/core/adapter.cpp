@@ -21,6 +21,7 @@ struct adapter::impl {
     using active_objects    = ::std::unordered_map< identity, dispatcher_ptr >;
     using default_servants  = ::std::unordered_map< ::std::string, dispatcher_ptr >;
 
+    connector_weak_ptr          connector_;
     asio_config::io_service_ptr io_service_;
     identity                    id_;
 
@@ -33,7 +34,7 @@ struct adapter::impl {
     adapter_weak_ptr            owner_;
 
     impl(connector_ptr c, identity const& id, detail::adapter_options const& options)
-        : io_service_(c->io_service()), id_(id), options_(options)
+        : connector_{c}, io_service_{c->io_service()}, id_{id}, options_{options}
     {
     }
 
@@ -116,6 +117,12 @@ adapter::adapter(connector_ptr c, identity const& id,
         detail::adapter_options const& options)
     : pimpl_( ::std::make_shared<impl>(c, id, options) )
 {
+}
+
+connector_ptr
+adapter::get_connector() const
+{
+    return pimpl_->connector_.lock();
 }
 
 asio_config::io_service_ptr

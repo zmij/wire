@@ -126,5 +126,16 @@ object_proxy::wire_types_async(
         ref.object_id(), "wire_types", ctx, run_sync, response, exception, sent);
 }
 
+::std::ostream&
+operator << (::std::ostream& os, object_proxy const& val)
+{
+    ::std::ostream::sentry s (os);
+    if (s) {
+        os << val.wire_get_reference().data();
+    }
+    return os;
+}
+
+
 }  // namespace core
 }  // namespace wire

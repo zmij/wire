@@ -17,7 +17,18 @@ namespace core {
 //----------------------------------------------------------------------------
 //      Base reference implementation
 //----------------------------------------------------------------------------
-
+reference_ptr
+reference::create_reference(connector_ptr cnctr, reference_data const& ref_data)
+{
+    if (!ref_data.endpoints.empty()) {
+        // Find a connection or create a new one
+        return
+            ::std::make_shared< fixed_reference >( cnctr, ref_data);
+    } else if (ref_data.adapter.is_initialized()) {
+        throw errors::runtime_error("Adapter location is not implemented yet");
+    }
+    throw errors::runtime_error{"Well-known objects are not implemented yet"};
+}
 
 //----------------------------------------------------------------------------
 //      Fixed reference implementation

@@ -123,7 +123,7 @@ public:
 
 TEST(IO, UserException)
 {
-    outgoing out;
+    outgoing out{ core::connector_ptr{} };
     {
         auto encaps = out.current_encapsulation();
         auto o = ::std::back_inserter(out);

@@ -13,10 +13,14 @@
 #include <string>
 #include <map>
 #include <list>
+
 #include <wire/version.hpp>
+
 #include <wire/encoding/message.hpp>
 #include <wire/encoding/segment.hpp>
 #include <wire/errors/exceptions.hpp>
+
+#include <wire/core/connector_fwd.hpp>
 
 #include <iostream>
 
@@ -146,6 +150,12 @@ public:
     operator - (buffer_iterator<Container, _P> const&) const;
     //@}
 
+    //@{
+    /** @name Get wire connector */
+    core::connector_ptr
+    get_connector() const
+    { return container_->get_connector(); }
+    //@}
     //{@
     /** @name Encapsulation access */
     encapsulation_type
@@ -219,10 +229,10 @@ struct buffer_sequence {
 
     //@{
     /** @name Constructors */
-    buffer_sequence();
-    buffer_sequence(size_type number);
-    buffer_sequence(buffer_type const& b);
-    buffer_sequence(buffer_type&& b);
+    buffer_sequence(core::connector_ptr);
+    buffer_sequence(core::connector_ptr, size_type number);
+    buffer_sequence(core::connector_ptr, buffer_type const& b);
+    buffer_sequence(core::connector_ptr, buffer_type&& b);
 
     buffer_sequence(buffer_sequence const&);
     buffer_sequence(buffer_sequence&&);
@@ -358,6 +368,12 @@ struct buffer_sequence {
     { return buffers_; }
     //@}
 
+    //*{
+    /** @name Connector access */
+    core::connector_ptr
+    get_connector() const
+    { return connector_.lock(); }
+    //*}
     //@{
     /** @name Outgoing encapsulation */
     void
@@ -426,6 +442,9 @@ protected:
     end_in_encaps(in_encaps_iterator iter);
 protected:
     buffer_sequence_type        buffers_;
+
+    core::connector_weak_ptr    connector_;
+
     out_encapsulation_stack     out_encaps_stack_;
     in_encapsulation_stack      in_encaps_stack_;
 };
@@ -557,6 +576,10 @@ struct buffer_sequence::in_encaps_state {
     end() const
     { return is_default_ ? seq_->cend() : end_; }
 
+    core::connector_ptr
+    get_connector() const
+    { return seq_->get_connector(); }
+
     template< typename InputIterator >
     void
     read_segment_header(InputIterator& begin, InputIterator& end, segment_header& sh)
@@ -666,6 +689,10 @@ public:
     version const&
     encoding_version() const
     { return iter_->encoding_version; }
+
+    core::connector_ptr
+    get_connector() const
+    { return iter_->get_connector(); }
 private:
     friend struct buffer_sequence;
     in_encaps(buffer_sequence* seq)

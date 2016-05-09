@@ -19,28 +19,28 @@ namespace wire {
 namespace encoding {
 namespace detail {
 
-buffer_sequence::buffer_sequence()
-    : buffers_{ 1, buffer_type{}}
+buffer_sequence::buffer_sequence(core::connector_ptr cnctr)
+    : buffers_{ 1, buffer_type{}}, connector_{cnctr}
 {
 }
 
-buffer_sequence::buffer_sequence(size_type number)
-    : buffers_{ number, buffer_type{}}
+buffer_sequence::buffer_sequence(core::connector_ptr cnctr, size_type number)
+    : buffers_{ number, buffer_type{}}, connector_{cnctr}
 {
 }
 
-buffer_sequence::buffer_sequence(buffer_type const& b)
-    : buffers_{{b}}
+buffer_sequence::buffer_sequence(core::connector_ptr cnctr, buffer_type const& b)
+    : buffers_{{b}}, connector_{cnctr}
 {
 }
 
-buffer_sequence::buffer_sequence(buffer_type&& b)
-    : buffers_{{std::move(b)}}
+buffer_sequence::buffer_sequence(core::connector_ptr cnctr, buffer_type&& b)
+    : buffers_{{std::move(b)}}, connector_{cnctr}
 {
 }
 
 buffer_sequence::buffer_sequence(buffer_sequence const& rhs)
-    : buffers_{rhs.buffers_}
+    : buffers_{rhs.buffers_}, connector_{rhs.connector_}
 {
     ::std::transform(
         rhs.out_encaps_stack_.begin(), rhs.out_encaps_stack_.end(),
@@ -58,7 +58,7 @@ buffer_sequence::buffer_sequence(buffer_sequence const& rhs)
 }
 
 buffer_sequence::buffer_sequence(buffer_sequence&& rhs)
-    : buffers_{std::move(rhs.buffers_)}
+    : buffers_{std::move(rhs.buffers_)}, connector_{rhs.connector_}
 {
     // TODO Close all out encaps
     ::std::transform(

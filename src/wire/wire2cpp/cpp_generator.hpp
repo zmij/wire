@@ -166,6 +166,9 @@ public:
     finish_compilation_unit(ast::compilation_unit const& u) override;
 
     void
+    generate_forward_decl( ast::forward_declaration_ptr fwd ) override;
+
+    void
     generate_constant( ast::constant_ptr c) override;
 
     void

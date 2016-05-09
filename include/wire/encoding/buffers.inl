@@ -15,9 +15,9 @@ namespace wire {
 namespace encoding {
 
 template < typename InputIterator >
-incoming::incoming(message const& m, InputIterator& begin, InputIterator end)
+incoming::incoming(core::connector_ptr cnctr, message const& m, InputIterator& begin, InputIterator end)
 {
-    create_pimpl(m);
+    create_pimpl(cnctr, m);
     insert_back(begin, end);
 }
 

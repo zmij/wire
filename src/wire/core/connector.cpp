@@ -237,14 +237,8 @@ struct connector::impl {
         ::std::istringstream is{name};
         reference_data ref_data;
         if ((bool)(is >> ref_data)) {
-            if (!ref_data.endpoints.empty()) {
-                // Find a connection or create a new one
-                reference_ptr ref{
-                    ::std::make_shared< fixed_reference >( owner_.lock(), ref_data) };
-                return ::std::make_shared< object_proxy >(ref);
-            } else if (ref_data.adapter.is_initialized()) {
-                throw ::std::runtime_error("Adapter location is not implemented yet");
-            }
+            return ::std::make_shared< object_proxy > (
+                    reference::create_reference(owner_.lock(), ref_data));
         }
         throw ::std::runtime_error("Invalid reference string");
     }
@@ -257,7 +251,8 @@ struct connector::impl {
         if (f != outgoing_.end()) {
             return f->second;
         } else {
-            auto conn = ::std::make_shared< connection >(io_service_, ep,
+            auto conn = ::std::make_shared< connection >(
+            owner_.lock(), io_service_, ep,
             [ep](){
                 ::std::cerr << "Connected to " << ep << "\n";
             },

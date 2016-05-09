@@ -13,6 +13,8 @@
 #include <wire/encoding/message.hpp>
 #include <wire/encoding/detail/buffer_iterator.hpp>
 
+#include <wire/core/connector_fwd.hpp>
+
 #include <memory>
 #include <iterator>
 #include <vector>
@@ -55,8 +57,8 @@ public:
     using encapsulation_type        = detail::buffer_sequence::out_encaps;
     using encaps_guard              = detail::encaps_guard<encapsulation_type>;
 public:
-    outgoing();
-    outgoing(message::message_flags);
+    outgoing(core::connector_ptr cnctr);
+    outgoing(core::connector_ptr cnctr, message::message_flags);
     /** Copy construct */
     outgoing(outgoing const&);
     /** Move construct */
@@ -72,6 +74,9 @@ public:
     /** Move assign */
     outgoing&
     operator = (outgoing&&);
+
+    core::connector_ptr
+    get_connector() const;
 
     message::message_flags
     type() const;
@@ -227,7 +232,7 @@ public:
      * Construct incoming buffer sequence with a message header
      * @param
      */
-    incoming(message const&);
+    incoming(core::connector_ptr cnctr, message const&);
     /**
      * Construct incoming buffer sequence and copy buffers
      * @param
@@ -235,25 +240,28 @@ public:
      * @param end
      */
     template < typename InputIterator >
-    incoming(message const&, InputIterator& begin, InputIterator end);
+    incoming(core::connector_ptr cnctr, message const&, InputIterator& begin, InputIterator end);
     /**
      * Construct incoming buffer sequence and copy a buffer
      * @param
      * @param
      */
-    incoming(message const&, buffer_type const&);
+    incoming(core::connector_ptr cnctr, message const&, buffer_type const&);
     /**
      * Construct incoming buffer and move a buffer
      * @param
      * @param
      */
-    incoming(message const&, buffer_type&&);
+    incoming(core::connector_ptr cnctr, message const&, buffer_type&&);
     /**
      * Construct incoming buffer from an outgoing buffer
      * @param
      * @param
      */
     incoming(message const&, outgoing&&);
+
+    core::connector_ptr
+    get_connector() const;
 
     message const&
     header() const;
@@ -342,7 +350,7 @@ public:
     //@}
 private:
     void
-    create_pimpl(message const&);
+    create_pimpl(core::connector_ptr cnctr, message const&);
 
     buffer_type&
     back_buffer();

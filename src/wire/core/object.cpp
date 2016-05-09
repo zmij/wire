@@ -59,7 +59,7 @@ object::__wire_is_a(dispatch_request const& req, current const& c)
     auto b = req.encaps_start;
     decltype(b) e = req.encaps_end;
     encoding::read(b, e, arg);
-    encoding::outgoing out;
+    encoding::outgoing out{ req.buffer->get_connector() };
     encoding::write(std::back_inserter(out), wire_is_a(arg, c));
     req.result(std::move(out));
 }
@@ -68,14 +68,14 @@ void
 object::__wire_ping(dispatch_request const& req, current const& c)
 {
     wire_ping(c);
-    encoding::outgoing out;
+    encoding::outgoing out{ req.buffer->get_connector() };
     req.result(std::move(out));
 }
 
 void
 object::__wire_type(dispatch_request const& req, current const& c)
 {
-    encoding::outgoing out;
+    encoding::outgoing out{ req.buffer->get_connector() };
     encoding::write(std::back_inserter(out), wire_type(c));
     req.result(std::move(out));
 }
@@ -83,7 +83,7 @@ object::__wire_type(dispatch_request const& req, current const& c)
 void
 object::__wire_types(dispatch_request const& req, current const& c)
 {
-    encoding::outgoing out;
+    encoding::outgoing out{ req.buffer->get_connector() };
     encoding::write(std::back_inserter(out), wire_types(c));
     req.result(std::move(out));
 }

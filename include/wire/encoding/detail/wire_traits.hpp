@@ -37,7 +37,8 @@ enum wire_types {
     DICTIONARY,
     STRUCT,
     CLASS,
-    EXCEPTION
+    EXCEPTION,
+    PROXY
 };
 
 template < wire_types V >
@@ -52,13 +53,19 @@ struct conditional_constant< ConstantType, false, ifTrue, ifFalse >
 
 template < typename T >
 struct is_user_exception : ::std::false_type{};
+template < typename T >
+struct is_proxy : ::std::false_type{};
 
 template < typename T, bool >
 struct wire_polymorphic_type;
 
 template < typename T >
 struct wire_polymorphic_type< T, true >
-    : conditional_constant<wire_types, is_user_exception<T>::value, EXCEPTION, CLASS> {};
+    : conditional_constant<wire_types,
+            is_user_exception<T>::value, EXCEPTION,
+            conditional_constant< wire_types,
+                is_proxy<T>::value, PROXY, CLASS>::value
+    > {};
 
 template < typename T >
 struct wire_polymorphic_type< T, false > : ::std::integral_constant< wire_types, STRUCT > {};
@@ -145,11 +152,26 @@ template < typename K, typename V >
 struct wire_type< ::std::unordered_multimap< K, V > > : ::std::integral_constant< wire_types, DICTIONARY > {};
 
 template < typename T >
-struct wire_type< ::std::shared_ptr<T> > : wire_type<T> {};
+struct polymorphic_type {
+    using type = typename ::std::decay<T>::type;
+};
+
 template < typename T >
-struct wire_type< ::std::weak_ptr<T> > : wire_type<T> {};
+struct polymorphic_type< ::std::shared_ptr< T > > : polymorphic_type< T >{};
+
 template < typename T >
-struct wire_type< ::std::unique_ptr<T> > : wire_type<T> {};
+struct polymorphic_type< ::std::weak_ptr< T > >  : polymorphic_type< T >{};
+
+template < typename T >
+struct polymorphic_type< ::std::unique_ptr< T > >  : polymorphic_type< T >{};
+
+
+template < typename T >
+struct wire_type< ::std::shared_ptr<T> > : wire_type< typename polymorphic_type< T >::type > {};
+template < typename T >
+struct wire_type< ::std::weak_ptr<T> > : wire_type< typename polymorphic_type< T >::type > {};
+template < typename T >
+struct wire_type< ::std::unique_ptr<T> > : wire_type< typename polymorphic_type< T >::type > {};
 
 }  // namespace detail
 }  // namespace encoding

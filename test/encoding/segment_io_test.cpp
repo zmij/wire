@@ -25,7 +25,7 @@ namespace {
 
 TEST(IO, Segment)
 {
-    outgoing out;
+    outgoing out{ core::connector_ptr{} };
     {
         auto encaps = out.current_encapsulation();
         encaps.start_segment(BASE, segment_header::last_segment);
@@ -79,7 +79,7 @@ TEST(IO, Segment)
 
 TEST(IO, SegmentHash)
 {
-    outgoing out;
+    outgoing out{ core::connector_ptr{} };
     {
         outgoing::encaps_guard encaps{ out.begin_encapsulation() };
         encaps->start_segment(BASE_HASH, segment_header::last_segment);

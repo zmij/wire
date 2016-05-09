@@ -345,13 +345,17 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     using incoming_buffer_ptr    = std::shared_ptr< incoming_buffer >;
 
     static connection_impl_ptr
-    create_connection( asio_config::io_service_ptr io_svc, transport_type _type );
+    create_connection( connector_ptr cnctr, asio_config::io_service_ptr io_svc, transport_type _type );
     static connection_impl_ptr
-    create_listen_connection( asio_config::io_service_ptr io_svc, transport_type _type );
+    create_listen_connection( connector_ptr cnctr, asio_config::io_service_ptr io_svc, transport_type _type );
 
-    connection_impl_base(asio_config::io_service_ptr io_svc)
-        : io_service_{io_svc}, request_no_{0} {}
+    connection_impl_base(connector_ptr cnctr, asio_config::io_service_ptr io_svc)
+        : connector_{cnctr}, io_service_{io_svc}, request_no_{0} {}
     virtual ~connection_impl_base() {}
+
+    connector_ptr
+    get_connector() const
+    { return connector_.lock(); }
 
     virtual bool
     is_stream_oriented() const = 0;
@@ -453,6 +457,7 @@ private:
 public:
     adapter_weak_ptr        adapter_;
 protected:
+    connector_weak_ptr          connector_;
     asio_config::io_service_ptr io_service_;
     ::std::atomic<uint32_t>     request_no_;
     encoding::incoming_ptr      incoming_;
@@ -465,8 +470,8 @@ struct connection_impl : connection_impl_base {
     using transport_type    = typename transport_traits::type;
     using socket_type        = typename transport_traits::listen_socket_type;
 
-    connection_impl(asio_config::io_service_ptr io_svc)
-        : connection_impl_base{io_svc}, transport_{io_svc}
+    connection_impl(connector_ptr cnctr, asio_config::io_service_ptr io_svc)
+        : connection_impl_base{cnctr, io_svc}, transport_{io_svc}
     {
     }
     virtual ~connection_impl() {}
@@ -519,8 +524,8 @@ struct listen_connection_impl : connection_impl_base {
     using session_factory    = typename listener_type::session_factory;
     using transport_traits    = transport_type_traits< _type >;
 
-    listen_connection_impl(asio_config::io_service_ptr io_svc, session_factory factory)
-        : connection_impl_base{io_svc}, listener_(io_svc, factory)
+    listen_connection_impl(connector_ptr cnctr, asio_config::io_service_ptr io_svc, session_factory factory)
+        : connection_impl_base{cnctr, io_svc}, listener_(io_svc, factory)
     {
     }
 

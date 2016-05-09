@@ -38,6 +38,9 @@ public:
     create_adapter(connector_ptr c, identity const& id,
             detail::adapter_options const& options);
 public:
+    connector_ptr
+    get_connector() const;
+
     asio_config::io_service_ptr
     io_service() const;
     /**

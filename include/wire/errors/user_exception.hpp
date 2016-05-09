@@ -144,34 +144,14 @@ namespace encoding {
 namespace detail {
 
 template < typename T >
-struct exception_type {
-    using type = typename ::std::decay<T>::type;
-};
-
-template < typename T >
-struct exception_type< ::std::shared_ptr< T > > {
-    using type = typename ::std::decay<T>::type;
-};
-
-template < typename T >
-struct exception_type< ::std::weak_ptr< T > > {
-    using type = typename ::std::decay<T>::type;
-};
-
-template < typename T >
-struct exception_type< ::std::unique_ptr< T > > {
-    using type = typename ::std::decay<T>::type;
-};
-
-template < typename T >
-struct exception_writer {
-    using exception_type        = T;
-    using exception_ptr         = ::std::shared_ptr<T const>;
-    using exception_weak_ptr    = ::std::weak_ptr<T const>;
+struct writer_impl< T, EXCEPTION > {
+    using exception_value       = typename polymorphic_type<T>::type;
+    using exception_ptr         = ::std::shared_ptr<exception_value const>;
+    using exception_weak_ptr    = ::std::weak_ptr<exception_value const>;
 
     template < typename OutputIterator >
     static void
-    output(OutputIterator o, exception_type const& ex)
+    output(OutputIterator o, exception_value const& ex)
     {
         using output_iterator_check = octet_output_iterator_concept< OutputIterator >;
         ex.__wire_write(o);
@@ -198,20 +178,16 @@ struct exception_writer {
 };
 
 template < typename T >
-struct writer_impl< T, EXCEPTION >
-    : exception_writer< typename exception_type<T>::type > {};
-
-template < typename T >
 struct exception_reader {
-    using exception_type        = T;
-    using exception_ptr         = ::std::shared_ptr<T>;
-    using exception_weak_ptr    = ::std::weak_ptr<T>;
+    using exception_value       = T;
+    using exception_ptr         = ::std::shared_ptr<exception_value>;
+    using exception_weak_ptr    = ::std::weak_ptr<exception_value>;
 
     using input_iterator        = encoding::incoming::const_iterator;
 
     template < typename InputIterator >
     static void
-    input(InputIterator& begin, InputIterator end, exception_type& v)
+    input(InputIterator& begin, InputIterator end, exception_value& v)
     {
         using input_iterator_check = octet_input_iterator_concept< InputIterator >;
 
@@ -236,7 +212,7 @@ struct exception_reader {
             encaps.read_segment_header(begin, end, seg_head);
         }
 
-        auto tmp = user_exception_factory::instance().create< exception_type >(seg_head.type_id);
+        auto tmp = user_exception_factory::instance().create< exception_value >(seg_head.type_id);
         tmp->__wire_read(begin, end, false);
         ::std::swap(tmp, v);
     }
@@ -244,7 +220,7 @@ struct exception_reader {
 
 template < typename T >
 struct reader_impl< T, EXCEPTION >
-    : exception_reader< typename exception_type<T>::type > {};
+    : exception_reader< typename polymorphic_type<T>::type > {};
 
 template <>
 struct is_user_exception<errors::user_exception> : ::std::true_type{};

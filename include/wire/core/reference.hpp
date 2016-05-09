@@ -15,6 +15,8 @@
 #include <wire/core/connector_fwd.hpp>
 #include <wire/core/reference_fwd.hpp>
 
+#include <wire/encoding/detail/optional_io.hpp>
+
 namespace wire {
 namespace core {
 
@@ -24,6 +26,20 @@ struct reference_data {
     optional_identity       adapter;
     endpoint_list           endpoints;
 };
+
+template < typename OutputIterator >
+void
+wire_write(OutputIterator o, reference_data const& v)
+{
+    encoding::write(o, v.object_id, v.facet, v.adapter, v.endpoints);
+}
+
+template < typename InputIterator >
+void
+wire_read(InputIterator& begin, InputIterator end, reference_data& v)
+{
+    encoding::read(begin, end, v.object_id, v.facet, v.adapter, v.endpoints);
+}
 
 ::std::ostream&
 operator << (::std::ostream& os, reference_data const& val);
@@ -37,7 +53,15 @@ class reference {
 public:
     reference(connector_ptr cn, reference_data const& ref)
         : connector_{cn}, ref_{ref} {}
+
     virtual ~reference() = default;
+
+    static reference_ptr
+    create_reference(connector_ptr, reference_data const&);
+
+    reference_data const&
+    data() const
+    { return ref_; }
 
     identity const&
     object_id() const

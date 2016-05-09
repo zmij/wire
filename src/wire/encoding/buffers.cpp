@@ -22,15 +22,15 @@ struct outgoing::impl : detail::buffer_sequence {
     outgoing*                  container_;
     message::message_flags     flags_;
 
-    impl(outgoing* out)
-        : buffer_sequence{1},
+    impl(core::connector_ptr cnctr, outgoing* out)
+        : buffer_sequence{cnctr, 1},
           container_(out),
           flags_(message::request)
     {
         out_encaps_stack_.emplace_back(*this, true);
     }
-    impl(outgoing* out, message::message_flags flags)
-        : buffer_sequence{1},
+    impl(core::connector_ptr cnctr, outgoing* out, message::message_flags flags)
+        : buffer_sequence{cnctr, 1},
           container_(out),
           flags_(flags)
     {
@@ -88,12 +88,12 @@ struct outgoing::impl : detail::buffer_sequence {
     }
 };
 
-outgoing::outgoing()
-    : pimpl_(std::make_shared<impl>(this))
+outgoing::outgoing(core::connector_ptr cnctr)
+    : pimpl_(std::make_shared<impl>(cnctr, this))
 {
 }
-outgoing::outgoing(message::message_flags flags)
-    : pimpl_(std::make_shared<impl>(this, flags))
+outgoing::outgoing(core::connector_ptr cnctr, message::message_flags flags)
+    : pimpl_(std::make_shared<impl>(cnctr, this, flags))
 {
 }
 
@@ -130,6 +130,12 @@ outgoing::operator =(outgoing&& rhs)
     pimpl_ = std::move(rhs.pimpl_);
     rhs.pimpl_.reset();
     return *this;
+}
+
+core::connector_ptr
+outgoing::get_connector() const
+{
+    return pimpl_->get_connector();
 }
 
 message::message_flags
@@ -244,24 +250,24 @@ struct incoming::impl : detail::buffer_sequence {
     incoming*                   container_;
     encoding::message           message_;
 
-    impl(incoming* in, message const& m)
-        : buffer_sequence{},
+    impl(core::connector_ptr cnctr, incoming* in, message const& m)
+        : buffer_sequence{cnctr},
           container_{in},
           message_{m}
     {
         in_encaps_stack_.emplace_back(*this);
     }
 
-    impl(incoming* in, message const& m, buffer_type const& b)
-        : buffer_sequence{b},
+    impl(core::connector_ptr cnctr, incoming* in, message const& m, buffer_type const& b)
+        : buffer_sequence{cnctr, b},
           container_{in},
           message_{m}
     {
         in_encaps_stack_.emplace_back(*this);
     }
 
-    impl(incoming* in, message const& m, buffer_type&& b)
-        : buffer_sequence{std::move(b)},
+    impl(core::connector_ptr cnctr, incoming* in, message const& m, buffer_type&& b)
+        : buffer_sequence{cnctr, std::move(b)},
           container_{in},
           message_{m}
     {
@@ -304,24 +310,30 @@ struct incoming::impl : detail::buffer_sequence {
     }
 };
 
-incoming::incoming(message const& m)
-    : pimpl_(::std::make_shared<impl>(this, m))
+incoming::incoming(core::connector_ptr cnctr, message const& m)
+    : pimpl_(::std::make_shared<impl>(cnctr, this, m))
 {
 }
 
-incoming::incoming(message const& m, buffer_type const& b)
-    : pimpl_(::std::make_shared<impl>(this, m, b))
+incoming::incoming(core::connector_ptr cnctr, message const& m, buffer_type const& b)
+    : pimpl_(::std::make_shared<impl>(cnctr, this, m, b))
 {
 }
 
-incoming::incoming(message const& m, buffer_type&& b)
-    : pimpl_(::std::make_shared<impl>(this, m, std::move(b) ))
+incoming::incoming(core::connector_ptr cnctr, message const& m, buffer_type&& b)
+    : pimpl_(::std::make_shared<impl>(cnctr, this, m, std::move(b) ))
 {
 }
 
 incoming::incoming(message const& m, outgoing&& out)
     : pimpl_(::std::make_shared<impl>(this, m, ::std::move(*out.pimpl_)))
 {
+}
+
+core::connector_ptr
+incoming::get_connector() const
+{
+    return pimpl_->get_connector();
 }
 
 message const&
@@ -349,9 +361,9 @@ incoming::insert_back(buffer_type&& b)
 }
 
 void
-incoming::create_pimpl(message const& m)
+incoming::create_pimpl(core::connector_ptr cnctr, message const& m)
 {
-    ::std::make_shared<impl>(this, m).swap(pimpl_);
+    ::std::make_shared<impl>(cnctr, this, m).swap(pimpl_);
 }
 
 incoming::buffer_type&

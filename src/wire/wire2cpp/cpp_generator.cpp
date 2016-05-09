@@ -629,7 +629,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
             }
             source_ << ")"
                     << s_off_++ << "{";
-            source_ << s_off_ << "::wire::encoding::outgoing __out;";
+            source_ << s_off_ << "::wire::encoding::outgoing __out{ __req.buffer->get_connector() };";
             if (!func->is_void()) {
                 source_ << s_off_
                         << "::wire::encoding::write(::std::back_inserter(__out), _res);";
@@ -639,7 +639,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
             --s_off_;
         } else {
             fcall << "__curr)";
-            source_ << s_off_ << "::wire::encoding::outgoing __out;";
+            source_ << s_off_ << "::wire::encoding::outgoing __out{ __req.buffer->get_connector() };";
             if (func->is_void()) {
                 source_ << s_off_ << fcall.str() << ";";
             } else {
@@ -774,6 +774,33 @@ generator::generate_invocation_function_member(ast::function_ptr func)
             --s_off_;
             source_ << s_off_ << "}\n";
         }
+    }
+}
+
+void
+generator::generate_forward_decl( ast::forward_declaration_ptr fwd )
+{
+    adjust_scope(fwd);
+    switch (fwd->kind()) {
+        case ast::forward_declaration::structure:
+            header_ << h_off_ << "struct " << rel_name(fwd->get_qualified_name()) << ";";
+            break;
+        case ast::forward_declaration::exception:
+        case ast::forward_declaration::class_:
+            header_ << h_off_ << "class " << fwd->name() << ";"
+                    << h_off_ << "using " << fwd->name() << "_ptr = ::std::shared_ptr< "
+                        << fwd->name() << ">;"
+                    << h_off_ << "using " << fwd->name() << "_weak_ptr = ::std::weak_ptr< "
+                        << fwd->name() << ">;"
+            ;
+        case ast::forward_declaration::interface:
+            header_ << h_off_ << "class " << fwd->name() << "_proxy;"
+                    << h_off_ << "using " << fwd->name() << "_prx = ::std::shared_ptr< "
+                        << fwd->name() << "_proxy >;";
+            ;
+
+        default:
+            break;
     }
 }
 
@@ -1370,6 +1397,7 @@ void
 generator::generate_proxy_interface(ast::interface_ptr iface)
 {
     static const qname base_proxy {"::wire::core::object_proxy"};
+    static const qname ref_ptr    {"::wire::core::reference_ptr"};
 
     source_ << s_off_ << "//" << ::std::setw(77) << ::std::setfill('-') << "-"
             << s_off_ << "//    Proxy interface for " << iface->get_qualified_name()
@@ -1392,7 +1420,7 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
         }
         h_off_ -= 2;
     } else {
-        header_ << ", " << base_proxy;
+        header_ << ", " << rel_name(base_proxy);
     }
     header_ << "> {"
             << h_off_ << "public:";
@@ -1402,7 +1430,12 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
     {
         offset_guard hdr{h_off_};
         // TODO Constructors
-        header_ << ++h_off_ << "/* TODO Constructors */";
+        header_ << ++h_off_ << iface->name() << "_proxy ()"
+                << (h_off_ + 2) << ": " << rel_name(base_proxy) << "{} {}"
+                << h_off_ << iface->name() << "_proxy (" << rel_name(ref_ptr)
+                    << " _ref)"
+                << (h_off_ + 2) << ": " << rel_name(base_proxy) << "{_ref} {}";
+        ;
     }
     {
         offset_guard hdr{h_off_};
@@ -1444,7 +1477,6 @@ generator::generate_interface(ast::interface_ptr iface)
     header_ << h_off_ << "using " << iface->name()
             << "_weak_ptr = ::std::weak_ptr< " << iface->name() << " >;";
 
-    header_ << h_off_ << "/** TODO Generate proxy object */";
     header_ << h_off_ << "using " << iface->name()
             << "_prx = ::std::shared_ptr< " << iface->name() << "_proxy >;";
     header_ << "\n";
@@ -1453,6 +1485,7 @@ generator::generate_interface(ast::interface_ptr iface)
 void
 generator::finish_compilation_unit(ast::compilation_unit const& u)
 {
+    qname const wire_enc_detail{ "::wire::encoding::detail" };
     ast::entity_const_set exceptions;
     u.collect_elements(
         exceptions,
@@ -1461,12 +1494,26 @@ generator::finish_compilation_unit(ast::compilation_unit const& u)
             return (bool)ast::dynamic_entity_cast< ast::exception >(e).get();
         });
     if (!exceptions.empty()) {
-        qname wire_enc_detail{ "::wire::encoding::detail" };
         adjust_scope(wire_enc_detail.search());
         for (auto ex : exceptions) {
             header_ << h_off_ << "template <>"
                     << h_off_ << "struct is_user_exception< " << rel_name(ex->get_qualified_name())
                         << " > : ::std::true_type {};";
+        }
+    }
+    ast::entity_const_set interfaces;
+    u.collect_elements(
+        interfaces,
+        [](ast::entity_const_ptr e)
+        {
+            return (bool)ast::dynamic_entity_cast< ast::interface >(e).get();
+        });
+    if (!interfaces.empty()) {
+        adjust_scope(wire_enc_detail.search());
+        for (auto iface : interfaces) {
+            header_ << h_off_ << "template <>"
+                    << h_off_ << "struct is_proxy< " << rel_name(iface->get_qualified_name()) << "_proxy"
+                        << " >: ::std::true_type {};";
         }
     }
 }

@@ -23,7 +23,7 @@
 namespace wire {
 namespace core {
 
-class connector {
+class connector : public ::std::enable_shared_from_this<connector> {
 public:
     typedef ::std::vector<::std::string> args_type;
 public:

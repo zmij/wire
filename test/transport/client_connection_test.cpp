@@ -111,7 +111,7 @@ TEST_F(Client, TCPConnect)
     ASSERT_EQ(used_transport::value, endpoint_.transport());
     ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
 
-    connection c(io_svc);
+    connection c{connector_ptr{}, io_svc};
 
     bool connected = false;
     bool error = false;
@@ -143,7 +143,7 @@ TEST_F(Client, TCPConnectFail)
     ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
     StopPartner();
 
-    connection c(io_svc);
+    connection c{connector_ptr{}, io_svc};
 
     bool connected = false;
     bool error = false;
@@ -174,7 +174,7 @@ TEST_F(Client, TCPConnectInvalidValidate)
     ASSERT_EQ(used_transport::value, endpoint_.transport());
     ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
 
-    connection c(io_svc);
+    connection c{connector_ptr{}, io_svc};
 
     bool connected = false;
     bool error = false;
@@ -209,7 +209,7 @@ TEST_F(Client, TCPSendRequest)
     ASSERT_EQ(used_transport::value, endpoint_.transport());
     ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
 
-    connection c(io_svc);
+    connection c{connector_ptr{}, io_svc};
 
     std::bitset< 5 > tests;
 
@@ -368,7 +368,7 @@ TEST_F(Client, DISABLED_SSL)
     ASSERT_EQ(used_transport::value, endpoint_.transport());
     ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
 
-    connection c(io_svc);
+    connection c{connector_ptr{}, io_svc};
 
     bool connected = false;
     bool error = false;

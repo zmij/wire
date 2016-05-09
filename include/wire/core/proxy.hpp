@@ -9,12 +9,15 @@
 #define WIRE_CORE_PROXY_HPP_
 
 #include <wire/core/proxy_fwd.hpp>
-#include <wire/core/reference_fwd.hpp>
+#include <wire/core/reference.hpp>
 #include <wire/core/connection_fwd.hpp>
 
 #include <wire/core/callbacks.hpp>
 #include <wire/core/context.hpp>
 #include <wire/core/identity_fwd.hpp>
+
+#include <wire/encoding/wire_io.hpp>
+#include <wire/encoding/buffers.hpp>
 
 #include <future>
 #include <functional>
@@ -38,6 +41,13 @@ public:
     { return !(*this == rhs); }
     bool
     operator < (object_proxy const&) const;
+
+    void
+    swap(object_proxy& rhs)
+    {
+        using ::std::swap;
+        swap(ref_, rhs.ref_);
+    }
 public:
     identity const&
     wire_identity() const;
@@ -200,6 +210,8 @@ public:
 
         return promise->get_future();
     }
+protected:
+    object_proxy() {}
 private:
     reference_ptr   ref_;
 };
@@ -231,6 +243,93 @@ checked_cast(::std::shared_ptr< SourcePrx > v)
 }
 
 }  // namespace core
+namespace encoding {
+namespace detail {
+
+template<>
+struct is_proxy< core::object_proxy > : ::std::true_type {};
+
+template < typename T >
+struct writer_impl< T, PROXY > {
+    using proxy_type         = typename polymorphic_type< T >::type;
+    using proxy_ptr          = ::std::shared_ptr< proxy_type >;
+    using proxy_weak_ptr    = ::std::weak_ptr< proxy_type >;
+
+    template < typename OutputIterator >
+    static void
+    output(OutputIterator o, proxy_type const& prx)
+    {
+        using output_iterator_check = octet_output_iterator_concept< OutputIterator >;
+        write(o, prx.wire_get_reference().data());
+    }
+
+    template < typename OutputIterator >
+    static void
+    output(OutputIterator o, proxy_ptr prx)
+    {
+        using output_iterator_check = octet_output_iterator_concept< OutputIterator >;
+        if (prx) {
+            write(o, true);
+            output(o, *prx);
+        } else {
+            write(o, false);
+        }
+    }
+
+    template < typename OutputIterator >
+    static void
+    output(OutputIterator o, proxy_weak_ptr prx)
+    {
+        using output_iterator_check = octet_output_iterator_concept< OutputIterator >;
+        output(o, prx.lock());
+    }
+};
+
+template < typename T >
+struct reader_impl < T, PROXY > {
+    using proxy_type         = typename polymorphic_type< T >::type;
+    using proxy_ptr          = ::std::shared_ptr< proxy_type >;
+    using proxy_weak_ptr     = ::std::weak_ptr< proxy_type >;
+
+    using input_iterator        = encoding::incoming::const_iterator;
+
+    static void
+    input(input_iterator& begin, input_iterator end, proxy_type& v)
+    {
+        core::reference_data ref;
+        read(begin, end, ref);
+        proxy_type tmp{ core::reference::create_reference(begin.get_connector(), ref) };
+        v.swap(tmp);
+    }
+
+    static void
+    input(input_iterator& begin, input_iterator end, proxy_ptr& v)
+    {
+        bool is_there{false};
+
+        read(begin, end, is_there);
+        if (is_there) {
+            core::reference_data ref;
+            read(begin, end, ref);
+            auto tmp = ::std::make_shared< proxy_type >(
+                    core::reference::create_reference(begin.get_connector(), ref));
+            ::std::swap(v, tmp);
+        } else {
+            v.reset();
+        }
+    }
+
+    static void
+    input(input_iterator& begin, input_iterator end, proxy_weak_ptr v)
+    {
+        proxy_ptr prx;
+        input(begin, end, prx);
+        v = prx;
+    }
+};
+
+}  /* namespace detail */
+}  /* namespace encoding */
 }  // namespace wire
 
 #endif /* WIRE_CORE_PROXY_HPP_ */

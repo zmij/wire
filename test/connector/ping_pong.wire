@@ -20,6 +20,11 @@ exception oops {
     string message;
 };
 
+interface callback {
+    void
+    event();
+};
+
 interface ping_pong {
     [[sync]]
     int32
@@ -30,6 +35,9 @@ interface ping_pong {
 
     data
     test_struct(data val) const;
+
+    callback*
+    test_callback(callback* cb);
 
     [[sync]]
     void
