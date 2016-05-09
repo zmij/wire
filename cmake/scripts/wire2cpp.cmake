@@ -45,6 +45,11 @@ function(wire2cpp)
         list(APPEND wire2cpp_options --header-include-root=${INCLUDE_ROOT})
     endif()
     foreach(wire_file ${DEFAULT_ARGS})
+        get_filename_component(base_dir ${wire_file} DIRECTORY)
+        if (NOT base_dir)
+            set(base_dir ${CMAKE_CURRENT_SOURCE_DIR})
+        endif()
+        get_filename_component(wire_file ${wire_file} NAME)
         string(REPLACE ".wire" ".cpp" cpp_file ${wire_file})
         string(REPLACE ".wire" ".hpp" hpp_file ${wire_file})
 
@@ -59,8 +64,8 @@ function(wire2cpp)
         message(STATUS "Add target ${wire_file} -> ${cpp_file}")
         add_custom_command(
             OUTPUT ${cpp_file} ${hpp_file}
-            COMMAND wire2cpp ${wire2cpp_options} ${CMAKE_CURRENT_SOURCE_DIR}/${wire_file}
-            DEPENDS ${wire_file} wire2cpp
+            COMMAND wire2cpp ${wire2cpp_options} ${base_dir}/${wire_file}
+            DEPENDS ${base_dir}/${wire_file} wire2cpp
             COMMENT "Generate C++ sources from ${wire_file}"
         )
     endforeach()

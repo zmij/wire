@@ -7,10 +7,20 @@ cmake_minimum_required(VERSION 2.6)
 
 add_subdirectory(util)
 
+wire2cpp(
+    ${WIRE_IDL_ROOT}/wire/errors/unexpected.wire
+    HEADER_DIR      include/wire/errors
+    INCLUDE_ROOT    wire/errors
+    OUTPUT          wired_ERRORS
+)
+
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
+
 set(wire_lib_SRCS
     encoding/buffer_iterator.cpp
     encoding/buffers.cpp
     encoding/message.cpp
+    errors/user_exception.cpp
     core/connector.cpp
     core/constants.cpp
     core/endpoint.cpp
@@ -22,6 +32,7 @@ set(wire_lib_SRCS
     core/proxy.cpp
     core/reference.cpp
     core/reference_io.cpp
+    ${wired_ERRORS}
 )
 add_library(${WIRE_LIB} SHARED ${wire_lib_SRCS})
 set_target_properties(

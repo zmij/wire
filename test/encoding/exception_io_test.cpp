@@ -46,7 +46,7 @@ public:
     }
 
     void
-    __wire_write(output_iterator out) override
+    __wire_write(output_iterator out) const override
     {
         auto encaps = out.encapsulation();
         encaps.start_segment(wire_static_type_id(), ::wire::encoding::segment_header::last_segment);
@@ -64,6 +64,10 @@ public:
             __check_segment_header< base >(sh);
         }
     }
+
+    ::std::exception_ptr
+    make_exception_ptr() override
+    { return ::std::make_exception_ptr(*this); }
 };
 
 class derived : public base {
@@ -88,7 +92,7 @@ public:
 
 
     void
-    __wire_write(output_iterator out) override
+    __wire_write(output_iterator out) const override
     {
         auto encaps = out.encapsulation();
         encaps.start_segment(wire_static_type_id_hash(), ::wire::encoding::segment_header::none);
@@ -109,6 +113,10 @@ public:
         read(begin, end, some_int);
         base::__wire_read(begin, encaps.end(), true);
     }
+
+    ::std::exception_ptr
+    make_exception_ptr() override
+    { return ::std::make_exception_ptr(*this); }
 public:
     ::std::int32_t      some_int;
 };

@@ -91,6 +91,7 @@ compilation_unit::has_exceptions() const
 void
 compilation_unit::generate(generator& gen) const
 {
+    gen.start_compilation_unit(*this);
     // TODO Topological sort of local entities
     for (auto const& e : entities) {
         if (auto t = dynamic_entity_cast< type >(e)) {
@@ -101,6 +102,7 @@ compilation_unit::generate(generator& gen) const
             throw grammar_error(e->decl_position(), "Unexpected entity");
         }
     }
+    gen.finish_compilation_unit(*this);
 }
 
 ::std::int64_t

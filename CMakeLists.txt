@@ -53,6 +53,7 @@ include_directories(
 wire_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/idl
 )
+set(WIRE_IDL_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/idl)
 add_definitions("-std=c++11")
 
 set(${LIB_NAME}_LIB ${lib_name})

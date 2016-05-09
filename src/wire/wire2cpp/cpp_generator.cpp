@@ -208,7 +208,25 @@ operator << (::std::ostream& os, type_name_rules const& val)
     return os;
 }
 
+
 namespace fs = ::boost::filesystem;
+
+::std::string
+create_header_guard(fs::path const& inc_dir, fs::path const& fname)
+{
+    ::std::ostringstream os;
+    os << "_";
+    for (auto const& p : inc_dir) {
+        os << p.string() << "_";
+    }
+    os << fname.stem().string() << "_HPP_";
+
+    auto hg = os.str();
+    ::std::transform(hg.begin(), hg.end(),
+            hg.begin(), toupper);
+
+    return hg;
+}
 
 generator::generator(generate_options const& opts, preprocess_options const& ppo,
         ast::global_namespace_ptr ns)
@@ -261,10 +279,7 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
         }
     }
 
-    header_guard_ = "_" + opts.header_include_dir + "_" +
-            origin.stem().string() + "_HPP_";
-    ::std::transform(header_guard_.begin(), header_guard_.end(),
-            header_guard_.begin(), toupper);
+    header_guard_ = create_header_guard(fs::path{opts.header_include_dir},  origin.stem());
 
     header_.open(header_path.string());
     source_.open(source_path.string());
@@ -1168,11 +1183,15 @@ generator::generate_exception(ast::exception_ptr exc)
             // Member functions
 
             header_ << ++h_off_ << "void"
-                    << h_off_ << "__wire_write(output_iterator o) override;";
+                    << h_off_ << "__wire_write(output_iterator o) const override;";
 
             header_ << h_off_ << "void"
                     << h_off_ << "__wire_read(input_iterator& begin, input_iterator end, "
                             "bool read_head = true) override;";
+
+            header_ << h_off_ << "::std::exception_ptr"
+                    << h_off_ << "make_exception_ptr() override"
+                    << h_off_ << "{ return ::std::make_exception_ptr(*this); }";
         }
 
         header_ << --h_off_ << "};\n";
@@ -1185,13 +1204,22 @@ generator::generate_exception(ast::exception_ptr exc)
                 << exc->name() << ">;\n";
 
     // Source
+    //------------------------------------------------------------------------
+    //  Factory initializer for the exception
+    //------------------------------------------------------------------------
+    source_ << s_off_ << "namespace {"
+            << (s_off_ + 1) << "::wire::errors::user_exception_factory_init< "
+            << rel_name(exc->get_qualified_name()) << " > const "
+            << constant_prefix(exc->get_qualified_name()) << "_factory_init;"
+            << s_off_ << "}";
+
     // generate io funcs in cpp
     //------------------------------------------------------------------------
-    //  Wire write function for an exception
+    //  Wire write function for the exception
     //------------------------------------------------------------------------
     source_ << s_off_ << "void"
             << s_off_ << rel_name(exc->get_qualified_name())
-            << "::__wire_write(output_iterator o)"
+            << "::__wire_write(output_iterator o) const"
             << s_off_ << "{";
 
     ++s_off_;
@@ -1420,6 +1448,27 @@ generator::generate_interface(ast::interface_ptr iface)
     header_ << h_off_ << "using " << iface->name()
             << "_prx = ::std::shared_ptr< " << iface->name() << "_proxy >;";
     header_ << "\n";
+}
+
+void
+generator::finish_compilation_unit(ast::compilation_unit const& u)
+{
+    ast::entity_const_set exceptions;
+    u.collect_elements(
+        exceptions,
+        [](ast::entity_const_ptr e)
+        {
+            return (bool)ast::dynamic_entity_cast< ast::exception >(e).get();
+        });
+    if (!exceptions.empty()) {
+        qname wire_enc_detail{ "::wire::encoding::detail" };
+        adjust_scope(wire_enc_detail.search());
+        for (auto ex : exceptions) {
+            header_ << h_off_ << "template <>"
+                    << h_off_ << "struct is_user_exception< " << rel_name(ex->get_qualified_name())
+                        << " > : ::std::true_type {};";
+        }
+    }
 }
 
 }  /* namespace cpp */

@@ -163,6 +163,9 @@ public:
     virtual ~generator();
 
     void
+    finish_compilation_unit(ast::compilation_unit const& u) override;
+
+    void
     generate_constant( ast::constant_ptr c) override;
 
     void

@@ -1,0 +1,24 @@
+/*
+ * unexpected.wire
+ *
+ *  Created on: May 9, 2016
+ *      Author: zmij
+ */
+
+#ifndef IDL_WIRE_ERRORS_UNEXPECTED_WIRE_
+#define IDL_WIRE_ERRORS_UNEXPECTED_WIRE_
+
+#include <wire/sugar.wire>
+
+namespace wire {
+namespace errors {
+
+exception unexpected {
+    string  type_name;
+    string  message;
+};
+
+}  /* namespace errors */
+}  /* namespace wire */
+
+#endif /* IDL_WIRE_ERRORS_UNEXPECTED_WIRE_ */

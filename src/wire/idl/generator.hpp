@@ -37,6 +37,11 @@ public:
     generate_type_decl( type_ptr t );
 
     virtual void
+    start_compilation_unit(compilation_unit const& u) {}
+    virtual void
+    finish_compilation_unit(compilation_unit const& u) {}
+
+    virtual void
     generate_constant( constant_ptr c ) = 0;
 
     virtual void

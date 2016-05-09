@@ -247,7 +247,7 @@ connection_impl_base::invoke(identity const& id, std::string const& op, context_
         callbacks::callback< bool > sent)
 {
     using encoding::request;
-    encoding::outgoing_ptr out = std::make_shared<encoding::outgoing>(encoding::message::request);
+    encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(encoding::message::request);
     request r{
         ++request_no_,
         encoding::operation_specs{ id, "", op },
@@ -285,7 +285,47 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
                 case reply::success: {
                     if (f->second.reply) {
                         try {
-                            f->second.reply(encaps.encaps().begin(), encaps.encaps().end());
+                            f->second.reply(encaps->begin(), encaps->end());
+                        } catch (...) {
+                            // Ignore handler error
+                        }
+                    }
+                    break;
+                }
+                case reply::no_object:
+                case reply::no_facet:
+                case reply::no_operation: {
+                    if (f->second.error) {
+                        encoding::operation_specs op;
+                        auto b = encaps->begin();
+                        read(b, encaps->end(), op);
+                        try {
+                            f->second.error(
+                                ::std::make_exception_ptr(
+                                    errors::not_found{
+                                        static_cast< errors::not_found::subject >(
+                                                rep.status - reply::no_object ),
+                                        op.identity,
+                                        op.facet,
+                                        op.name()
+                                    } )
+                            );
+                        } catch (...) {
+                            // Ignore handler error
+                        }
+                    }
+                    break;
+                }
+                case reply::user_exception:
+                case reply::unknown_wire_exception:
+                case reply::unknown_user_exception:
+                case reply::unknown_exception: {
+                    if (f->second.error) {
+                        errors::user_exception_ptr exc;
+                        auto b = encaps->begin();
+                        read(b, encaps->end(), exc);
+                        try {
+                            f->second.error(exc->make_exception_ptr());
                         } catch (...) {
                             // Ignore handler error
                         }
@@ -295,7 +335,8 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
                 default:
                     if (f->second.error) {
                         try {
-                            f->second.error(std::make_exception_ptr( errors::runtime_error("Wire exception") ));
+                            f->second.error(std::make_exception_ptr(
+                                    errors::unmarshal_error{ "Unhandled reply status" } ));
                         } catch (...) {
                             // Ignore handler error
                         }
@@ -328,13 +369,52 @@ connection_impl_base::send_not_found(
             static_cast<reply::reply_status>(reply::no_object + subj);
     reply rep { req_num, status };
     write(std::back_inserter(*out), rep);
-    {
-        outgoing::encaps_guard encaps{out->begin_encapsulation()};
-        write(std::back_inserter(*out), op);
-    }
+    write(std::back_inserter(*out), op);
     write_async(out);
 }
 
+void
+connection_impl_base::send_exception(uint32_t req_num, errors::user_exception const& e)
+{
+    using namespace encoding;
+    outgoing_ptr out =
+            ::std::make_shared<outgoing>(message::reply);
+    reply rep { req_num, reply::user_exception };
+    auto o = ::std::back_inserter(*out);
+    write(o, rep);
+    e.__wire_write(o);
+    write_async(out);
+}
+
+void
+connection_impl_base::send_exception(uint32_t req_num, ::std::exception const& e)
+{
+    using namespace encoding;
+    outgoing_ptr out =
+            ::std::make_shared<outgoing>(message::reply);
+    reply rep { req_num, reply::unknown_user_exception };
+    auto o = ::std::back_inserter(*out);
+    write(o, rep);
+
+    errors::unexpected ue { typeid(e).name(), e.what() };
+    ue.__wire_write(o);
+    write_async(out);
+}
+
+void
+connection_impl_base::send_unknown_exception(uint32_t req_num)
+{
+    using namespace encoding;
+    outgoing_ptr out =
+            ::std::make_shared<outgoing>(message::reply);
+    reply rep { req_num, reply::unknown_exception };
+    auto o = ::std::back_inserter(*out);
+    write(o, rep);
+
+    errors::unexpected ue {};
+    ue.__wire_write(o);
+    write_async(out);
+}
 
 void
 connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
@@ -348,6 +428,7 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
         //Find invocation by req.operation.identity
         adapter_ptr adp = adapter_.lock();
         if (adp) {
+            // TODO Refactor upcall invocation to the adapter
             // TODO Use facet
             auto disp = adp->find_object(req.operation.identity);
             if (disp) {
@@ -374,13 +455,11 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
                         } catch (errors::not_found const& e) {
                             _this->send_not_found(req.number, e.subj(), req.operation);
                         } catch (errors::user_exception const& e) {
-                            // FIXME Send error
-                        } catch (errors::runtime_error const& e) {
-                            // FIXME Send error
+                            _this->send_exception(req.number, e);
                         } catch (::std::exception const& e) {
-                            // FIXME Send error
+                            _this->send_exception(req.number, e);
                         } catch (...) {
-                            // FIXME Send error
+                            _this->send_unknown_exception(req.number);
                         }
                     }
                 };

@@ -11,6 +11,8 @@
 #include <wire/core/transport.hpp>
 #include <wire/core/adapter.hpp>
 #include <wire/encoding/buffers.hpp>
+#include <wire/errors/user_exception.hpp>
+#include <wire/errors/unexpected.hpp>
 
 #include <boost/msm/back/state_machine.hpp>
 #include <boost/msm/front/state_machine_def.hpp>
@@ -397,6 +399,12 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     void
     send_not_found(uint32_t req_num, errors::not_found::subject,
             encoding::operation_specs const&);
+    void
+    send_exception(uint32_t req_num, errors::user_exception const&);
+    void
+    send_exception(uint32_t req_num, ::std::exception const&);
+    void
+    send_unknown_exception(uint32_t req_num);
 
     void
     invoke(identity const&, std::string const& op, context_type const& ctx,

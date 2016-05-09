@@ -69,7 +69,7 @@ public:
         : runtime_error{msg}, subj_(s) {}
     template < typename ... T >
     not_found(subject s, T const& ... args) :
-        runtime_error(args ...), subj_(s) {}
+        runtime_error(util::delim_concatenate(" ", args ...)), subj_(s) {}
 
     subject
     subj() const
