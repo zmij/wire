@@ -1373,6 +1373,22 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
         // TODO Constructors
         header_ << ++h_off_ << "/* TODO Constructors */";
     }
+    {
+        offset_guard hdr{h_off_};
+        header_ << h_off_++ << "public:"
+                << h_off_ << "static ::std::string const&"
+                << h_off_ << "wire_static_type_id();";
+
+        tmp_pop_scope _t_id{current_scope_};
+        source_ << s_off_ << "::std::string const&"
+                << s_off_ << rel_name(iface->get_qualified_name())
+                << "_proxy::wire_static_type_id()"
+                << s_off_ << "{"
+                << (s_off_ + 1) << "return " << rel_name(iface->get_qualified_name())
+                        << "::wire_static_type_id();"
+                << s_off_ << "}\n"
+        ;
+    }
     auto const& funcs = iface->get_functions();
     if (!funcs.empty()) {
         offset_guard hdr{h_off_};

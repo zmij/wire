@@ -8,6 +8,7 @@
 #include <wire/core/proxy.hpp>
 #include <wire/core/reference.hpp>
 #include <wire/core/connection.hpp>
+#include <wire/core/object.hpp>
 
 namespace wire {
 namespace core {
@@ -22,6 +23,12 @@ bool
 object_proxy::operator <(object_proxy const& rhs) const
 {
     return false;
+}
+
+::std::string const&
+object_proxy::wire_static_type_id()
+{
+    return object::wire_static_type_id();
 }
 
 identity const&

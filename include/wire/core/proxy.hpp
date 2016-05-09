@@ -49,6 +49,17 @@ public:
     connection_ptr
     wire_get_connection() const;
 
+    template < typename T >
+    ::std::shared_ptr<T>
+    cast_to()
+    {
+        static_assert(::std::is_base_of< object_proxy, T >::value,
+                "Can cast only to descendants of object_proxy type");
+        return ::std::make_shared<T>(ref_);
+    }
+
+    static ::std::string const&
+    wire_static_type_id();
 public:
 
     bool
@@ -192,6 +203,27 @@ template < typename Prx, typename ... Bases >
 class proxy : public virtual Bases ... {
 
 };
+
+template < typename SourcePrx, typename TargetPrx >
+::std::shared_ptr< TargetPrx >
+unchecked_cast(::std::shared_ptr< SourcePrx > v)
+{
+    static_assert(::std::is_base_of<object_proxy, SourcePrx>::value,
+            "Can cast only from instances of object_proxy");
+    return v->template cast_to<TargetPrx>();
+}
+
+template < typename SourcePrx, typename TargetPrx >
+::std::shared_ptr< TargetPrx >
+checked_cast(::std::shared_ptr< SourcePrx > v)
+{
+    static_assert(::std::is_base_of<object_proxy, SourcePrx>::value,
+            "Can cast only from instances of object_proxy");
+    if (v->wire_is_a(TargetPrx::wire_static_type_id())) {
+        return v->template cast_to<TargetPrx>();
+    }
+    return ::std::shared_ptr< TargetPrx >{};
+}
 
 }  // namespace core
 }  // namespace wire
