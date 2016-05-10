@@ -11,3 +11,5 @@ set(wire_util_SRCS
 )
 
 add_library(${WIRE_UTIL_LIB} SHARED ${wire_util_SRCS})
+
+add_executable(murmur_hash murmur_hash_utility.cpp murmur_hash.cpp)
