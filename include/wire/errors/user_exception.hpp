@@ -12,6 +12,7 @@
 #include <wire/errors/exceptions.hpp>
 #include <wire/encoding/buffers.hpp>
 #include <wire/encoding/segment.hpp>
+#include <wire/encoding/detail/polymorphic_io.hpp>
 
 namespace wire {
 namespace errors {
@@ -63,82 +64,17 @@ public:
                 throw unmarshal_error("Unexpected data type in segment type id");
         }
     }
+public:
+    static ::std::string const&
+    wire_static_type_id();
 };
 
 using user_exception_ptr = ::std::shared_ptr< user_exception >;
 
-class user_exception_factory {
-public:
-    using factory_function = ::std::function<::std::shared_ptr<user_exception>()>;
-
-    static user_exception_factory&
-    instance();
-
-    void
-    add_factory(::std::string const& type_id, hash_value_type type_id_hash,
-            factory_function func);
-
-    factory_function
-    get_factory(::std::string const& type_id) const;
-    factory_function
-    get_factory(hash_value_type type_id_hash) const;
-    factory_function
-    get_factory(encoding::segment_header::type_id_type const&) const;
-
-    bool
-    has_factory(::std::string const& type_id) const;
-    bool
-    has_factory(hash_value_type type_id_hash) const;
-    bool
-    has_factory(encoding::segment_header::type_id_type const&) const;
-
-    template < typename T >
-    ::std::shared_ptr< T >
-    create(encoding::segment_header::type_id_type const& id) const
-    {
-        static_assert( ::std::is_base_of<user_exception, T>::value,
-                "Can create only instances of user_exception derived classes");
-        auto func = get_factory(id);
-        auto ex = func();
-        if (!ex) {
-            throw unmarshal_error{ "Failed to instantiate exception" };
-        }
-
-        auto derived = ::std::dynamic_pointer_cast< T >(ex);
-        if (!derived)
-            throw unmarshal_error{ "Failed to cast instantiated exception" };
-        return derived;
-    }
-private:
-    user_exception_factory() {};
-    user_exception_factory(user_exception_factory const&) = delete;
-    user_exception_factory(user_exception_factory&&) = delete;
-    user_exception_factory&
-    operator = (user_exception_factory const&) = delete;
-    user_exception_factory&
-    operator = (user_exception_factory&&) = delete;
-private:
-    using id_to_factory_map = ::std::unordered_map<::std::string, factory_function>;
-    using hash_to_factory_map = ::std::unordered_map<hash_value_type, factory_function>;
-
-    id_to_factory_map   id_to_factory_;
-    hash_to_factory_map hash_to_factory_;
-};
+using user_exception_factory = encoding::detail::object_factory<user_exception>;
 
 template < typename T >
-struct user_exception_factory_init {
-    user_exception_factory_init()
-    {
-        static_assert(::std::is_base_of<user_exception, T>::value,
-                "user_exception_factory_init can be used to initialize user_exception factories only");
-        user_exception_factory::instance().add_factory(
-        T::wire_static_type_id(),
-        T::wire_static_type_id_hash(),
-        [](){
-            return ::std::make_shared<T>();
-        });
-    }
-};
+using user_exception_factory_init = encoding::detail::object_factory_init<user_exception, T>;
 
 }  /* namespace errors */
 namespace encoding {
@@ -199,22 +135,7 @@ struct exception_reader {
     input(input_iterator& begin, input_iterator end, exception_ptr& v)
     {
         using errors::user_exception_factory;
-
-        auto encaps = begin.incoming_encapsulation();
-        ::wire::encoding::segment_header seg_head;
-        encaps.read_segment_header(begin, end, seg_head);
-
-        while (!user_exception_factory::instance().has_factory(seg_head.type_id)) {
-            // skip segment
-            begin += seg_head.size;
-            if (begin == end) {
-                throw errors::unmarshal_error{ "Failed to read exception" };
-            }
-            encaps.read_segment_header(begin, end, seg_head);
-        }
-
-        auto tmp = user_exception_factory::instance().create< exception_value >(seg_head.type_id);
-        tmp->__wire_read(begin, end, false);
+        auto tmp = user_exception_factory::instance().read< exception_value >(begin, end);
         ::std::swap(tmp, v);
     }
 };
