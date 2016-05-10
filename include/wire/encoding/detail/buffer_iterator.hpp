@@ -491,7 +491,10 @@ struct buffer_sequence::savepoint {
 
 //----------------------------------------------------------------------------
 struct buffer_sequence::out_encaps_state {
-    using type_map = ::std::map< segment_header::type_id_type, size_type >;
+    using object_stream_id  = ::std::int64_t;
+    using type_map          = ::std::map< segment_header::type_id_type, size_type >;
+    using object_write_func = ::std::function<void(object_stream_id)>;
+
     struct segment : segment_header {
         savepoint       sp_;
         size_type       type_idx_;
@@ -510,6 +513,13 @@ struct buffer_sequence::out_encaps_state {
 
     using segment_ptr = ::std::unique_ptr<segment>;
 
+    struct queued_object {
+        object_stream_id    id;
+        object_write_func   write;
+    };
+    using queued_objects        = ::std::vector<queued_object>;
+    using queued_objects_map    = ::std::unordered_map<void const*, object_stream_id>;
+
 
     savepoint           sp_;
     version             encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
@@ -517,6 +527,8 @@ struct buffer_sequence::out_encaps_state {
     segment_ptr         current_segment_;
     bool                is_default_;
 
+    queued_objects      object_write_queue_;
+    queued_objects_map  object_ids_;
 
     out_encaps_state(buffer_sequence& out, bool is_default = false);
     out_encaps_state(out_encaps_state const& rhs);
@@ -541,11 +553,25 @@ struct buffer_sequence::out_encaps_state {
     start_segment(segment_header::flags_type flags, hash_value_type const& name_hash);
     void
     end_segment();
+
+    template < typename T >
+    object_stream_id
+    enqueue_object(::std::shared_ptr<T> p, object_write_func func)
+    {
+        return enqueue_object(reinterpret_cast<void const*>(p.get()), func);
+    }
+    void
+    write_object_queue();
+private:
+    object_stream_id
+    enqueue_object(void const*, object_write_func);
 };
 
 //----------------------------------------------------------------------------
 struct buffer_sequence::in_encaps_state {
-    using type_map = ::std::vector< segment_header::type_id_type >;
+    using object_stream_id  = ::std::int64_t;
+    using type_map          = ::std::vector< segment_header::type_id_type >;
+
     buffer_sequence*    seq_;
     version             encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
     size_type           size_ = 0;
@@ -616,6 +642,9 @@ struct buffer_sequence::in_encaps_state {
 //----------------------------------------------------------------------------
 class buffer_sequence::out_encaps {
 public:
+    using object_stream_id  = out_encaps_state::object_stream_id;
+    using object_write_func = out_encaps_state::object_write_func;
+public:
     out_encaps(out_encaps const&) = default;
     out_encaps(out_encaps&&) = default;
 
@@ -647,6 +676,12 @@ public:
     {
         iter_->end_segment();
     }
+    template < typename T >
+    object_stream_id
+    enqueue_object(::std::shared_ptr<T> p, object_write_func func)
+    {
+        return iter_->enqueue_object(p, func);
+    }
 private:
     friend struct buffer_sequence;
     out_encaps(buffer_sequence* seq)
@@ -658,6 +693,8 @@ private:
 
 //----------------------------------------------------------------------------
 class buffer_sequence::in_encaps {
+public:
+    using object_stream_id = in_encaps_state::object_stream_id;
 public:
     in_encaps(in_encaps const&) = default;
     in_encaps(in_encaps&&) = default;

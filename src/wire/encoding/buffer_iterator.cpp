@@ -482,6 +482,7 @@ buffer_sequence::out_encaps_state::out_encaps_state(out_encaps_state&& rhs)
 buffer_sequence::out_encaps_state::~out_encaps_state()
 {
     if (!is_default_ && sp_.seq_) {
+        write_object_queue();
         buffer_type& buff = sp_.buffer();
         write(::std::back_inserter(buff), encoding_version, size());
     }
@@ -535,6 +536,32 @@ void
 buffer_sequence::out_encaps_state::end_segment()
 {
     current_segment_.reset();
+}
+
+buffer_sequence::out_encaps_state::object_stream_id
+buffer_sequence::out_encaps_state::enqueue_object(void const* obj, object_write_func func)
+{
+    auto f = object_ids_.find(obj);
+    if (f == object_ids_.end()) {
+        object_stream_id id = object_write_queue_.size() + 1;
+        object_write_queue_.push_back({id, func});
+        object_ids_.emplace(obj, id);
+        return id;
+    }
+    return f->second;
+}
+
+void
+buffer_sequence::out_encaps_state::write_object_queue()
+{
+    queued_objects queue;
+    queue.swap(object_write_queue_);
+    while (!queue.empty()) {
+        for (auto const& o: queue) {
+            o.write(o.id);
+        }
+        queue.swap(object_write_queue_);
+    }
 }
 
 buffer_sequence::out_encaps_state::segment::~segment()

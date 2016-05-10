@@ -56,6 +56,8 @@ public:
 
     using encapsulation_type        = detail::buffer_sequence::out_encaps;
     using encaps_guard              = detail::encaps_guard<encapsulation_type>;
+
+    using output_iterator           = ::std::back_insert_iterator<outgoing>;
 public:
     outgoing(core::connector_ptr cnctr);
     outgoing(core::connector_ptr cnctr, message::message_flags);
