@@ -14,6 +14,29 @@
 namespace wire {
 namespace core {
 
+bool
+operator == (reference_data const& lhs, reference_data const& rhs)
+{
+    return lhs.object_id == rhs.object_id &&
+            lhs.facet == rhs.facet &&
+            lhs.adapter == rhs.adapter &&
+            lhs.endpoints == rhs.endpoints;
+}
+bool
+operator != (reference_data const& lhs, reference_data const& rhs)
+{
+    return !(lhs == rhs);
+}
+bool
+operator < (reference_data const& lhs, reference_data const& rhs)
+{
+    return lhs.object_id < rhs.object_id &&
+            lhs.facet < rhs.facet &&
+            lhs.adapter < rhs.adapter &&
+            lhs.endpoints < rhs.endpoints;
+}
+
+
 //----------------------------------------------------------------------------
 //      Base reference implementation
 //----------------------------------------------------------------------------

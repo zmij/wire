@@ -41,6 +41,13 @@ wire_read(InputIterator& begin, InputIterator end, reference_data& v)
     encoding::read(begin, end, v.object_id, v.facet, v.adapter, v.endpoints);
 }
 
+bool
+operator == (reference_data const& lhs, reference_data const& rhs);
+bool
+operator != (reference_data const& lhs, reference_data const& rhs);
+bool
+operator < (reference_data const& lhs, reference_data const& rhs);
+
 ::std::ostream&
 operator << (::std::ostream& os, reference_data const& val);
 ::std::istream&

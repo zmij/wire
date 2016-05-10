@@ -127,7 +127,6 @@ try {
     }
 
     for (auto const& file : options.files) {
-        ::std::cerr << "Process " << file << "\n";
         preprocessor preproc{ file, preproc_opts };
 
         if (vm.count("preprocess-only")) {

@@ -35,6 +35,8 @@ namespace cpp {
 namespace annotations {
 
 ::std::string const CPP_CONTAINER = "cpp_container";
+::std::string const GENERATE_CMP = "cpp_cmp";
+::std::string const GENERATE_IO = "cpp_io";
 
 }  /* namespace annotations */
 
@@ -221,6 +223,10 @@ private:
 
     void
     generate_read_write( ast::structure_ptr struct_);
+    void
+    generate_comparison( ast::structure_ptr struct_);
+    void
+    generate_io( ast::structure_ptr struct_);
 
     ::std::string
     generate_type_id_funcs(ast::entity_ptr elem);

@@ -39,16 +39,20 @@ connection_impl_base::create_connection(connector_ptr cnctr, asio_config::io_ser
 }
 
 connection_impl_ptr
-connection_impl_base::create_listen_connection(connector_ptr cnctr, asio_config::io_service_ptr io_svc,
-        transport_type _type)
+connection_impl_base::create_listen_connection(adapter_ptr adptr, transport_type _type)
 {
+    adapter_weak_ptr adptr_weak = adptr;
     switch (_type) {
         case transport_type::tcp:
             return ::std::make_shared< tcp_listen_connection_impl >(
-                cnctr,
-                io_svc,
-                [cnctr]( asio_config::io_service_ptr svc ){
-                    return ::std::make_shared< tcp_connection_impl >( cnctr, svc );
+                adptr,
+                [adptr_weak]( asio_config::io_service_ptr svc ){
+                    adapter_ptr a = adptr_weak.lock();
+                    // TODO Throw an error if adapter gone away
+                    if (!a) {
+                        throw errors::runtime_error{ "Adapter gone away" };
+                    }
+                    return ::std::make_shared< tcp_connection_impl >( a );
                 });
             break;
         default:
@@ -66,6 +70,13 @@ connection_impl_base::connect_async(endpoint const& ep,
 }
 
 void
+connection_impl_base::start_session()
+{
+    mode_ = server;
+    process_event(events::start{});
+}
+
+void
 connection_impl_base::listen(endpoint const& ep, bool reuse_port)
 {
     mode_ = server;
@@ -75,6 +86,7 @@ connection_impl_base::listen(endpoint const& ep, bool reuse_port)
 void
 connection_impl_base::handle_connected(asio_config::error_code const& ec)
 {
+    ::std::cerr << "Handle connected\n";
     if (!ec) {
         process_event(events::connected{});
     } else {
@@ -112,6 +124,16 @@ connection_impl_base::send_close_message()
 }
 
 void
+connection_impl_base::handle_close()
+{
+    auto ex = ::std::make_exception_ptr(errors::connection_failed{ "Conection closed" });
+    for (auto const& req : pending_replies_) {
+        req.second.error(ex);
+    }
+    pending_replies_.clear();
+}
+
+void
 connection_impl_base::write_async(encoding::outgoing_ptr out,
         callbacks::void_callback cb)
 {
@@ -128,6 +150,7 @@ connection_impl_base::handle_write(asio_config::error_code const& ec, std::size_
     if (!ec) {
         if (cb) cb();
     } else {
+        ::std::cerr << "Write failed " << ec.message() << "\n";
         process_event(events::connection_failure{
             ::std::make_exception_ptr(errors::connection_failed(ec.message()))
         });
@@ -157,6 +180,7 @@ connection_impl_base::handle_read(asio_config::error_code const& ec, std::size_t
         read_incoming_message(buffer, bytes);
         start_read();
     } else {
+        ::std::cerr << "Read failed " << ec.message() << "\n";
         process_event(events::connection_failure{
             ::std::make_exception_ptr(errors::connection_failed(ec.message()))
         });
@@ -278,22 +302,35 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
 {
     using namespace encoding;
     try {
+        ::std::cerr << "Dispatch reply\n";
         reply rep;
         incoming::const_iterator b = buffer->begin();
         incoming::const_iterator e = buffer->end();
         read(b, e, rep);
         auto f = pending_replies_.find(rep.number);
         if (f != pending_replies_.end()) {
-            incoming::encaps_guard encaps{buffer->begin_encapsulation(b)};
-            version const& ever = encaps.encaps().encoding_version();
-
-            std::cerr << "Reply encaps v" << ever.major << "." << ever.minor
-                    << " size " << encaps.size() << "\n";
             switch (rep.status) {
-                case reply::success: {
+                case reply::success:{
+                    ::std::cerr << "Reply status is success\n";
                     if (f->second.reply) {
+                        incoming::encaps_guard encaps{buffer->begin_encapsulation(b)};
+                        version const& ever = encaps.encaps().encoding_version();
+
+                        std::cerr << "Reply encaps v" << ever.major << "." << ever.minor
+                                << " size " << encaps.size() << "\n";
                         try {
                             f->second.reply(encaps->begin(), encaps->end());
+                        } catch (...) {
+                            // Ignore handler error
+                        }
+                    }
+                    break;
+                }
+                case reply::success_no_body: {
+                    ::std::cerr << "Reply status is success without body\n";
+                    if (f->second.reply) {
+                        try {
+                            f->second.reply( incoming::const_iterator{}, incoming::const_iterator{} );
                         } catch (...) {
                             // Ignore handler error
                         }
@@ -303,7 +340,13 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
                 case reply::no_object:
                 case reply::no_facet:
                 case reply::no_operation: {
+                    ::std::cerr << "Reply status is not found\n";
                     if (f->second.error) {
+                        incoming::encaps_guard encaps{buffer->begin_encapsulation(b)};
+                        version const& ever = encaps.encaps().encoding_version();
+
+                        std::cerr << "Reply encaps v" << ever.major << "." << ever.minor
+                                << " size " << encaps.size() << "\n";
                         encoding::operation_specs op;
                         auto b = encaps->begin();
                         read(b, encaps->end(), op);
@@ -328,7 +371,13 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
                 case reply::unknown_wire_exception:
                 case reply::unknown_user_exception:
                 case reply::unknown_exception: {
+                    ::std::cerr << "Reply status is an exception\n";
                     if (f->second.error) {
+                        incoming::encaps_guard encaps{buffer->begin_encapsulation(b)};
+                        version const& ever = encaps.encaps().encoding_version();
+
+                        std::cerr << "Reply encaps v" << ever.major << "." << ever.minor
+                                << " size " << encaps.size() << "\n";
                         errors::user_exception_ptr exc;
                         auto b = encaps->begin();
                         read(b, encaps->end(), exc);
@@ -357,7 +406,7 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
             ::std::cerr << "No waiting callback for reply\n";
         }
     } catch (::std::exception const& e) {
-        ::std::cerr << "Exception when reading reply:" << e.what() << "\n";
+        ::std::cerr << "Exception when reading reply: " << e.what() << "\n";
         process_event(events::connection_failure{ std::current_exception() });
     } catch (...) {
         ::std::cerr << "Exception when reading reply\n";
@@ -377,7 +426,10 @@ connection_impl_base::send_not_found(
             static_cast<reply::reply_status>(reply::no_object + subj);
     reply rep { req_num, status };
     write(std::back_inserter(*out), rep);
-    write(std::back_inserter(*out), op);
+    {
+        outgoing::encaps_guard guard{ out->begin_encapsulation() };
+        write(std::back_inserter(*out), op);
+    }
     write_async(out);
 }
 
@@ -390,7 +442,10 @@ connection_impl_base::send_exception(uint32_t req_num, errors::user_exception co
     reply rep { req_num, reply::user_exception };
     auto o = ::std::back_inserter(*out);
     write(o, rep);
-    e.__wire_write(o);
+    {
+        outgoing::encaps_guard guard{ out->begin_encapsulation() };
+        e.__wire_write(o);
+    }
     write_async(out);
 }
 
@@ -404,8 +459,11 @@ connection_impl_base::send_exception(uint32_t req_num, ::std::exception const& e
     auto o = ::std::back_inserter(*out);
     write(o, rep);
 
-    errors::unexpected ue { typeid(e).name(), e.what() };
-    ue.__wire_write(o);
+    {
+        outgoing::encaps_guard guard{ out->begin_encapsulation() };
+        errors::unexpected ue { typeid(e).name(), e.what() };
+        ue.__wire_write(o);
+    }
     write_async(out);
 }
 
@@ -419,8 +477,11 @@ connection_impl_base::send_unknown_exception(uint32_t req_num)
     auto o = ::std::back_inserter(*out);
     write(o, rep);
 
-    errors::unexpected ue {};
-    ue.__wire_write(o);
+    {
+        outgoing::encaps_guard guard{ out->begin_encapsulation() };
+        errors::unexpected ue {};
+        ue.__wire_write(o);
+    }
     write_async(out);
 }
 
@@ -438,6 +499,9 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
         if (adp) {
             // TODO Refactor upcall invocation to the adapter
             // TODO Use facet
+            ::std::cerr << "Dispatch request " << req.operation.name()
+                    << " to " << req.operation.identity << "\n";
+
             auto disp = adp->find_object(req.operation.identity);
             if (disp) {
                 // TODO Read context
@@ -451,10 +515,12 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
                                 ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
                         reply rep {
                             req.number,
-                            reply::success
+                            res.empty() ? reply::success_no_body : reply::success
                         };
                         write(std::back_inserter(*out), rep);
-                        out->insert_encapsulation(std::move(res));
+                        if (!res.empty()) {
+                            out->insert_encapsulation(std::move(res));
+                        }
                         _this->write_async(out);
                     },
                     [_this, req](::std::exception_ptr ex) mutable {
@@ -478,7 +544,11 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
                 };
                 disp->__dispatch(r, curr);
                 return;
+            } else {
+                ::std::cerr << "No object\n";
             }
+        } else {
+            ::std::cerr << "No adapter\n";
         }
         send_not_found(req.number, errors::not_found::object, req.operation);
     } catch (...) {
@@ -518,7 +588,7 @@ struct connection::impl {
             // Do something with the old connection
             // Or throw exception
         }
-        connection_ = detail::connection_impl_base::create_listen_connection(connector_.lock(), io_service_, ep.transport());
+        connection_ = detail::connection_impl_base::create_listen_connection(adapter_.lock(), ep.transport());
         connection_->adapter_ = adapter_;
         connection_->listen(ep);
     }

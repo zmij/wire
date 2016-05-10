@@ -22,12 +22,12 @@ try {
 
     connector_ptr conn = connector::create_connector(io_service, argc, argv);
     adapter_ptr adptr = conn->create_adapter(
-            "ping_pong", { ::wire::core::endpoint::tcp("127.0.0.1", 60066) });
+            "ping_pong", { ::wire::core::endpoint::tcp("127.0.0.1", 0) });
 
     adptr->activate();
     auto prx = adptr->add_object({"ping_pong"},
-            ::std::make_shared< wire::test::ping_pong_server >() );
-    ::std::cerr << *prx << "\n";
+            ::std::make_shared< wire::test::ping_pong_server >([io_service](){ io_service->stop(); }) );
+    ::std::cout << *prx << ::std::endl;
 
     io_service->run();
     return 0;

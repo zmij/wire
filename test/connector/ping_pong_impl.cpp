@@ -34,6 +34,7 @@ ping_pong_server::test_struct(::test::data const& val,
         ::wire::core::callbacks::exception_callback __exception,
         ::wire::core::current const&) const
 {
+    ::std::cerr << __FUNCTION__ << " " << val << "\n";
     __resp(val);
 }
 
@@ -43,7 +44,7 @@ ping_pong_server::test_callback(::test::callback_prx cb,
         ::wire::core::callbacks::exception_callback __exception,
         ::wire::core::current const&)
 {
-    ::std::cerr << __FUNCTION__ << "\n";
+    ::std::cerr << __FUNCTION__ << " " << *cb << "\n";
     __resp(cb);
 }
 
@@ -60,7 +61,7 @@ ping_pong_server::async_error(::wire::core::callbacks::void_callback __resp,
         ::wire::core::current const&) const
 {
     ::std::cerr << __FUNCTION__ << "\n";
-    ::std::make_exception_ptr(::test::oops{ "Async shit happens!" });
+    __exception(::std::make_exception_ptr(::test::oops{ "Async shit happens!" }));
 }
 
 void
@@ -70,6 +71,8 @@ ping_pong_server::stop(::wire::core::callbacks::void_callback __resp,
 {
     ::std::cerr << __FUNCTION__ << "\n";
     __resp();
+    if (on_stop_)
+        on_stop_();
 }
 
 }  /* namespace test */

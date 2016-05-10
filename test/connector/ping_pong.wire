@@ -12,6 +12,7 @@
 
 namespace test {
 
+[[cpp_cmp, cpp_io]]
 struct data {
     string  str;
 };

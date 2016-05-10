@@ -21,7 +21,7 @@ namespace wire {
 namespace asio_config {
 
 using io_service        = ASIO_NS::io_service;
-using io_service_ptr    = std::shared_ptr< io_service >;
+using io_service_ptr    = ::std::shared_ptr< io_service >;
 
 using tcp               = ASIO_NS::ip::tcp;
 using udp               = ASIO_NS::ip::udp;
@@ -29,12 +29,12 @@ using local_socket      = ASIO_NS::local::stream_protocol;
 
 using address           = ASIO_NS::ip::address;
 
-using error_code        = boost::system::error_code;
-using asio_callback     = std::function< void(error_code const&) >;
-using asio_rw_callback  = std::function< void(error_code const&, std::size_t) >;
+using error_code        = ::boost::system::error_code;
+using asio_callback     = ::std::function< void(error_code const&) >;
+using asio_rw_callback  = ::std::function< void(error_code const&, std::size_t) >;
 
 using ssl_context       = ASIO_NS::ssl::context;
-using ssl_context_ptr   = std::shared_ptr< ssl_context >;
+using ssl_context_ptr   = ::std::shared_ptr< ssl_context >;
 
 constexpr ASIO_NS::use_future_t<> use_future;
 

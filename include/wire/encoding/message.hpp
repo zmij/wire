@@ -306,6 +306,7 @@ wire_read(InputIterator& begin, InputIterator end, request& v)
 struct reply {
     enum reply_status {
         success,
+        success_no_body,
         user_exception,
         no_object,
         no_facet,

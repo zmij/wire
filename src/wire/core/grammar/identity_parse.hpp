@@ -19,6 +19,23 @@ namespace core {
 namespace grammar {
 namespace parse {
 
+struct create_identity_func {
+    using result = identity;
+
+    identity
+    operator()(::std::string const& cat, identity::id_type const& id) const
+    {
+        return { cat, id };
+    }
+    identity
+    operator()(identity::id_type const& id) const
+    {
+        return { id };
+    }
+};
+
+::boost::phoenix::function<create_identity_func> const create_id = create_identity_func{};
+
 template < typename InputIterator >
 struct identity_grammar : parser_value_grammar< InputIterator, identity > {
     using value_type = identity;
@@ -30,12 +47,11 @@ struct identity_grammar : parser_value_grammar< InputIterator, identity > {
         using qi::char_;
         using qi::_val;
         using qi::_1;
+        using qi::_2;
 
         identifier %= char_("a-zA-Z0-9_") >> *char_("a-zA-Z0-9._:-");
-        id = -(identifier [ phx::bind(&identity::category, _val) = _1 ] >> "/")
-            >> ((uuid  [ phx::bind(&identity::id, _val) = _1 ])
-             | (identifier [ phx::bind(&identity::id, _val) = _1 ]))
-        ;
+        id = (identifier >> "/" >> (uuid | identifier)) [ _val = create_id(_1, _2) ]
+             | (uuid | identifier)[ _val = create_id(_1) ];
     }
 
     parser_value_rule< InputIterator, identity >        id;

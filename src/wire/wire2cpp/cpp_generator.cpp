@@ -884,9 +884,15 @@ generator::generate_struct( ast::structure_ptr struct_ )
     if (!dm.empty()) {
         if (scope_stack_.empty()) {
             generate_read_write(struct_);
+            generate_comparison(struct_);
+            generate_io(struct_);
         } else {
             free_functions_.push_back(
                     ::std::bind(&generator::generate_read_write, this, struct_));
+            free_functions_.push_back(
+                    ::std::bind(&generator::generate_comparison, this, struct_));
+            free_functions_.push_back(
+                    ::std::bind(&generator::generate_io, this, struct_));
         }
     }
 }
@@ -917,11 +923,107 @@ generator::generate_read_write( ast::structure_ptr struct_)
     header_ << ++h_off_ << type_name(struct_) << " tmp;"
             << h_off_ << "::wire::encoding::read(begin, end";
     for (auto d : dm) {
-        header_ << ", v." << d->name();
+        header_ << ", tmp." << d->name();
     }
     header_ << ");"
             << h_off_ << "v.swap(tmp);";
     header_ << --h_off_ << "}\n";
+}
+
+void
+generator::generate_comparison( ast::structure_ptr struct_)
+{
+    auto f = find(struct_->get_annotations(), annotations::GENERATE_CMP);
+    if (f == struct_->get_annotations().end())
+        return;
+
+    auto const& dm = struct_->get_data_members();
+    header_ << h_off_ << "inline bool"
+            << h_off_ << "operator == (" << arg_type(struct_) << " lhs, "
+                    << arg_type(struct_) << " rhs)"
+            << h_off_ << "{";
+
+    ++h_off_;
+    if (!dm.empty()) {
+        header_ << h_off_ << "return ";
+        for (auto d = dm.begin(); d != dm.end(); ++d) {
+            if (d != dm.begin()) {
+                header_ << " && " << (h_off_ + 2);
+            }
+            header_ << "lhs." << (*d)->name() << " == rhs." << (*d)->name();
+        }
+        header_ << ";";
+    } else {
+        header_ << h_off_ << "return &lhs == &rhs;";
+    }
+
+    header_ << --h_off_ << "}";
+
+    header_ << h_off_ << "inline bool"
+            << h_off_ << "operator != (" << arg_type(struct_) << " lhs, "
+                    << arg_type(struct_) << " rhs)"
+            << h_off_ << "{"
+            << (h_off_ + 1) << "return !(lhs == rhs);"
+            << h_off_ << "}";
+
+    header_ << h_off_ << "inline bool"
+            << h_off_ << "operator < (" << arg_type(struct_) << " lhs, "
+                    << arg_type(struct_) << " rhs)"
+            << h_off_ << "{";
+
+    ++h_off_;
+    if (!dm.empty()) {
+        header_ << h_off_ << "return ";
+        for (auto d = dm.begin(); d != dm.end(); ++d) {
+            if (d != dm.begin()) {
+                header_ << " && " << (h_off_ + 2);
+            }
+            header_ << "lhs." << (*d)->name() << " < rhs." << (*d)->name();
+        }
+        header_ << ";";
+    } else {
+        header_ << h_off_ << "return &lhs < &rhs;";
+    }
+
+    header_ << --h_off_ << "}\n";
+}
+
+void
+generator::generate_io( ast::structure_ptr struct_)
+{
+    auto f = find(struct_->get_annotations(), annotations::GENERATE_IO);
+    if (f == struct_->get_annotations().end())
+        return;
+
+    auto const& data_members = struct_->get_data_members();
+    header_ << h_off_ << "::std::ostream&"
+            << h_off_ << "operator << ( ::std::ostream& os, "
+                    << arg_type(struct_) << " val );\n";
+
+    source_ << s_off_ << "::std::ostream&"
+            << s_off_ << "operator << ( ::std::ostream& os, "
+                    << arg_type(struct_) << " val )"
+            << s_off_ << "{";
+    {
+        if (data_members.empty()) {
+            source_ << (s_off_ + 1) << "return os;";
+        } else {
+            offset_guard src{s_off_};
+            source_ << ++s_off_ << "::std::ostream::sentry s{os};"
+                    << s_off_ << "if (s) {";
+            ++s_off_;
+            source_ << s_off_ << "os << '{' ";
+            for (auto dm = data_members.begin(); dm != data_members.end(); ++dm) {
+                if (dm != data_members.begin())
+                    source_ << " << \" \"" << (s_off_ + 1);
+                source_ << "<< val." << (*dm)->name();
+            }
+            source_ << " << '}';";
+            source_ << --s_off_ << "}"
+                    << s_off_ << "return os;";
+        }
+    }
+    source_ << s_off_ << "}";
 }
 
 ::std::string

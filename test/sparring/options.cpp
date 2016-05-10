@@ -9,15 +9,15 @@
 
 namespace wire {
 namespace test {
-namespace transport {
+namespace sparring {
 
 options&
 options::instance()
 {
-	static options opts_;
-	return opts_;
+    static options opts_;
+    return opts_;
 }
 
-} /* namespace transport */
+} /* namespace sparring */
 } /* namespace test */
 } /* namespace wire */

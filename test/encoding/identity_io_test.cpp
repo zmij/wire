@@ -41,6 +41,17 @@ TEST(StreamIO, Identity)
     EXPECT_EQ(id0, id1);
 }
 
+TEST(StreamIO, IdentityPartial)
+{
+    identity id0{ "test" };
+    ::std::ostringstream os;
+    os << id0;
+    ::std::istringstream is{os.str()};
+    identity id1;
+    EXPECT_TRUE((bool)(is >> id1));
+    EXPECT_EQ(id0, id1);
+}
+
 } // namespace test
 }  // namespace core
 }  // namespace wire

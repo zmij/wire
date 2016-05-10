@@ -10,7 +10,10 @@
 
 #include <wire/core/transport.hpp>
 #include <wire/core/adapter.hpp>
+#include <wire/core/connector.hpp>
+
 #include <wire/encoding/buffers.hpp>
+
 #include <wire/errors/user_exception.hpp>
 #include <wire/errors/unexpected.hpp>
 
@@ -111,6 +114,24 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
             to.fail = from.fail;
         }
     };
+    struct on_disconnected {
+        template < typename SourceState, typename TargetState >
+        void
+        operator()(events::connection_failure const& evt, fsm_type& fsm,
+                SourceState&, TargetState&)
+        {
+            ::std::cerr << "Disconnected on error\n";
+            fsm->handle_close();
+        }
+        template < typename SourceState, typename TargetState >
+        void
+        operator()(events::close const& evt, fsm_type& fsm,
+                SourceState&, TargetState&)
+        {
+            ::std::cerr << "Disconnected gracefully\n";
+            fsm->handle_close();
+        }
+    };
     struct send_validate {
         template < typename Event, typename SourceState, typename TargetState >
         void
@@ -150,7 +171,6 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         operator()(events::receive_reply const& rep, fsm_type& fsm, SourceState&, TargetState&)
         {
-            std::cerr << "Dispatch reply\n";
             fsm->dispatch_reply(rep.incoming);
         }
     };
@@ -239,11 +259,11 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 
     struct connected : ::boost::msm::front::state<> {
         struct internal_transition_table : ::boost::mpl::vector<
-            /*            Event                         Action                Guard    */
-            Internal<    events::send_request,        send_request,        none    >,
+            /*           Event                       Action               Guard    */
+            Internal<    events::send_request,       send_request,        none    >,
             Internal<    events::receive_request,    dispatch_request,    none    >,
-            Internal<    events::receive_reply,        dispatch_reply,        none    >,
-            Internal<    events::receive_validate,    none,                none    >
+            Internal<    events::receive_reply,      dispatch_reply,      none    >,
+            Internal<    events::receive_validate,   none,                none    >
         > {};
         template < typename Event >
         void
@@ -312,9 +332,9 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         Row<    connected,        events::close,                terminated,           send_close,      none                    >,
         Row<    connected,        events::receive_close,        terminated,           none,            none                    >,
         /* Connection failure */
-        Row<    connecting,       events::connection_failure,   terminated,           none,            none                    >,
-        Row<    wait_validate,    events::connection_failure,   terminated,           none,            none                    >,
-        Row<    connected,        events::connection_failure,   terminated,           none,            none                    >
+        Row<    connecting,       events::connection_failure,   terminated,           on_disconnected, none                    >,
+        Row<    wait_validate,    events::connection_failure,   terminated,           on_disconnected, none                    >,
+        Row<    connected,        events::connection_failure,   terminated,           on_disconnected, none                    >
     > {};
     //@}
 
@@ -347,11 +367,24 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     static connection_impl_ptr
     create_connection( connector_ptr cnctr, asio_config::io_service_ptr io_svc, transport_type _type );
     static connection_impl_ptr
-    create_listen_connection( connector_ptr cnctr, asio_config::io_service_ptr io_svc, transport_type _type );
+    create_listen_connection( adapter_ptr adptr, transport_type _type );
 
     connection_impl_base(connector_ptr cnctr, asio_config::io_service_ptr io_svc)
-        : connector_{cnctr}, io_service_{io_svc}, request_no_{0} {}
-    virtual ~connection_impl_base() {}
+        : connector_{cnctr}, io_service_{io_svc}, request_no_{0}
+    {
+        connection_fsm::start();
+    }
+    connection_impl_base(adapter_ptr adptr)
+        : adapter_{adptr},
+          connector_{adptr->get_connector()},
+          io_service_{adptr->get_connector()->io_service()},
+          request_no_{0}
+    {
+    }
+    virtual ~connection_impl_base()
+    {
+        ::std::cerr << "Destroy connection instance\n";
+    }
 
     connector_ptr
     get_connector() const
@@ -369,12 +402,17 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     send_validate_message();
 
     void
+    start_session();
+
+    void
     listen(endpoint const&, bool reuse_port = false);
 
     void
     close();
     void
     send_close_message();
+    void
+    handle_close();
 
     void
     write_async(encoding::outgoing_ptr, callbacks::void_callback cb = nullptr);
@@ -455,7 +493,7 @@ private:
     virtual void
     do_read_async(incoming_buffer_ptr, asio_config::asio_rw_callback) = 0;
 public:
-    adapter_weak_ptr        adapter_;
+    adapter_weak_ptr            adapter_;
 protected:
     connector_weak_ptr          connector_;
     asio_config::io_service_ptr io_service_;
@@ -472,6 +510,10 @@ struct connection_impl : connection_impl_base {
 
     connection_impl(connector_ptr cnctr, asio_config::io_service_ptr io_svc)
         : connection_impl_base{cnctr, io_svc}, transport_{io_svc}
+    {
+    }
+    connection_impl(adapter_ptr adptr)
+        : connection_impl_base{adptr}, transport_{ io_service_ }
     {
     }
     virtual ~connection_impl() {}
@@ -524,8 +566,8 @@ struct listen_connection_impl : connection_impl_base {
     using session_factory    = typename listener_type::session_factory;
     using transport_traits    = transport_type_traits< _type >;
 
-    listen_connection_impl(connector_ptr cnctr, asio_config::io_service_ptr io_svc, session_factory factory)
-        : connection_impl_base{cnctr, io_svc}, listener_(io_svc, factory)
+    listen_connection_impl(adapter_ptr adptr, session_factory factory)
+        : connection_impl_base{adptr}, listener_(io_service_, factory)
     {
     }
 

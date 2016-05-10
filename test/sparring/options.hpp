@@ -12,19 +12,19 @@
 
 namespace wire {
 namespace test {
-namespace transport {
+namespace sparring {
 
 class options {
 public:
-	static options&
-	instance();
+    static options&
+    instance();
 public:
-	std::string sparring_partner;
+    std::string sparring_partner;
 private:
-	options() {}
-	options(options const&) = delete;
-	options&
-	operator = (options const&) = delete;
+    options() {}
+    options(options const&) = delete;
+    options&
+    operator = (options const&) = delete;
 };
 
 } /* namespace transport */

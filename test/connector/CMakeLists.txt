@@ -25,6 +25,7 @@ include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR}/include)
 
 set(
     test_connector_SRCS
+    connector_test_main.cpp
     connector_configuration_test.cpp
     ping_pong_test.cpp
     ${wired_SRCS}
@@ -32,9 +33,10 @@ set(
 add_executable(test-wire-connector ${test_connector_SRCS})
 target_link_libraries(
     test-wire-connector
-    ${GTEST_BOTH_LIBRARIES}
+    ${GTEST_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     ${WIRE_LIB}
+    sparring-test
 )
 
 set(ping_pong_SRCS
@@ -57,5 +59,5 @@ endif()
 
 add_test(
     NAME test-wire-connector
-    COMMAND test-wire-connector ${TEST_ARGS}
+    COMMAND test-wire-connector --sparring-partner $<TARGET_FILE:ping-pong-sparring> ${TEST_ARGS}
 )

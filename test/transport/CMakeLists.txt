@@ -1,26 +1,9 @@
-#	/wire/test/transport/CMakeLists.txt
-#	
-#	@author zmij
-#	@date Jan 27, 2016
+#    /wire/test/transport/CMakeLists.txt
+#
+#    @author zmij
+#    @date Jan 27, 2016
 
 cmake_minimum_required(VERSION 2.6)
-
-if (NOT GTEST_INCLUDE_DIRS)
-    find_package(GTest REQUIRED)
-endif()
-if (NOT CMAKE_THREAD_LIBS_INIT)
-    find_package(Threads REQUIRED)
-endif()
-
-# Add your package dependencies for test here
-set(
-    BOOST_COMPONENTS
-    program_options
-    iostreams
-)
-find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
-
-include_directories(${GTEST_INCLUDE_DIRS})
 
 set(test_sparring_SRCS
     sparring_partner.cpp
@@ -43,8 +26,6 @@ target_link_libraries(transport-sparring
 
 set(test_transport_SRCS
     transport_test_main.cpp
-    options.cpp
-    sparring_test.cpp
     tcp_transport_test.cpp
     tcp_transport_server_test.cpp
     ssl_transport_test.cpp
@@ -61,6 +42,7 @@ target_link_libraries(test-wire-transport
     ${Boost_IOSTREAMS_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     ${WIRE_LIB}
+    sparring-test
 )
 
 if (GTEST_XML_OUTPUT)

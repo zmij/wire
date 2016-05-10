@@ -32,10 +32,13 @@ struct identity {
     identity() : category{}, id{} {};
     identity(char const* s) : category{}, id{ ::std::string{s} } {}
     identity(::std::string const& id) : category{}, id{id} {}
+    identity(uuid_type const& id) : category{}, id{id} {}
+    identity(id_type const& id) : category{}, id{id} {}
     identity(::std::string const& category, ::std::string const& id)
         : category{category}, id{id} {}
-    identity(uuid_type const& id) : category{}, id{id} {}
     identity(::std::string const& category, uuid_type const& id)
+        : category{category}, id{id} {}
+    identity(::std::string const& category, id_type const& id)
         : category{category}, id{id} {}
 
     bool
@@ -47,6 +50,12 @@ struct identity {
     operator != (identity const& rhs) const
     {
         return !(*this == rhs);
+    }
+
+    bool
+    operator < (identity const& rhs) const
+    {
+        return category < rhs.category || (category == rhs.category && id < rhs.id);
     }
 
     static ::boost::uuids::random_generator&

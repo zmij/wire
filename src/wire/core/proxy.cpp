@@ -16,13 +16,15 @@ namespace core {
 bool
 object_proxy::operator ==(object_proxy const& rhs) const
 {
-    return false;
+    return (!ref_ && ref_ == rhs.ref_)
+            || (ref_ && rhs.ref_ && ref_->data() == rhs.ref_->data());
 }
 
 bool
 object_proxy::operator <(object_proxy const& rhs) const
 {
-    return false;
+    return (!ref_ && rhs.ref_)
+            || (ref_ && rhs.ref_ && ref_->data() < rhs.ref_->data());
 }
 
 ::std::string const&
@@ -46,7 +48,7 @@ object_proxy::wire_get_connection() const
 bool
 object_proxy::wire_is_a(::std::string const& type_id, context_type const& ctx)
 {
-    auto future = wire_is_a_async(type_id, ctx);
+    auto future = wire_is_a_async(type_id, ctx, true);
     return future.get();
 }
 

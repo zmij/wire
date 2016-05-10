@@ -12,7 +12,7 @@
 #include <wire/core/reference.hpp>
 #include <wire/core/proxy.hpp>
 
-#include "sparring_test.hpp"
+#include "sparring/sparring_test.hpp"
 #include "config.hpp"
 
 #include <sstream>
@@ -24,7 +24,7 @@ namespace test {
 
 namespace {
 
-const std::string LIPSUM_TEST_STRING = R"~(
+::std::string const LIPSUM_TEST_STRING = R"~(
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque malesuada
 ut nulla vitae elementum. Curabitur dictum egestas mauris et accumsan. Aliquam
 erat volutpat. Proin tempor enim vitae purus hendrerit, id varius tellus
@@ -61,7 +61,7 @@ ac.
 
 }  // namespace
 
-class Client : public wire::test::transport::SparringTest {
+class Client : public wire::test::sparring::SparringTest {
 
 protected:
     void
