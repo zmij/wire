@@ -29,8 +29,7 @@ namespace core {
 
 class object_proxy : public ::std::enable_shared_from_this< object_proxy > {
 public:
-    object_proxy(reference_ptr ref) : ref_{ref}
-    { /* TODO Throw if ref is empty */ }
+    object_proxy(reference_ptr ref);
 
     virtual ~object_proxy() = default;
 

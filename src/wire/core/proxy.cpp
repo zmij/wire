@@ -13,6 +13,13 @@
 namespace wire {
 namespace core {
 
+object_proxy::object_proxy(reference_ptr ref)
+    : ref_(ref)
+{
+    if (!ref_)
+        throw errors::runtime_error{ "Reference pointer is empty" };
+}
+
 bool
 object_proxy::operator ==(object_proxy const& rhs) const
 {
