@@ -8,6 +8,7 @@
 #ifndef WIRE_ERRORS_USER_EXCEPTION_HPP_
 #define WIRE_ERRORS_USER_EXCEPTION_HPP_
 
+#include <wire/types.hpp>
 #include <wire/errors/exceptions.hpp>
 #include <wire/encoding/buffers.hpp>
 #include <wire/encoding/segment.hpp>
@@ -53,7 +54,7 @@ public:
                 break;
             }
             case 1:
-                if (::boost::get< ::std::uint64_t >(seg_head.type_id) != T::wire_static_type_id_hash()) {
+                if (::boost::get< hash_value_type >(seg_head.type_id) != T::wire_static_type_id_hash()) {
                     throw unmarshal_error("Incorrect type id ", seg_head.type_id,
                             " expected ", T::wire_static_type_id_hash());
                 }
@@ -74,20 +75,20 @@ public:
     instance();
 
     void
-    add_factory(::std::string const& type_id, ::std::uint64_t type_id_hash,
+    add_factory(::std::string const& type_id, hash_value_type type_id_hash,
             factory_function func);
 
     factory_function
     get_factory(::std::string const& type_id) const;
     factory_function
-    get_factory(::std::uint64_t type_id_hash) const;
+    get_factory(hash_value_type type_id_hash) const;
     factory_function
     get_factory(encoding::segment_header::type_id_type const&) const;
 
     bool
     has_factory(::std::string const& type_id) const;
     bool
-    has_factory(::std::uint64_t type_id_hash) const;
+    has_factory(hash_value_type type_id_hash) const;
     bool
     has_factory(encoding::segment_header::type_id_type const&) const;
 
@@ -118,7 +119,7 @@ private:
     operator = (user_exception_factory&&) = delete;
 private:
     using id_to_factory_map = ::std::unordered_map<::std::string, factory_function>;
-    using hash_to_factory_map = ::std::unordered_map<::std::uint64_t, factory_function>;
+    using hash_to_factory_map = ::std::unordered_map<hash_value_type, factory_function>;
 
     id_to_factory_map   id_to_factory_;
     hash_to_factory_map hash_to_factory_;

@@ -20,7 +20,7 @@ user_exception_factory::instance()
 
 void
 user_exception_factory::add_factory(::std::string const& type_id,
-        ::std::uint64_t type_id_hash, factory_function func)
+        hash_value_type type_id_hash, factory_function func)
 {
     static ::std::mutex _mtx;
     ::std::lock_guard<::std::mutex> lock{_mtx};
@@ -46,7 +46,7 @@ user_exception_factory::get_factory(::std::string const& type_id) const
 }
 
 user_exception_factory::factory_function
-user_exception_factory::get_factory(::std::uint64_t type_id_hash) const
+user_exception_factory::get_factory(hash_value_type type_id_hash) const
 {
     auto f = hash_to_factory_.find(type_id_hash);
     if (f == hash_to_factory_.end()) {
@@ -62,7 +62,7 @@ user_exception_factory::get_factory(encoding::segment_header::type_id_type const
         case 0:
             return get_factory(::boost::get< ::std::string >( id ));
         case 1:
-            return get_factory(::boost::get< ::std::uint64_t >( id ));
+            return get_factory(::boost::get< hash_value_type >( id ));
         default:
             throw unmarshal_error{ "Unexpected type in segment header" };
     }
@@ -75,7 +75,7 @@ user_exception_factory::has_factory(::std::string const& type_id) const
 }
 
 bool
-user_exception_factory::has_factory(::std::uint64_t type_id_hash) const
+user_exception_factory::has_factory(hash_value_type type_id_hash) const
 {
     return hash_to_factory_.count(type_id_hash) > 0;
 }
@@ -87,7 +87,7 @@ user_exception_factory::has_factory(encoding::segment_header::type_id_type const
         case 0:
             return has_factory(::boost::get< ::std::string >( id ));
         case 1:
-            return has_factory(::boost::get< ::std::uint64_t >( id ));
+            return has_factory(::boost::get< hash_value_type >( id ));
         default:
             throw unmarshal_error{ "Unexpected type in segment header" };
     }

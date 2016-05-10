@@ -15,6 +15,7 @@
 #include <list>
 
 #include <wire/version.hpp>
+#include <wire/types.hpp>
 
 #include <wire/encoding/message.hpp>
 #include <wire/encoding/segment.hpp>
@@ -499,7 +500,7 @@ struct buffer_sequence::out_encaps_state {
             : segment_header{f, name, 0}, sp_{s}, type_idx_{ti}
         {
         }
-        segment(buffer_sequence& s, flags_type f, ::std::uint64_t const& name_hash, size_type ti)
+        segment(buffer_sequence& s, flags_type f, hash_value_type const& name_hash, size_type ti)
             : segment_header{f, name_hash, 0}, sp_{s}, type_idx_{ti}
         {
         }
@@ -537,7 +538,7 @@ struct buffer_sequence::out_encaps_state {
     void
     start_segment(segment_header::flags_type flags, ::std::string const& name);
     void
-    start_segment(segment_header::flags_type flags, ::std::uint64_t const& name_hash);
+    start_segment(segment_header::flags_type flags, hash_value_type const& name_hash);
     void
     end_segment();
 };
@@ -592,7 +593,7 @@ struct buffer_sequence::in_encaps_state {
             type_map_.push_back(sh.type_id);
             ::std::cerr << "Read string type id " << sh.type_id << "\n";
         } else if (sh.flags & segment_header::hash_type_id) {
-            ::std::uint64_t type_id;
+            hash_value_type type_id;
             read(begin, end_, type_id);
             sh.type_id = type_id;
             type_map_.push_back(sh.type_id);
@@ -636,7 +637,7 @@ public:
         iter_->start_segment(flags, name);
     }
     void
-    start_segment(::std::uint64_t const& name_hash,
+    start_segment(hash_value_type const& name_hash,
             segment_header::flags_type flags = segment_header::none)
     {
         iter_->start_segment(flags, name_hash);

@@ -38,10 +38,10 @@ public:
         return _type_id;
     }
 
-    static ::std::uint64_t
+    static hash_value_type
     wire_static_type_id_hash()
     {
-        static ::std::uint64_t _hash = hash::murmur_hash(BASE);
+        static hash_value_type _hash = hash::murmur_hash(BASE);
         return _hash;
     }
 
@@ -83,10 +83,10 @@ public:
         return _type_id;
     }
 
-    static ::std::uint64_t
+    static hash_value_type
     wire_static_type_id_hash()
     {
-        static ::std::uint64_t _hash = hash::murmur_hash(DERIVED);
+        static hash_value_type _hash = hash::murmur_hash(DERIVED);
         return _hash;
     }
 

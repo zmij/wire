@@ -511,7 +511,7 @@ buffer_sequence::out_encaps_state::start_segment(segment_header::flags_type flag
 
 void
 buffer_sequence::out_encaps_state::start_segment(segment_header::flags_type flags,
-        ::std::uint64_t const& name_hash)
+        hash_value_type const& name_hash)
 {
     if (!sp_.seq_)
         throw errors::marshal_error("Output encapsulation is invalid");
@@ -548,7 +548,7 @@ buffer_sequence::out_encaps_state::segment::~segment()
             write(out, ::boost::get<::std::string>(type_id));
         } else if (flags & hash_type_id) {
             ::std::cerr << "Write hash type id " << type_id << "\n";
-            write(out, ::boost::get<::std::uint64_t>(type_id));
+            write(out, ::boost::get<hash_value_type>(type_id));
         } else {
             ::std::cerr << "Write type id index " << type_idx_ << "\n";
             write(out, type_idx_);

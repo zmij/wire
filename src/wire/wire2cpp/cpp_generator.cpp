@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <boost/filesystem.hpp>
 
+#include <wire/types.hpp>
 #include <wire/idl/syntax_error.hpp>
 #include <wire/util/murmur_hash.hpp>
 
@@ -80,6 +81,7 @@ strip_quotes(::std::string& str)
 }
 
 qname const root_interface {"::wire::core::object"};
+qname const hash_value_type_name { "::wire::hash_value_type" };
 
 }  /* namespace  */
 
@@ -1036,7 +1038,7 @@ generator::generate_type_id_funcs(ast::entity_ptr elem)
     header_ << h_off_ << "static ::std::string const&"
             << h_off_ << "wire_static_type_id();";
 
-    header_ << h_off_ << "static ::std::uint64_t"
+    header_ << h_off_ << "static " << rel_name(hash_value_type_name)
             << h_off_ << "wire_static_type_id_hash();";
 
     tmp_pop_scope _pop{current_scope_};
@@ -1051,7 +1053,7 @@ generator::generate_type_id_funcs(ast::entity_ptr elem)
     source_ << s_off_++ << "namespace {\n";
     source_ << s_off_ << "::std::string const " << pfx << "TYPE_ID = \"" << eqn_str
             << "\";";
-    source_ << s_off_ << "::std::uint64_t const " << pfx << "TYPE_ID_HASH = 0x"
+    source_ << s_off_ << rel_name(hash_value_type_name) << " const " << pfx << "TYPE_ID_HASH = 0x"
             << ::std::hex << hash::murmur_hash(eqn_str) << ::std::dec << ";";
     source_ << "\n" << --s_off_ << "} /* namespace for " << eqn << " */\n";
 
@@ -1061,7 +1063,7 @@ generator::generate_type_id_funcs(ast::entity_ptr elem)
     source_ << ++s_off_ << "return " << pfx << "TYPE_ID;";
     source_ << --s_off_ << "}\n";
 
-    source_ << s_off_ << "::std::uint64_t"
+    source_ << s_off_ << rel_name(hash_value_type_name)
             << s_off_ << rel_name(eqn) << "::wire_static_type_id_hash()"
             << s_off_ << "{";
     source_ << ++s_off_ << "return " << pfx << "TYPE_ID_HASH;";
@@ -1360,7 +1362,7 @@ generator::generate_exception(ast::exception_ptr exc)
         flags = "::wire::encoding::segment_header::last_segment";
     }
 
-    ::std::string type_id_func = qn_str.size() > sizeof(::std::uint64_t) ?
+    ::std::string type_id_func = qn_str.size() > sizeof(hash_value_type) ?
             "wire_static_type_id_hash" : "wire_static_type_id";
     source_ << s_off_ << "encaps.start_segment(" << type_id_func << "(), " << flags << ");";
 

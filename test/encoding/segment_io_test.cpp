@@ -18,8 +18,8 @@ namespace {
 ::std::string const DERIVED = "::test::derived_type";
 ::std::string const BASE =  "::test::base_type";
 
-::std::uint64_t const DERIVED_HASH = hash::murmur_hash(DERIVED);
-::std::uint64_t const BASE_HASH = hash::murmur_hash(BASE);
+hash_value_type const DERIVED_HASH = hash::murmur_hash(DERIVED);
+hash_value_type const BASE_HASH = hash::murmur_hash(BASE);
 
 }  /* namespace  */
 
@@ -101,32 +101,32 @@ TEST(IO, SegmentHash)
         auto l = encaps->end();
         segment_header sh;
         EXPECT_NO_THROW(encaps->read_segment_header(f, l, sh));
-        EXPECT_EQ(BASE_HASH, ::boost::get<::std::uint64_t>(sh.type_id));
+        EXPECT_EQ(BASE_HASH, ::boost::get<hash_value_type>(sh.type_id));
         EXPECT_TRUE(sh.flags & segment_header::hash_type_id);
 
         l = encaps->end();
         EXPECT_NO_THROW(encaps->read_segment_header(f, l, sh));
-        EXPECT_EQ(DERIVED_HASH, ::boost::get<::std::uint64_t>(sh.type_id));
+        EXPECT_EQ(DERIVED_HASH, ::boost::get<hash_value_type>(sh.type_id));
         EXPECT_TRUE(sh.flags & segment_header::hash_type_id);
 
         l = encaps->end();
         EXPECT_NO_THROW(encaps->read_segment_header(f, l, sh));
-        EXPECT_EQ(BASE_HASH, ::boost::get<::std::uint64_t>(sh.type_id));
+        EXPECT_EQ(BASE_HASH, ::boost::get<hash_value_type>(sh.type_id));
         EXPECT_FALSE(sh.flags & segment_header::hash_type_id);
 
         l = encaps->end();
         EXPECT_NO_THROW(encaps->read_segment_header(f, l, sh));
-        EXPECT_EQ(DERIVED_HASH, ::boost::get<::std::uint64_t>(sh.type_id));
+        EXPECT_EQ(DERIVED_HASH, ::boost::get<hash_value_type>(sh.type_id));
         EXPECT_FALSE(sh.flags & segment_header::hash_type_id);
 
         l = encaps->end();
         EXPECT_NO_THROW(encaps->read_segment_header(f, l, sh));
-        EXPECT_EQ(BASE_HASH, ::boost::get<::std::uint64_t>(sh.type_id));
+        EXPECT_EQ(BASE_HASH, ::boost::get<hash_value_type>(sh.type_id));
         EXPECT_FALSE(sh.flags & segment_header::hash_type_id);
 
         l = encaps->end();
         EXPECT_NO_THROW(encaps->read_segment_header(f, l, sh));
-        EXPECT_EQ(BASE_HASH, ::boost::get<::std::uint64_t>(sh.type_id));
+        EXPECT_EQ(BASE_HASH, ::boost::get<hash_value_type>(sh.type_id));
         EXPECT_FALSE(sh.flags & segment_header::hash_type_id);
     }
 }
