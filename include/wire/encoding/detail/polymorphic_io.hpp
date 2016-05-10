@@ -147,6 +147,29 @@ struct reader_impl < T, CLASS > {
 };
 
 }  /* namespace detail */
+template < typename T >
+void
+check_segment_header(segment_header const& seg_head)
+{
+    switch (seg_head.type_id.which()) {
+        case 0: {
+            if (::boost::get< ::std::string >(seg_head.type_id) != T::wire_static_type_id()) {
+                throw errors::unmarshal_error("Incorrect type id ", seg_head.type_id,
+                        " expected ", T::wire_static_type_id());
+            }
+            break;
+        }
+        case 1:
+            if (::boost::get< hash_value_type >(seg_head.type_id) != T::wire_static_type_id_hash()) {
+                throw errors::unmarshal_error("Incorrect type id ", seg_head.type_id,
+                        " expected ", T::wire_static_type_id_hash());
+            }
+            break;
+        default:
+            throw errors::unmarshal_error("Unexpected data type in segment type id");
+    }
+}
+
 }  /* namespace encoding */
 }  /* namespace wire */
 

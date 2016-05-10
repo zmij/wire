@@ -189,7 +189,7 @@ public:
     generate_interface(ast::interface_ptr iface) override;
 
     void
-    generate_class(ast::class_ptr class_);
+    generate_class(ast::class_ptr class_) override;
 private:
     void
     adjust_scope(qname_search const& qn);
@@ -214,6 +214,9 @@ private:
     relative_name
     rel_name(qname const& qn)
     { return { current_scope_.search(), qn }; }
+    relative_name
+    rel_name(ast::entity_const_ptr en)
+    { return rel_name(en->get_qualified_name()); }
 
     ::std::ostream&
     write_init(::std::ostream&, offset& off, grammar::data_initializer const& init);

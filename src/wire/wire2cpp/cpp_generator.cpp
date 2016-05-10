@@ -82,6 +82,9 @@ strip_quotes(::std::string& str)
 
 qname const root_interface {"::wire::core::object"};
 qname const hash_value_type_name { "::wire::hash_value_type" };
+qname const input_iterator_name { "::wire::encoding::incoming::const_iterator" };
+qname const outgoing_name { "::wire::encoding::outgoing" };
+qname const back_inserter { "::std::back_insert_iterator" };
 
 }  /* namespace  */
 
@@ -393,7 +396,7 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
         source_ << "#include <unordered_map>\n";
     }
     if (unit_->has_classes()) {
-
+        header_ << "#include <wire/encoding/detail/polymorphic_io.hpp>\n";
     }
 
     header_ << "\n";
@@ -1396,7 +1399,7 @@ generator::generate_exception(ast::exception_ptr exc)
     source_ << s_off_++ << "if (read_head) {";
     source_ << s_off_ <<    "::wire::encoding::segment_header seg_head;"
             << s_off_ <<    "encaps.read_segment_header(begin, end, seg_head);";
-    source_ << s_off_ << "__check_segment_header< " << exc->name() << " >(seg_head);";
+    source_ << s_off_ << "::wire::encoding::check_segment_header< " << exc->name() << " >(seg_head);";
     source_ << --s_off_ << "}\n";
 
     if (!data_members.empty()) {
@@ -1440,7 +1443,7 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
         }
         --h_off_;
     } else {
-        header_ << " : public virtual " << root_interface;
+        header_ << " : public virtual " << rel_name(root_interface);
     }
     header_ << " {";
 
@@ -1490,8 +1493,6 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
         }
         --h_off_;
     }
-
-    // TODO Dispatch function
 
     header_ << --h_off_ << "};\n";
     pop_scope();
@@ -1587,6 +1588,259 @@ generator::generate_interface(ast::interface_ptr iface)
 }
 
 void
+generator::generate_class(ast::class_ptr class_)
+{
+    offset_guard hdr{h_off_};
+    offset_guard src{s_off_};
+    qname cqn = class_->get_qualified_name();
+    adjust_scope(class_);
+    source_ << s_off_ << "//" << ::std::setw(77) << ::std::setfill('-') << "-"
+            << s_off_ << "//    Implementation for class " << cqn
+            << s_off_ << "//" << ::std::setw(77) << ::std::setfill('-') << "-";
+
+    header_ << h_off_ << "/**"
+            << h_off_ << " *    Class " << cqn
+            << h_off_ << " */"
+            << h_off_ << "class " << class_->name();
+    auto const& ancestors = class_->get_ancestors();
+    auto const& data_members = class_->get_data_members();
+    auto parent = class_->get_parent();
+    ::std::string qn_str;
+    if (parent) {
+        header_ << (h_off_ + 1) << ": public " << rel_name(parent);
+    }
+    if (!ancestors.empty()) {
+        ++h_off_;
+        if (parent) {
+            header_ << "," << h_off_ << "  ";
+        } else {
+            header_ << h_off_ << ": ";
+        }
+        for (auto a = ancestors.begin(); a != ancestors.end(); ++a) {
+            if (a != ancestors.begin())
+                header_ << "," << h_off_ << "  ";
+            header_ << "public virtual " << rel_name(*a);
+        }
+        --h_off_;
+    } else if (class_->has_functions()) {
+        ++h_off_;
+        if (parent) {
+            header_ << "," << h_off_ << "  public virtual " << rel_name(root_interface);
+        } else {
+            header_ << h_off_ << ": public virtual " << rel_name(root_interface);
+        }
+        --h_off_;
+    }
+    header_ << " {";
+    {
+        tmp_push_scope _push{current_scope_, class_->name()};
+        scope_stack_.push_back(class_);
+
+        header_ << h_off_++ << "public:";
+        header_ << h_off_ << "using wire_root_type = "
+                << rel_name(class_->root_class()->get_qualified_name()) << ";";
+        if (!parent) {
+            header_ << h_off_ << "using input_iterator = " << rel_name(input_iterator_name) << ";"
+                    << h_off_ << "using output_iterator = " << rel_name(back_inserter)
+                        << "< " << rel_name(outgoing_name) << " >;";
+        }
+        if (!class_->get_types().empty()) {
+            for (auto t : class_->get_types()) {
+                generate_type_decl(t);
+            }
+        }
+        --h_off_;
+        if (!class_->get_constants().empty()) {
+            header_ << h_off_++ << "public:";
+            for (auto c : class_->get_constants()) {
+                generate_constant(c);
+            }
+            --h_off_;
+        }
+
+        {
+            ::std::ostringstream members_init;
+            if (!data_members.empty()) {
+                for (auto dm = data_members.begin(); dm != data_members.end(); ++dm) {
+                    if (dm != data_members.begin())
+                        members_init << ", ";
+                    members_init << (*dm)->name() << "{}";
+                }
+            }
+            // Constructor
+            header_ << h_off_++ << "public:";
+            header_ << h_off_ << class_->name() << "()";
+            bool need_comma {false};
+            if (parent) {
+                header_ << (h_off_ + 1) << ": " << rel_name(parent) << "{}";
+                need_comma = true;
+            }
+            if (class_->is_abstract()) {
+                if (need_comma) {
+                    header_ << "," << (h_off_ + 1) << "  ";
+                } else {
+                    header_ << (h_off_ + 1) << ": ";
+                }
+                header_ << rel_name(root_interface) << "{}";
+                for (auto a : ancestors) {
+                    header_ << "," << (h_off_ + 1)
+                            << "  " << rel_name(a) << "{}";
+                }
+                need_comma = true;
+            }
+            if (!data_members.empty()) {
+                if (need_comma) {
+                    header_ << "," << (h_off_ + 1) << "  ";
+                } else {
+                    header_ << (h_off_ + 1) << ": ";
+                }
+                header_ << members_init.str();
+            }
+
+            header_ << " {}";
+            --h_off_;
+        }
+        {
+            // Destuctor
+            header_ << (h_off_ + 1) << "virtual ~" << class_->name() << "() {}";
+        }
+        qn_str = generate_type_id_funcs(class_);
+        {
+            // Member functions
+
+            header_ << ++h_off_ << (parent ? "" : "virtual ") << "void"
+                    << h_off_ << "__wire_write(output_iterator o) const"
+                    << (parent ? " override" : "") << ";";
+
+            header_ << h_off_ << (parent ? "" : "virtual ") << "void"
+                    << h_off_ << "__wire_read(input_iterator& begin, input_iterator end, "
+                            "bool read_head = true)"
+                        << (parent ? " override" : "") << ";";
+            --h_off_;
+        }
+
+        if (class_->is_abstract()) {
+            generate_wire_functions(class_);
+            auto const& funcs = class_->get_functions();
+            if (!funcs.empty()) {
+                header_ << h_off_++ << "public:";
+                // Dispatch methods
+                for (auto f : funcs) {
+                    generate_dispatch_function_member(f);
+                }
+                --h_off_;
+            }
+        } else {
+            // factory initializer
+            //------------------------------------------------------------------------
+            //  Factory initializer for the class
+            //------------------------------------------------------------------------
+            source_ << s_off_ << "namespace {"
+                    << (s_off_ + 1) << "::wire::encoding::detail::auto_object_factory_init< "
+                    << rel_name(cqn) << " > const "
+                    << constant_prefix(cqn) << "_factory_init;"
+                    << s_off_ << "}";
+        }
+        {
+            // Data members
+            if (!data_members.empty()) {
+                header_ << h_off_++ << "public:";
+                for (auto dm : data_members) {
+                    header_ << h_off_
+                            << type_name(dm->get_type()) << " " << dm->name() << ";";
+                }
+                --h_off_;
+            }
+        }
+
+        header_ << h_off_ << "};\n";
+    }
+    pop_scope();
+
+    //------------------------------------------------------------------------
+    //  Wire write function for the class
+    //------------------------------------------------------------------------
+    source_ << s_off_ << "void"
+            << s_off_ << rel_name(class_)
+            << "::__wire_write(output_iterator o) const"
+            << s_off_ << "{";
+
+    ++s_off_;
+
+    source_ << s_off_ << "auto encaps = o.encapsulation();";
+
+    ::std::string flags = "::wire::encoding::segment_header::none";
+    if (!parent) {
+        flags = "::wire::encoding::segment_header::last_segment";
+    }
+
+    ::std::string type_id_func = qn_str.size() > sizeof(hash_value_type) ?
+            "wire_static_type_id_hash" : "wire_static_type_id";
+    source_ << s_off_ << "encaps.start_segment(" << type_id_func << "(), " << flags << ");";
+
+    if (!data_members.empty()) {
+        source_ << s_off_ << "::wire::encoding::write(o";
+        for (auto dm : data_members) {
+            source_ << ", " << dm->name();
+        }
+        source_ << ");";
+    }
+
+    source_ << s_off_ << "encaps.end_segment();";
+
+    if (parent) {
+        source_ << s_off_ << parent->name() << "::__wire_write(o);";
+    }
+    source_ << --s_off_ << "}\n";
+
+    //------------------------------------------------------------------------
+    //  Wire read function for an exception
+    //------------------------------------------------------------------------
+    source_ << s_off_ << "void"
+            << s_off_ << rel_name(class_)
+            << "::__wire_read(input_iterator& begin, input_iterator end, "
+                    "bool read_head)"
+            << s_off_ << "{";
+    ++s_off_;
+
+    source_ << s_off_ << "auto encaps = begin.incoming_encapsulation();";
+    source_ << s_off_++ << "if (read_head) {";
+    source_ << s_off_ <<    "::wire::encoding::segment_header seg_head;"
+            << s_off_ <<    "encaps.read_segment_header(begin, end, seg_head);";
+    source_ << s_off_ << "::wire::encoding::check_segment_header< " << class_->name() << " >(seg_head);";
+    source_ << --s_off_ << "}\n";
+
+    if (!data_members.empty()) {
+        source_ << s_off_ << "::wire::encoding::read(begin, end";
+        for (auto dm : data_members) {
+            source_ << ", " << dm->name();
+        }
+        source_ << ");";
+    }
+
+    if (parent) {
+        source_ << s_off_ << parent->name() << "::__wire_read(begin, encaps.end(), true);";
+    }
+
+    source_ << --s_off_ << "}\n";
+
+    //------------------------------------------------------------------------
+    //  Type aliases for class pointers
+    //------------------------------------------------------------------------
+    header_ << h_off_ << "using " << class_->name()
+            << "_ptr = ::std::shared_ptr< " << class_->name() << " >;";
+    header_ << h_off_ << "using " << class_->name()
+            << "_weak_ptr = ::std::weak_ptr< " << class_->name() << " >;\n";
+
+    if (class_->has_functions()) {
+        generate_proxy_interface(class_);
+        header_ << h_off_ << "using " << class_->name()
+                << "_prx = ::std::shared_ptr< " << class_->name() << "_proxy >;";
+        header_ << "\n";
+    }
+}
+
+void
 generator::finish_compilation_unit(ast::compilation_unit const& u)
 {
     qname const wire_enc_detail{ "::wire::encoding::detail" };
@@ -1615,9 +1869,11 @@ generator::finish_compilation_unit(ast::compilation_unit const& u)
     if (!interfaces.empty()) {
         adjust_scope(wire_enc_detail.search());
         for (auto iface : interfaces) {
-            header_ << h_off_ << "template <>"
-                    << h_off_ << "struct is_proxy< " << rel_name(iface->get_qualified_name()) << "_proxy"
-                        << " >: ::std::true_type {};";
+            auto cls = ast::dynamic_entity_cast<ast::class_>(iface);
+            if (!cls || cls->has_functions())
+                header_ << h_off_ << "template <>"
+                        << h_off_ << "struct is_proxy< " << rel_name(iface->get_qualified_name()) << "_proxy"
+                            << " >: ::std::true_type {};";
         }
     }
 }

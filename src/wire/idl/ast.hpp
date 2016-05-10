@@ -1050,6 +1050,9 @@ public:
     get_functions() const
     { return functions_; }
 
+    virtual bool
+    has_functions() const;
+
     ::std::int64_t
     get_hash() const noexcept override;
 protected:
@@ -1101,6 +1104,18 @@ public:
           interface(sc, pos, name, implements),
           parent_(parent)
     {}
+    class_const_ptr
+    get_parent() const
+    { return parent_; }
+
+    class_const_ptr
+    root_class() const;
+
+    bool
+    has_functions() const override;
+    bool
+    is_abstract() const;
+
     void
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
     void

@@ -61,7 +61,7 @@ public:
         if (read_head) {
             ::wire::encoding::segment_header sh;
             encaps.read_segment_header(begin, end, sh);
-            __check_segment_header< base >(sh);
+            check_segment_header< base >(sh);
         }
     }
 
@@ -108,7 +108,7 @@ public:
         if (read_head) {
             ::wire::encoding::segment_header sh;
             encaps.read_segment_header(begin, end, sh);
-            __check_segment_header< derived >(sh);
+            check_segment_header< derived >(sh);
         }
         read(begin, end, some_int);
         base::__wire_read(begin, encaps.end(), true);

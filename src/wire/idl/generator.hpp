@@ -61,6 +61,9 @@ public:
 
     virtual void
     generate_interface(interface_ptr iface) = 0;
+
+    virtual void
+    generate_class(ast::class_ptr class_) = 0;
 };
 
 }  /* namespace ast */

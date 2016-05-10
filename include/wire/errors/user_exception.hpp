@@ -41,29 +41,6 @@ public:
 
     virtual ::std::exception_ptr
     make_exception_ptr() = 0;
-
-    template < typename T >
-    void
-    __check_segment_header(encoding::segment_header const& seg_head)
-    {
-        switch (seg_head.type_id.which()) {
-            case 0: {
-                if (::boost::get< ::std::string >(seg_head.type_id) != T::wire_static_type_id()) {
-                    throw unmarshal_error("Incorrect type id ", seg_head.type_id,
-                            " expected ", T::wire_static_type_id());
-                }
-                break;
-            }
-            case 1:
-                if (::boost::get< hash_value_type >(seg_head.type_id) != T::wire_static_type_id_hash()) {
-                    throw unmarshal_error("Incorrect type id ", seg_head.type_id,
-                            " expected ", T::wire_static_type_id_hash());
-                }
-                break;
-            default:
-                throw unmarshal_error("Unexpected data type in segment type id");
-        }
-    }
 public:
     static ::std::string const&
     wire_static_type_id();
