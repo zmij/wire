@@ -17,7 +17,7 @@ wire2cpp(
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 
 set(wire_lib_SRCS
-    encoding/buffer_iterator.cpp
+    encoding/buffer_sequence.cpp
     encoding/buffers.cpp
     encoding/message.cpp
     errors/user_exception.cpp

@@ -5,8 +5,8 @@
  *      Author: zmij
  */
 
-#ifndef WIRE_ENCODING_DETAIL_BUFFER_ITERATOR_HPP_
-#define WIRE_ENCODING_DETAIL_BUFFER_ITERATOR_HPP_
+#ifndef WIRE_ENCODING_DETAIL_BUFFER_SEQUENCE_HPP_
+#define WIRE_ENCODING_DETAIL_BUFFER_SEQUENCE_HPP_
 
 #include <vector>
 #include <cstdint>
@@ -799,6 +799,6 @@ debug_output(::std::ostream&, buffer_sequence const&);
 }  // namespace encoding
 }  // namespace wire
 
-#include <wire/encoding/detail/buffer_iterator.inl>
+#include <wire/encoding/detail/buffer_sequence.inl>
 
-#endif /* WIRE_ENCODING_DETAIL_BUFFER_ITERATOR_HPP_ */
+#endif /* WIRE_ENCODING_DETAIL_BUFFER_SEQUENCE_HPP_ */

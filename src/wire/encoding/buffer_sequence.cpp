@@ -5,7 +5,7 @@
  *      Author: sergey.fedorov
  */
 
-#include <wire/encoding/detail/buffer_iterator.hpp>
+#include <wire/encoding/detail/buffer_sequence.hpp>
 #include <numeric>
 #include <cassert>
 #include <wire/errors/exceptions.hpp>

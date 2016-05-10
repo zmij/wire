@@ -11,9 +11,8 @@
 #include <wire/asio_config.hpp>
 #include <wire/encoding/wire_io.hpp>
 #include <wire/encoding/message.hpp>
-#include <wire/encoding/detail/buffer_iterator.hpp>
-
 #include <wire/core/connector_fwd.hpp>
+#include <wire/encoding/detail/buffer_sequence.hpp>
 
 #include <memory>
 #include <iterator>

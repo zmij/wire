@@ -5,10 +5,10 @@
  *      Author: sergey.fedorov
  */
 
-#ifndef WIRE_ENCODING_DETAIL_BUFFER_ITERATOR_INL_
-#define WIRE_ENCODING_DETAIL_BUFFER_ITERATOR_INL_
+#ifndef WIRE_ENCODING_DETAIL_BUFFER_SEQUENCE_INL_
+#define WIRE_ENCODING_DETAIL_BUFFER_SEQUENCE_INL_
 
-#include <wire/encoding/detail/buffer_iterator.hpp>
+#include <wire/encoding/detail/buffer_sequence.hpp>
 
 namespace wire {
 namespace encoding {
@@ -217,4 +217,4 @@ buffer_iterator< Container, Pointer >::operator - (buffer_iterator<Container, T>
 }  // namespace encoding
 }  // namespace wire
 
-#endif /* WIRE_ENCODING_DETAIL_BUFFER_ITERATOR_INL_ */
+#endif /* WIRE_ENCODING_DETAIL_BUFFER_SEQUENCE_INL_ */
