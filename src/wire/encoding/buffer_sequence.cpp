@@ -539,7 +539,7 @@ buffer_sequence::out_encaps_state::end_segment()
 }
 
 buffer_sequence::out_encaps_state::object_stream_id
-buffer_sequence::out_encaps_state::enqueue_object(void const* obj, object_write_func func)
+buffer_sequence::out_encaps_state::enqueue_object(void const* obj, marshal_func func)
 {
     auto f = object_ids_.find(obj);
     if (f == object_ids_.end()) {
@@ -558,7 +558,7 @@ buffer_sequence::out_encaps_state::write_object_queue()
     queue.swap(object_write_queue_);
     while (!queue.empty()) {
         for (auto const& o: queue) {
-            o.write(o.id);
+            o.marshal(o.id);
         }
         queue.swap(object_write_queue_);
     }

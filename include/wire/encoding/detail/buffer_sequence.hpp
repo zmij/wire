@@ -493,7 +493,7 @@ struct buffer_sequence::savepoint {
 struct buffer_sequence::out_encaps_state {
     using object_stream_id  = ::std::int64_t;
     using type_map          = ::std::map< segment_header::type_id_type, size_type >;
-    using object_write_func = ::std::function<void(object_stream_id)>;
+    using marshal_func      = ::std::function<void(object_stream_id)>;
 
     struct segment : segment_header {
         savepoint       sp_;
@@ -515,7 +515,7 @@ struct buffer_sequence::out_encaps_state {
 
     struct queued_object {
         object_stream_id    id;
-        object_write_func   write;
+        marshal_func        marshal;
     };
     using queued_objects        = ::std::vector<queued_object>;
     using queued_objects_map    = ::std::unordered_map<void const*, object_stream_id>;
@@ -556,7 +556,7 @@ struct buffer_sequence::out_encaps_state {
 
     template < typename T >
     object_stream_id
-    enqueue_object(::std::shared_ptr<T> p, object_write_func func)
+    enqueue_object(::std::shared_ptr<T> p, marshal_func func)
     {
         return enqueue_object(reinterpret_cast<void const*>(p.get()), func);
     }
@@ -564,24 +564,81 @@ struct buffer_sequence::out_encaps_state {
     write_object_queue();
 private:
     object_stream_id
-    enqueue_object(void const*, object_write_func);
+    enqueue_object(void const*, marshal_func);
 };
 
 //----------------------------------------------------------------------------
 struct buffer_sequence::in_encaps_state {
     using object_stream_id  = ::std::int64_t;
     using type_map          = ::std::vector< segment_header::type_id_type >;
+    using input_iterator    = const_iterator;
+
+    struct queued_object_base {
+        virtual ~queued_object_base() {}
+
+        virtual bool
+        resolved() const = 0;
+        virtual void
+        read(input_iterator&, input_iterator) = 0;
+    };
+
+    template < typename T >
+    struct queued_object : queued_object_base {
+        using class_ptr         = typename polymorphic_type<T>::type;
+        using unmarshal_func    = ::std::function< class_ptr (input_iterator&, input_iterator) >;
+        using patch_ref         = ::std::reference_wrapper<class_ptr>;
+        using patch_list        = ::std::vector<patch_ref>;
+
+        virtual ~queued_object() {}
+
+        queued_object( unmarshal_func f, class_ptr& r )
+            : unmarshal{f}, patches { ::std::ref(r) }
+        {
+        }
+
+        bool
+        resolved() const
+        { return target.get(); }
+
+        virtual void
+        read(input_iterator& begin, input_iterator end)
+        {
+            target = unmarshal(begin, end);
+            for (auto& p : patches) {
+                p.get() = target;
+            }
+        }
+
+        void
+        add_patch_target(class_ptr& r)
+        {
+            if (resolved()) {
+                r = target;
+            } else {
+                patches.push_back(::std::ref(r));
+            }
+        }
+
+        class_ptr       target;
+        unmarshal_func  unmarshal;
+        patch_list      patches;
+    };
+
+    using queued_obj_ptr = ::std::shared_ptr< queued_object_base >;
+    using queued_objects = ::std::map< object_stream_id, queued_obj_ptr >;
 
     buffer_sequence*    seq_;
     version             encoding_version = version{ ENCODING_MAJOR, ENCODING_MINOR };
     size_type           size_ = 0;
 
-    const_iterator      begin_;
-    const_iterator      end_;
+    input_iterator      begin_;
+    input_iterator      end_;
 
     type_map            type_map_;
 
     bool                is_default_ = false;
+
+    queued_objects        object_unmarshal_queue_;
 
     in_encaps_state(buffer_sequence& seq, const_iterator beg);
     explicit
@@ -609,41 +666,20 @@ struct buffer_sequence::in_encaps_state {
 
     template< typename InputIterator >
     void
-    read_segment_header(InputIterator& begin, InputIterator& end, segment_header& sh)
-    {
-        read(begin, end_, sh.flags);
-        if (sh.flags & segment_header::string_type_id) {
-            ::std::string type_id;
-            read(begin, end_, type_id);
-            sh.type_id = type_id;
-            type_map_.push_back(sh.type_id);
-            ::std::cerr << "Read string type id " << sh.type_id << "\n";
-        } else if (sh.flags & segment_header::hash_type_id) {
-            hash_value_type type_id;
-            read(begin, end_, type_id);
-            sh.type_id = type_id;
-            type_map_.push_back(sh.type_id);
-            ::std::cerr << "Read hash type id " << sh.type_id << "\n";
-        } else {
-            size_type type_idx;
-            read(begin, end_, type_idx);
-            if (type_idx > type_map_.size()) {
-                throw errors::unmarshal_error("Invalid type index in encapsulation");
-            }
-            sh.type_id = type_map_[ type_idx - 1 ];
-            ::std::cerr << "Read type index " << type_idx << " ("
-                    << sh.type_id << ")\n";
-        }
-        read(begin, end_, sh.size);
-        end = begin + sh.size;
-    }
+    read_segment_header(InputIterator& begin, InputIterator& end, segment_header& sh);
+
+    template < typename T >
+    void
+    read_object(input_iterator& begin, input_iterator end,
+            ::std::shared_ptr< T >& obj,
+            typename queued_object< T >::unmarshal_func func);
 };
 
 //----------------------------------------------------------------------------
 class buffer_sequence::out_encaps {
 public:
     using object_stream_id  = out_encaps_state::object_stream_id;
-    using object_write_func = out_encaps_state::object_write_func;
+    using object_write_func = out_encaps_state::marshal_func;
 public:
     out_encaps(out_encaps const&) = default;
     out_encaps(out_encaps&&) = default;
@@ -694,7 +730,8 @@ private:
 //----------------------------------------------------------------------------
 class buffer_sequence::in_encaps {
 public:
-    using object_stream_id = in_encaps_state::object_stream_id;
+    using object_stream_id  = in_encaps_state::object_stream_id;
+    using input_iterator    = in_encaps_state::input_iterator;
 public:
     in_encaps(in_encaps const&) = default;
     in_encaps(in_encaps&&) = default;
@@ -715,6 +752,15 @@ public:
     read_segment_header(InputIterator& begin, InputIterator& end, segment_header& sh)
     {
         iter_->read_segment_header(begin, end, sh);
+    }
+
+    template < typename T >
+    void
+    read_object(input_iterator& begin, input_iterator end,
+            ::std::shared_ptr< T >& obj,
+            typename in_encaps_state::queued_object< T >::unmarshal_func func)
+    {
+        iter_->read_object(begin, end, obj, func);
     }
 
     const_iterator

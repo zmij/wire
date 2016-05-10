@@ -164,45 +164,6 @@ object_factory<T>::read(input_iterator& begin, input_iterator end) const
     return derived;
 }
 
-template < typename T >
-struct writer_impl< T, CLASS > {
-    using class_value       = typename polymorphic_type<T>::type;
-    using class_ptr         = ::std::shared_ptr<T>;
-    using output_iterator   = outgoing::output_iterator;
-    using object_stream_id  = outgoing::encapsulation_type::object_stream_id;
-
-    static void
-    output(output_iterator o, class_ptr val)
-    {
-        auto encaps = o.encapsulation();
-        object_stream_id _id{0};
-        if (val) {
-            _id = encaps.enqueue_object(val,
-                [o, val](object_stream_id id)
-                {
-                    write(o, id);
-                    val->__wire_write(o);
-                }
-            );
-        }
-        write(o, -_id);
-    }
-};
-
-template < typename T >
-struct reader_impl < T, CLASS > {
-    using class_value       = typename polymorphic_type<T>::type;
-    using class_ptr         = ::std::shared_ptr<T>;
-    using input_iterator    = incoming::const_iterator;
-
-    static void
-    input(input_iterator& begin, input_iterator end, class_ptr& p)
-    {
-        ;
-    }
-
-};
-
 }  /* namespace detail */
 }  /* namespace encoding */
 }  /* namespace wire */

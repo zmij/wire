@@ -98,6 +98,54 @@ struct object_factory_init {
     }
 };
 
+template < typename T >
+using auto_object_factory_init = object_factory_init< typename T::wire_root_type, T >;
+
+template < typename T >
+struct writer_impl< T, CLASS > {
+    using class_value       = typename polymorphic_type<T>::type;
+    using class_ptr         = ::std::shared_ptr<T>;
+    using output_iterator   = outgoing::output_iterator;
+    using object_stream_id  = outgoing::encapsulation_type::object_stream_id;
+
+    static void
+    output(output_iterator o, class_ptr val)
+    {
+        auto encaps = o.encapsulation();
+        object_stream_id _id{0};
+        if (val) {
+            _id = encaps.enqueue_object(val,
+                [o, val](object_stream_id id)
+                {
+                    write(o, id);
+                    val->__wire_write(o);
+                }
+            );
+        }
+        write(o, -_id);
+    }
+};
+
+template < typename T >
+struct reader_impl < T, CLASS > {
+    using class_value       = typename polymorphic_type<T>::type;
+    using class_ptr         = ::std::shared_ptr<T>;
+    using input_iterator    = incoming::const_iterator;
+    using root_type         = typename class_value::wire_root_type;
+    using factory_type      = object_factory<root_type>;
+
+    static void
+    input(input_iterator& begin, input_iterator end, class_ptr& p)
+    {
+        begin.incoming_encapsulation().read_object(begin, end, p,
+        [](input_iterator& b, input_iterator e)
+        {
+            return factory_type::instance().template read< class_value >(b, e);
+        });
+    }
+
+};
+
 }  /* namespace detail */
 }  /* namespace encoding */
 }  /* namespace wire */
