@@ -156,7 +156,7 @@ object_factory<T>::read(input_iterator& begin, input_iterator end) const
             factory_name(seg_head.type_id), " returned an empty object." };
     }
     auto derived = ::std::dynamic_pointer_cast< U >(obj);
-    if (!obj) {
+    if (!derived) {
         throw errors::unmarshal_error{ "Object created by factory ",
             factory_name(seg_head.type_id), " cannot be cast to ", U::wire_static_type_id() };
     }

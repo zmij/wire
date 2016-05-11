@@ -147,10 +147,14 @@ struct reader_impl < T, CLASS > {
         begin.incoming_encapsulation().read_object< root_type >(begin, end,
         [ref](root_ptr v)
         {
-            ref.get() = ::std::dynamic_pointer_cast< class_type >(v);
-            if (!ref.get().get()) {
-                throw errors::unmarshal_error{ class_type::wire_static_type_id(),
-                    " instance was expected" };
+            if (!v) {
+                ref.get().reset();
+            } else {
+                ref.get() = ::std::dynamic_pointer_cast< class_type >(v);
+                if (!ref.get().get()) {
+                    throw errors::unmarshal_error{ class_type::wire_static_type_id(),
+                        " instance was expected" };
+                }
             }
         },
         [](input_iterator& b, input_iterator e)
