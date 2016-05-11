@@ -7,9 +7,20 @@
 
 #include "ping_pong_impl.hpp"
 #include <iostream>
+#include <wire/core/invokation.hpp>
 
 namespace wire {
 namespace test {
+
+static_assert(!core::detail::is_sync_dispatch<decltype(&::test::ping_pong::test_string)>::value,
+        "test_string is async");
+static_assert(core::detail::is_sync_dispatch<decltype(&::test::ping_pong::test_int)>::value,
+        "test_int is sync");
+static_assert(!core::detail::is_sync_dispatch<decltype(&::test::ping_pong::async_error)>::value,
+        "test_string is async");
+static_assert(::std::is_same<
+        util::function_traits<decltype(&::test::ping_pong::async_error)>::class_type,
+        ::test::ping_pong>::value, "Correct class owner");
 
 ::std::int32_t
 ping_pong_server::test_int(::std::int32_t val, ::wire::core::current const&) const

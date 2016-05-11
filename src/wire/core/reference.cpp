@@ -53,6 +53,12 @@ reference::create_reference(connector_ptr cnctr, reference_data const& ref_data)
     throw errors::runtime_error{"Well-known objects are not implemented yet"};
 }
 
+bool
+reference::is_local() const
+{
+    return get_connector()->is_local(*this);
+}
+
 //----------------------------------------------------------------------------
 //      Fixed reference implementation
 //----------------------------------------------------------------------------

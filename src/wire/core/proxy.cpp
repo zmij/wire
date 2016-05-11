@@ -9,6 +9,7 @@
 #include <wire/core/reference.hpp>
 #include <wire/core/connection.hpp>
 #include <wire/core/object.hpp>
+#include <wire/core/invokation.hpp>
 
 namespace wire {
 namespace core {
@@ -67,9 +68,11 @@ object_proxy::wire_is_a_async(::std::string const&  type_id,
         context_type const&                         ctx,
         bool                                        run_sync)
 {
-    auto const& ref = wire_get_reference();
-    wire_get_connection()->invoke(
-        ref.object_id(), "wire_is_a", ctx, run_sync, response, exception, sent, type_id);
+    make_invocation(wire_get_reference(),
+            "wire_is_a", ctx,
+            &object::wire_is_a,
+            response, exception, sent,
+            type_id)(run_sync);
 }
 
 void
@@ -88,9 +91,10 @@ object_proxy::wire_ping_async(
         bool                            run_sync
 )
 {
-    auto const& ref = wire_get_reference();
-    wire_get_connection()->invoke(
-        ref.object_id(), "wire_ping", ctx, run_sync, response, exception, sent);
+    make_invocation(wire_get_reference(),
+            "wire_ping", ctx,
+            &object::wire_ping,
+            response, exception, sent)(run_sync);
 }
 
 ::std::string
@@ -109,9 +113,10 @@ object_proxy::wire_type_async(
         bool                                        run_sync
 )
 {
-    auto const& ref = wire_get_reference();
-    wire_get_connection()->invoke(
-        ref.object_id(), "wire_type", ctx, run_sync, response, exception, sent);
+    make_invocation(wire_get_reference(),
+            "wire_type", ctx,
+            &object::wire_type,
+            response, exception, sent)(run_sync);
 }
 
 ::std::vector< ::std::string >
@@ -130,9 +135,10 @@ object_proxy::wire_types_async(
         bool                                                            run_sync
 )
 {
-    auto const& ref = wire_get_reference();
-    wire_get_connection()->invoke(
-        ref.object_id(), "wire_types", ctx, run_sync, response, exception, sent);
+    make_invocation(wire_get_reference(),
+            "wire_types", ctx,
+            &object::wire_types,
+            response, exception, sent)(run_sync);
 }
 
 ::std::ostream&

@@ -21,7 +21,7 @@ template < typename ... T >
 using callback              = ::std::function< void (T ... ) >;
 
 using exception_callback    = callback< ::std::exception_ptr >;
-
+using invocation_function   = ::std::function< void(bool sync) >;
 
 }  // namespace callbacks
 }  // namespace core

@@ -19,6 +19,7 @@
 #include <wire/core/adapter_fwd.hpp>
 #include <wire/core/proxy_fwd.hpp>
 #include <wire/core/identity_fwd.hpp>
+#include <wire/core/reference_fwd.hpp>
 
 namespace wire {
 namespace core {
@@ -72,6 +73,8 @@ public:
     object_prx
     string_to_proxy(::std::string const& str);
 
+    bool
+    is_local(reference const& ref) const;
     /**
      * Get an existing connection to the endpoint specified or create a new one.
      * @param

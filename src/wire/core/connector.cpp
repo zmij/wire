@@ -386,6 +386,12 @@ connector::string_to_proxy(::std::string const& str)
     return pimpl_->string_to_proxy(str);
 }
 
+bool
+connector::is_local(reference const& ref) const
+{
+    return false;
+}
+
 connection_ptr
 connector::get_outgoing_connection(endpoint const& ep)
 {

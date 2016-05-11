@@ -70,6 +70,9 @@ public:
     data() const
     { return ref_; }
 
+    bool
+    is_local() const;
+
     identity const&
     object_id() const
     { return ref_.object_id; }

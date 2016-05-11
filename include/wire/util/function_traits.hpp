@@ -100,9 +100,11 @@ template < typename Class, typename Return, typename ... Args >
 struct function_traits< Return(Class::*)(Args...) const> {
     enum { arity = sizeof...(Args) };
 
+    using class_type                = Class;
     using result_type               = Return;
     using args_tuple_type           = ::std::tuple< Args ... >;
     using decayed_args_tuple_type   = ::std::tuple< typename ::std::decay<Args>::type ... >;
+
     template < size_t n>
     struct arg {
         using type                  = typename ::std::tuple_element<n, args_tuple_type>::type;
@@ -116,6 +118,7 @@ template < typename Class, typename Return, typename Arg >
 struct function_traits< Return(Class::*)(Arg) const > {
     enum { arity = 1 };
 
+    using class_type                = Class;
     using result_type = Return;
     using args_tuple_type = Arg;
     using decayed_args_tuple_type   = typename ::std::decay<Arg>::type;
@@ -127,6 +130,8 @@ struct function_traits< Return(Class::*)(Arg) const > {
 template < typename Class, typename Return >
 struct function_traits< Return(Class::*)() const> {
     enum { arity = 0 };
+
+    using class_type                = Class;
     using result_type               = Return;
 };
 
@@ -137,6 +142,7 @@ template < typename Class, typename Return, typename ... Args >
 struct function_traits< Return(Class::*)(Args...) > {
     enum { arity = sizeof...(Args) };
 
+    using class_type                = Class;
     using result_type               = Return;
     using args_tuple_type           = ::std::tuple< Args ... >;
     using decayed_args_tuple_type   = ::std::tuple< typename ::std::decay<Args>::type ... >;
@@ -153,6 +159,7 @@ template < typename Class, typename Return, typename Arg >
 struct function_traits< Return(Class::*)(Arg) > {
     enum { arity = 1 };
 
+    using class_type                = Class;
     using result_type = Return;
     using args_tuple_type = Arg;
     using decayed_args_tuple_type   = typename ::std::decay<Arg>::type;
@@ -164,6 +171,8 @@ struct function_traits< Return(Class::*)(Arg) > {
 template < typename Class, typename Return >
 struct function_traits< Return(Class::*)() > {
     enum { arity = 0 };
+
+    using class_type                = Class;
     using result_type               = Return;
 };
 
