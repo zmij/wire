@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <boost/filesystem.hpp>
 
+#include <wire/types.hpp>
 #include <wire/idl/syntax_error.hpp>
 #include <wire/util/murmur_hash.hpp>
 
@@ -80,6 +81,10 @@ strip_quotes(::std::string& str)
 }
 
 qname const root_interface {"::wire::core::object"};
+qname const hash_value_type_name { "::wire::hash_value_type" };
+qname const input_iterator_name { "::wire::encoding::incoming::const_iterator" };
+qname const outgoing_name { "::wire::encoding::outgoing" };
+qname const back_inserter { "::std::back_insert_iterator" };
 
 }  /* namespace  */
 
@@ -230,7 +235,7 @@ create_header_guard(fs::path const& inc_dir, fs::path const& fname)
 
 generator::generator(generate_options const& opts, preprocess_options const& ppo,
         ast::global_namespace_ptr ns)
-    : ns_{ns}, unit_{ns->current_compilation_unit()},
+    : options_{opts}, ns_{ns}, unit_{ns->current_compilation_unit()},
       current_scope_{true}
 {
     auto cwd = fs::current_path();
@@ -391,11 +396,16 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
         source_ << "#include <unordered_map>\n";
     }
     if (unit_->has_classes()) {
-
+        header_ << "#include <wire/encoding/detail/polymorphic_io.hpp>\n";
     }
 
     header_ << "\n";
     source_ << "\n";
+
+    if (options_.dont_use_hashed_id) {
+        ::std::cerr << "Don't use hashed type ids for marshalling\n";
+    }
+
 }
 
 generator::~generator()
@@ -785,6 +795,11 @@ generator::generate_forward_decl( ast::forward_declaration_ptr fwd )
         case ast::forward_declaration::structure:
             header_ << h_off_ << "struct " << rel_name(fwd->get_qualified_name()) << ";";
             break;
+        case ast::forward_declaration::interface:
+            header_ << h_off_ << "class " << fwd->name() << "_proxy;"
+                    << h_off_ << "using " << fwd->name() << "_prx = ::std::shared_ptr< "
+                        << fwd->name() << "_proxy >;";
+            ;
         case ast::forward_declaration::exception:
         case ast::forward_declaration::class_:
             header_ << h_off_ << "class " << fwd->name() << ";"
@@ -793,12 +808,6 @@ generator::generate_forward_decl( ast::forward_declaration_ptr fwd )
                     << h_off_ << "using " << fwd->name() << "_weak_ptr = ::std::weak_ptr< "
                         << fwd->name() << ">;"
             ;
-        case ast::forward_declaration::interface:
-            header_ << h_off_ << "class " << fwd->name() << "_proxy;"
-                    << h_off_ << "using " << fwd->name() << "_prx = ::std::shared_ptr< "
-                        << fwd->name() << "_proxy >;";
-            ;
-
         default:
             break;
     }
@@ -931,6 +940,100 @@ generator::generate_read_write( ast::structure_ptr struct_)
 }
 
 void
+generator::generate_member_read_write( ast::structure_ptr struct_,
+        ast::structure_const_ptr parent, bool ovrde)
+{
+    offset_guard hdr{h_off_};
+    offset_guard src{s_off_};
+
+    auto const& data_members = struct_->get_data_members();
+    ::std::ostringstream qn_os;
+    qn_os << struct_->get_qualified_name();
+    auto qn_str = qn_os.str();
+
+    header_ << ++h_off_ << (( parent || ovrde ) ? "" : "virtual ") << "void"
+            << h_off_ << "__wire_write(output_iterator o) const"
+                    << (( parent || ovrde ) ? " override" : "") << ";";
+
+    header_ << h_off_ << (( parent || ovrde ) ? "" : "virtual ") << "void"
+            << h_off_ << "__wire_read(input_iterator& begin, input_iterator end, "
+                            "bool read_head = true)"
+                    << (( parent || ovrde ) ? " override" : "") << ";";
+
+    // Source
+    tmp_pop_scope _pop{current_scope_};
+    //------------------------------------------------------------------------
+    //  Wire write member function
+    //------------------------------------------------------------------------
+    source_ << s_off_ << "void"
+            << s_off_ << rel_name(struct_)
+            << "::__wire_write(output_iterator o) const"
+            << s_off_ << "{";
+
+    ++s_off_;
+
+    source_ << s_off_ << "auto encaps = o.encapsulation();";
+
+    ::std::string flags = "::wire::encoding::segment_header::none";
+    if (!parent) {
+        flags = "::wire::encoding::segment_header::last_segment";
+    }
+
+    ::std::string type_id_func = options_.dont_use_hashed_id ? "wire_static_type_id"
+            : (qn_str.size() > sizeof(hash_value_type)) ?
+                    "wire_static_type_id_hash" : "wire_static_type_id";
+    source_ << s_off_ << "encaps.start_segment(" << type_id_func << "(), " << flags << ");";
+
+    if (!data_members.empty()) {
+        source_ << s_off_ << "::wire::encoding::write(o";
+        for (auto dm : data_members) {
+            source_ << ", " << dm->name();
+        }
+        source_ << ");";
+    }
+
+    source_ << s_off_ << "encaps.end_segment();";
+
+    if (parent) {
+        source_ << s_off_ << parent->name() << "::__wire_write(o);";
+    }
+
+    source_ << --s_off_ << "}\n";
+
+    //------------------------------------------------------------------------
+    //  Wire read member function
+    //------------------------------------------------------------------------
+    source_ << s_off_ << "void"
+            << s_off_ << rel_name(struct_)
+            << "::__wire_read(input_iterator& begin, input_iterator end, "
+                    "bool read_head)"
+            << s_off_ << "{";
+    ++s_off_;
+
+    source_ << s_off_ << "auto encaps = begin.incoming_encapsulation();";
+    source_ << s_off_++ << "if (read_head) {";
+    source_ << s_off_ <<    "::wire::encoding::segment_header seg_head;"
+            << s_off_ <<    "encaps.read_segment_header(begin, end, seg_head);";
+    source_ << s_off_ << "::wire::encoding::check_segment_header< " << struct_->name()
+                            << " >(seg_head);";
+    source_ << --s_off_ << "}\n";
+
+    if (!data_members.empty()) {
+        source_ << s_off_ << "::wire::encoding::read(begin, end";
+        for (auto dm : data_members) {
+            source_ << ", " << dm->name();
+        }
+        source_ << ");";
+    }
+
+    if (parent) {
+        source_ << s_off_ << parent->name() << "::__wire_read(begin, encaps.end(), true);";
+    }
+
+    source_ << --s_off_ << "}\n";
+}
+
+void
 generator::generate_comparison( ast::structure_ptr struct_)
 {
     auto f = find(struct_->get_annotations(), annotations::GENERATE_CMP);
@@ -1036,7 +1139,7 @@ generator::generate_type_id_funcs(ast::entity_ptr elem)
     header_ << h_off_ << "static ::std::string const&"
             << h_off_ << "wire_static_type_id();";
 
-    header_ << h_off_ << "static ::std::uint64_t"
+    header_ << h_off_ << "static " << rel_name(hash_value_type_name)
             << h_off_ << "wire_static_type_id_hash();";
 
     tmp_pop_scope _pop{current_scope_};
@@ -1051,7 +1154,7 @@ generator::generate_type_id_funcs(ast::entity_ptr elem)
     source_ << s_off_++ << "namespace {\n";
     source_ << s_off_ << "::std::string const " << pfx << "TYPE_ID = \"" << eqn_str
             << "\";";
-    source_ << s_off_ << "::std::uint64_t const " << pfx << "TYPE_ID_HASH = 0x"
+    source_ << s_off_ << rel_name(hash_value_type_name) << " const " << pfx << "TYPE_ID_HASH = 0x"
             << ::std::hex << hash::murmur_hash(eqn_str) << ::std::dec << ";";
     source_ << "\n" << --s_off_ << "} /* namespace for " << eqn << " */\n";
 
@@ -1061,7 +1164,7 @@ generator::generate_type_id_funcs(ast::entity_ptr elem)
     source_ << ++s_off_ << "return " << pfx << "TYPE_ID;";
     source_ << --s_off_ << "}\n";
 
-    source_ << s_off_ << "::std::uint64_t"
+    source_ << s_off_ << rel_name(hash_value_type_name)
             << s_off_ << rel_name(eqn) << "::wire_static_type_id_hash()"
             << s_off_ << "{";
     source_ << ++s_off_ << "return " << pfx << "TYPE_ID_HASH;";
@@ -1310,14 +1413,7 @@ generator::generate_exception(ast::exception_ptr exc)
         qn_str = generate_type_id_funcs(exc);
         {
             // Member functions
-
-            header_ << ++h_off_ << "void"
-                    << h_off_ << "__wire_write(output_iterator o) const override;";
-
-            header_ << h_off_ << "void"
-                    << h_off_ << "__wire_read(input_iterator& begin, input_iterator end, "
-                            "bool read_head = true) override;";
-
+            generate_member_read_write(exc, exc->get_parent());
             header_ << h_off_ << "::std::exception_ptr"
                     << h_off_ << "make_exception_ptr() override"
                     << h_off_ << "{ return ::std::make_exception_ptr(*this); }";
@@ -1341,76 +1437,6 @@ generator::generate_exception(ast::exception_ptr exc)
             << rel_name(exc->get_qualified_name()) << " > const "
             << constant_prefix(exc->get_qualified_name()) << "_factory_init;"
             << s_off_ << "}";
-
-    // generate io funcs in cpp
-    //------------------------------------------------------------------------
-    //  Wire write function for the exception
-    //------------------------------------------------------------------------
-    source_ << s_off_ << "void"
-            << s_off_ << rel_name(exc->get_qualified_name())
-            << "::__wire_write(output_iterator o) const"
-            << s_off_ << "{";
-
-    ++s_off_;
-
-    source_ << s_off_ << "auto encaps = o.encapsulation();";
-
-    ::std::string flags = "::wire::encoding::segment_header::none";
-    if (!exc->get_parent()) {
-        flags = "::wire::encoding::segment_header::last_segment";
-    }
-
-    ::std::string type_id_func = qn_str.size() > sizeof(::std::uint64_t) ?
-            "wire_static_type_id_hash" : "wire_static_type_id";
-    source_ << s_off_ << "encaps.start_segment(" << type_id_func << "(), " << flags << ");";
-
-    if (!data_members.empty()) {
-        source_ << s_off_ << "::wire::encoding::write(o";
-        for (auto dm : data_members) {
-            source_ << ", " << dm->name();
-        }
-        source_ << ");";
-    }
-
-    source_ << s_off_ << "encaps.end_segment();";
-
-    if (exc->get_parent()) {
-        source_ << s_off_ << parent_name << "::__wire_write(o);";
-    }
-
-    source_ << --s_off_ << "}\n";
-
-    //------------------------------------------------------------------------
-    //  Wire read function for an exception
-    //------------------------------------------------------------------------
-    source_ << s_off_ << "void"
-            << s_off_ << rel_name(exc->get_qualified_name())
-            << "::__wire_read(input_iterator& begin, input_iterator end, "
-                    "bool read_head)"
-            << s_off_ << "{";
-    ++s_off_;
-
-    source_ << s_off_ << "auto encaps = begin.incoming_encapsulation();";
-    source_ << s_off_++ << "if (read_head) {";
-    source_ << s_off_ <<    "::wire::encoding::segment_header seg_head;"
-            << s_off_ <<    "encaps.read_segment_header(begin, end, seg_head);";
-    source_ << s_off_ << "__check_segment_header< " << exc->name() << " >(seg_head);";
-    source_ << --s_off_ << "}\n";
-
-    if (!data_members.empty()) {
-        source_ << s_off_ << "::wire::encoding::read(begin, end";
-        for (auto dm : data_members) {
-            source_ << ", " << dm->name();
-        }
-        source_ << ");";
-    }
-
-    if (exc->get_parent()) {
-        source_ << s_off_ << parent_name << "::__wire_read(begin, encaps.end(), true);";
-    }
-
-    source_ << --s_off_ << "}\n";
-
     pop_scope();
 }
 
@@ -1438,7 +1464,7 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
         }
         --h_off_;
     } else {
-        header_ << " : public virtual " << root_interface;
+        header_ << " : public virtual " << rel_name(root_interface);
     }
     header_ << " {";
 
@@ -1488,8 +1514,6 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
         }
         --h_off_;
     }
-
-    // TODO Dispatch function
 
     header_ << --h_off_ << "};\n";
     pop_scope();
@@ -1585,6 +1609,183 @@ generator::generate_interface(ast::interface_ptr iface)
 }
 
 void
+generator::generate_class(ast::class_ptr class_)
+{
+    offset_guard hdr{h_off_};
+    offset_guard src{s_off_};
+    qname cqn = class_->get_qualified_name();
+    adjust_scope(class_);
+    source_ << s_off_ << "//" << ::std::setw(77) << ::std::setfill('-') << "-"
+            << s_off_ << "//    Implementation for class " << cqn
+            << s_off_ << "//" << ::std::setw(77) << ::std::setfill('-') << "-";
+
+    header_ << h_off_ << "/**"
+            << h_off_ << " *    Class " << cqn
+            << h_off_ << " */"
+            << h_off_ << "class " << class_->name();
+    auto const& ancestors = class_->get_ancestors();
+    auto const& data_members = class_->get_data_members();
+    auto parent = class_->get_parent();
+    ::std::string qn_str;
+    if (parent) {
+        header_ << (h_off_ + 1) << ": public " << rel_name(parent);
+    }
+    if (!ancestors.empty()) {
+        ++h_off_;
+        if (parent) {
+            header_ << "," << h_off_ << "  ";
+        } else {
+            header_ << h_off_ << ": ";
+        }
+        for (auto a = ancestors.begin(); a != ancestors.end(); ++a) {
+            if (a != ancestors.begin())
+                header_ << "," << h_off_ << "  ";
+            header_ << "public virtual " << rel_name(*a);
+        }
+        --h_off_;
+    } else if (class_->has_functions()) {
+        ++h_off_;
+        if (parent) {
+            header_ << "," << h_off_ << "  public virtual " << rel_name(root_interface);
+        } else {
+            header_ << h_off_ << ": public virtual " << rel_name(root_interface);
+        }
+        --h_off_;
+    }
+    header_ << " {";
+    {
+        tmp_push_scope _push{current_scope_, class_->name()};
+        scope_stack_.push_back(class_);
+
+        header_ << h_off_++ << "public:";
+        header_ << h_off_ << "using wire_root_type = "
+                << rel_name(class_->root_class()->get_qualified_name()) << ";";
+        if (!parent) {
+            header_ << h_off_ << "using input_iterator = " << rel_name(input_iterator_name) << ";"
+                    << h_off_ << "using output_iterator = " << rel_name(back_inserter)
+                        << "< " << rel_name(outgoing_name) << " >;";
+        }
+        if (!class_->get_types().empty()) {
+            for (auto t : class_->get_types()) {
+                generate_type_decl(t);
+            }
+        }
+        --h_off_;
+        if (!class_->get_constants().empty()) {
+            header_ << h_off_++ << "public:";
+            for (auto c : class_->get_constants()) {
+                generate_constant(c);
+            }
+            --h_off_;
+        }
+
+        {
+            ::std::ostringstream members_init;
+            if (!data_members.empty()) {
+                for (auto dm = data_members.begin(); dm != data_members.end(); ++dm) {
+                    if (dm != data_members.begin())
+                        members_init << ", ";
+                    members_init << (*dm)->name() << "{}";
+                }
+            }
+            // Constructor
+            header_ << h_off_++ << "public:";
+            header_ << h_off_ << class_->name() << "()";
+            bool need_comma {false};
+            if (parent) {
+                header_ << (h_off_ + 1) << ": " << rel_name(parent) << "{}";
+                need_comma = true;
+            }
+            if (class_->is_abstract()) {
+                if (need_comma) {
+                    header_ << "," << (h_off_ + 1) << "  ";
+                } else {
+                    header_ << (h_off_ + 1) << ": ";
+                }
+                header_ << rel_name(root_interface) << "{}";
+                for (auto a : ancestors) {
+                    header_ << "," << (h_off_ + 1)
+                            << "  " << rel_name(a) << "{}";
+                }
+                need_comma = true;
+            }
+            if (!data_members.empty()) {
+                if (need_comma) {
+                    header_ << "," << (h_off_ + 1) << "  ";
+                } else {
+                    header_ << (h_off_ + 1) << ": ";
+                }
+                header_ << members_init.str();
+            }
+
+            header_ << " {}";
+            --h_off_;
+        }
+        {
+            // Destuctor
+            header_ << (h_off_ + 1) << "virtual ~" << class_->name() << "() {}";
+        }
+        qn_str = generate_type_id_funcs(class_);
+        {
+            // Member functions
+            generate_member_read_write(class_, parent, false);
+        }
+
+        if (class_->is_abstract()) {
+            generate_wire_functions(class_);
+            auto const& funcs = class_->get_functions();
+            if (!funcs.empty()) {
+                header_ << h_off_++ << "public:";
+                // Dispatch methods
+                for (auto f : funcs) {
+                    generate_dispatch_function_member(f);
+                }
+                --h_off_;
+            }
+        } else {
+            // factory initializer
+            //------------------------------------------------------------------------
+            //  Factory initializer for the class
+            //------------------------------------------------------------------------
+            source_ << s_off_ << "namespace {"
+                    << (s_off_ + 1) << "::wire::encoding::detail::auto_object_factory_init< "
+                    << rel_name(cqn) << " > const "
+                    << constant_prefix(cqn) << "_factory_init;"
+                    << s_off_ << "}";
+        }
+        {
+            // Data members
+            if (!data_members.empty()) {
+                header_ << h_off_++ << "public:";
+                for (auto dm : data_members) {
+                    header_ << h_off_
+                            << type_name(dm->get_type()) << " " << dm->name() << ";";
+                }
+                --h_off_;
+            }
+        }
+
+        header_ << h_off_ << "};\n";
+    }
+    pop_scope();
+
+    //------------------------------------------------------------------------
+    //  Type aliases for class pointers
+    //------------------------------------------------------------------------
+    header_ << h_off_ << "using " << class_->name()
+            << "_ptr = ::std::shared_ptr< " << class_->name() << " >;";
+    header_ << h_off_ << "using " << class_->name()
+            << "_weak_ptr = ::std::weak_ptr< " << class_->name() << " >;\n";
+
+    if (class_->has_functions()) {
+        generate_proxy_interface(class_);
+        header_ << h_off_ << "using " << class_->name()
+                << "_prx = ::std::shared_ptr< " << class_->name() << "_proxy >;";
+        header_ << "\n";
+    }
+}
+
+void
 generator::finish_compilation_unit(ast::compilation_unit const& u)
 {
     qname const wire_enc_detail{ "::wire::encoding::detail" };
@@ -1608,7 +1809,12 @@ generator::finish_compilation_unit(ast::compilation_unit const& u)
         interfaces,
         [](ast::entity_const_ptr e)
         {
-            return (bool)ast::dynamic_entity_cast< ast::interface >(e).get();
+            auto iface = ast::dynamic_entity_cast< ast::interface >(e);
+            if (iface) {
+                auto cls = ast::dynamic_entity_cast<ast::class_>(iface);
+                return !cls || cls->has_functions();
+            }
+            return false;
         });
     if (!interfaces.empty()) {
         adjust_scope(wire_enc_detail.search());

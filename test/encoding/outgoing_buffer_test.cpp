@@ -143,13 +143,14 @@ TEST(OutgoingBuffer, Encapsulation)
         EXPECT_EQ(INSERT_CHARS, encaps.size());
         EXPECT_EQ(INSERT_CHARS*2, out.size()); // Before encapsulation is closed
     }
-    EXPECT_EQ(INSERT_CHARS*2 + 3, out.size()); // After encapsulation is closed, size of 100 fits into one byte, 2 bytes are encaps header
+    EXPECT_EQ(INSERT_CHARS*2 + 4, out.size()); // After encapsulation is closed, size of 100 fits into one byte, 2 bytes are encaps header, 1 byte is size of indirection table
 }
 
 TEST(OutgoingBuffer, NestedEncapsulation)
 {
     const size_t INNER_ENCAPS_HEADER = 3;
     const size_t OUTER_ENCAPS_HEADER = 4;
+    const size_t INDIRECTION_TABLE   = 1;
     outgoing out{ core::connector_ptr{} };
     for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
         out.push_back(i);
@@ -171,13 +172,13 @@ TEST(OutgoingBuffer, NestedEncapsulation)
             EXPECT_EQ(INSERT_CHARS*2, outer.size());
             EXPECT_EQ(INSERT_CHARS*3, out.size()); // Before encapsulation is closed
         }
-        EXPECT_EQ(INSERT_CHARS*2 + INNER_ENCAPS_HEADER, outer.size());
-        EXPECT_EQ(INSERT_CHARS*3 + INNER_ENCAPS_HEADER, out.size()); // Before encapsulation is closed
+        EXPECT_EQ(INSERT_CHARS*2 + INNER_ENCAPS_HEADER + INDIRECTION_TABLE, outer.size());
+        EXPECT_EQ(INSERT_CHARS*3 + INNER_ENCAPS_HEADER + INDIRECTION_TABLE, out.size()); // Before encapsulation is closed
         for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
             out.push_back(i);
         }
-        EXPECT_EQ(INSERT_CHARS*3 + INNER_ENCAPS_HEADER, outer.size());
-        EXPECT_EQ(INSERT_CHARS*4 + INNER_ENCAPS_HEADER, out.size()); // Before encapsulation is closed
+        EXPECT_EQ(INSERT_CHARS*3 + INNER_ENCAPS_HEADER  + INDIRECTION_TABLE, outer.size());
+        EXPECT_EQ(INSERT_CHARS*4 + INNER_ENCAPS_HEADER  + INDIRECTION_TABLE, out.size()); // Before encapsulation is closed
 
         outgoing opaque{ core::connector_ptr{} };
         for (uint8_t i = 0; i < INSERT_CHARS; ++i) {
@@ -186,10 +187,10 @@ TEST(OutgoingBuffer, NestedEncapsulation)
         EXPECT_EQ(INSERT_CHARS, opaque.size());
         out.insert_encapsulation(std::move(opaque));
 
-        EXPECT_EQ(INSERT_CHARS*4 + INNER_ENCAPS_HEADER*2, outer.size());
-        EXPECT_EQ(INSERT_CHARS*5 + INNER_ENCAPS_HEADER*2, out.size()); // Before encapsulation is closed
+        EXPECT_EQ(INSERT_CHARS*4 + INNER_ENCAPS_HEADER*2 + INDIRECTION_TABLE*2, outer.size());
+        EXPECT_EQ(INSERT_CHARS*5 + INNER_ENCAPS_HEADER*2 + INDIRECTION_TABLE*2, out.size()); // Before encapsulation is closed
     }
-    EXPECT_EQ(INSERT_CHARS*5 + INNER_ENCAPS_HEADER*2 + OUTER_ENCAPS_HEADER, out.size()); // After encapsulation is closed, size of 200 fits into two bytes, 2 bytes per encaps header
+    EXPECT_EQ(INSERT_CHARS*5 + INNER_ENCAPS_HEADER*2 + OUTER_ENCAPS_HEADER + INDIRECTION_TABLE*3, out.size()); // After encapsulation is closed, size of 200 fits into two bytes, 2 bytes per encaps header, 1 byte - size of indirection table
 }
 
 TEST(OutgoingBuffer, MessageHeaders)

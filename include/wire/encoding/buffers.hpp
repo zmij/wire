@@ -11,9 +11,8 @@
 #include <wire/asio_config.hpp>
 #include <wire/encoding/wire_io.hpp>
 #include <wire/encoding/message.hpp>
-#include <wire/encoding/detail/buffer_iterator.hpp>
-
 #include <wire/core/connector_fwd.hpp>
+#include <wire/encoding/detail/buffer_sequence.hpp>
 
 #include <memory>
 #include <iterator>
@@ -56,6 +55,8 @@ public:
 
     using encapsulation_type        = detail::buffer_sequence::out_encaps;
     using encaps_guard              = detail::encaps_guard<encapsulation_type>;
+
+    using output_iterator           = ::std::back_insert_iterator<outgoing>;
 public:
     outgoing(core::connector_ptr cnctr);
     outgoing(core::connector_ptr cnctr, message::message_flags);
@@ -175,6 +176,9 @@ public:
 
     encapsulation_type
     current_encapsulation();
+
+    void
+    close_all_encaps();
     //@}
 
     //@{

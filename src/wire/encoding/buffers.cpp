@@ -215,7 +215,7 @@ outgoing::pop_back()
 outgoing::asio_buffers
 outgoing::to_buffers() const
 {
-    return std::move(pimpl_->to_buffers());
+    return pimpl_->to_buffers();
 }
 
 void
@@ -234,6 +234,12 @@ outgoing::encapsulation_type
 outgoing::current_encapsulation()
 {
     return pimpl_->current_out_encapsulation();
+}
+
+void
+outgoing::close_all_encaps()
+{
+    pimpl_->close_out_encapsulations();
 }
 
 void

@@ -8,6 +8,7 @@
 #ifndef WIRE_CORE_OBJECT_HPP_
 #define WIRE_CORE_OBJECT_HPP_
 
+#include <wire/types.hpp>
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/current.hpp>
 #include <wire/core/dispatch_request_fwd.hpp>
@@ -27,7 +28,7 @@ public:
 class object : public dispatcher_object {
 public:
     using type_list = ::std::vector< ::std::string >;
-    using dispatch_seen_list = ::std::set< ::std::uint64_t >;
+    using dispatch_seen_list = ::std::set< hash_value_type >;
 public:
     virtual
     ~object() = default;

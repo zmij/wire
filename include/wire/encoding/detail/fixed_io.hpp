@@ -73,7 +73,6 @@ struct fixed_size_reader {
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
 
-		auto start = begin;
 		base_type tmp;
 		byte* p = reinterpret_cast<byte*>(&tmp);
 		if (copy_max(begin, end, p, byte_count)) {
@@ -100,7 +99,6 @@ struct fixed_size_reader<fixed_size< T >> {
 	{
 		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
 
-		auto start = begin;
 		fundamental_type tmp;
 		byte* p = reinterpret_cast<byte*>(&tmp);
 		if (copy_max(begin, end, p, byte_count)) {

@@ -45,6 +45,8 @@ struct generate_options {
 
     ::std::string    header_output_dir;
     ::std::string    source_output_dir;
+
+    bool             dont_use_hashed_id;
 };
 
 struct offset {
@@ -189,7 +191,7 @@ public:
     generate_interface(ast::interface_ptr iface) override;
 
     void
-    generate_class(ast::class_ptr class_);
+    generate_class(ast::class_ptr class_) override;
 private:
     void
     adjust_scope(qname_search const& qn);
@@ -214,6 +216,9 @@ private:
     relative_name
     rel_name(qname const& qn)
     { return { current_scope_.search(), qn }; }
+    relative_name
+    rel_name(ast::entity_const_ptr en)
+    { return rel_name(en->get_qualified_name()); }
 
     ::std::ostream&
     write_init(::std::ostream&, offset& off, grammar::data_initializer const& init);
@@ -223,6 +228,9 @@ private:
 
     void
     generate_read_write( ast::structure_ptr struct_);
+    void
+    generate_member_read_write( ast::structure_ptr struct_,
+            ast::structure_const_ptr parent, bool ovrde = true );
     void
     generate_comparison( ast::structure_ptr struct_);
     void
@@ -244,6 +252,7 @@ private:
 private:
     using free_function = ::std::function< void() >;
 private:
+    generate_options                options_;
     ast::global_namespace_ptr       ns_;
     ast::compilation_unit_ptr       unit_;
 

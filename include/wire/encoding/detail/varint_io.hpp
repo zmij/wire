@@ -62,11 +62,11 @@ namespace detail {
  */
 template < typename T, size_t N >
 struct varint_mask_value {
-	typedef T type;	/**< Typedef for the integral type. */
-	/** Mask value */
-	static constexpr type value =
-			(static_cast< type >(0xff) << (N * 8)) |
-			varint_mask_value< T, N - 1 >::value;
+    using type = T;    /**< Typedef for the integral type. */
+    /** Mask value */
+    static constexpr type value =
+            (static_cast< type >(0xff) << (N * 8)) |
+            varint_mask_value< T, N - 1 >::value;
 };
 
 /**
@@ -75,9 +75,9 @@ struct varint_mask_value {
  */
 template < typename T >
 struct varint_mask_value< T, 0 > {
-	typedef T type;	/**< Typedef for the integral type. */
-	/** Mask value */
-	static constexpr type value = static_cast<type>(1 << 7);
+    using type = T;    /**< Typedef for the integral type. */
+    /** Mask value */
+    static constexpr type value = static_cast<type>(1 << 7);
 };
 
 /**
@@ -101,8 +101,8 @@ struct enum_integral_type;
  */
 template <>
 struct enum_integral_type<2> {
-	/** Result of metafunction */
-	typedef uint16_t type;
+    /** Result of metafunction */
+    using type = uint16_t;
 };
 
 /**
@@ -110,8 +110,8 @@ struct enum_integral_type<2> {
  */
 template <>
 struct enum_integral_type<4> {
-	/** Result of metafunction */
-	typedef uint32_t type;
+    /** Result of metafunction */
+    using type = uint32_t;
 };
 
 /**
@@ -119,8 +119,8 @@ struct enum_integral_type<4> {
  */
 template <>
 struct enum_integral_type<8> {
-	/** Result of metafunction */
-	typedef uint64_t type;
+    /** Result of metafunction */
+    using type = uint64_t;
 };
 
 template < typename T, bool is_signed >
@@ -133,35 +133,35 @@ struct varint_writer;
  */
 template < typename T >
 struct varint_writer < T, true > {
-	/** Decayed type for type being written */
-	typedef typename arg_type_helper<T>::base_type			base_type;
-	/** Type deduced for argument passing, suitable for writing */
-	typedef typename arg_type_helper<T>::in_type			in_type;
-	/** Unsigned type of same size for actual buffer writing */
-	typedef typename std::make_unsigned<base_type>::type	unsigned_type;
-	/** Writer type for unsigned_type */
-	typedef varint_writer< unsigned_type, false >			unsigned_writer;
+    /** Decayed type for type being written */
+    using base_type = typename arg_type_helper<T>::base_type        ;
+    /** Type deduced for argument passing, suitable for writing */
+    using in_type = typename arg_type_helper<T>::in_type        ;
+    /** Unsigned type of same size for actual buffer writing */
+    using unsigned_type = typename std::make_unsigned<base_type>::type;
+    /** Writer type for unsigned_type */
+    using unsigned_writer = varint_writer< unsigned_type, false >        ;
 
-	enum {
-		shift_bits = sizeof(in_type) * 8 - 1 /**< Number of bits shifted for ZigZag encoging */
-	};
+    enum {
+        shift_bits = sizeof(in_type) * 8 - 1 /**< Number of bits shifted for ZigZag encoging */
+    };
 
-	/**
-	 * Write signed integral value using ZigZag and Varint encodings.
-	 * @tparam OutputIterator Output iterator type
-	 * @param o output iterator
-	 * @param v signed integral value
-	 */
-	template < typename OutputIterator >
-	static void
-	output( OutputIterator o, in_type v)
-	{
-		typedef octet_output_iterator_concept< OutputIterator > output_iterator_check;
-		typedef typename output_iterator_check::value_type		value_type;
+    /**
+     * Write signed integral value using ZigZag and Varint encodings.
+     * @tparam OutputIterator Output iterator type
+     * @param o output iterator
+     * @param v signed integral value
+     */
+    template < typename OutputIterator >
+    static void
+    output( OutputIterator o, in_type v)
+    {
+        using output_iterator_check = octet_output_iterator_concept< OutputIterator >;
+        using value_type = typename output_iterator_check::value_type    ;
 
-		unsigned_writer::output(o,
-			static_cast< unsigned_type >( (v << 1) ^ (v >> shift_bits) ));
-	}
+        unsigned_writer::output(o,
+            static_cast< unsigned_type >( (v << 1) ^ (v >> shift_bits) ));
+    }
 };
 
 /**
@@ -176,30 +176,30 @@ struct varint_enum_writer;
  */
 template < typename T >
 struct varint_enum_writer< T, true > {
-	/** Enumeration decayed type */
-	typedef typename arg_type_helper<T>::base_type			base_type;
-	/** Type deduced for argument passing, suitable for writing */
-	typedef typename arg_type_helper<T>::in_type			in_type;
-	/** Unsigned integral type enough for storing the enumeration type */
-	typedef typename enum_integral_type< sizeof(T) >::type	integral_type;
-	/** Varint writer type for the integral type */
-	typedef varint_writer< integral_type, false >			writer_type;
+    /** Enumeration decayed type */
+    using base_type = typename arg_type_helper<T>::base_type        ;
+    /** Type deduced for argument passing, suitable for writing */
+    using in_type = typename arg_type_helper<T>::in_type        ;
+    /** Unsigned integral type enough for storing the enumeration type */
+    using integral_type = typename enum_integral_type< sizeof(T) >::type;
+    /** Varint writer type for the integral type */
+    using writer_type = varint_writer< integral_type, false >        ;
 
-	/**
-	 * Convert enumeration value to an unsigned integral value and write it
-	 * using varint encoding.
-	 * @tparam OutputIterator Output iterator type
-	 * @param o output iterator
-	 * @param v enumeration value
-	 */
-	template < typename OutputIterator >
-	static void
-	output( OutputIterator o, in_type v)
-	{
-		typedef octet_output_iterator_concept< OutputIterator >	output_iterator_check;
-		typedef typename output_iterator_check::value_type		value_type;
-		writer_type::output(o, static_cast<integral_type>(v));
-	}
+    /**
+     * Convert enumeration value to an unsigned integral value and write it
+     * using varint encoding.
+     * @tparam OutputIterator Output iterator type
+     * @param o output iterator
+     * @param v enumeration value
+     */
+    template < typename OutputIterator >
+    static void
+    output( OutputIterator o, in_type v)
+    {
+        using output_iterator_check = octet_output_iterator_concept< OutputIterator >;
+        using value_type = typename output_iterator_check::value_type    ;
+        writer_type::output(o, static_cast<integral_type>(v));
+    }
 };
 
 /**
@@ -207,44 +207,44 @@ struct varint_enum_writer< T, true > {
  */
 template < typename T >
 struct varint_enum_writer < T, false > {
-	/** Decayed type for type being written */
-	typedef typename arg_type_helper<T>::base_type	base_type;
-	/** Type deduced for argument passing, suitable for writing */
-	typedef typename arg_type_helper<T>::in_type	in_type;
-	/** Mask for checking if there is more data in high bits */
-	typedef varint_mask< T >						mask_type;
-	/** Mask for least significant byte */
-	typedef varint_mask_value< T, 0 >				lsb_mask_type;
+    /** Decayed type for type being written */
+    using base_type = typename arg_type_helper<T>::base_type;
+    /** Type deduced for argument passing, suitable for writing */
+    using in_type = typename arg_type_helper<T>::in_type;
+    /** Mask for checking if there is more data in high bits */
+    using mask_type = varint_mask< T >                    ;
+    /** Mask for least significant byte */
+    using lsb_mask_type = varint_mask_value< T, 0 >            ;
 
-	//@{
-	/** @name Bit masks */
-	static constexpr base_type eighth_bit = lsb_mask_type::value;	// 0b10000000
-	static constexpr base_type seven_bits = ~lsb_mask_type::value;	// 0b01111111
-	//@}
+    //@{
+    /** @name Bit masks */
+    static constexpr base_type eighth_bit = lsb_mask_type::value;    // 0b10000000
+    static constexpr base_type seven_bits = ~lsb_mask_type::value;    // 0b01111111
+    //@}
 
-	/**
-	 * Write unsigned integral value using varint encoding
-	 * @tparam OutputIterator Output iterator type
-	 * @param o output iterator
-	 * @param v unsigned integral value
-	 */
-	template < typename OutputIterator >
-	static void
-	output( OutputIterator o, in_type v)
-	{
-		typedef octet_output_iterator_concept< OutputIterator >	output_iterator_check;
-		typedef typename output_iterator_check::value_type		value_type;
+    /**
+     * Write unsigned integral value using varint encoding
+     * @tparam OutputIterator Output iterator type
+     * @param o output iterator
+     * @param v unsigned integral value
+     */
+    template < typename OutputIterator >
+    static void
+    output( OutputIterator o, in_type v)
+    {
+        using output_iterator_check = octet_output_iterator_concept< OutputIterator >;
+        using value_type = typename output_iterator_check::value_type    ;
 
-		v = boost::endian::native_to_little(v);
-		value_type current = v & seven_bits;
-		while (v & mask_type::value) {
-			current |= eighth_bit;
-			*o++ = current;
-			v = v >> 7;
-			current = v & seven_bits;
-		}
-		*o++ = current;
-	}
+        v = boost::endian::native_to_little(v);
+        value_type current = v & seven_bits;
+        while (v & mask_type::value) {
+            current |= eighth_bit;
+            *o++ = current;
+            v = v >> 7;
+            current = v & seven_bits;
+        }
+        *o++ = current;
+    }
 };
 
 /**
@@ -252,7 +252,7 @@ struct varint_enum_writer < T, false > {
  */
 template < typename T >
 struct varint_writer< T, false >
-	: varint_enum_writer< T, std::is_enum<T>::value > {};
+    : varint_enum_writer< T, std::is_enum<T>::value > {};
 
 template < typename T, bool is_signed >
 struct varint_reader;
@@ -262,13 +262,13 @@ struct varint_reader;
  */
 template < typename T >
 struct zig_zag_traits {
-	/** Decayed type */
-	typedef typename std::decay<T>::type			type;
-	/** Corresponding unsigned type */
-	typedef typename std::make_unsigned<type>::type	unsigned_type;
-	enum {
-		shift_bits = sizeof(type) * 8 - 1
-	};
+    /** Decayed type */
+    using type = typename std::decay<T>::type        ;
+    /** Corresponding unsigned type */
+    using unsigned_type = typename std::make_unsigned<type>::type;
+    enum {
+        shift_bits = sizeof(type) * 8 - 1
+    };
 };
 
 /**
@@ -276,13 +276,13 @@ struct zig_zag_traits {
  */
 template <>
 struct zig_zag_traits<int16_t> {
-	/** Decayed type */
-	typedef int16_t									type;
-	/** Corresponding unsigned type */
-	typedef typename std::make_unsigned<type>::type	unsigned_type;
-	enum {
-		shift_bits = 31
-	};
+    /** Decayed type */
+    using type = int16_t                                ;
+    /** Corresponding unsigned type */
+    using unsigned_type = typename std::make_unsigned<type>::type;
+    enum {
+        shift_bits = 31
+    };
 };
 
 /**
@@ -290,42 +290,42 @@ struct zig_zag_traits<int16_t> {
  */
 template < typename T >
 struct varint_reader< T, true > {
-	/** Decayed type for type being read */
-	typedef typename std::decay<T>::type			type;
-	/** Corresponding unsigned type */
-	typedef typename std::make_unsigned<type>::type	unsigned_type;
-	/** Reader type for unsigned_type */
-	typedef varint_reader< unsigned_type, false >	unsigned_reader;
-	/** ZigZag encoding traits */
-	typedef zig_zag_traits<type>					traits;
+    /** Decayed type for type being read */
+    using type = typename std::decay<T>::type        ;
+    /** Corresponding unsigned type */
+    using unsigned_type = typename std::make_unsigned<type>::type;
+    /** Reader type for unsigned_type */
+    using unsigned_reader = varint_reader< unsigned_type, false >;
+    /** ZigZag encoding traits */
+    using traits = zig_zag_traits<type>                ;
 
-	enum {
-		shift_bits = traits::shift_bits
-	};
+    enum {
+        shift_bits = traits::shift_bits
+    };
 
-	/**
-	 * Read unsigned varint value from buffer and convert it to signed one
-	 * using ZigZag encoding
-	 * @param begin Start of read sequence
-	 * @param end End of read sequence
-	 * @param v Value to read
-	 * @return Pair of iterator and boolean flag if the operation was successful
-	 */
-	template < typename InputIterator >
-	static void
-	input(InputIterator& begin, InputIterator end, type& v)
-	{
-		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
+    /**
+     * Read unsigned varint value from buffer and convert it to signed one
+     * using ZigZag encoding
+     * @param begin Start of read sequence
+     * @param end End of read sequence
+     * @param v Value to read
+     * @return Pair of iterator and boolean flag if the operation was successful
+     */
+    template < typename InputIterator >
+    static void
+    input(InputIterator& begin, InputIterator end, type& v)
+    {
+        using input_iterator_check = octet_input_iterator_concept< InputIterator >;
 
-		unsigned_type tmp;
-		try {
-			unsigned_reader::input(begin, end, tmp);
-			v = static_cast<type>(tmp >> 1) ^
-					(static_cast<type>(tmp) << shift_bits >> shift_bits);
-		} catch (errors::unmarshal_error const&) {
-			throw errors::unmarshal_error("Failed to read signed value");
-		}
-	}
+        unsigned_type tmp;
+        try {
+            unsigned_reader::input(begin, end, tmp);
+            v = static_cast<type>(tmp >> 1) ^
+                    (static_cast<type>(tmp) << shift_bits >> shift_bits);
+        } catch (errors::unmarshal_error const&) {
+            throw errors::unmarshal_error("Failed to read signed value");
+        }
+    }
 };
 
 template < typename T, bool is_enum >
@@ -336,37 +336,37 @@ struct varint_enum_reader;
  */
 template < typename T >
 struct varint_enum_reader< T, true > {
-	/** Enumeration decayed type */
-	typedef typename arg_type_helper<T>::base_type			base_type;
-	/** Type deduced for argument passing, suitable for reading (a non-const reference) */
-	typedef typename arg_type_helper<T>::out_type			out_type;
-	/** Unsigned integral type enough for storing the enumeration type */
-	typedef typename enum_integral_type< sizeof(T) >::type	integral_type;
-	/** Varint reader type for the integral type */
-	typedef varint_reader< integral_type, false >			reader_type;
+    /** Enumeration decayed type */
+    using base_type = typename arg_type_helper<T>::base_type        ;
+    /** Type deduced for argument passing, suitable for reading (a non-const reference) */
+    using out_type = typename arg_type_helper<T>::out_type        ;
+    /** Unsigned integral type enough for storing the enumeration type */
+    using integral_type = typename enum_integral_type< sizeof(T) >::type;
+    /** Varint reader type for the integral type */
+    using reader_type = varint_reader< integral_type, false >        ;
 
-	/**
-	 * Read an unsigned integral value from input sequence and convert it to
-	 * enumeration type.
-	 * @param begin Start of read sequence
-	 * @param end End of read sequence
-	 * @param v Value to read
-	 * @return Pair of iterator and boolean flag if the operation was successful
-	 */
-	template < typename InputIterator >
-	static void
-	input(InputIterator& begin, InputIterator end, out_type v)
-	{
-		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
+    /**
+     * Read an unsigned integral value from input sequence and convert it to
+     * enumeration type.
+     * @param begin Start of read sequence
+     * @param end End of read sequence
+     * @param v Value to read
+     * @return Pair of iterator and boolean flag if the operation was successful
+     */
+    template < typename InputIterator >
+    static void
+    input(InputIterator& begin, InputIterator end, out_type v)
+    {
+        using input_iterator_check = octet_input_iterator_concept< InputIterator >;
 
-		integral_type iv;
-		try {
-			reader_type::input(begin, end, iv);
-			v = static_cast<base_type>(iv);
-		} catch (errors::unmarshal_error const&) {
-			throw errors::unmarshal_error("Failed to read enumeration value");
-		}
-	}
+        integral_type iv;
+        try {
+            reader_type::input(begin, end, iv);
+            v = static_cast<base_type>(iv);
+        } catch (errors::unmarshal_error const&) {
+            throw errors::unmarshal_error("Failed to read enumeration value");
+        }
+    }
 };
 
 /**
@@ -374,50 +374,49 @@ struct varint_enum_reader< T, true > {
  */
 template < typename T >
 struct varint_enum_reader< T, false > {
-	/** Decayed type */
-	typedef typename arg_type_helper<T>::base_type	base_type;
-	/** Type deduced for argument passing, suitable for reading (a non-const reference) */
-	typedef typename arg_type_helper<T>::out_type	out_type;
-	/** Mask for least significant byte */
-	typedef varint_mask_value< T, 0 >				lsb_mask_type;
+    /** Decayed type */
+    using base_type = typename arg_type_helper<T>::base_type;
+    /** Type deduced for argument passing, suitable for reading (a non-const reference) */
+    using out_type = typename arg_type_helper<T>::out_type;
+    /** Mask for least significant byte */
+    using lsb_mask_type = varint_mask_value< T, 0 >            ;
 
-	//@{
-	/** @name Bit masks */
-	static constexpr base_type eighth_bit = lsb_mask_type::value;	// 0b10000000
-	static constexpr base_type seven_bits = ~lsb_mask_type::value;	// 0b01111111
-	//@}
+    //@{
+    /** @name Bit masks */
+    static constexpr base_type eighth_bit = lsb_mask_type::value;    // 0b10000000
+    static constexpr base_type seven_bits = ~lsb_mask_type::value;    // 0b01111111
+    //@}
 
-	/**
-	 * Read unsigned integral value using varint encoding
-	 * @param begin Start of read sequence
-	 * @param end End of read sequence
-	 * @param v Value to read
-	 * @return Pair of iterator and boolean flag if the operation was successful
-	 */
-	template < typename InputIterator >
-	static void
-	input(InputIterator& begin, InputIterator end, out_type v)
-	{
-		typedef octet_input_iterator_concept< InputIterator >	input_iterator_check;
+    /**
+     * Read unsigned integral value using varint encoding
+     * @param begin Start of read sequence
+     * @param end End of read sequence
+     * @param v Value to read
+     * @return Pair of iterator and boolean flag if the operation was successful
+     */
+    template < typename InputIterator >
+    static void
+    input(InputIterator& begin, InputIterator end, out_type v)
+    {
+        using input_iterator_check = octet_input_iterator_concept< InputIterator >;
 
-		auto start = begin;
-		base_type tmp = 0;
-		bool more = true;
-		for (uint32_t n = 0; more && begin != end; ++n) {
-			base_type curr_byte = (byte)*begin++;
-			tmp |= (curr_byte & seven_bits) << (7 * n);
-			more = curr_byte & eighth_bit;
-		}
-		if (more) {
-			throw errors::unmarshal_error("Failed to read unsigned integral value");
-		}
-		v = boost::endian::little_to_native(tmp);
-	}
+        base_type tmp = 0;
+        bool more = true;
+        for (uint32_t n = 0; more && begin != end; ++n) {
+            base_type curr_byte = (byte)*begin++;
+            tmp |= (curr_byte & seven_bits) << (7 * n);
+            more = curr_byte & eighth_bit;
+        }
+        if (more) {
+            throw errors::unmarshal_error("Failed to read unsigned integral value");
+        }
+        v = boost::endian::little_to_native(tmp);
+    }
 };
 
 template < typename T >
 struct varint_reader< T, false >
-	: varint_enum_reader< T, std::is_enum<T>::value > {};
+    : varint_enum_reader< T, std::is_enum<T>::value > {};
 
 }  // namespace detail
 }  // namespace encoding

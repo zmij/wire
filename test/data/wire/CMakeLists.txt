@@ -15,7 +15,6 @@ wire2cpp(
 )
 
 get_property(inc_dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
-message(STATUS "Include dirs: ${inc_dirs}")
 set(test_includes)
 foreach(inc_dir ${inc_dirs})
     list(APPEND test_includes -I${inc_dir})

@@ -36,7 +36,7 @@ parser::parse()
 
     bool r = qi::phrase_parse(iter, end, grammar, qi::in_state("WS")[tokens.self]);
 
-    if (iter != end) {
+    if (!r || iter != end) {
         auto loc = state_.get_location( ::std::distance(contents.data(), sb) );
         throw syntax_error(loc, "Unexpected token");
     }

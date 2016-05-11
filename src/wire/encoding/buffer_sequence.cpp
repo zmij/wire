@@ -5,7 +5,7 @@
  *      Author: sergey.fedorov
  */
 
-#include <wire/encoding/detail/buffer_iterator.hpp>
+#include <wire/encoding/detail/buffer_sequence.hpp>
 #include <numeric>
 #include <cassert>
 #include <wire/errors/exceptions.hpp>
@@ -440,6 +440,14 @@ buffer_sequence::current_out_encapsulation() const
     return out_encaps{const_cast<buffer_sequence*>(this)};
 }
 
+void
+buffer_sequence::close_out_encapsulations()
+{
+    while (out_encaps_stack_.size() > 1)
+        out_encaps_stack_.pop_back();
+    out_encaps_stack_.front().write_indirection_table();
+}
+
 buffer_sequence::in_encaps
 buffer_sequence::begin_in_encapsulation(const_iterator beg)
 {
@@ -482,6 +490,7 @@ buffer_sequence::out_encaps_state::out_encaps_state(out_encaps_state&& rhs)
 buffer_sequence::out_encaps_state::~out_encaps_state()
 {
     if (!is_default_ && sp_.seq_) {
+        write_indirection_table();
         buffer_type& buff = sp_.buffer();
         write(::std::back_inserter(buff), encoding_version, size());
     }
@@ -511,7 +520,7 @@ buffer_sequence::out_encaps_state::start_segment(segment_header::flags_type flag
 
 void
 buffer_sequence::out_encaps_state::start_segment(segment_header::flags_type flags,
-        ::std::uint64_t const& name_hash)
+        hash_value_type const& name_hash)
 {
     if (!sp_.seq_)
         throw errors::marshal_error("Output encapsulation is invalid");
@@ -537,6 +546,38 @@ buffer_sequence::out_encaps_state::end_segment()
     current_segment_.reset();
 }
 
+buffer_sequence::out_encaps_state::object_stream_id
+buffer_sequence::out_encaps_state::enqueue_object(void const* obj, marshal_func func)
+{
+    auto f = object_ids_.find(obj);
+    if (f == object_ids_.end()) {
+        object_stream_id id = object_ids_.size() + 1;
+        ::std::cerr << "Enqueue object with id " << id << "\n";
+        object_write_queue_.push_back({id, func});
+        object_ids_.emplace(obj, id);
+        return id;
+    }
+    ::std::cerr << "Object already enqueued with id " << f->second << "\n";
+    return f->second;
+}
+
+void
+buffer_sequence::out_encaps_state::write_indirection_table()
+{
+    queued_objects queue;
+    queue.swap(object_write_queue_);
+    write(::std::back_inserter(sp_.back_buffer()), queue.size());
+    while (!queue.empty()) {
+        ::std::cerr << "Outgoing object queue size: " << queue.size() << "\n";
+        for (auto const& o: queue) {
+            o.marshal(o.id);
+        }
+        queue.swap(object_write_queue_);
+        object_write_queue_.clear();
+        write(::std::back_inserter(sp_.back_buffer()), queue.size());
+    }
+}
+
 buffer_sequence::out_encaps_state::segment::~segment()
 {
     if (sp_.seq_) {
@@ -548,7 +589,7 @@ buffer_sequence::out_encaps_state::segment::~segment()
             write(out, ::boost::get<::std::string>(type_id));
         } else if (flags & hash_type_id) {
             ::std::cerr << "Write hash type id " << type_id << "\n";
-            write(out, ::boost::get<::std::uint64_t>(type_id));
+            write(out, ::boost::get<hash_value_type>(type_id));
         } else {
             ::std::cerr << "Write type id index " << type_idx_ << "\n";
             write(out, type_idx_);
@@ -574,6 +615,24 @@ buffer_sequence::in_encaps_state::in_encaps_state(buffer_sequence& seq)
     end_ = seq_->end();
 }
 
+void
+buffer_sequence::in_encaps_state::read_indirection_table(input_iterator& begin)
+{
+    size_type sz;
+    read(begin, end_, sz);
+    while (sz > 0) {
+        ::std::cerr << "Read indirection table size " << sz << "\n";
+        for (size_type i = 0; i < sz; ++i) {
+            object_stream_id id;
+            read(begin, end_, id);
+            auto f = object_unmarshal_queue_.find(id);
+            if (f == object_unmarshal_queue_.end())
+                throw errors::unmarshal_error{ "Unexpected object id ", id, " in indirection table" };
+            f->second->unmarshal(begin, end_);
+        }
+        read(begin, end_, sz);
+    }
+}
 //----------------------------------------------------------------------------
 ::std::ostream&
 debug_output(::std::ostream& os, buffer_sequence const& bs)

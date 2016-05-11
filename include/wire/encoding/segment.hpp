@@ -15,7 +15,7 @@ namespace wire {
 namespace encoding {
 
 struct segment_header {
-    using type_id_type = ::boost::variant< ::std::string, ::std::uint64_t >;
+    using type_id_type = ::boost::variant< ::std::string, hash_value_type >;
 
     enum flags_type {
         none            = 0x00,

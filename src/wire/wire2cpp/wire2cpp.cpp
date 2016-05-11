@@ -77,6 +77,9 @@ try {
         ("header-include-root,i",
             po::value< ::std::string >(&gen_options.header_include_dir),
             "Root path of include files, for calculating a relative path for inclusion")
+        ("dont-use-hashed-ids,n",
+            po::bool_switch(&gen_options.dont_use_hashed_id)->default_value(false),
+            "Always use string type id in class and exception marshalling")
     ;
 
     po::options_description generate_opts_desc{"Generate options"};

@@ -1150,6 +1150,19 @@ interface::collect_ancestors(interface_list& ifaces, entity_predicate pred) cons
     }
 }
 
+bool
+interface::has_functions() const
+{
+    if (!functions_.empty()) {
+        return true;
+    }
+    for (auto a : ancestors_) {
+        if (a->has_functions())
+            return true;
+    }
+    return false;
+}
+
 ::std::int64_t
 interface::get_hash() const noexcept
 {
@@ -1220,6 +1233,30 @@ class_::local_type_search(qname_search const& search) const
         }
     }
     return t;
+}
+
+class_const_ptr
+class_::root_class() const
+{
+    if (parent_)
+        return parent_->root_class();
+    return shared_this< class_ >();
+}
+
+bool
+class_::has_functions() const
+{
+    if (interface::has_functions())
+        return true;
+    if (parent_)
+        return parent_->has_functions();
+    return false;
+}
+
+bool
+class_::is_abstract() const
+{
+    return !ancestors_.empty() || has_functions();
 }
 
 void

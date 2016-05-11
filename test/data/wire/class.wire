@@ -19,7 +19,6 @@ string const immutable = "Always here";
 bool const lie = false;
 
 exception oops;
-exception oops;
 
 enum class color {
     red = 0,
@@ -30,7 +29,8 @@ enum class color {
 exception oops {
     string message;
 };
-exception oops;
+
+interface shiny_one;
 
 interface shiny_one {
     using magic = array< byte, 4 >;
@@ -52,11 +52,17 @@ interface backdoor {
     oops();
 };
 
-struct stuff;
+struct stuff {
+    sequence< byte > data;
+};
 
 class mixin {
     color c;
     stuff s;
+};
+
+class extended_mixin : mixin {
+    shiny_one*    magic;
 };
 
 class base_class : shiny_one {
