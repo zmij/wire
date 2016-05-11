@@ -19,6 +19,7 @@ wire2cpp(
     HEADER_DIR include/test
     INCLUDE_ROOT test
     OUTPUT wired_SRCS
+    #OPTIONS --dont-use-hashed-ids
 )
 
 include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR}/include)

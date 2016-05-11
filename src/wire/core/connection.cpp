@@ -285,6 +285,7 @@ connection_impl_base::invoke(identity const& id, std::string const& op, context_
         request::normal
     };
     write(std::back_inserter(*out), r);
+    params.close_all_encaps();
     out->insert_encapsulation(std::move(params));
     callbacks::void_callback write_cb = sent ? [sent](){sent(true);} : callbacks::void_callback{};
     pending_replies_.insert(std::make_pair( r.number, pending_reply{ reply, exception } ));
@@ -350,6 +351,7 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
                         encoding::operation_specs op;
                         auto b = encaps->begin();
                         read(b, encaps->end(), op);
+                        encaps->read_indirection_table(b);
                         try {
                             f->second.error(
                                 ::std::make_exception_ptr(
@@ -381,6 +383,7 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
                         errors::user_exception_ptr exc;
                         auto b = encaps->begin();
                         read(b, encaps->end(), exc);
+                        encaps->read_indirection_table(b);
                         try {
                             f->second.error(exc->make_exception_ptr());
                         } catch (...) {
@@ -519,6 +522,7 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
                         };
                         write(std::back_inserter(*out), rep);
                         if (!res.empty()) {
+                            res.close_all_encaps();
                             out->insert_encapsulation(std::move(res));
                         }
                         _this->write_async(out);

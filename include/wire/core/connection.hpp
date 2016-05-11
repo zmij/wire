@@ -95,8 +95,10 @@ public:
         invoke(id, op, ctx, run_sync, ::std::move(out),
             [response, exception](incoming::const_iterator begin, incoming::const_iterator end){
                 try {
+                    auto encaps = begin.incoming_encapsulation();
                     args_tuple args;
                     encoding::read(begin, end, args);
+                    encaps.read_indirection_table(begin);
                     util::invoke(response, args);
                 } catch(...) {
                     if (exception) {

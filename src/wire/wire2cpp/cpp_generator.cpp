@@ -622,7 +622,8 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
                     call_params << ", ";
                 call_params << p->second;
             }
-            source_ << s_off_ << "::wire::encoding::read(__beg, __end, " << call_params.str() << ");";
+            source_ << s_off_ << "::wire::encoding::read(__beg, __end, " << call_params.str() << ");"
+                    << s_off_ << "__req.encaps_start.incoming_encapsulation().read_indirection_table(__beg);";
         }
 
         ::std::ostringstream fcall;

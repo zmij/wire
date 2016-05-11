@@ -26,6 +26,14 @@ interface callback {
     event();
 };
 
+class ball {
+    int64 size;
+};
+
+class named_ball : ball {
+    string name;
+};
+
 interface ping_pong {
     [[sync]]
     int32
@@ -39,6 +47,9 @@ interface ping_pong {
 
     callback*
     test_callback(callback* cb);
+
+    ball
+    test_ball(ball b);
 
     [[sync]]
     void

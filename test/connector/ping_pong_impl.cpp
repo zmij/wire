@@ -48,6 +48,20 @@ ping_pong_server::test_callback(::test::callback_prx cb,
     __resp(cb);
 }
 
+void
+ping_pong_server::test_ball(::test::ball_ptr b,
+            test_ball_return_callback __resp,
+            ::wire::core::callbacks::exception_callback __exception,
+            ::wire::core::current const&)
+{
+    ::std::cerr << __FUNCTION__ << " ";
+    if (b) {
+        ::std::cerr << "Ball size " << b->size << "\n";
+    } else {
+        ::std::cerr << "No ball\n";
+    }
+    __resp(b);
+}
 
 void
 ping_pong_server::error(::wire::core::current const&)

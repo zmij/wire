@@ -41,6 +41,12 @@ public:
             ::wire::core::current const& = ::wire::core::no_current) override;
 
     void
+    test_ball(::test::ball_ptr b,
+            test_ball_return_callback __resp,
+            ::wire::core::callbacks::exception_callback __exception,
+            ::wire::core::current const& = ::wire::core::no_current) override;
+
+    void
     error(::wire::core::current const& = ::wire::core::no_current) override;
 
     void

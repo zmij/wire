@@ -136,6 +136,20 @@ TEST_F(PingPong, SyncRoundtrip)
     auto rt_prx = pp_prx->test_callback(cb_prx);
     ::std::cerr << "Proxy after roundtrip " << *rt_prx << "\n";
     EXPECT_EQ(*cb_prx, *rt_prx);
+
+
+    auto ball = ::std::make_shared< ::test::named_ball >();
+    ball->size = 42;
+    ball->name = "Left ball";
+    auto ret = pp_prx->test_ball(ball);
+    ASSERT_TRUE(ret.get());
+    ASSERT_EQ(ball->size, ret->size);
+    auto named = ::std::dynamic_pointer_cast< ::test::named_ball >(ret);
+    ASSERT_TRUE(named.get());
+    ASSERT_EQ(ball->name, named->name);
+
+    ret = pp_prx->test_ball(::test::ball_ptr{});
+    ASSERT_FALSE(ret.get());
 }
 
 
