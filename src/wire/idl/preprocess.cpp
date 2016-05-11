@@ -78,7 +78,7 @@ struct preprocessor::impl {
                 input_stream_iterator{},
                 output_stream_iterator{ os } );
 
-        return ::std::move(os.str());
+        return os.str();
     }
 };
 

@@ -566,15 +566,15 @@ buffer_sequence::out_encaps_state::write_object_queue()
 {
     queued_objects queue;
     queue.swap(object_write_queue_);
-    auto ins = ::std::back_inserter(sp_.back_buffer());
-    write(ins, queue.size());
+    write(::std::back_inserter(sp_.back_buffer()), queue.size());
     while (!queue.empty()) {
         ::std::cerr << "Outgoing object queue size: " << queue.size() << "\n";
         for (auto const& o: queue) {
             o.marshal(o.id);
         }
         queue.swap(object_write_queue_);
-        write(ins, queue.size());
+        object_write_queue_.clear();
+        write(::std::back_inserter(sp_.back_buffer()), queue.size());
     }
 }
 

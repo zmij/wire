@@ -97,7 +97,7 @@ object_proxy::wire_ping_async(
 object_proxy::wire_type(context_type const& ctx)
 {
     auto future = wire_type_async(ctx, true);
-    return std::move(future.get());
+    return future.get();
 }
 
 void

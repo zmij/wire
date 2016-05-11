@@ -215,7 +215,7 @@ outgoing::pop_back()
 outgoing::asio_buffers
 outgoing::to_buffers() const
 {
-    return std::move(pimpl_->to_buffers());
+    return pimpl_->to_buffers();
 }
 
 void
