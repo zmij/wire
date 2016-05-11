@@ -262,7 +262,7 @@ buffer_sequence::in_encaps_state::read_object(input_iterator& begin, input_itera
         auto f = object_unmarshal_queue_.find(::std::abs(id));
         if (f == object_unmarshal_queue_.end()) {
             object_unmarshal_queue_.emplace(
-                    id, ::std::make_shared< queued_object_type >( func, pf ) );
+                    ::std::abs(id), ::std::make_shared< queued_object_type >( func, pf ) );
         } else {
             auto qo = ::std::dynamic_pointer_cast< queued_object_type >(f->second);
             if (!qo)

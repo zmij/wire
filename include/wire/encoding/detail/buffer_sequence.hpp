@@ -565,7 +565,7 @@ struct buffer_sequence::out_encaps_state {
         return enqueue_object(reinterpret_cast<void const*>(p.get()), func);
     }
     void
-    write_object_queue();
+    write_indirection_table();
 private:
     object_stream_id
     enqueue_object(void const*, marshal_func);
@@ -583,7 +583,7 @@ struct buffer_sequence::in_encaps_state {
         virtual bool
         resolved() const = 0;
         virtual void
-        read(input_iterator&, input_iterator) = 0;
+        unmarshal(input_iterator&, input_iterator) = 0;
     };
 
     template < typename T >
@@ -602,7 +602,7 @@ struct buffer_sequence::in_encaps_state {
         virtual ~queued_object() {}
 
         queued_object( unmarshal_func f, patch_func pf )
-            : unmarshal{f}, patches { pf }
+            : unmarshal_{f}, patches { pf }
         {
         }
 
@@ -611,9 +611,9 @@ struct buffer_sequence::in_encaps_state {
         { return target.get(); }
 
         virtual void
-        read(input_iterator& begin, input_iterator end)
+        unmarshal(input_iterator& begin, input_iterator end)
         {
-            target = unmarshal(begin, end);
+            target = unmarshal_(begin, end);
             for (auto const& pf : patches) {
                 pf(target);
             }
@@ -631,7 +631,7 @@ struct buffer_sequence::in_encaps_state {
         }
 
         class_ptr       target;
-        unmarshal_func  unmarshal;
+        unmarshal_func  unmarshal_;
         patch_list      patches;
     };
 
@@ -649,7 +649,7 @@ struct buffer_sequence::in_encaps_state {
 
     bool                is_default_ = false;
 
-    queued_objects        object_unmarshal_queue_;
+    queued_objects      object_unmarshal_queue_;
 
     in_encaps_state(buffer_sequence& seq, const_iterator beg);
     explicit
@@ -684,6 +684,9 @@ struct buffer_sequence::in_encaps_state {
     read_object(input_iterator& begin, input_iterator end,
             typename queued_object< T >::patch_func,
             typename queued_object< T >::unmarshal_func func);
+
+    void
+    read_indirection_table(input_iterator& begin);
 };
 
 //----------------------------------------------------------------------------
@@ -772,6 +775,12 @@ public:
             typename in_encaps_state::queued_object< T >::unmarshal_func func)
     {
         iter_->read_object< T >(begin, end, patch, func);
+    }
+
+    void
+    read_indirection_table(input_iterator& begin)
+    {
+        iter_->read_indirection_table(begin);
     }
 
     const_iterator

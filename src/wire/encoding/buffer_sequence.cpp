@@ -445,7 +445,7 @@ buffer_sequence::close_out_encapsulations()
 {
     while (out_encaps_stack_.size() > 1)
         out_encaps_stack_.pop_back();
-    out_encaps_stack_.front().write_object_queue();
+    out_encaps_stack_.front().write_indirection_table();
 }
 
 buffer_sequence::in_encaps
@@ -490,7 +490,7 @@ buffer_sequence::out_encaps_state::out_encaps_state(out_encaps_state&& rhs)
 buffer_sequence::out_encaps_state::~out_encaps_state()
 {
     if (!is_default_ && sp_.seq_) {
-        write_object_queue();
+        write_indirection_table();
         buffer_type& buff = sp_.buffer();
         write(::std::back_inserter(buff), encoding_version, size());
     }
@@ -562,7 +562,7 @@ buffer_sequence::out_encaps_state::enqueue_object(void const* obj, marshal_func 
 }
 
 void
-buffer_sequence::out_encaps_state::write_object_queue()
+buffer_sequence::out_encaps_state::write_indirection_table()
 {
     queued_objects queue;
     queue.swap(object_write_queue_);
@@ -615,6 +615,24 @@ buffer_sequence::in_encaps_state::in_encaps_state(buffer_sequence& seq)
     end_ = seq_->end();
 }
 
+void
+buffer_sequence::in_encaps_state::read_indirection_table(input_iterator& begin)
+{
+    size_type sz;
+    read(begin, end_, sz);
+    while (sz > 0) {
+        ::std::cerr << "Read indirection table size " << sz << "\n";
+        for (size_type i = 0; i < sz; ++i) {
+            object_stream_id id;
+            read(begin, end_, id);
+            auto f = object_unmarshal_queue_.find(id);
+            if (f == object_unmarshal_queue_.end())
+                throw errors::unmarshal_error{ "Unexpected object id ", id, " in indirection table" };
+            f->second->unmarshal(begin, end_);
+        }
+        read(begin, end_, sz);
+    }
+}
 //----------------------------------------------------------------------------
 ::std::ostream&
 debug_output(::std::ostream& os, buffer_sequence const& bs)
