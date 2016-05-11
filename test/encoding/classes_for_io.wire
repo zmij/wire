@@ -1,0 +1,31 @@
+/*
+ * classes_for_io.wire
+ *
+ *  Created on: May 11, 2016
+ *      Author: zmij
+ */
+
+#ifndef ENCODING_CLASSES_FOR_IO_WIRE_
+#define ENCODING_CLASSES_FOR_IO_WIRE_
+
+#include <wire/sugar.wire>
+
+namespace test {
+
+class base {
+    int64   ivalue;
+};
+
+class middle : base {
+    float   fvalue;
+    base    bvalue;
+};
+
+class derived : middle {
+    string  svalue;
+};
+
+}  /* namespace test */
+
+
+#endif /* ENCODING_CLASSES_FOR_IO_WIRE_ */

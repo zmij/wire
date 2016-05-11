@@ -103,8 +103,8 @@ using auto_object_factory_init = object_factory_init< typename T::wire_root_type
 
 template < typename T >
 struct writer_impl< T, CLASS > {
-    using class_value       = typename polymorphic_type<T>::type;
-    using class_ptr         = ::std::shared_ptr<T>;
+    using class_type        = typename polymorphic_type<T>::type;
+    using class_ptr         = ::std::shared_ptr<class_type>;
     using output_iterator   = outgoing::output_iterator;
     using object_stream_id  = outgoing::encapsulation_type::object_stream_id;
 
@@ -117,7 +117,12 @@ struct writer_impl< T, CLASS > {
             _id = encaps.enqueue_object(val,
                 [o, val](object_stream_id id)
                 {
+                    ::std::cerr << "Output object " << class_type::wire_static_type_id()
+                        << " with id " << id << "\n";
                     write(o, id);
+                    if (!val) {
+                        throw errors::marshal_error{ "Object pointer is empty :(" };
+                    }
                     val->__wire_write(o);
                 }
             );
@@ -128,19 +133,29 @@ struct writer_impl< T, CLASS > {
 
 template < typename T >
 struct reader_impl < T, CLASS > {
-    using class_value       = typename polymorphic_type<T>::type;
-    using class_ptr         = ::std::shared_ptr<T>;
+    using class_type        = typename polymorphic_type<T>::type;
+    using class_ptr         = ::std::shared_ptr<class_type>;
     using input_iterator    = incoming::const_iterator;
-    using root_type         = typename class_value::wire_root_type;
+    using root_type         = typename class_type::wire_root_type;
+    using root_ptr          = ::std::shared_ptr<class_type>;
     using factory_type      = object_factory<root_type>;
 
     static void
     input(input_iterator& begin, input_iterator end, class_ptr& p)
     {
-        begin.incoming_encapsulation().read_object(begin, end, p,
+        auto ref = ::std::ref(p);
+        begin.incoming_encapsulation().read_object< root_type >(begin, end,
+        [ref](root_ptr v)
+        {
+            ref.get() = ::std::dynamic_pointer_cast< class_type >(v);
+            if (!ref.get().get()) {
+                throw errors::unmarshal_error{ class_type::wire_static_type_id(),
+                    " instance was expected" };
+            }
+        },
         [](input_iterator& b, input_iterator e)
         {
-            return factory_type::instance().template read< class_value >(b, e);
+            return factory_type::instance().template read< class_type >(b, e);
         });
     }
 

@@ -246,23 +246,28 @@ buffer_sequence::in_encaps_state::read_segment_header(InputIterator& begin,
 }
 
 template < typename T >
-void
+typename ::std::enable_if< ::std::is_same<T, typename T::wire_root_type>::value, void >::type
 buffer_sequence::in_encaps_state::read_object(input_iterator& begin, input_iterator end,
-        ::std::shared_ptr< T >& obj,
+        typename queued_object< T >::patch_func pf,
         typename queued_object< T >::unmarshal_func func)
 {
     using queued_object_type = queued_object< T >;
+    using class_ptr = typename queued_object_type::class_ptr;
+
     object_stream_id id;
     read(begin, end, id);
     if (id == 0) {
-        obj.reset();
+        pf(class_ptr{});
     } else {
         auto f = object_unmarshal_queue_.find(::std::abs(id));
         if (f == object_unmarshal_queue_.end()) {
-            object_unmarshal_queue_.emplace(obj, func);
+            object_unmarshal_queue_.emplace(
+                    id, ::std::make_shared< queued_object_type >( func, pf ) );
         } else {
-            queued_object_type& qo = dynamic_cast< queued_object_type& >(f->second);
-            qo.add_patch_target(obj);
+            auto qo = ::std::dynamic_pointer_cast< queued_object_type >(f->second);
+            if (!qo)
+                throw errors::unmarshal_error{ T::wire_static_type_id(), " object type expected" };
+            qo->add_patch_target(pf);
         }
     }
 }

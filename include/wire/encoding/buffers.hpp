@@ -176,6 +176,9 @@ public:
 
     encapsulation_type
     current_encapsulation();
+
+    void
+    close_all_encaps();
     //@}
 
     //@{

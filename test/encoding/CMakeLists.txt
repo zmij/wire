@@ -11,10 +11,20 @@ set(
     program_options
     iostreams
 )
+
+wire2cpp(
+    classes_for_io.wire
+    HEADER_DIR include/test
+    INCLUDE_ROOT test
+    OUTPUT wired_SRCS
+    OPTIONS --dont-use-hashed-ids
+)
+
 find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 
-
-include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${GTEST_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}/include)
 
 set(test_SRCS
     static_tests.cpp
@@ -35,6 +45,8 @@ set(test_SRCS
     segment_io_test.cpp
     exception_io_test.cpp
     reference_grammar_test.cpp
+    classes_io_test.cpp
+    ${wired_SRCS}
 )
 
 add_executable(test-wire-encoding ${test_SRCS})

@@ -391,11 +391,15 @@ struct buffer_sequence {
     begin_out_encapsulation();
     out_encaps
     current_out_encapsulation() const;
+    void
+    close_out_encapsulations();
 
     in_encaps
     begin_in_encapsulation(const_iterator);
     in_encaps
     current_in_encapsulation() const;
+    void
+    close_in_encapsulations();
     //@}
 private:
     friend class buffer_iterator<buffer_sequence, pointer>;
@@ -584,15 +588,21 @@ struct buffer_sequence::in_encaps_state {
 
     template < typename T >
     struct queued_object : queued_object_base {
-        using class_ptr         = typename polymorphic_type<T>::type;
+        using class_type        = typename polymorphic_type<T>::type;
+
+        static_assert( ::std::is_same<class_type, typename class_type::wire_root_type>::value,
+                "Factory should be of root type" );
+
+        using class_ptr         = ::std::shared_ptr<class_type>;
         using unmarshal_func    = ::std::function< class_ptr (input_iterator&, input_iterator) >;
-        using patch_ref         = ::std::reference_wrapper<class_ptr>;
-        using patch_list        = ::std::vector<patch_ref>;
+        using patch_func        = ::std::function< void(class_ptr) >;
+
+        using patch_list        = ::std::vector<patch_func>;
 
         virtual ~queued_object() {}
 
-        queued_object( unmarshal_func f, class_ptr& r )
-            : unmarshal{f}, patches { ::std::ref(r) }
+        queued_object( unmarshal_func f, patch_func pf )
+            : unmarshal{f}, patches { pf }
         {
         }
 
@@ -604,18 +614,19 @@ struct buffer_sequence::in_encaps_state {
         read(input_iterator& begin, input_iterator end)
         {
             target = unmarshal(begin, end);
-            for (auto& p : patches) {
-                p.get() = target;
+            for (auto const& pf : patches) {
+                pf(target);
             }
+            patches.clear();
         }
 
         void
-        add_patch_target(class_ptr& r)
+        add_patch_target(patch_func pf)
         {
             if (resolved()) {
-                r = target;
+                pf(target);
             } else {
-                patches.push_back(::std::ref(r));
+                patches.push_back(pf);
             }
         }
 
@@ -669,9 +680,9 @@ struct buffer_sequence::in_encaps_state {
     read_segment_header(InputIterator& begin, InputIterator& end, segment_header& sh);
 
     template < typename T >
-    void
+    typename ::std::enable_if< ::std::is_same<T, typename T::wire_root_type>::value, void >::type
     read_object(input_iterator& begin, input_iterator end,
-            ::std::shared_ptr< T >& obj,
+            typename queued_object< T >::patch_func,
             typename queued_object< T >::unmarshal_func func);
 };
 
@@ -679,7 +690,7 @@ struct buffer_sequence::in_encaps_state {
 class buffer_sequence::out_encaps {
 public:
     using object_stream_id  = out_encaps_state::object_stream_id;
-    using object_write_func = out_encaps_state::marshal_func;
+    using marshal_func = out_encaps_state::marshal_func;
 public:
     out_encaps(out_encaps const&) = default;
     out_encaps(out_encaps&&) = default;
@@ -714,7 +725,7 @@ public:
     }
     template < typename T >
     object_stream_id
-    enqueue_object(::std::shared_ptr<T> p, object_write_func func)
+    enqueue_object(::std::shared_ptr<T> p, marshal_func func)
     {
         return iter_->enqueue_object(p, func);
     }
@@ -757,10 +768,10 @@ public:
     template < typename T >
     void
     read_object(input_iterator& begin, input_iterator end,
-            ::std::shared_ptr< T >& obj,
+            typename in_encaps_state::queued_object< T >::patch_func patch,
             typename in_encaps_state::queued_object< T >::unmarshal_func func)
     {
-        iter_->read_object(begin, end, obj, func);
+        iter_->read_object< T >(begin, end, patch, func);
     }
 
     const_iterator

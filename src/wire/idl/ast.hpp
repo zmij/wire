@@ -79,6 +79,7 @@ using global_namespace_ptr          = ::std::shared_ptr< global_namespace >;
 
 class structure;
 using structure_ptr                 = shared_entity< structure >;
+using structure_const_ptr           = const_shared_entity< structure >;
 
 class interface;
 using interface_ptr                 = shared_entity< interface >;

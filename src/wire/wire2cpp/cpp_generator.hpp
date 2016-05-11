@@ -45,6 +45,8 @@ struct generate_options {
 
     ::std::string    header_output_dir;
     ::std::string    source_output_dir;
+
+    bool             dont_use_hashed_id;
 };
 
 struct offset {
@@ -227,6 +229,9 @@ private:
     void
     generate_read_write( ast::structure_ptr struct_);
     void
+    generate_member_read_write( ast::structure_ptr struct_,
+            ast::structure_const_ptr parent, bool ovrde = true );
+    void
     generate_comparison( ast::structure_ptr struct_);
     void
     generate_io( ast::structure_ptr struct_);
@@ -247,6 +252,7 @@ private:
 private:
     using free_function = ::std::function< void() >;
 private:
+    generate_options                options_;
     ast::global_namespace_ptr       ns_;
     ast::compilation_unit_ptr       unit_;
 

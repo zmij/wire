@@ -440,6 +440,14 @@ buffer_sequence::current_out_encapsulation() const
     return out_encaps{const_cast<buffer_sequence*>(this)};
 }
 
+void
+buffer_sequence::close_out_encapsulations()
+{
+    while (out_encaps_stack_.size() > 1)
+        out_encaps_stack_.pop_back();
+    out_encaps_stack_.front().write_object_queue();
+}
+
 buffer_sequence::in_encaps
 buffer_sequence::begin_in_encapsulation(const_iterator beg)
 {
@@ -543,11 +551,13 @@ buffer_sequence::out_encaps_state::enqueue_object(void const* obj, marshal_func 
 {
     auto f = object_ids_.find(obj);
     if (f == object_ids_.end()) {
-        object_stream_id id = object_write_queue_.size() + 1;
+        object_stream_id id = object_ids_.size() + 1;
+        ::std::cerr << "Enqueue object with id " << id << "\n";
         object_write_queue_.push_back({id, func});
         object_ids_.emplace(obj, id);
         return id;
     }
+    ::std::cerr << "Object already enqueued with id " << f->second << "\n";
     return f->second;
 }
 
@@ -556,11 +566,15 @@ buffer_sequence::out_encaps_state::write_object_queue()
 {
     queued_objects queue;
     queue.swap(object_write_queue_);
+    auto ins = ::std::back_inserter(sp_.back_buffer());
+    write(ins, queue.size());
     while (!queue.empty()) {
+        ::std::cerr << "Outgoing object queue size: " << queue.size() << "\n";
         for (auto const& o: queue) {
             o.marshal(o.id);
         }
         queue.swap(object_write_queue_);
+        write(ins, queue.size());
     }
 }
 

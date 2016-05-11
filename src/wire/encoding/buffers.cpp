@@ -237,6 +237,12 @@ outgoing::current_encapsulation()
 }
 
 void
+outgoing::close_all_encaps()
+{
+    pimpl_->close_out_encapsulations();
+}
+
+void
 outgoing::debug_print(::std::ostream& os) const
 {
     debug_output(os, *pimpl_);
