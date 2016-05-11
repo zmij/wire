@@ -186,6 +186,14 @@ struct function_traits<T> :
         call_operator_traits< T >,
         not_a_function<T> >::type {};
 
+template < typename Func >
+struct is_func_void :
+    ::std::conditional<
+         ::std::is_same< typename function_traits< Func >::result_type, void >::value,
+         ::std::true_type,
+         ::std::false_type
+     >::type {};
+
 namespace detail {
 
 template < typename Func, size_t ... Indexes, typename ... T >

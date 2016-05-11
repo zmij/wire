@@ -101,8 +101,7 @@ struct local_invokation< Handler, Member,
     using interface_type    = typename member_traits::class_type;
     using servant_ptr       = ::std::shared_ptr< interface_type >;
 
-    static constexpr bool is_void
-                            = ::std::is_same< typename member_traits::result_type, void >::value;
+    static constexpr bool is_void = util::is_func_void< member_type >::value;
     static constexpr bool is_sync = is_sync_dispatch< member_type >::value;
 
     reference const&        ref;
