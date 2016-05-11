@@ -120,11 +120,11 @@ struct local_invokation< Handler, Member,
     operator()(bool) const
     {
         invokation_sent();
-        object_ptr obj; // Get local servant from connector
+        object_ptr obj; // FIXME Get local servant from connector
         if (!obj)
             invokation_error(::std::make_exception_ptr(errors::no_object{ref.object_id()}));
         servant_ptr srv = ::std::dynamic_pointer_cast< interface_type >(obj);
-        if (!srv)
+        if (!srv) // FIXME try invoke via a buffer and __dispatch function
             invokation_error(::std::make_exception_ptr(errors::no_object{ref.object_id()}));
         current curr{{}, ctx};
         invoke(srv, curr, invokation_selector< is_void, is_sync >{});
