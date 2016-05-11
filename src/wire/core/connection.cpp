@@ -63,7 +63,7 @@ connection_impl_base::create_listen_connection(adapter_ptr adptr, transport_type
 
 void
 connection_impl_base::connect_async(endpoint const& ep,
-        callbacks::void_callback cb, callbacks::exception_callback eb)
+        functional::void_callback cb, functional::exception_callback eb)
 {
     mode_ = client;
     process_event(events::connect{ ep, cb, eb });
@@ -135,7 +135,7 @@ connection_impl_base::handle_close()
 
 void
 connection_impl_base::write_async(encoding::outgoing_ptr out,
-        callbacks::void_callback cb)
+        functional::void_callback cb)
 {
     std::cerr << "Send message " << out->type() << " size " << out->size() << "\n";
     do_write_async( out,
@@ -145,7 +145,7 @@ connection_impl_base::write_async(encoding::outgoing_ptr out,
 
 void
 connection_impl_base::handle_write(asio_config::error_code const& ec, std::size_t bytes,
-        callbacks::void_callback cb, encoding::outgoing_ptr out)
+        functional::void_callback cb, encoding::outgoing_ptr out)
 {
     if (!ec) {
         if (cb) cb();
@@ -272,8 +272,8 @@ connection_impl_base::invoke(identity const& id, std::string const& op, context_
         bool run_sync,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
-        callbacks::exception_callback exception,
-        callbacks::callback< bool > sent)
+        functional::exception_callback exception,
+        functional::callback< bool > sent)
 {
     using encoding::request;
     encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(
@@ -287,7 +287,7 @@ connection_impl_base::invoke(identity const& id, std::string const& op, context_
     write(std::back_inserter(*out), r);
     params.close_all_encaps();
     out->insert_encapsulation(std::move(params));
-    callbacks::void_callback write_cb = sent ? [sent](){sent(true);} : callbacks::void_callback{};
+    functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
     pending_replies_.insert(std::make_pair( r.number, pending_reply{ reply, exception } ));
     process_event(events::send_request{ out, write_cb });
 
@@ -574,7 +574,7 @@ struct connection::impl {
     }
     void
     connect_async(endpoint const& ep,
-            callbacks::void_callback cb, callbacks::exception_callback eb)
+            functional::void_callback cb, functional::exception_callback eb)
     {
         if (connection_) {
             // Do something with the old connection
@@ -610,8 +610,8 @@ struct connection::impl {
             bool run_sync,
             encoding::outgoing&& params,
             encoding::reply_callback reply,
-            callbacks::exception_callback exception,
-            callbacks::callback< bool > sent)
+            functional::exception_callback exception,
+            functional::callback< bool > sent)
     {
         if (!connection_)
             throw errors::runtime_error{ "Connection is not initialized" };
@@ -643,7 +643,7 @@ connection::connection(connector_ptr cnctr, asio_config::io_service_ptr io_svc)
 }
 
 connection::connection(connector_ptr cnctr, asio_config::io_service_ptr io_svc, endpoint const& ep,
-        callbacks::void_callback cb, callbacks::exception_callback eb)
+        functional::void_callback cb, functional::exception_callback eb)
     : pimpl_(::std::make_shared<impl>(cnctr, io_svc))
 {
     pimpl_->connect_async(ep, cb, eb);
@@ -679,7 +679,7 @@ connection::get_connector() const
 
 void
 connection::connect_async(endpoint const& ep,
-        callbacks::void_callback cb, callbacks::exception_callback eb)
+        functional::void_callback cb, functional::exception_callback eb)
 {
     pimpl_->connect_async(ep, cb, eb);
 }
@@ -702,8 +702,8 @@ connection::invoke(identity const& id, std::string const& op,
         bool run_sync,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
-        callbacks::exception_callback exception,
-        callbacks::callback< bool > sent)
+        functional::exception_callback exception,
+        functional::callback< bool > sent)
 {
     pimpl_->invoke(id, op, ctx, run_sync, ::std::move(params), reply, exception, sent);
 }

@@ -37,8 +37,8 @@ namespace events {
 
 struct connect{
     endpoint                        ep;
-    callbacks::void_callback        success;
-    callbacks::exception_callback    fail;
+    functional::void_callback       success;
+    functional::exception_callback  fail;
 };
 struct connected {};
 struct start{};
@@ -59,7 +59,7 @@ struct receive_close{};
 
 struct send_request{
     encoding::outgoing_ptr            outgoing;
-    callbacks::void_callback        sent;
+    functional::void_callback         sent;
 };
 struct send_reply{};
 
@@ -215,8 +215,8 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
             }
         }
 
-        callbacks::void_callback        success;
-        callbacks::exception_callback    fail;
+        functional::void_callback       success;
+        functional::exception_callback  fail;
     };
 
     struct wait_validate : ::boost::msm::front::state<> {
@@ -253,8 +253,8 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
                 fail(evt.error);
             }
         }
-        callbacks::void_callback        success;
-        callbacks::exception_callback    fail;
+        functional::void_callback       success;
+        functional::exception_callback  fail;
     };
 
     struct connected : ::boost::msm::front::state<> {
@@ -357,7 +357,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
         connection_fsm {
     struct pending_reply {
         encoding::reply_callback        reply;
-        callbacks::exception_callback    error;
+        functional::exception_callback  error;
     };
     using pending_replies_type    = std::map< uint32_t, pending_reply >;
 
@@ -395,7 +395,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 
     void
     connect_async(endpoint const&,
-            callbacks::void_callback cb, callbacks::exception_callback eb);
+            functional::void_callback cb, functional::exception_callback eb);
     void
     handle_connected(asio_config::error_code const& ec);
     void
@@ -415,10 +415,10 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     handle_close();
 
     void
-    write_async(encoding::outgoing_ptr, callbacks::void_callback cb = nullptr);
+    write_async(encoding::outgoing_ptr, functional::void_callback cb = nullptr);
     void
     handle_write(asio_config::error_code const& ec, std::size_t bytes,
-            callbacks::void_callback cb, encoding::outgoing_ptr);
+            functional::void_callback cb, encoding::outgoing_ptr);
 
     void
     start_read();
@@ -453,8 +453,8 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
             bool run_sync,
             encoding::outgoing&&,
             encoding::reply_callback reply,
-            callbacks::exception_callback exception,
-            callbacks::callback< bool > sent);
+            functional::exception_callback exception,
+            functional::callback< bool > sent);
 
     template < typename Pred >
     void

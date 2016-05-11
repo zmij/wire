@@ -61,9 +61,9 @@ object_proxy::wire_is_a(::std::string const& type_id, context_type const& ctx)
 
 void
 object_proxy::wire_is_a_async(::std::string const&  type_id,
-        callbacks::callback< bool >                 response,
-        callbacks::exception_callback               exception,
-        callbacks::callback< bool >                 sent,
+        functional::callback< bool >                response,
+        functional::exception_callback              exception,
+        functional::callback< bool >                sent,
         context_type const&                         ctx,
         bool                                        run_sync)
 {
@@ -81,9 +81,9 @@ object_proxy::wire_ping(context_type const& ctx)
 
 void
 object_proxy::wire_ping_async(
-        callbacks::void_callback        response,
-        callbacks::exception_callback   exception,
-        callbacks::callback< bool >     sent,
+        functional::void_callback        response,
+        functional::exception_callback   exception,
+        functional::callback< bool >     sent,
         context_type const&             ctx,
         bool                            run_sync
 )
@@ -102,9 +102,9 @@ object_proxy::wire_type(context_type const& ctx)
 
 void
 object_proxy::wire_type_async(
-        callbacks::callback< std::string const& >   response,
-        callbacks::exception_callback               exception,
-        callbacks::callback< bool >                 sent,
+        functional::callback< std::string const& >  response,
+        functional::exception_callback              exception,
+        functional::callback< bool >                sent,
         context_type const&                         ctx,
         bool                                        run_sync
 )
@@ -123,9 +123,9 @@ object_proxy::wire_types(context_type const& ctx)
 
 void
 object_proxy::wire_types_async(
-        callbacks::callback< ::std::vector< ::std::string > const& >    response,
-        callbacks::exception_callback                                   exception,
-        callbacks::callback<bool>                                       sent,
+        functional::callback< ::std::vector< ::std::string > const& >   response,
+        functional::exception_callback                                  exception,
+        functional::callback<bool>                                      sent,
         context_type const&                                             ctx,
         bool                                                            run_sync
 )

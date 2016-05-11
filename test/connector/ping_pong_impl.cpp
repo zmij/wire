@@ -21,7 +21,7 @@ ping_pong_server::test_int(::std::int32_t val, ::wire::core::current const&) con
 void
 ping_pong_server::test_string(::std::string const& val,
         test_string_return_callback __resp,
-        ::wire::core::callbacks::exception_callback __exception,
+        ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&)
 {
     ::std::cerr << __FUNCTION__ << "\n";
@@ -31,7 +31,7 @@ ping_pong_server::test_string(::std::string const& val,
 void
 ping_pong_server::test_struct(::test::data const& val,
         test_struct_return_callback __resp,
-        ::wire::core::callbacks::exception_callback __exception,
+        ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&) const
 {
     ::std::cerr << __FUNCTION__ << " " << val << "\n";
@@ -41,7 +41,7 @@ ping_pong_server::test_struct(::test::data const& val,
 void
 ping_pong_server::test_callback(::test::callback_prx cb,
         test_callback_return_callback __resp,
-        ::wire::core::callbacks::exception_callback __exception,
+        ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&)
 {
     ::std::cerr << __FUNCTION__ << " " << *cb << "\n";
@@ -51,7 +51,7 @@ ping_pong_server::test_callback(::test::callback_prx cb,
 void
 ping_pong_server::test_ball(::test::ball_ptr b,
             test_ball_return_callback __resp,
-            ::wire::core::callbacks::exception_callback __exception,
+            ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const&)
 {
     ::std::cerr << __FUNCTION__ << " ";
@@ -70,8 +70,8 @@ ping_pong_server::error(::wire::core::current const&)
 }
 
 void
-ping_pong_server::async_error(::wire::core::callbacks::void_callback __resp,
-        ::wire::core::callbacks::exception_callback __exception,
+ping_pong_server::async_error(::wire::core::functional::void_callback __resp,
+        ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&) const
 {
     ::std::cerr << __FUNCTION__ << "\n";
@@ -79,8 +79,8 @@ ping_pong_server::async_error(::wire::core::callbacks::void_callback __resp,
 }
 
 void
-ping_pong_server::stop(::wire::core::callbacks::void_callback __resp,
-        ::wire::core::callbacks::exception_callback __exception,
+ping_pong_server::stop(::wire::core::functional::void_callback __resp,
+        ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&)
 {
     ::std::cerr << __FUNCTION__ << "\n";

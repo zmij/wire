@@ -25,38 +25,38 @@ public:
     void
     test_string(::std::string const& val,
             test_string_return_callback __resp,
-            ::wire::core::callbacks::exception_callback __exception,
+            ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) override;
 
     void
     test_struct(::test::data const& val,
             test_struct_return_callback __resp,
-            ::wire::core::callbacks::exception_callback __exception,
+            ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) const override;
 
     void
     test_callback(::test::callback_prx cb,
             test_callback_return_callback __resp,
-            ::wire::core::callbacks::exception_callback __exception,
+            ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) override;
 
     void
     test_ball(::test::ball_ptr b,
             test_ball_return_callback __resp,
-            ::wire::core::callbacks::exception_callback __exception,
+            ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) override;
 
     void
     error(::wire::core::current const& = ::wire::core::no_current) override;
 
     void
-    async_error(::wire::core::callbacks::void_callback __resp,
-            ::wire::core::callbacks::exception_callback __exception,
+    async_error(::wire::core::functional::void_callback __resp,
+            ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) const override;
 
     void
-    stop(::wire::core::callbacks::void_callback __resp,
-            ::wire::core::callbacks::exception_callback __exception,
+    stop(::wire::core::functional::void_callback __resp,
+            ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) override;
 private:
     stop_callback   on_stop_;

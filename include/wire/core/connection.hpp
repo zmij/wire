@@ -14,12 +14,12 @@
 
 #include <wire/core/endpoint.hpp>
 #include <wire/core/identity.hpp>
-#include <wire/core/callbacks.hpp>
 #include <wire/core/context.hpp>
 
 #include <wire/core/connector_fwd.hpp>
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/adapter_fwd.hpp>
+#include <wire/core/functional.hpp>
 
 #include <wire/util/function_traits.hpp>
 
@@ -41,8 +41,8 @@ public:
      * @param
      */
     connection(connector_ptr cnctr, asio_config::io_service_ptr, endpoint const&,
-            callbacks::void_callback = nullptr,
-            callbacks::exception_callback = nullptr);
+            functional::void_callback = nullptr,
+            functional::exception_callback = nullptr);
 
     /**
      * Create a connection and start accepting at specified
@@ -66,8 +66,8 @@ public:
      */
     void
     connect_async(endpoint const&,
-            callbacks::void_callback = nullptr,
-            callbacks::exception_callback = nullptr);
+            functional::void_callback = nullptr,
+            functional::exception_callback = nullptr);
 
 
     void
@@ -82,8 +82,8 @@ public:
     invoke(identity const& id, std::string const& op, context_type const& ctx,
             bool run_sync,
             Handler response,
-            callbacks::exception_callback exception,
-            callbacks::callback< bool > sent,
+            functional::exception_callback exception,
+            functional::callback< bool > sent,
             Args const& ... args)
     {
         using handler_traits = util::function_traits<Handler>;
@@ -113,9 +113,9 @@ public:
     void
     invoke(identity const& id, std::string const& op, context_type const& ctx,
             bool run_sync,
-            callbacks::void_callback        response,
-            callbacks::exception_callback   exception,
-            callbacks::callback< bool >     sent,
+            functional::void_callback        response,
+            functional::exception_callback   exception,
+            functional::callback< bool >     sent,
             Args const& ... args)
     {
         using encoding::incoming;
@@ -135,8 +135,8 @@ public:
             bool run_sync,
             encoding::outgoing&&,
             encoding::reply_callback,
-            callbacks::exception_callback exception,
-            callbacks::callback< bool > sent);
+            functional::exception_callback exception,
+            functional::callback< bool > sent);
 
     endpoint
     local_endpoint() const;

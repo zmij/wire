@@ -548,7 +548,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
                 <<  arg_type(func->get_return_type(), func->get_annotations())
                 << ") >;";
         } else {
-            ret_cb_name << "::wire::core::callbacks::void_callback";
+            ret_cb_name << "::wire::core::functional::void_callback";
         }
 
         header_ << h_off_ << "virtual void"
@@ -556,7 +556,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
         if (!params.empty())
             header_ << (h_off_ + 2);
         header_ << ret_cb_name.str() << " __resp, "
-                << (h_off_ + 2) << "::wire::core::callbacks::exception_callback __exception,"
+                << (h_off_ + 2) << "::wire::core::functional::exception_callback __exception,"
                 << (h_off_ + 2) << "::wire::core::current const& = ::wire::core::no_current)";
         if (func->is_const()) {
             header_ << " const";
@@ -568,7 +568,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
         if (!params.empty())
             header_ << (h_off_ + 2);
         header_ << ret_cb_name.str() << " __resp, "
-                << (h_off_ + 2) << "::wire::core::callbacks::exception_callback __exception,"
+                << (h_off_ + 2) << "::wire::core::functional::exception_callback __exception,"
                 << (h_off_ + 2) << "::wire::core::current const& = ::wire::core::no_current)";
         if (func->is_const()) {
             header_ << " const";
@@ -684,7 +684,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
 
     ::std::ostringstream result_callback;
     if (func->is_void()) {
-        result_callback << "::wire::core::callbacks::void_callback";
+        result_callback << "::wire::core::functional::void_callback";
     } else {
         result_callback << func->name() << "_responce_callback";
         header_ << h_off_ << "using " << result_callback.str() << " = "
@@ -698,8 +698,8 @@ generator::generate_invocation_function_member(ast::function_ptr func)
     h_off_ += 2;
     header_ << call_params.str()
             << result_callback.str() << " _response,"
-            << h_off_ << "::wire::core::callbacks::exception_callback _exception = nullptr,"
-            << h_off_ << "::wire::core::callbacks::callback< bool > _sent        = nullptr,"
+            << h_off_ << "::wire::core::functional::exception_callback _exception = nullptr,"
+            << h_off_ << "::wire::core::functional::callback< bool > _sent        = nullptr,"
             << h_off_ << "::wire::core::context_type const&                      = ::wire::core::no_context,"
             << h_off_ << "bool                                      run_sync     = false);";
     h_off_ -= 2;
@@ -767,8 +767,8 @@ generator::generate_invocation_function_member(ast::function_ptr func)
             s_off_ += 3;
             source_ << s_off_ << call_params.str()
                     << result_callback.str() << " _response,"
-                    << s_off_ << "::wire::core::callbacks::exception_callback _exception,"
-                    << s_off_ << "::wire::core::callbacks::callback< bool > _sent,"
+                    << s_off_ << "::wire::core::functional::exception_callback _exception,"
+                    << s_off_ << "::wire::core::functional::callback< bool > _sent,"
                     << s_off_ << "::wire::core::context_type const& _ctx,"
                     << s_off_ << "bool _run_sync)"
                     << (s_off_ - 3) << "{";
