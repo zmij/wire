@@ -48,7 +48,7 @@ struct connector_options {
 struct adapter_options {
 	endpoint_list	endpoints;
 	::std::size_t	timeout;
-	ssl_options		server_ssl;
+	ssl_options		adapter_ssl;
 };
 
 }  // namespace detail

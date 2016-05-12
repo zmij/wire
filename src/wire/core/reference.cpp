@@ -66,7 +66,8 @@ reference::get_local_object() const
 {
     auto obj = local_object_cache_.lock();
     if (!obj) {
-        // TODO Lookup via connector
+        obj = get_connector()->find_local_servant(*this);
+        local_object_cache_ = obj;
     }
     return obj;
 }

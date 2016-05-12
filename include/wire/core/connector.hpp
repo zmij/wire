@@ -20,6 +20,7 @@
 #include <wire/core/proxy_fwd.hpp>
 #include <wire/core/identity_fwd.hpp>
 #include <wire/core/reference_fwd.hpp>
+#include <wire/core/object_fwd.hpp>
 
 namespace wire {
 namespace core {
@@ -69,12 +70,21 @@ public:
     create_adapter(identity const& id);
     adapter_ptr
     create_adapter(identity const& id, endpoint_list const& eps);
+    adapter_ptr
+    bidir_adapter();
+    void
+    adapter_online(adapter_ptr, endpoint const& ep);
+
+    bool
+    is_local(reference const& ref) const;
+    object_ptr
+    find_local_servant(reference const& ref) const;
 
     object_prx
     string_to_proxy(::std::string const& str);
 
-    bool
-    is_local(reference const& ref) const;
+
+
     /**
      * Get an existing connection to the endpoint specified or create a new one.
      * @param

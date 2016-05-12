@@ -14,6 +14,8 @@
 #include <wire/core/current.hpp>
 #include <wire/core/object.hpp>
 
+#include <wire/errors/not_found.hpp>
+
 #include <wire/util/function_traits.hpp>
 
 namespace wire {
@@ -131,8 +133,15 @@ struct local_invocation< Handler, Member,
     {
         invocation_sent();
         object_ptr obj = ref.get_local_object();
-        if (!obj)
-            invokation_error(::std::make_exception_ptr(errors::no_object{ref.object_id()}));
+        if (!obj) {
+            invokation_error(
+                ::std::make_exception_ptr(errors::no_object{
+                    ref.object_id(),
+                    ref.facet(),
+                    op
+            }));
+            return;
+        }
         servant_ptr srv = ::std::dynamic_pointer_cast< interface_type >(obj);
 
         current curr{{ref.object_id(), ref.facet(), op}, ctx};

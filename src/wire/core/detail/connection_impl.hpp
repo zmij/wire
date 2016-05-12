@@ -14,6 +14,7 @@
 
 #include <wire/encoding/buffers.hpp>
 
+#include <wire/errors/not_found.hpp>
 #include <wire/errors/user_exception.hpp>
 #include <wire/errors/unexpected.hpp>
 
@@ -89,6 +90,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
     /** @name State forwards */
     struct connecting;
     struct wait_validate;
+    struct connected;
 
     //@}
     //@{
@@ -112,6 +114,11 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         {
             to.success = from.success;
             to.fail = from.fail;
+        }
+        void
+        operator()(events::receive_validate const& evt, fsm_type& fsm,
+                wait_validate& from, connected& to)
+        {
         }
     };
     struct on_disconnected {
@@ -236,14 +243,16 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         on_exit(Event const&, fsm_type&)
         {
             std::cerr << "wait_validate exit\n";
+            clear_callbacks();
         }
         void
         on_exit( events::receive_validate const&, fsm_type& )
         {
-            std::cerr << "wait_validate (success)\n";
+            std::cerr << "wait_validate exit (success)\n";
             if (success) {
                 success();
             }
+            clear_callbacks();
         }
         void
         on_exit( events::connection_failure const& evt, fsm_type& )
@@ -252,6 +261,14 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
             if (fail) {
                 fail(evt.error);
             }
+            clear_callbacks();
+        }
+
+        void
+        clear_callbacks()
+        {
+            success = functional::void_callback{};
+            fail    = functional::exception_callback{};
         }
         functional::void_callback       success;
         functional::exception_callback  fail;
@@ -259,11 +276,12 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 
     struct connected : ::boost::msm::front::state<> {
         struct internal_transition_table : ::boost::mpl::vector<
-            /*           Event                       Action               Guard    */
-            Internal<    events::send_request,       send_request,        none    >,
-            Internal<    events::receive_request,    dispatch_request,    none    >,
-            Internal<    events::receive_reply,      dispatch_reply,      none    >,
-            Internal<    events::receive_validate,   none,                none    >
+            /*           Event                      Action              Guard    */
+            Internal<    events::send_request,      send_request,       none    >,
+            Internal<    events::receive_request,   dispatch_request,   none    >,
+            Internal<    events::receive_reply,     dispatch_reply,     none    >,
+            Internal<    events::receive_validate,  none,               none    >,
+            Internal<    events::connected,         none,               none    >
         > {};
         template < typename Event >
         void
@@ -323,7 +341,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         Row<    unplugged,        events::start,                wait_validate,        send_validate,    none                   >,
         Row<    unplugged,        events::start,                connected,            none,            Not<is_stream_oriented> >,
         /* Validate connection */
-        Row<    wait_validate,    events::receive_validate,     connected,            none,            is_server               >,
+        Row<    wait_validate,    events::receive_validate,     connected,            on_connected,    is_server               >,
         Row<    wait_validate,    events::receive_validate,     connected,            send_validate,   Not<is_server>          >,
         /* Close connection */
         Row<    unplugged,        events::close,                terminated,           none,            none                    >,
@@ -365,21 +383,25 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     using incoming_buffer_ptr    = std::shared_ptr< incoming_buffer >;
 
     static connection_impl_ptr
-    create_connection( connector_ptr cnctr, asio_config::io_service_ptr io_svc, transport_type _type );
+    create_connection( adapter_ptr adptr, transport_type _type );
     static connection_impl_ptr
     create_listen_connection( adapter_ptr adptr, transport_type _type );
 
-    connection_impl_base(connector_ptr cnctr, asio_config::io_service_ptr io_svc)
-        : connector_{cnctr}, io_service_{io_svc}, request_no_{0}
-    {
-        connection_fsm::start();
-    }
-    connection_impl_base(adapter_ptr adptr)
+    connection_impl_base( client_side const&, adapter_ptr adptr)
         : adapter_{adptr},
           connector_{adptr->get_connector()},
-          io_service_{adptr->get_connector()->io_service()},
+          io_service_{adptr->io_service()},
           request_no_{0}
     {
+        mode_ = client;
+    }
+    connection_impl_base( server_side const&, adapter_ptr adptr)
+        : adapter_{adptr},
+          connector_{adptr->get_connector()},
+          io_service_{adptr->io_service()},
+          request_no_{0}
+    {
+        mode_ = server;
     }
     virtual ~connection_impl_base()
     {
@@ -474,6 +496,8 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     }
     virtual endpoint
     local_endpoint() const = 0;
+    virtual endpoint
+    remote_endpoint() const = 0;
 
     virtual void
     do_connect_async(endpoint const& ep, asio_config::asio_callback cb)
@@ -508,12 +532,12 @@ struct connection_impl : connection_impl_base {
     using transport_type    = typename transport_traits::type;
     using socket_type        = typename transport_traits::listen_socket_type;
 
-    connection_impl(connector_ptr cnctr, asio_config::io_service_ptr io_svc)
-        : connection_impl_base{cnctr, io_svc}, transport_{io_svc}
+    connection_impl(client_side const& c, adapter_ptr adptr)
+        : connection_impl_base{c, adptr}, transport_{ io_service_ }
     {
     }
-    connection_impl(adapter_ptr adptr)
-        : connection_impl_base{adptr}, transport_{ io_service_ }
+    connection_impl(server_side const& s, adapter_ptr adptr)
+        : connection_impl_base{s, adptr}, transport_{ io_service_ }
     {
     }
     virtual ~connection_impl() {}
@@ -526,6 +550,11 @@ struct connection_impl : connection_impl_base {
     local_endpoint() const override
     {
         return transport_.local_endpoint();
+    }
+    endpoint
+    remote_endpoint() const override
+    {
+        return transport_.remote_endpoint();
     }
 
     socket_type&
@@ -555,8 +584,8 @@ private:
         transport_.async_read( ASIO_NS::buffer(*buffer), cb );
     }
 
-    endpoint        endpoint_;
-    transport_type    transport_;
+    endpoint        configured_endpoint_;
+    transport_type  transport_;
 };
 
 template < transport_type _type >
@@ -567,7 +596,8 @@ struct listen_connection_impl : connection_impl_base {
     using transport_traits    = transport_type_traits< _type >;
 
     listen_connection_impl(adapter_ptr adptr, session_factory factory)
-        : connection_impl_base{adptr}, listener_(io_service_, factory)
+        : connection_impl_base{server_side{}, adptr},
+          listener_(adptr->io_service(), factory)
     {
     }
 
@@ -580,15 +610,29 @@ struct listen_connection_impl : connection_impl_base {
         wait_for([&](){ return listener_.ready(); });
         return listener_.local_endpoint();
     }
+    endpoint
+    remote_endpoint() const override
+    {
+        return endpoint{};
+    }
 private:
     void
     do_listen(endpoint const& ep, bool reuse_port) override
     {
         listener_.open(ep, reuse_port);
+        auto adptr = adapter_.lock();
+        if (adptr) {
+            adptr->listen_connection_online(local_endpoint());
+        }
     }
     void
     do_close() override
     {
+        auto adptr = adapter_.lock();
+        if (adptr) {
+            adptr->connection_offline(local_endpoint());
+        }
+        listener_.close();
     }
     void
     do_write_async(encoding::outgoing_ptr buffer, asio_config::asio_rw_callback cb) override

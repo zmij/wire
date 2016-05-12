@@ -30,17 +30,20 @@
 namespace wire {
 namespace core {
 
+struct server_side {};
+struct client_side {};
+
 class connection {
 public:
     /**
      * Create connection with no endpoint.
      */
-    connection(connector_ptr cnctr, asio_config::io_service_ptr);
+    connection(client_side const&, adapter_ptr);
     /**
      * Create connection and start asynchronous connect.
      * @param
      */
-    connection(connector_ptr cnctr, asio_config::io_service_ptr, endpoint const&,
+    connection(client_side const&, adapter_ptr, endpoint const&,
             functional::void_callback = nullptr,
             functional::exception_callback = nullptr);
 
@@ -50,7 +53,7 @@ public:
      * @param adapter shared pointer to adapter
      * @param endpoint endpoint to listen
      */
-    connection(adapter_ptr, endpoint const&);
+    connection(server_side const&, adapter_ptr, endpoint const&);
 
     connection(connection&&);
     connection&

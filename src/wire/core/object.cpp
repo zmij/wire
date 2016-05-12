@@ -7,6 +7,7 @@
 
 #include <wire/core/object.hpp>
 #include <wire/core/dispatch_request.hpp>
+#include <wire/errors/not_found.hpp>
 #include <unordered_map>
 
 namespace wire {
@@ -109,11 +110,11 @@ object::__wire_dispatch(dispatch_request const& req, current const& c,
         }
         if (throw_not_found)
             throw errors::no_operation(
-                    wire_static_type_id(), "::", c.operation.name());
+                    c.operation.identity, c.operation.facet, c.operation.name());
         return false;
     } else {
         throw errors::no_operation(
-                wire_static_type_id(), "::", c.operation.name());
+                c.operation.identity, c.operation.facet, c.operation.name());
     }
 }
 
