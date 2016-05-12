@@ -25,6 +25,7 @@ else()
 endif()
 
 option(BUILD_TESTS "Build tests for ${lib_name} library" ON)
+option(COMPILE_TESTS "Test compile generated sources" OFF)
 include(cmake/scripts/wire2cpp.cmake)
 
 set(

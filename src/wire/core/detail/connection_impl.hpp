@@ -619,6 +619,7 @@ private:
     void
     do_listen(endpoint const& ep, bool reuse_port) override
     {
+        ::std::cerr << "Open endpoint " << ep << "\n";
         listener_.open(ep, reuse_port);
         auto adptr = adapter_.lock();
         if (adptr) {

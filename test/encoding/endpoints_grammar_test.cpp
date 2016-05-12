@@ -71,8 +71,10 @@ using endpoint_list_grammar = grammar::parse::endpoints_grammar< InputIterator, 
 GRAMMAR_TEST(endpoint_list_grammar, EndpointList,
     ::testing::Values(
         "socket:///tmp/.socket,tcp://localhost:5432,udp://127.0.0.1:5432",
-        "socket:///tmp/.socket,tcp://localhost:5432,udp://127.0.0.1:5432",
+        "tcp://localhost:5432,socket:///tmp/.socket,udp://127.0.0.1:5432",
+        "udp://127.0.0.1:5432,tcp://localhost:5432,socket:///tmp/.socket",
         "socket:///blabla/.123123/adfa/socket"
+        "socket:///tmp/.wire.ping_pong,tcp://127.0.0.1:0"
     ),
     ::testing::Values(
         "socket:///tmp/.socket, tcp://localhost:5432, udp://127.0.0.1:5432",

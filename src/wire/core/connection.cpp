@@ -22,8 +22,11 @@ namespace core {
 
 namespace detail {
 
-typedef connection_impl< transport_type::tcp > tcp_connection_impl;
-typedef listen_connection_impl< transport_type::tcp > tcp_listen_connection_impl;
+using tcp_connection_impl           = connection_impl< transport_type::tcp >;
+using socket_connection_impl        = connection_impl< transport_type::socket >;
+
+using tcp_listen_connection_impl    = listen_connection_impl< transport_type::tcp >;
+using socket_listen_connection_impl = listen_connection_impl< transport_type::socket >;
 
 connection_impl_ptr
 connection_impl_base::create_connection(adapter_ptr adptr, transport_type _type)
@@ -31,6 +34,8 @@ connection_impl_base::create_connection(adapter_ptr adptr, transport_type _type)
     switch (_type) {
         case transport_type::tcp :
             return ::std::make_shared< tcp_connection_impl >( client_side{}, adptr );
+        case transport_type::socket :
+            return ::std::make_shared< socket_connection_impl >(client_side{}, adptr );
         default:
             break;
     }
@@ -53,7 +58,17 @@ connection_impl_base::create_listen_connection(adapter_ptr adptr, transport_type
                     }
                     return ::std::make_shared< tcp_connection_impl >( server_side{}, a );
                 });
-            break;
+        case transport_type::socket:
+            return ::std::make_shared< socket_listen_connection_impl >(
+                adptr,
+                [adptr_weak]( asio_config::io_service_ptr svc ){
+                    adapter_ptr a = adptr_weak.lock();
+                    // TODO Throw an error if adapter gone away
+                    if (!a) {
+                        throw errors::runtime_error{ "Adapter gone away" };
+                    }
+                    return ::std::make_shared< socket_connection_impl >( server_side{}, a );
+                });
         default:
             break;
     }

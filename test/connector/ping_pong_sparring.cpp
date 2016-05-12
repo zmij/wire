@@ -29,19 +29,24 @@ try {
             "Port to bind to")
     ;
 
+    po::parsed_options parsed_cmd =
+            po::command_line_parser(argc, argv).options(desc).
+                        allow_unregistered().run();
+
     po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::store(parsed_cmd, vm);
 
     if (vm.count("help")) {
         std::cout << desc << "\n";
         return 0;
     }
+    auto unrecognized_cmd = po::collect_unrecognized(parsed_cmd.options, po::exclude_positional);
     po::notify(vm);
 
     ::wire::asio_config::io_service_ptr io_service =
             ::std::make_shared< ::wire::asio_config::io_service >();
 
-    connector_ptr conn = connector::create_connector(io_service, argc, argv);
+    connector_ptr conn = connector::create_connector(io_service, unrecognized_cmd);
     adapter_ptr adptr = conn->create_adapter(
             "ping_pong", { ::wire::core::endpoint::tcp("127.0.0.1", port_no) });
 

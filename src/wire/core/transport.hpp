@@ -342,6 +342,7 @@ protected:
 struct socket_transport {
     using traits = transport_type_traits< transport_type::socket >;
     using socket_type = traits::socket_type;
+    using listen_socket_type    = traits::listen_socket_type;
     using endpoint_type = traits::endpoint_type;
 
     socket_transport(asio_config::io_service_ptr);
@@ -361,13 +362,30 @@ struct socket_transport {
     {
         ASIO_NS::async_write(socket_, buffer, handler);
     }
+
     template < typename BufferType, typename HandlerType >
     void
-    async_read(BufferType& buffer, HandlerType handler)
+    async_read(BufferType&& buffer, HandlerType handler)
     {
-        ASIO_NS::async_read(socket_, buffer,
+        ASIO_NS::async_read(socket_, ::std::forward< BufferType >(buffer),
                 ASIO_NS::transfer_at_least(1), handler);
     }
+
+    template < typename BufferType >
+    ::std::future< ::std::size_t >
+    async_read( BufferType&& buffer )
+    {
+        return ASIO_NS::async_read(socket_, std::forward< BufferType&& >(buffer),
+                ASIO_NS::transfer_at_least(1), asio_config::use_future);
+    }
+
+    listen_socket_type&
+    socket()
+    {   return socket_;}
+    listen_socket_type const&
+    socket() const
+    {   return socket_;}
+
     endpoint
     local_endpoint() const
     {
