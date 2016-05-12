@@ -19,12 +19,14 @@ interface object {
      * @param type_name
      * @return
      */
+    [[sync]]
     bool
     wire_is_a(string type_name) const;
 
     /**
      * Do a network roundtrip to the object
      */
+    [[sync]]
     void
     wire_ping() const;
 
@@ -32,6 +34,7 @@ interface object {
      * Get the most derived typename for the object
      * @return
      */
+    [[sync]]
     string
     wire_type() const;
 
@@ -39,6 +42,7 @@ interface object {
      * Get the list of typenames for the object
      * @return
      */
+    [[sync]]
     sequence< string >
     wire_types() const;
 };

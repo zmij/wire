@@ -13,9 +13,13 @@
 namespace wire {
 namespace core {
 
+/**
+ * Structure describing an identity of an object or an object adapter
+ */
 struct identity {
-    string                   category;
-    variant<string, uuid>    id;
+    using id_type = variant< string, uuid >;
+    string  category;
+    id_type id;
 };
 
 

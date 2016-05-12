@@ -9,18 +9,29 @@
 #include <wire/core/connection.hpp>
 #include <wire/core/connector.hpp>
 #include <wire/core/proxy.hpp>
+#include <wire/core/object_locator.hpp>
 
 #include <wire/core/detail/configuration_options.hpp>
 
 #include <unordered_map>
+#include <mutex>
 
 namespace wire {
 namespace core {
+
+namespace {
+
+::std::string const DEFAULT_CATEGORY{};
+
+}  /* namespace  */
 
 struct adapter::impl {
     using connections       = ::std::unordered_map< endpoint, connection >;
     using active_objects    = ::std::unordered_map< identity, object_ptr >;
     using default_servants  = ::std::unordered_map< ::std::string, object_ptr >;
+    using object_locators   = ::std::unordered_map< ::std::string, object_locator_ptr >;
+    using mutex_type        = ::std::mutex;
+    using lock_guard        = ::std::lock_guard<mutex_type>;
 
     connector_weak_ptr          connector_;
     asio_config::io_service_ptr io_service_;
@@ -31,8 +42,11 @@ struct adapter::impl {
     connections                 connections_;
     active_objects              active_objects_;
     default_servants            default_servants_;
+    object_locators             locators_;
 
     adapter_weak_ptr            owner_;
+
+    mutex_type                  mtx_;
 
     impl(connector_ptr c, identity const& id, detail::adapter_options const& options)
         : connector_{c}, io_service_{c->io_service()}, id_{id}, options_{options}
@@ -42,6 +56,7 @@ struct adapter::impl {
     void
     activate()
     {
+        lock_guard lock{mtx_};
         adapter_ptr adp = owner_.lock();
         if (adp) {
             if (options_.endpoints.empty()) {
@@ -64,6 +79,7 @@ struct adapter::impl {
     void
     deactivate()
     {
+        lock_guard lock{mtx_};
         for (auto& c : connections_) {
             c.second.close();
         }
@@ -102,6 +118,7 @@ struct adapter::impl {
     object_prx
     add_object(identity const& id, object_ptr disp)
     {
+        lock_guard lock{mtx_};
         active_objects_.insert(::std::make_pair(id, disp));
         return ::std::make_shared< object_proxy >(
             reference::create_reference(
@@ -111,12 +128,21 @@ struct adapter::impl {
     void
     add_default_servant(::std::string const& category, object_ptr disp)
     {
-        default_servants_.insert(::std::make_pair(category, disp));
+        lock_guard lock{mtx_};
+        default_servants_.emplace(category, disp);
+    }
+
+    void
+    add_locator(::std::string const& category, object_locator_ptr loc)
+    {
+        lock_guard lock{mtx_};
+        locators_.emplace(category, loc);
     }
 
     object_ptr
-    find_object(identity const& id)
+    find_object(identity const& id, ::std::string const& facet)
     {
+        lock_guard lock{mtx_};
         auto o = active_objects_.find(id);
         if (o != active_objects_.end()) {
             return o->second;
@@ -125,10 +151,25 @@ struct adapter::impl {
         if (d != default_servants_.end()) {
             return d->second;
         }
-        d = default_servants_.find("");
-        if (d != default_servants_.end()) {
-            return d->second;
+        if (!id.category.empty()) {
+            d = default_servants_.find(DEFAULT_CATEGORY);
+            if (d != default_servants_.end()) {
+                return d->second;
+            }
         }
+        auto loc = locators_.find(id.category);
+        if (loc != locators_.end()) {
+            auto obj = loc->second->find_object(owner_.lock(), id, facet);
+            if (obj)
+                return obj;
+        }
+        if (!id.category.empty()) {
+            loc = locators_.find(DEFAULT_CATEGORY);
+            if (loc != locators_.end()) {
+                return loc->second->find_object(owner_.lock(), id, facet);
+            }
+        }
+
         return object_ptr{};
     }
 };
@@ -199,7 +240,7 @@ adapter::add_object(identity const& id, object_ptr disp)
 void
 adapter::add_default_servant(object_ptr disp)
 {
-    pimpl_->add_default_servant("", disp);
+    pimpl_->add_default_servant(DEFAULT_CATEGORY, disp);
 }
 
 void
@@ -208,10 +249,22 @@ adapter::add_default_servant(::std::string const& category, object_ptr disp)
     pimpl_->add_default_servant(category, disp);
 }
 
-object_ptr
-adapter::find_object(identity const& id) const
+void
+adapter::add_object_locator(object_locator_ptr loc)
 {
-    return pimpl_->find_object(id);
+
+}
+
+void
+adapter::add_object_locator(::std::string const& category, object_locator_ptr loc)
+{
+
+}
+
+object_ptr
+adapter::find_object(identity const& id, ::std::string const& facet) const
+{
+    return pimpl_->find_object(id, facet);
 }
 
 void

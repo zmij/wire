@@ -1,0 +1,25 @@
+/*
+ * exceptions.wire
+ *
+ *  Created on: 13 мая 2016 г.
+ *      Author: sergey.fedorov
+ */
+
+#ifndef WIRE_ERRORS_EXCEPTIONS_WIRE_
+#define WIRE_ERRORS_EXCEPTIONS_WIRE_
+
+#include <wire/sugar.wire>
+
+namespace wire {
+namespace errors {
+
+exception not_found {};
+exception no_object : not_found {};
+exception no_facet : not_found {};
+exception no_operation : not_found {};
+
+}  /* namespace errors */
+}  /* namespace wire */
+
+
+#endif /* WIRE_ERRORS_EXCEPTIONS_WIRE_ */

@@ -10,11 +10,11 @@
 
 #include <wire/core/identity.wire>
 #include <wire/core/object.wire>
+#include <wire/errors/exceptions.wire>
 
 namespace wire {
 namespace core {
 
-exception no_object {};
 exception no_adapter {};
 
 interface locator_registry;
@@ -27,7 +27,7 @@ interface locator {
      */
     object*
     find_object(identity id) const
-        throw(no_object);
+        throw(errors::no_object);
 
     /**
      * Find an adapter and return it's proxy (a dummy proxy
@@ -48,7 +48,11 @@ interface locator {
 };
 
 interface locator_registry {
+    void
+    add_adapter(object* adapter);
 
+    void
+    add_well_known_object(object* adapter);
 };
 
 }  /* namespace core */

@@ -15,6 +15,7 @@
 #include <wire/core/connector_fwd.hpp>
 #include <wire/core/identity_fwd.hpp>
 #include <wire/core/proxy_fwd.hpp>
+#include <wire/core/object_locator_fwd.hpp>
 #include <wire/core/endpoint.hpp>
 
 #include <string>
@@ -90,7 +91,7 @@ public:
     add_object(identity const&, object_ptr);
 
     /**
-     * Add a default servant for all requests
+     * Add a default servant for all requests (fallback or for objects with no category)
      * @param
      */
     void
@@ -101,7 +102,20 @@ public:
      * @param
      */
     void
-    add_default_servant(std::string const& category, object_ptr);
+    add_default_servant(::std::string const& category, object_ptr);
+    /**
+     * Add a fallback object locator instance
+     * @param
+     */
+    void
+    add_object_locator(object_locator_ptr);
+    /**
+     * Add a locator instance for a given category
+     * @param category
+     * @param
+     */
+    void
+    add_object_locator(::std::string const& category, object_locator_ptr);
 
     /**
      * Find an object by identity.
@@ -111,7 +125,7 @@ public:
      * @return
      */
     object_ptr
-    find_object(identity const&) const;
+    find_object(identity const&, ::std::string const& facet = ::std::string{}) const;
 
     bool
     is_local_endpoint(endpoint const&) const;

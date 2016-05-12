@@ -51,8 +51,9 @@ try {
             "ping_pong", { ::wire::core::endpoint::tcp("127.0.0.1", port_no) });
 
     adptr->activate();
-    auto prx = adptr->add_object({"ping_pong"},
-            ::std::make_shared< wire::test::ping_pong_server >([io_service](){ io_service->stop(); }) );
+    auto pp_server = ::std::make_shared< wire::test::ping_pong_server >([io_service](){ io_service->stop(); });
+    auto prx = adptr->add_object({"ping_pong"}, pp_server);
+    adptr->add_default_servant(pp_server);
     ::std::cout << *prx << ::std::endl;
     if (prx->wire_get_reference().is_local()) {
         ::std::cerr << "Reference classified to be local\n";
