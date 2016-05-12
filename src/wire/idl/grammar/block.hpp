@@ -62,6 +62,7 @@ struct block_grammar : parser_grammar< InputIterator, Lexer > {
             | (pos.current >> enum_)                    [ scope.declare_enum(_1, _2) ]
             | (pos.current >> constant)                 [ scope.add_constant(_1, _2) ]
             | struct_ | interface_ | class_ | exception_
+            | tok.source_advance                        [ scope.location(_1) ]
         ;
         struct_ = (pos.current
             >> tok.struct_ >> tok.identifier)           [ scope.start_structure(_1, to_string(_3)) ]
