@@ -55,8 +55,12 @@ public:
     void
     deactivate();
 
+    /**
+     * Adapter identity
+     * @return
+     */
     identity const&
-    name() const;
+    id() const;
     /**
      * Get adapter configured endpoints list
      * @return
@@ -76,32 +80,48 @@ public:
      * @param
      */
     object_prx
-    add_object(dispatcher_ptr);
+    add_object(object_ptr);
     /**
      * Add servant object with identity
      * @param
      * @param
      */
     object_prx
-    add_object(identity const&, dispatcher_ptr);
+    add_object(identity const&, object_ptr);
 
     /**
      * Add a default servant for all requests
      * @param
      */
     void
-    add_default_servant(dispatcher_ptr);
+    add_default_servant(object_ptr);
     /**
      * Add a default servant for a given category
      * @param category
      * @param
      */
     void
-    add_default_servant(std::string const& category, dispatcher_ptr);
+    add_default_servant(std::string const& category, object_ptr);
 
-    dispatcher_ptr
+    /**
+     * Find an object by identity.
+     * If there is no exact match, search default servants.
+     * TODO Fallback to object_locator
+     * @param
+     * @return
+     */
+    object_ptr
     find_object(identity const&) const;
 
+    bool
+    is_local_endpoint(endpoint const&) const;
+
+    void
+    connection_online(endpoint const& local, endpoint const& remote);
+    void
+    listen_connection_online(endpoint const& local);
+    void
+    connection_offline(endpoint const&);
 private:
     adapter(connector_ptr c, identity const& id, detail::adapter_options const&);
 

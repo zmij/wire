@@ -19,8 +19,8 @@ namespace core {
 
 struct adapter::impl {
     using connections       = ::std::unordered_map< endpoint, connection >;
-    using active_objects    = ::std::unordered_map< identity, dispatcher_ptr >;
-    using default_servants  = ::std::unordered_map< ::std::string, dispatcher_ptr >;
+    using active_objects    = ::std::unordered_map< identity, object_ptr >;
+    using default_servants  = ::std::unordered_map< ::std::string, object_ptr >;
 
     connector_weak_ptr          connector_;
     asio_config::io_service_ptr io_service_;
@@ -48,11 +48,17 @@ struct adapter::impl {
                 options_.endpoints.push_back(endpoint::tcp("0.0.0.0", 0));
             }
             for (auto const& ep : options_.endpoints) {
-                connections_.emplace(ep, connection{ adp, ep });
+                connections_.emplace(ep, connection{server_side{}, adp, ep });
             }
         } else {
             throw ::std::runtime_error("Adapter owning implementation was destroyed");
         }
+    }
+
+    bool
+    is_local_endpoint(endpoint const& ep)
+    {
+        return connections_.count(ep);
     }
 
     void
@@ -62,6 +68,25 @@ struct adapter::impl {
             c.second.close();
         }
         connections_.clear();
+    }
+
+    void
+    connection_online(endpoint const& local, endpoint const& remote)
+    {
+        ::std::cerr << "Connection " << local << " -> " << remote << " is online\n";
+    }
+    void
+    listen_connection_online(endpoint const& ep)
+    {
+        auto cr = connector_.lock();
+        if (!cr)
+            throw errors::runtime_error{ "Connector is dead" };
+        cr->adapter_online(owner_.lock(), ep);
+    }
+    void
+    connection_offline(endpoint const& ep)
+    {
+        ::std::cerr << "Connection " << ep << " is offline\n";
     }
 
     endpoint_list
@@ -75,7 +100,7 @@ struct adapter::impl {
     }
 
     object_prx
-    add_object(identity const& id, dispatcher_ptr disp)
+    add_object(identity const& id, object_ptr disp)
     {
         active_objects_.insert(::std::make_pair(id, disp));
         return ::std::make_shared< object_proxy >(
@@ -84,12 +109,12 @@ struct adapter::impl {
     }
 
     void
-    add_default_servant(::std::string const& category, dispatcher_ptr disp)
+    add_default_servant(::std::string const& category, object_ptr disp)
     {
         default_servants_.insert(::std::make_pair(category, disp));
     }
 
-    dispatcher_ptr
+    object_ptr
     find_object(identity const& id)
     {
         auto o = active_objects_.find(id);
@@ -104,7 +129,7 @@ struct adapter::impl {
         if (d != default_servants_.end()) {
             return d->second;
         }
-        return dispatcher_ptr{};
+        return object_ptr{};
     }
 };
 
@@ -142,7 +167,7 @@ adapter::activate()
 }
 
 identity const&
-adapter::name() const
+adapter::id() const
 {
     return pimpl_->id_;
 }
@@ -160,33 +185,52 @@ adapter::active_endpoints() const
 }
 
 object_prx
-adapter::add_object(dispatcher_ptr disp)
+adapter::add_object(object_ptr disp)
 {
     return pimpl_->add_object(identity::random(), disp);
 }
 
 object_prx
-adapter::add_object(identity const& id, dispatcher_ptr disp)
+adapter::add_object(identity const& id, object_ptr disp)
 {
     return pimpl_->add_object(id, disp);
 }
 
 void
-adapter::add_default_servant(dispatcher_ptr disp)
+adapter::add_default_servant(object_ptr disp)
 {
     pimpl_->add_default_servant("", disp);
 }
 
 void
-adapter::add_default_servant(::std::string const& category, dispatcher_ptr disp)
+adapter::add_default_servant(::std::string const& category, object_ptr disp)
 {
     pimpl_->add_default_servant(category, disp);
 }
 
-dispatcher_ptr
+object_ptr
 adapter::find_object(identity const& id) const
 {
     return pimpl_->find_object(id);
+}
+
+void
+adapter::connection_online(endpoint const& local, endpoint const& remote)
+{
+    pimpl_->connection_online(local, remote);
+}
+
+void
+adapter::listen_connection_online(endpoint const& local)
+{
+    pimpl_->listen_connection_online(local);
+}
+
+
+void
+adapter::connection_offline(endpoint const& ep)
+{
+    pimpl_->connection_offline(ep);
 }
 
 }  // namespace core

@@ -51,6 +51,11 @@ target_link_libraries(ping-pong-sparring
     ${WIRE_LIB}
 )
 
+add_executable(ping-pong-client ping_pong_client.cpp ${wired_SRCS})
+target_link_libraries(ping-pong-client
+    ${WIRE_LIB}
+)
+
 if (GTEST_XML_OUTPUT)
     set (
         TEST_ARGS

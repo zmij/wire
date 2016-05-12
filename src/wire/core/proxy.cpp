@@ -8,10 +8,20 @@
 #include <wire/core/proxy.hpp>
 #include <wire/core/reference.hpp>
 #include <wire/core/connection.hpp>
+#include <wire/core/invocation.hpp>
 #include <wire/core/object.hpp>
 
 namespace wire {
 namespace core {
+
+namespace {
+
+::std::string const WIRE_CORE_OBJECT_wire_is_a = "wire_is_a";
+::std::string const WIRE_CORE_OBJECT_wire_ping = "wire_ping";
+::std::string const WIRE_CORE_OBJECT_wire_type = "wire_type";
+::std::string const WIRE_CORE_OBJECT_wire_types = "wire_types";
+
+}  /* namespace  */
 
 object_proxy::object_proxy(reference_ptr ref)
     : ref_(ref)
@@ -61,15 +71,17 @@ object_proxy::wire_is_a(::std::string const& type_id, context_type const& ctx)
 
 void
 object_proxy::wire_is_a_async(::std::string const&  type_id,
-        callbacks::callback< bool >                 response,
-        callbacks::exception_callback               exception,
-        callbacks::callback< bool >                 sent,
+        functional::callback< bool >                response,
+        functional::exception_callback              exception,
+        functional::callback< bool >                sent,
         context_type const&                         ctx,
         bool                                        run_sync)
 {
-    auto const& ref = wire_get_reference();
-    wire_get_connection()->invoke(
-        ref.object_id(), "wire_is_a", ctx, run_sync, response, exception, sent, type_id);
+    make_invocation(wire_get_reference(),
+            WIRE_CORE_OBJECT_wire_is_a, ctx,
+            &object::wire_is_a,
+            response, exception, sent,
+            type_id)(run_sync);
 }
 
 void
@@ -81,16 +93,17 @@ object_proxy::wire_ping(context_type const& ctx)
 
 void
 object_proxy::wire_ping_async(
-        callbacks::void_callback        response,
-        callbacks::exception_callback   exception,
-        callbacks::callback< bool >     sent,
+        functional::void_callback        response,
+        functional::exception_callback   exception,
+        functional::callback< bool >     sent,
         context_type const&             ctx,
         bool                            run_sync
 )
 {
-    auto const& ref = wire_get_reference();
-    wire_get_connection()->invoke(
-        ref.object_id(), "wire_ping", ctx, run_sync, response, exception, sent);
+    make_invocation(wire_get_reference(),
+            WIRE_CORE_OBJECT_wire_ping, ctx,
+            &object::wire_ping,
+            response, exception, sent)(run_sync);
 }
 
 ::std::string
@@ -102,16 +115,17 @@ object_proxy::wire_type(context_type const& ctx)
 
 void
 object_proxy::wire_type_async(
-        callbacks::callback< std::string const& >   response,
-        callbacks::exception_callback               exception,
-        callbacks::callback< bool >                 sent,
+        functional::callback< std::string const& >  response,
+        functional::exception_callback              exception,
+        functional::callback< bool >                sent,
         context_type const&                         ctx,
         bool                                        run_sync
 )
 {
-    auto const& ref = wire_get_reference();
-    wire_get_connection()->invoke(
-        ref.object_id(), "wire_type", ctx, run_sync, response, exception, sent);
+    make_invocation(wire_get_reference(),
+            WIRE_CORE_OBJECT_wire_type, ctx,
+            &object::wire_type,
+            response, exception, sent)(run_sync);
 }
 
 ::std::vector< ::std::string >
@@ -123,16 +137,17 @@ object_proxy::wire_types(context_type const& ctx)
 
 void
 object_proxy::wire_types_async(
-        callbacks::callback< ::std::vector< ::std::string > const& >    response,
-        callbacks::exception_callback                                   exception,
-        callbacks::callback<bool>                                       sent,
+        functional::callback< ::std::vector< ::std::string > const& >   response,
+        functional::exception_callback                                  exception,
+        functional::callback<bool>                                      sent,
         context_type const&                                             ctx,
         bool                                                            run_sync
 )
 {
-    auto const& ref = wire_get_reference();
-    wire_get_connection()->invoke(
-        ref.object_id(), "wire_types", ctx, run_sync, response, exception, sent);
+    make_invocation(wire_get_reference(),
+            WIRE_CORE_OBJECT_wire_types, ctx,
+            &object::wire_types,
+            response, exception, sent)(run_sync);
 }
 
 ::std::ostream&

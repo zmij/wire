@@ -387,12 +387,13 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
     }
     if (unit_->has_interfaces()) {
         header_ << "#include <wire/core/object.hpp>\n";
-        header_ << "#include <wire/core/callbacks.hpp>\n";
+        header_ << "#include <wire/core/functional.hpp>\n";
         header_ << "#include <wire/core/proxy.hpp>\n";
 
         source_ << "#include <wire/core/reference.hpp>\n";
         source_ << "#include <wire/core/connection.hpp>\n";
         source_ << "#include <wire/core/dispatch_request.hpp>\n";
+        source_ << "#include <wire/core/invocation.hpp>\n";
         source_ << "#include <unordered_map>\n";
     }
     if (unit_->has_classes()) {
@@ -548,7 +549,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
                 <<  arg_type(func->get_return_type(), func->get_annotations())
                 << ") >;";
         } else {
-            ret_cb_name << "::wire::core::callbacks::void_callback";
+            ret_cb_name << "::wire::core::functional::void_callback";
         }
 
         header_ << h_off_ << "virtual void"
@@ -556,7 +557,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
         if (!params.empty())
             header_ << (h_off_ + 2);
         header_ << ret_cb_name.str() << " __resp, "
-                << (h_off_ + 2) << "::wire::core::callbacks::exception_callback __exception,"
+                << (h_off_ + 2) << "::wire::core::functional::exception_callback __exception,"
                 << (h_off_ + 2) << "::wire::core::current const& = ::wire::core::no_current)";
         if (func->is_const()) {
             header_ << " const";
@@ -568,7 +569,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
         if (!params.empty())
             header_ << (h_off_ + 2);
         header_ << ret_cb_name.str() << " __resp, "
-                << (h_off_ + 2) << "::wire::core::callbacks::exception_callback __exception,"
+                << (h_off_ + 2) << "::wire::core::functional::exception_callback __exception,"
                 << (h_off_ + 2) << "::wire::core::current const& = ::wire::core::no_current)";
         if (func->is_const()) {
             header_ << " const";
@@ -670,6 +671,8 @@ generator::generate_invocation_function_member(ast::function_ptr func)
     offset_guard hdr{h_off_};
     offset_guard src{s_off_};
 
+    auto pfx = constant_prefix(func->owner()->get_qualified_name());
+
     ::std::ostringstream call_params;
     auto const& params = func->get_params();
     h_off_ += 2;
@@ -684,7 +687,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
 
     ::std::ostringstream result_callback;
     if (func->is_void()) {
-        result_callback << "::wire::core::callbacks::void_callback";
+        result_callback << "::wire::core::functional::void_callback";
     } else {
         result_callback << func->name() << "_responce_callback";
         header_ << h_off_ << "using " << result_callback.str() << " = "
@@ -698,8 +701,8 @@ generator::generate_invocation_function_member(ast::function_ptr func)
     h_off_ += 2;
     header_ << call_params.str()
             << result_callback.str() << " _response,"
-            << h_off_ << "::wire::core::callbacks::exception_callback _exception = nullptr,"
-            << h_off_ << "::wire::core::callbacks::callback< bool > _sent        = nullptr,"
+            << h_off_ << "::wire::core::functional::exception_callback _exception = nullptr,"
+            << h_off_ << "::wire::core::functional::callback< bool > _sent        = nullptr,"
             << h_off_ << "::wire::core::context_type const&                      = ::wire::core::no_context,"
             << h_off_ << "bool                                      run_sync     = false);";
     h_off_ -= 2;
@@ -761,26 +764,31 @@ generator::generate_invocation_function_member(ast::function_ptr func)
             source_ << --s_off_ << "}\n";
         }
         {
+            // Async invocation
             offset_guard _f{s_off_};
             source_ << s_off_ << "void"
                     << s_off_ << rel_name(func->owner()->name()) << "_proxy::" << func->name() << "_async(";
             s_off_ += 3;
             source_ << s_off_ << call_params.str()
                     << result_callback.str() << " _response,"
-                    << s_off_ << "::wire::core::callbacks::exception_callback _exception,"
-                    << s_off_ << "::wire::core::callbacks::callback< bool > _sent,"
+                    << s_off_ << "::wire::core::functional::exception_callback _exception,"
+                    << s_off_ << "::wire::core::functional::callback< bool > _sent,"
                     << s_off_ << "::wire::core::context_type const& _ctx,"
                     << s_off_ << "bool _run_sync)"
                     << (s_off_ - 3) << "{";
             s_off_ -= 2;
-            source_ << s_off_ << "auto const& ref = wire_get_reference();";
-            source_ << s_off_ << "wire_get_connection()->invoke("
-                    << (s_off_ + 1) << "ref.object_id(), \"" << func->name()
-                    << "\", _ctx, _run_sync, _response, _exception, _sent";
-            for (auto const& p : params) {
-                source_ << ", " << p.second;
+
+            source_ << s_off_ << "make_invocation(wire_get_reference(),"
+                    << (s_off_ + 2) << pfx << func->name() << ", _ctx,"
+                    << (s_off_ + 2) << "&" << rel_name(func->owner()->name()) << "::" << func->name() << ","
+                    << (s_off_ + 2) << "_response, _exception, _sent";
+            if (!params.empty()) {
+                source_ << (s_off_ + 2);
+                for (auto const& p : params) {
+                    source_ << ", " << p.second;
+                }
             }
-            source_ << ");";
+            source_ << ")(_run_sync);";
 
             --s_off_;
             source_ << s_off_ << "}\n";
@@ -1202,24 +1210,32 @@ generator::generate_wire_functions(ast::interface_ptr iface)
     // data
     auto pfx = constant_prefix(eqn);
     {
+        auto const& funcs = iface->get_functions();
         source_ << s_off_ << "namespace { /*    Type ids and dispathc map for "
                         << iface->get_qualified_name() << "  */\n";
         offset_guard cn{s_off_};
         ++s_off_;
+        for (auto f : funcs) {
+            source_ << s_off_ << "::std::string const " << pfx << f->name()
+                    << " = \"" << f->name() << "\";";
+        }
+        if (!funcs.empty())
+            source_ << "\n";
         source_ << s_off_ << "using " << pfx << "dispatch_func ="
                 << (s_off_ + 1) << " void(" << rel_name(eqn)
-                << "::*)(::wire::core::dispatch_request const&, ::wire::core::current const&);";
+                << "::*)(::wire::core::dispatch_request const&, ::wire::core::current const&);\n";
+
         source_ << s_off_ << "::std::unordered_map< ::std::string, " << pfx << "dispatch_func >"
                 << " const " << pfx << "dispatch_map {";
 
         ++s_off_;
-        auto const& funcs = iface->get_functions();
         for (auto f : funcs) {
-            source_ << s_off_ << "{ \"" << f->name() << "\", &" << rel_name(eqn)
+            source_ << s_off_ << "{ " << pfx << f->name() << ", &" << rel_name(eqn)
                     << "::__" << f->name() << " },";
         }
 
-        source_ << --s_off_ << "};";
+        source_ << --s_off_ << "};\n";
+
         source_ << s_off_ << rel_name(eqn) << "::type_list const "
                 << pfx << "TYPE_IDS = {";
         ++s_off_;

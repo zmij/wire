@@ -26,12 +26,11 @@ typedef connection_impl< transport_type::tcp > tcp_connection_impl;
 typedef listen_connection_impl< transport_type::tcp > tcp_listen_connection_impl;
 
 connection_impl_ptr
-connection_impl_base::create_connection(connector_ptr cnctr, asio_config::io_service_ptr io_svc,
-        transport_type _type)
+connection_impl_base::create_connection(adapter_ptr adptr, transport_type _type)
 {
     switch (_type) {
         case transport_type::tcp :
-            return ::std::make_shared< tcp_connection_impl >( cnctr, io_svc );
+            return ::std::make_shared< tcp_connection_impl >( client_side{}, adptr );
         default:
             break;
     }
@@ -52,7 +51,7 @@ connection_impl_base::create_listen_connection(adapter_ptr adptr, transport_type
                     if (!a) {
                         throw errors::runtime_error{ "Adapter gone away" };
                     }
-                    return ::std::make_shared< tcp_connection_impl >( a );
+                    return ::std::make_shared< tcp_connection_impl >( server_side{}, a );
                 });
             break;
         default:
@@ -63,7 +62,7 @@ connection_impl_base::create_listen_connection(adapter_ptr adptr, transport_type
 
 void
 connection_impl_base::connect_async(endpoint const& ep,
-        callbacks::void_callback cb, callbacks::exception_callback eb)
+        functional::void_callback cb, functional::exception_callback eb)
 {
     mode_ = client;
     process_event(events::connect{ ep, cb, eb });
@@ -89,6 +88,10 @@ connection_impl_base::handle_connected(asio_config::error_code const& ec)
     ::std::cerr << "Handle connected\n";
     if (!ec) {
         process_event(events::connected{});
+        auto adp = adapter_.lock();
+        if (adp) {
+            adp->connection_online(local_endpoint(), remote_endpoint());
+        }
     } else {
         process_event(events::connection_failure{
             ::std::make_exception_ptr(errors::connection_failed(ec.message()))
@@ -135,7 +138,7 @@ connection_impl_base::handle_close()
 
 void
 connection_impl_base::write_async(encoding::outgoing_ptr out,
-        callbacks::void_callback cb)
+        functional::void_callback cb)
 {
     std::cerr << "Send message " << out->type() << " size " << out->size() << "\n";
     do_write_async( out,
@@ -145,7 +148,7 @@ connection_impl_base::write_async(encoding::outgoing_ptr out,
 
 void
 connection_impl_base::handle_write(asio_config::error_code const& ec, std::size_t bytes,
-        callbacks::void_callback cb, encoding::outgoing_ptr out)
+        functional::void_callback cb, encoding::outgoing_ptr out)
 {
     if (!ec) {
         if (cb) cb();
@@ -272,8 +275,8 @@ connection_impl_base::invoke(identity const& id, std::string const& op, context_
         bool run_sync,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
-        callbacks::exception_callback exception,
-        callbacks::callback< bool > sent)
+        functional::exception_callback exception,
+        functional::callback< bool > sent)
 {
     using encoding::request;
     encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(
@@ -287,7 +290,7 @@ connection_impl_base::invoke(identity const& id, std::string const& op, context_
     write(std::back_inserter(*out), r);
     params.close_all_encaps();
     out->insert_encapsulation(std::move(params));
-    callbacks::void_callback write_cb = sent ? [sent](){sent(true);} : callbacks::void_callback{};
+    functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
     pending_replies_.insert(std::make_pair( r.number, pending_reply{ reply, exception } ));
     process_event(events::send_request{ out, write_cb });
 
@@ -563,25 +566,24 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
 }  // namespace detail
 
 struct connection::impl {
+    adapter_weak_ptr            adapter_;
     connector_weak_ptr          connector_;
     asio_config::io_service_ptr io_service_;
-    adapter_weak_ptr            adapter_;
     detail::connection_impl_ptr connection_;
 
-    impl(connector_ptr cnctr, asio_config::io_service_ptr io_service)
-        : connector_{cnctr}, io_service_{io_service}
+    impl(adapter_ptr adp)
+        : adapter_{adp}, connector_{adp->get_connector()}, io_service_{adp->io_service()}
     {
     }
     void
     connect_async(endpoint const& ep,
-            callbacks::void_callback cb, callbacks::exception_callback eb)
+            functional::void_callback cb, functional::exception_callback eb)
     {
         if (connection_) {
             // Do something with the old connection
             // Or throw exception
         }
-        connection_ = detail::connection_impl_base::create_connection(connector_.lock(), io_service_, ep.transport());
-        connection_->adapter_ = adapter_;
+        connection_ = detail::connection_impl_base::create_connection(adapter_.lock(), ep.transport());
         connection_->connect_async(ep, cb, eb);
     }
 
@@ -593,7 +595,6 @@ struct connection::impl {
             // Or throw exception
         }
         connection_ = detail::connection_impl_base::create_listen_connection(adapter_.lock(), ep.transport());
-        connection_->adapter_ = adapter_;
         connection_->listen(ep);
     }
 
@@ -610,8 +611,8 @@ struct connection::impl {
             bool run_sync,
             encoding::outgoing&& params,
             encoding::reply_callback reply,
-            callbacks::exception_callback exception,
-            callbacks::callback< bool > sent)
+            functional::exception_callback exception,
+            functional::callback< bool > sent)
     {
         if (!connection_)
             throw errors::runtime_error{ "Connection is not initialized" };
@@ -637,22 +638,21 @@ struct connection::impl {
     }
 };
 
-connection::connection(connector_ptr cnctr, asio_config::io_service_ptr io_svc)
-    : pimpl_(::std::make_shared<impl>(cnctr, io_svc))
+connection::connection(client_side const&, adapter_ptr adp)
+    : pimpl_{::std::make_shared<impl>(adp)}
 {
 }
 
-connection::connection(connector_ptr cnctr, asio_config::io_service_ptr io_svc, endpoint const& ep,
-        callbacks::void_callback cb, callbacks::exception_callback eb)
-    : pimpl_(::std::make_shared<impl>(cnctr, io_svc))
+connection::connection(client_side const&, adapter_ptr adp, endpoint const& ep,
+        functional::void_callback cb, functional::exception_callback eb)
+    : pimpl_{::std::make_shared<impl>(adp)}
 {
     pimpl_->connect_async(ep, cb, eb);
 }
 
-connection::connection(adapter_ptr adp, endpoint const& ep)
-    : pimpl_(::std::make_shared<impl>(adp->get_connector(), adp->io_service()))
+connection::connection(server_side const&, adapter_ptr adp, endpoint const& ep)
+    : pimpl_{::std::make_shared<impl>(adp)}
 {
-    pimpl_->set_adapter(adp);
     pimpl_->start_accept(ep);
 }
 
@@ -679,7 +679,7 @@ connection::get_connector() const
 
 void
 connection::connect_async(endpoint const& ep,
-        callbacks::void_callback cb, callbacks::exception_callback eb)
+        functional::void_callback cb, functional::exception_callback eb)
 {
     pimpl_->connect_async(ep, cb, eb);
 }
@@ -702,8 +702,8 @@ connection::invoke(identity const& id, std::string const& op,
         bool run_sync,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
-        callbacks::exception_callback exception,
-        callbacks::callback< bool > sent)
+        functional::exception_callback exception,
+        functional::callback< bool > sent)
 {
     pimpl_->invoke(id, op, ctx, run_sync, ::std::move(params), reply, exception, sent);
 }

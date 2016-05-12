@@ -14,12 +14,12 @@
 
 #include <wire/core/endpoint.hpp>
 #include <wire/core/identity.hpp>
-#include <wire/core/callbacks.hpp>
 #include <wire/core/context.hpp>
 
 #include <wire/core/connector_fwd.hpp>
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/adapter_fwd.hpp>
+#include <wire/core/functional.hpp>
 
 #include <wire/util/function_traits.hpp>
 
@@ -30,19 +30,22 @@
 namespace wire {
 namespace core {
 
+struct server_side {};
+struct client_side {};
+
 class connection {
 public:
     /**
      * Create connection with no endpoint.
      */
-    connection(connector_ptr cnctr, asio_config::io_service_ptr);
+    connection(client_side const&, adapter_ptr);
     /**
      * Create connection and start asynchronous connect.
      * @param
      */
-    connection(connector_ptr cnctr, asio_config::io_service_ptr, endpoint const&,
-            callbacks::void_callback = nullptr,
-            callbacks::exception_callback = nullptr);
+    connection(client_side const&, adapter_ptr, endpoint const&,
+            functional::void_callback = nullptr,
+            functional::exception_callback = nullptr);
 
     /**
      * Create a connection and start accepting at specified
@@ -50,7 +53,7 @@ public:
      * @param adapter shared pointer to adapter
      * @param endpoint endpoint to listen
      */
-    connection(adapter_ptr, endpoint const&);
+    connection(server_side const&, adapter_ptr, endpoint const&);
 
     connection(connection&&);
     connection&
@@ -66,8 +69,8 @@ public:
      */
     void
     connect_async(endpoint const&,
-            callbacks::void_callback = nullptr,
-            callbacks::exception_callback = nullptr);
+            functional::void_callback = nullptr,
+            functional::exception_callback = nullptr);
 
 
     void
@@ -77,13 +80,13 @@ public:
     set_adapter(adapter_ptr);
 
     template < typename Handler, typename ... Args >
-    typename std::enable_if< (util::is_callable<Handler>::value &&
+    typename ::std::enable_if< (util::is_callable<Handler>::value &&
             util::function_traits< Handler >::arity > 0), void >::type
-    invoke(identity const& id, std::string const& op, context_type const& ctx,
+    invoke(identity const& id, ::std::string const& op, context_type const& ctx,
             bool run_sync,
             Handler response,
-            callbacks::exception_callback exception,
-            callbacks::callback< bool > sent,
+            functional::exception_callback exception,
+            functional::callback< bool > sent,
             Args const& ... args)
     {
         using handler_traits = util::function_traits<Handler>;
@@ -91,7 +94,7 @@ public:
 
         using encoding::incoming;
         encoding::outgoing out{ get_connector() };
-        encoding::write(std::back_inserter(out), args ...);
+        encoding::write(::std::back_inserter(out), args ...);
         invoke(id, op, ctx, run_sync, ::std::move(out),
             [response, exception](incoming::const_iterator begin, incoming::const_iterator end){
                 try {
@@ -102,7 +105,9 @@ public:
                     util::invoke(response, args);
                 } catch(...) {
                     if (exception) {
-                        exception(std::current_exception());
+                        try {
+                            exception(::std::current_exception());
+                        } catch (...) {}
                     }
                 }
             },
@@ -111,32 +116,40 @@ public:
 
     template < typename ... Args >
     void
-    invoke(identity const& id, std::string const& op, context_type const& ctx,
+    invoke(identity const& id, ::std::string const& op, context_type const& ctx,
             bool run_sync,
-            callbacks::void_callback        response,
-            callbacks::exception_callback   exception,
-            callbacks::callback< bool >     sent,
+            functional::void_callback        response,
+            functional::exception_callback   exception,
+            functional::callback< bool >     sent,
             Args const& ... args)
     {
         using encoding::incoming;
         encoding::outgoing out{ get_connector() };
-        write(std::back_inserter(out), args ...);
+        write(::std::back_inserter(out), args ...);
         invoke(id, op, ctx, run_sync, ::std::move(out),
-            [response](incoming::const_iterator, incoming::const_iterator){
+            [response, exception](incoming::const_iterator, incoming::const_iterator){
                 if (response) {
-                    response();
+                    try {
+                        response();
+                    } catch(...) {
+                        if (exception) {
+                            try {
+                                exception(::std::current_exception());
+                            } catch(...) {}
+                        }
+                    }
                 }
             },
             exception, sent);
     }
 
     void
-    invoke(identity const&, std::string const& op, context_type const& ctx,
+    invoke(identity const&, ::std::string const& op, context_type const& ctx,
             bool run_sync,
             encoding::outgoing&&,
             encoding::reply_callback,
-            callbacks::exception_callback exception,
-            callbacks::callback< bool > sent);
+            functional::exception_callback exception,
+            functional::callback< bool > sent);
 
     endpoint
     local_endpoint() const;
@@ -146,7 +159,7 @@ private:
     operator = (connection const&) = delete;
 private:
     struct impl;
-    using pimpl = std::shared_ptr<impl>;
+    using pimpl = ::std::shared_ptr<impl>;
     pimpl pimpl_;
 };
 

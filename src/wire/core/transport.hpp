@@ -169,6 +169,12 @@ struct tcp_transport {
     {
         return traits::get_endpoint_data(socket_.local_endpoint());
     }
+
+    endpoint
+    remote_endpoint() const
+    {
+        return traits::get_endpoint_data(socket_.remote_endpoint());
+    }
 private:
     void
     handle_resolve(asio_config::error_code const& ec,
@@ -249,6 +255,11 @@ struct ssl_transport {
     {
         return traits::get_endpoint_data(socket_.lowest_layer().local_endpoint() );
     }
+    endpoint
+    remote_endpoint() const
+    {
+        return traits::get_endpoint_data(socket_.lowest_layer().remote_endpoint());
+    }
 private:
     bool
     verify_certificate(bool preverified, ASIO_NS::ssl::verify_context& ctx);
@@ -302,9 +313,15 @@ struct udp_transport {
         socket_.async_receive(buffer, handler);
     }
 
-    endpoint local_endpoint() const
+    endpoint
+    local_endpoint() const
     {
         return traits::get_endpoint_data(socket_.local_endpoint());
+    }
+    endpoint
+    remote_endpoint() const
+    {
+        return traits::get_endpoint_data(socket_.remote_endpoint());
     }
 private:
     void
@@ -356,6 +373,11 @@ struct socket_transport {
     {
         return traits::get_endpoint_data(socket_.local_endpoint());
     }
+    endpoint
+    remote_endpoint() const
+    {
+        return traits::get_endpoint_data(socket_.remote_endpoint());
+    }
 private:
     void
     handle_connect(asio_config::error_code const&, asio_config::asio_callback);
@@ -382,8 +404,15 @@ struct transport_listener {
     void
     open(endpoint const&, bool reuse_port = false);
 
+    void
+    close();
+
     endpoint
     local_endpoint() const;
+
+    endpoint
+    remote_endpoint() const
+    { return endpoint{}; }
 
     bool
     ready() const

@@ -27,15 +27,24 @@ transport_listener< Session, Type >::open(endpoint const& ep, bool rp)
 {
     endpoint_type proto_ep = traits::create_endpoint(io_service_, ep);
     acceptor_.open(proto_ep.protocol());
-    acceptor_.set_option( typename acceptor_type::reuse_address(true) );
+    acceptor_.set_option( typename acceptor_type::reuse_address{true} );
+    acceptor_.set_option( typename acceptor_type::keep_alive{ true } );
     if (rp) {
-        acceptor_.set_option( reuse_port(true) );
+        acceptor_.set_option( reuse_port{true} );
     }
     acceptor_.bind(proto_ep);
     acceptor_.listen();
 
     start_accept();
     ready_ = true;
+}
+
+template < typename Session, transport_type Type >
+void
+transport_listener< Session, Type >::close()
+{
+    acceptor_.cancel();
+    acceptor_.close();
 }
 
 template < typename Session, transport_type Type >

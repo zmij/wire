@@ -59,51 +59,6 @@ public:
         : ::std::logic_error( util::concatenate(args ...) ) {}
 };
 
-class not_found : public runtime_error {
-public:
-    enum subject { object, facet, operation };
-public:
-    not_found(std::string const& msg, subject s)
-        : runtime_error{msg}, subj_(s) {}
-    not_found(char const* msg, subject s)
-        : runtime_error{msg}, subj_(s) {}
-    template < typename ... T >
-    not_found(subject s, T const& ... args) :
-        runtime_error(util::delim_concatenate(" ", args ...)), subj_(s) {}
-
-    subject
-    subj() const
-    { return subj_; }
-private:
-    subject subj_;
-};
-
-
-class no_object : public not_found {
-public:
-    no_object(std::string const& msg) : not_found{msg, object} {}
-    no_object(char const* msg) : not_found{msg, object} {}
-    template < typename ... T >
-    no_object(T const& ... args) : not_found(object, args ...) {}
-};
-
-class no_operation : public not_found {
-public:
-    no_operation(std::string const& msg) : not_found{msg, operation} {}
-    no_operation(char const* msg) : not_found{msg, operation} {}
-    template < typename ... T >
-    no_operation(T const& ... args) : not_found(operation, args ...) {}
-};
-
-class no_facet : public not_found {
-public:
-    no_facet(std::string const& msg) : not_found{msg, facet} {}
-    no_facet(char const* msg) : not_found{msg, facet} {}
-    template < typename ... T >
-    no_facet(T const& ... args) : not_found(facet, args ...) {}
-};
-
-
 }  // namespace errors
 }  // namespace wire
 

@@ -111,7 +111,9 @@ TEST_F(Client, TCPConnect)
     ASSERT_EQ(used_transport::value, endpoint_.transport());
     ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
 
-    connection c{connector_ptr{}, io_svc};
+    connector_ptr cnctr = connector::create_connector(io_svc);
+    adapter_ptr bidir = cnctr->bidir_adapter();
+    connection c{client_side{}, bidir};
 
     bool connected = false;
     bool error = false;
@@ -143,7 +145,9 @@ TEST_F(Client, TCPConnectFail)
     ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
     StopPartner();
 
-    connection c{connector_ptr{}, io_svc};
+    connector_ptr cnctr = connector::create_connector(io_svc);
+    adapter_ptr bidir = cnctr->bidir_adapter();
+    connection c{client_side{}, bidir};
 
     bool connected = false;
     bool error = false;
@@ -174,7 +178,9 @@ TEST_F(Client, TCPConnectInvalidValidate)
     ASSERT_EQ(used_transport::value, endpoint_.transport());
     ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
 
-    connection c{connector_ptr{}, io_svc};
+    connector_ptr cnctr = connector::create_connector(io_svc);
+    adapter_ptr bidir = cnctr->bidir_adapter();
+    connection c{client_side{}, bidir};
 
     bool connected = false;
     bool error = false;
@@ -209,7 +215,9 @@ TEST_F(Client, TCPSendRequest)
     ASSERT_EQ(used_transport::value, endpoint_.transport());
     ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
 
-    connection c{connector_ptr{}, io_svc};
+    connector_ptr cnctr = connector::create_connector(io_svc);
+    adapter_ptr bidir = cnctr->bidir_adapter();
+    connection c{client_side{}, bidir};
 
     std::bitset< 5 > tests;
 
@@ -368,7 +376,9 @@ TEST_F(Client, DISABLED_SSL)
     ASSERT_EQ(used_transport::value, endpoint_.transport());
     ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
 
-    connection c{connector_ptr{}, io_svc};
+    connector_ptr cnctr = connector::create_connector(io_svc);
+    adapter_ptr bidir = cnctr->bidir_adapter();
+    connection c{client_side{}, bidir};
 
     bool connected = false;
     bool error = false;

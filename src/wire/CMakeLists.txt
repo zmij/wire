@@ -20,6 +20,7 @@ set(wire_lib_SRCS
     encoding/buffer_sequence.cpp
     encoding/buffers.cpp
     encoding/message.cpp
+    errors/exceptions.cpp
     errors/user_exception.cpp
     core/connector.cpp
     core/constants.cpp

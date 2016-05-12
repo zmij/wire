@@ -12,8 +12,8 @@
 #include <wire/core/reference.hpp>
 #include <wire/core/connection_fwd.hpp>
 
-#include <wire/core/callbacks.hpp>
 #include <wire/core/context.hpp>
+#include <wire/core/functional.hpp>
 #include <wire/core/identity_fwd.hpp>
 
 #include <wire/encoding/wire_io.hpp>
@@ -77,9 +77,9 @@ public:
     void
     wire_is_a_async(
             ::std::string const&            type_id,
-            callbacks::callback< bool >     response,
-            callbacks::exception_callback   exception   = nullptr,
-            callbacks::callback< bool >     sent        = nullptr,
+            functional::callback< bool >    response,
+            functional::exception_callback  exception   = nullptr,
+            functional::callback< bool >    sent        = nullptr,
             context_type const&                         = no_context,
             bool                            run_sync    = false
     );
@@ -113,9 +113,9 @@ public:
 
     void
     wire_ping_async(
-            callbacks::void_callback        response,
-            callbacks::exception_callback   exception   = nullptr,
-            callbacks::callback< bool >     sent        = nullptr,
+            functional::void_callback       response,
+            functional::exception_callback  exception   = nullptr,
+            functional::callback< bool >    sent        = nullptr,
             context_type const&                         = no_context,
             bool                            run_sync    = false
     );
@@ -147,9 +147,9 @@ public:
 
     void
     wire_type_async(
-        callbacks::callback< ::std::string const& > response,
-        callbacks::exception_callback               exception   = nullptr,
-        callbacks::callback< bool >                 sent        = nullptr,
+        functional::callback< ::std::string const& > response,
+        functional::exception_callback              exception   = nullptr,
+        functional::callback< bool >                sent        = nullptr,
         context_type const&                                     = no_context,
         bool                                        run_sync    = false
     );
@@ -181,9 +181,9 @@ public:
 
     void
     wire_types_async(
-        callbacks::callback< ::std::vector< ::std::string > const& > result,
-        callbacks::exception_callback                   exception  = nullptr,
-        callbacks::callback<bool>                       sent       = nullptr,
+        functional::callback< ::std::vector< ::std::string > const& > result,
+        functional::exception_callback                  exception   = nullptr,
+        functional::callback<bool>                      sent        = nullptr,
         context_type const&                                         = no_context,
         bool                                            run_sync    = false
     );

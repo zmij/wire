@@ -7,6 +7,7 @@
 
 #include <wire/core/object.hpp>
 #include <wire/core/dispatch_request.hpp>
+#include <wire/errors/not_found.hpp>
 #include <unordered_map>
 
 namespace wire {
@@ -14,12 +15,17 @@ namespace core {
 
 namespace {
 
+::std::string const WIRE_CORE_OBJECT_wire_is_a = "wire_is_a";
+::std::string const WIRE_CORE_OBJECT_wire_ping = "wire_ping";
+::std::string const WIRE_CORE_OBJECT_wire_type = "wire_type";
+::std::string const WIRE_CORE_OBJECT_wire_types = "wire_types";
+
 using object_dispatch_func = void(object::*)(dispatch_request const&, current const&);
-const ::std::unordered_map<::std::string, object_dispatch_func>    object_dispatch_map {
-    { "wire_is_a",    &object::__wire_is_a },
-    { "wire_ping",    &object::__wire_ping },
-    { "wire_type",    &object::__wire_type },
-    { "wire_types",    &object::__wire_types },
+::std::unordered_map<::std::string, object_dispatch_func> const object_dispatch_map {
+    { WIRE_CORE_OBJECT_wire_is_a,    &object::__wire_is_a },
+    { WIRE_CORE_OBJECT_wire_ping,    &object::__wire_ping },
+    { WIRE_CORE_OBJECT_wire_type,    &object::__wire_type },
+    { WIRE_CORE_OBJECT_wire_types,    &object::__wire_types },
 };
 
 ::std::string OBJECT_TYPE_ID = "::wire::core::object";
@@ -104,11 +110,11 @@ object::__wire_dispatch(dispatch_request const& req, current const& c,
         }
         if (throw_not_found)
             throw errors::no_operation(
-                    wire_static_type_id(), "::", c.operation.name());
+                    c.operation.identity, c.operation.facet, c.operation.name());
         return false;
     } else {
         throw errors::no_operation(
-                wire_static_type_id(), "::", c.operation.name());
+                c.operation.identity, c.operation.facet, c.operation.name());
     }
 }
 

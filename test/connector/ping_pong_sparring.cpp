@@ -49,6 +49,11 @@ try {
     auto prx = adptr->add_object({"ping_pong"},
             ::std::make_shared< wire::test::ping_pong_server >([io_service](){ io_service->stop(); }) );
     ::std::cout << *prx << ::std::endl;
+    if (prx->wire_get_reference().is_local()) {
+        ::std::cerr << "Reference classified to be local\n";
+    } else {
+        ::std::cerr << "Reference classified to be remote\n";
+    }
 
     io_service->run();
     return 0;
