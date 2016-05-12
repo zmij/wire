@@ -91,6 +91,8 @@ template < typename Return >
 struct function_traits< Return(*)() > {
     enum { arity = 0 };
     using result_type               = Return;
+    using args_tuple_type           = void;
+    using decayed_args_tuple_type   = void;
 };
 
 /**
@@ -133,6 +135,8 @@ struct function_traits< Return(Class::*)() const> {
 
     using class_type                = Class;
     using result_type               = Return;
+    using args_tuple_type           = void;
+    using decayed_args_tuple_type   = void;
 };
 
 /**
@@ -174,6 +178,8 @@ struct function_traits< Return(Class::*)() > {
 
     using class_type                = Class;
     using result_type               = Return;
+    using args_tuple_type           = void;
+    using decayed_args_tuple_type   = void;
 };
 
 template < typename T >

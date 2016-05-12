@@ -6,8 +6,9 @@
  */
 
 #include "ping_pong_impl.hpp"
+
+#include <wire/core/invocation.hpp>
 #include <iostream>
-#include <wire/core/invokation.hpp>
 
 namespace wire {
 namespace test {

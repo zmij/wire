@@ -14,10 +14,11 @@ namespace wire {
 namespace core {
 
 class dispatcher_object;
-typedef std::shared_ptr< dispatcher_object > dispatcher_ptr;
+using dispatcher_ptr    = ::std::shared_ptr< dispatcher_object >;
 
 class object;
-typedef std::shared_ptr< object > object_ptr;
+using object_ptr        = ::std::shared_ptr< object >;
+using object_weak_ptr   = ::std::weak_ptr< object >;
 
 }  // namespace core
 }  // namespace wire

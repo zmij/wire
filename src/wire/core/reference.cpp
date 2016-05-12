@@ -56,7 +56,19 @@ reference::create_reference(connector_ptr cnctr, reference_data const& ref_data)
 bool
 reference::is_local() const
 {
+    if (local_object_cache_.lock())
+        return true;
     return get_connector()->is_local(*this);
+}
+
+object_ptr
+reference::get_local_object() const
+{
+    auto obj = local_object_cache_.lock();
+    if (!obj) {
+        // TODO Lookup via connector
+    }
+    return obj;
 }
 
 //----------------------------------------------------------------------------

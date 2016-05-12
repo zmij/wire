@@ -14,6 +14,7 @@
 #include <wire/core/connection_fwd.hpp>
 #include <wire/core/connector_fwd.hpp>
 #include <wire/core/reference_fwd.hpp>
+#include <wire/core/object_fwd.hpp>
 
 #include <wire/encoding/detail/optional_io.hpp>
 
@@ -72,6 +73,8 @@ public:
 
     bool
     is_local() const;
+    object_ptr
+    get_local_object() const;
 
     identity const&
     object_id() const
@@ -90,7 +93,8 @@ public:
 private:
     connector_weak_ptr  connector_;
 protected:
-    reference_data      ref_;
+    reference_data          ref_;
+    object_weak_ptr mutable local_object_cache_;
 };
 
 using reference_ptr = ::std::shared_ptr<reference>;

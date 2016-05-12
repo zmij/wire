@@ -77,9 +77,9 @@ public:
     set_adapter(adapter_ptr);
 
     template < typename Handler, typename ... Args >
-    typename std::enable_if< (util::is_callable<Handler>::value &&
+    typename ::std::enable_if< (util::is_callable<Handler>::value &&
             util::function_traits< Handler >::arity > 0), void >::type
-    invoke(identity const& id, std::string const& op, context_type const& ctx,
+    invoke(identity const& id, ::std::string const& op, context_type const& ctx,
             bool run_sync,
             Handler response,
             functional::exception_callback exception,
@@ -91,7 +91,7 @@ public:
 
         using encoding::incoming;
         encoding::outgoing out{ get_connector() };
-        encoding::write(std::back_inserter(out), args ...);
+        encoding::write(::std::back_inserter(out), args ...);
         invoke(id, op, ctx, run_sync, ::std::move(out),
             [response, exception](incoming::const_iterator begin, incoming::const_iterator end){
                 try {
@@ -102,7 +102,9 @@ public:
                     util::invoke(response, args);
                 } catch(...) {
                     if (exception) {
-                        exception(std::current_exception());
+                        try {
+                            exception(::std::current_exception());
+                        } catch (...) {}
                     }
                 }
             },
@@ -111,7 +113,7 @@ public:
 
     template < typename ... Args >
     void
-    invoke(identity const& id, std::string const& op, context_type const& ctx,
+    invoke(identity const& id, ::std::string const& op, context_type const& ctx,
             bool run_sync,
             functional::void_callback        response,
             functional::exception_callback   exception,
@@ -120,18 +122,26 @@ public:
     {
         using encoding::incoming;
         encoding::outgoing out{ get_connector() };
-        write(std::back_inserter(out), args ...);
+        write(::std::back_inserter(out), args ...);
         invoke(id, op, ctx, run_sync, ::std::move(out),
-            [response](incoming::const_iterator, incoming::const_iterator){
+            [response, exception](incoming::const_iterator, incoming::const_iterator){
                 if (response) {
-                    response();
+                    try {
+                        response();
+                    } catch(...) {
+                        if (exception) {
+                            try {
+                                exception(::std::current_exception());
+                            } catch(...) {}
+                        }
+                    }
                 }
             },
             exception, sent);
     }
 
     void
-    invoke(identity const&, std::string const& op, context_type const& ctx,
+    invoke(identity const&, ::std::string const& op, context_type const& ctx,
             bool run_sync,
             encoding::outgoing&&,
             encoding::reply_callback,
@@ -146,7 +156,7 @@ private:
     operator = (connection const&) = delete;
 private:
     struct impl;
-    using pimpl = std::shared_ptr<impl>;
+    using pimpl = ::std::shared_ptr<impl>;
     pimpl pimpl_;
 };
 

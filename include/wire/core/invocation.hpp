@@ -5,11 +5,15 @@
  *      Author: sergey.fedorov
  */
 
-#ifndef WIRE_CORE_INVOKATION_HPP_
-#define WIRE_CORE_INVOKATION_HPP_
+#ifndef WIRE_CORE_INVOCATION_HPP_
+#define WIRE_CORE_INVOCATION_HPP_
 
 #include <wire/core/connection.hpp>
 #include <wire/core/reference.hpp>
+#include <wire/core/dispatch_request.hpp>
+#include <wire/core/current.hpp>
+#include <wire/core/object.hpp>
+
 #include <wire/util/function_traits.hpp>
 
 namespace wire {
@@ -69,40 +73,47 @@ template < bool isVoid, bool isSync >
 struct invokation_selector;
 
 template < invokation_type T >
-using invokation_constant = ::std::integral_constant< invokation_type, T >;
+using invocation_mode = ::std::integral_constant< invokation_type, T >;
 
 template <>
 struct invokation_selector<true, true> :
-    invokation_constant< invokation_type::void_sync >{};
+    invocation_mode< invokation_type::void_sync >{};
 template <>
 struct invokation_selector<false, true> :
-    invokation_constant< invokation_type::nonvoid_sync >{};
+    invocation_mode< invokation_type::nonvoid_sync >{};
 template <>
 struct invokation_selector<true, false> :
-    invokation_constant< invokation_type::void_async >{};
+    invocation_mode< invokation_type::void_async >{};
 
 template < typename Handler, typename Member,
         typename IndexTuple, typename ... Args >
-struct local_invokation;
+struct local_invocation;
 
 template < typename Handler, typename Member,
             size_t ... Indexes, typename ... Args >
-struct local_invokation< Handler, Member,
+struct local_invocation< Handler, Member,
             util::indexes_tuple< Indexes ... >, Args ... > {
-    using invocation_args =
-            ::std::tuple<
-                  ::std::reference_wrapper<
-                        typename ::std::decay< Args >::type const > ... >;
-    using response_hander   = Handler;
-    using exception_handler = functional::exception_callback;
-    using sent_handler      = functional::callback< bool >;
     using member_type       = Member;
     using member_traits     = util::function_traits< member_type >;
     using interface_type    = typename member_traits::class_type;
     using servant_ptr       = ::std::shared_ptr< interface_type >;
 
-    static constexpr bool is_void = util::is_func_void< member_type >::value;
-    static constexpr bool is_sync = is_sync_dispatch< member_type >::value;
+    using response_hander   = Handler;
+    using response_traits   = util::function_traits<response_hander>;
+    using response_args     = typename response_traits::decayed_args_tuple_type;
+
+    static constexpr bool is_void       = util::is_func_void< member_type >::value;
+    static constexpr bool is_sync       = is_sync_dispatch< member_type >::value;
+    static constexpr bool void_response = response_traits::arity == 0;
+
+    using invocation_args = typename ::std::conditional<is_sync,
+            ::std::tuple<
+                  ::std::reference_wrapper<
+                       typename ::std::decay< Args >::type const > ... >,
+            ::std::tuple< typename ::std::decay< Args >::type ... > // Copy args for the async local invocation
+        >::type;
+    using exception_handler = functional::exception_callback;
+    using sent_handler      = functional::callback< bool >;
 
     reference const&        ref;
     member_type             member;
@@ -116,22 +127,25 @@ struct local_invokation< Handler, Member,
     sent_handler            sent;
 
     void
-    operator()(bool) const
+    operator()(bool run_sync) const
     {
-        invokation_sent();
-        object_ptr obj; // FIXME Get local servant from connector
+        invocation_sent();
+        object_ptr obj = ref.get_local_object();
         if (!obj)
             invokation_error(::std::make_exception_ptr(errors::no_object{ref.object_id()}));
         servant_ptr srv = ::std::dynamic_pointer_cast< interface_type >(obj);
-        if (!srv) // FIXME try invoke via a buffer and __dispatch function
-            invokation_error(::std::make_exception_ptr(errors::no_object{ref.object_id()}));
-        current curr{{}, ctx};
-        invoke(srv, curr, invokation_selector< is_void, is_sync >{});
+
+        current curr{{ref.object_id(), ref.facet(), op}, ctx};
+        if (!srv) {
+            dispatch(obj, curr, run_sync);
+        } else {
+            invoke(srv, curr, run_sync, invokation_selector< is_void, is_sync >{});
+        }
     }
 
     void
-    invoke( servant_ptr srv, current const& curr,
-            invokation_constant< invokation_type::void_sync > const& ) const
+    invoke( servant_ptr srv, current const& curr, bool run_sync,
+            invocation_mode< invokation_type::void_sync > const& ) const
     {
         try {
             ((*srv).*member)(::std::get< Indexes >(args).get() ..., curr);
@@ -142,8 +156,8 @@ struct local_invokation< Handler, Member,
     }
 
     void
-    invoke( servant_ptr srv, current const& curr,
-            invokation_constant< invokation_type::nonvoid_sync > const& ) const
+    invoke( servant_ptr srv, current const& curr, bool run_sync,
+            invocation_mode< invokation_type::nonvoid_sync > const& ) const
     {
         try {
             response(((*srv).*member)(::std::get< Indexes >(args).get() ..., curr));
@@ -153,11 +167,11 @@ struct local_invokation< Handler, Member,
     }
 
     void
-    invoke( servant_ptr srv, current const& curr,
-            invokation_constant< invokation_type::void_async > const&) const
+    invoke( servant_ptr srv, current const& curr, bool run_sync,
+            invocation_mode< invokation_type::void_async > const&) const
     {
         try {
-            ((*srv).*member)(::std::get< Indexes >(args).get() ...,
+            ((*srv).*member)(::std::get< Indexes >(args) ...,
                     response, exception, curr);
         } catch (...) {
             invokation_error(::std::current_exception());
@@ -165,7 +179,7 @@ struct local_invokation< Handler, Member,
     }
 
     void
-    invokation_sent() const
+    invocation_sent() const
     {
         if (sent) {
             try {
@@ -179,17 +193,91 @@ struct local_invokation< Handler, Member,
         if (exception) {
             try {
                 exception(ex);
-            } catch (...) {
-            }
+            } catch (...) {}
         }
+    }
+
+    void
+    write_args(encoding::outgoing& out, ::std::true_type const&) const // write sync invocation args
+    {
+        encoding::write(::std::back_inserter(out),
+                ::std::get< Indexes >(args).get() ...);
+    }
+    void
+    write_args(encoding::outgoing& out, ::std::false_type const&) const // write async invocation args
+    {
+        encoding::write(::std::back_inserter(out),
+                ::std::get< Indexes >(args) ...);
+    }
+    encoding::request_result_callback
+    create_callback( ::std::true_type const& ) const // callback for void dispatch
+    {
+        response_hander resp    = response;
+        exception_handler exc   = exception;
+        return [resp, exc]( encoding::outgoing&& out )
+        {
+            try {
+                if (resp) resp();
+            } catch (...) {
+                if (exc) {
+                    try {
+                        exc(::std::current_exception());
+                    } catch(...) {}
+                }
+            }
+        };
+    }
+    encoding::request_result_callback
+    create_callback( ::std::false_type const& ) const // callback for non-void dispatch
+    {
+        using namespace encoding;
+        response_hander resp = response;
+        exception_handler exc   = exception;
+        return [resp, exc]( outgoing&& out )
+        {
+            try {
+                // Unmarshal params
+                incoming in{ message{}, ::std::move(out) };
+                auto encaps = in.current_encapsulation();
+                response_args args;
+                auto begin = encaps.begin();
+                auto end = encaps.end();
+                read(begin, end, args);
+                encaps.read_indirection_table(begin);
+                util::invoke(resp, args);
+            } catch (...) {
+                if (exc) {
+                    try {
+                        exc(::std::current_exception());
+                    } catch (...) {}
+                }
+            }
+        };
+    }
+    void
+    dispatch(object_ptr obj, current const& curr,  bool run_sync) const
+    {
+        using namespace encoding;
+        outgoing out{ ref.get_connector() };
+        write_args(out, ::std::integral_constant<bool, is_sync>{});
+        out.close_all_encaps();
+        incoming_ptr in = ::std::make_shared< incoming >(message{}, ::std::move(out));
+        auto encaps = in->current_encapsulation();
+
+        dispatch_request dr {
+            in, encaps.begin(), encaps.end(), encaps.size(),
+                    create_callback(::std::integral_constant<bool, void_response>{}),
+                    exception
+        };
+        obj->__dispatch(dr, curr);
     }
 };
 
 template < typename Handler, typename IndexTuple, typename ... Args >
-struct remote_invokation;
+struct remote_invocation;
 
 template < typename Handler, size_t ... Indexes, typename ... Args >
-struct remote_invokation< Handler,
+struct remote_invocation< Handler,
                 util::indexes_tuple< Indexes ... >, Args ... > {
     using invocation_args =
             ::std::tuple<
@@ -230,19 +318,22 @@ make_invocation(reference const&        ref,
         functional::callback< bool >    sent,
         Args const& ...                 args)
 {
-    using index_type = typename util::index_builder< sizeof ... (Args) >::type;
-    using remote_invokation = detail::remote_invokation< Handler, index_type, Args ... >;
-    using local_invokation = detail::local_invokation< Handler, Member, index_type, Args ... >;
+    using index_type        = typename util::index_builder< sizeof ... (Args) >::type;
+    using remote_invocation = detail::remote_invocation< Handler, index_type, Args ... >;
+    using remote_args       = typename remote_invocation::invocation_args;
+    using local_invocation  = detail::local_invocation< Handler, Member, index_type, Args ... >;
+    using local_args        = typename local_invocation::invocation_args;
+
     if (ref.is_local()) {
-        return local_invokation {
+        return local_invocation {
             ref, member, op, ctx,
-            { ::std::cref(args)... },
+            local_args{ args ... },
             response, exception, sent
         };
     } else {
-        return remote_invokation {
+        return remote_invocation {
             ref, op, ctx,
-            { ::std::cref(args)... },
+            remote_args{ args ... },
             response, exception, sent
         };
     }
@@ -253,4 +344,4 @@ make_invocation(reference const&        ref,
 
 
 
-#endif /* WIRE_CORE_INVOKATION_HPP_ */
+#endif /* WIRE_CORE_INVOCATION_HPP_ */

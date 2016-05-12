@@ -200,9 +200,9 @@ struct operation_specs {
         name_string
     };
     using operation_id = boost::variant< int32_t, ::std::string >;
-    core::identity        identity;
-    ::std::string            facet;
-    operation_id        operation;
+    core::identity  identity;
+    ::std::string   facet;
+    operation_id    operation;
 
     void
     swap(operation_specs& rhs)
