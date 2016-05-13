@@ -6,7 +6,7 @@
  */
 
 #include <wire/core/object.hpp>
-#include <wire/core/dispatch_request.hpp>
+#include <wire/core/detail/dispatch_request.hpp>
 #include <wire/errors/not_found.hpp>
 #include <unordered_map>
 
@@ -20,7 +20,7 @@ namespace {
 ::std::string const WIRE_CORE_OBJECT_wire_type = "wire_type";
 ::std::string const WIRE_CORE_OBJECT_wire_types = "wire_types";
 
-using object_dispatch_func = void(object::*)(dispatch_request const&, current const&);
+using object_dispatch_func = void(object::*)(detail::dispatch_request const&, current const&);
 ::std::unordered_map<::std::string, object_dispatch_func> const object_dispatch_map {
     { WIRE_CORE_OBJECT_wire_is_a,    &object::__wire_is_a },
     { WIRE_CORE_OBJECT_wire_ping,    &object::__wire_ping },
@@ -59,7 +59,7 @@ object::wire_types(current const&) const
 }
 
 void
-object::__wire_is_a(dispatch_request const& req, current const& c)
+object::__wire_is_a(detail::dispatch_request const& req, current const& c)
 {
     ::std::string arg;
     auto b = req.encaps_start;
@@ -72,7 +72,7 @@ object::__wire_is_a(dispatch_request const& req, current const& c)
 }
 
 void
-object::__wire_ping(dispatch_request const& req, current const& c)
+object::__wire_ping(detail::dispatch_request const& req, current const& c)
 {
     wire_ping(c);
     encoding::outgoing out{ req.buffer->get_connector() };
@@ -80,7 +80,7 @@ object::__wire_ping(dispatch_request const& req, current const& c)
 }
 
 void
-object::__wire_type(dispatch_request const& req, current const& c)
+object::__wire_type(detail::dispatch_request const& req, current const& c)
 {
     encoding::outgoing out{ req.buffer->get_connector() };
     encoding::write(std::back_inserter(out), wire_type(c));
@@ -88,7 +88,7 @@ object::__wire_type(dispatch_request const& req, current const& c)
 }
 
 void
-object::__wire_types(dispatch_request const& req, current const& c)
+object::__wire_types(detail::dispatch_request const& req, current const& c)
 {
     encoding::outgoing out{ req.buffer->get_connector() };
     encoding::write(std::back_inserter(out), wire_types(c));
@@ -96,7 +96,7 @@ object::__wire_types(dispatch_request const& req, current const& c)
 }
 
 bool
-object::__wire_dispatch(dispatch_request const& req, current const& c,
+object::__wire_dispatch(detail::dispatch_request const& req, current const& c,
         dispatch_seen_list& seen, bool throw_not_found)
 {
     if (seen.count(wire_static_type_id_hash()))
@@ -119,7 +119,7 @@ object::__wire_dispatch(dispatch_request const& req, current const& c,
 }
 
 void
-object::__dispatch(dispatch_request const& req, current const& c)
+object::__dispatch(detail::dispatch_request const& req, current const& c)
 {
     try {
         dispatch_seen_list seen;

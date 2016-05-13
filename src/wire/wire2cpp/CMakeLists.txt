@@ -10,6 +10,7 @@ set(
     wire2cpp_SRCS
     wire2cpp.cpp
     cpp_generator.cpp
+    cpp_source_stream.cpp
 )
 
 add_executable(wire2cpp ${wire2cpp_SRCS})

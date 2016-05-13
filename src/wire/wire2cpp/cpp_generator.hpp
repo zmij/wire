@@ -24,6 +24,9 @@
 #include <wire/idl/generator.hpp>
 #include <wire/idl/grammar/declarations.hpp>
 
+#include <wire/wire2cpp/generate_options.hpp>
+#include <wire/wire2cpp/cpp_source_stream.hpp>
+
 #include <fstream>
 #include <deque>
 #include <functional>
@@ -39,15 +42,6 @@ namespace annotations {
 ::std::string const GENERATE_IO = "cpp_io";
 
 }  /* namespace annotations */
-
-struct generate_options {
-    ::std::string    header_include_dir;
-
-    ::std::string    header_output_dir;
-    ::std::string    source_output_dir;
-
-    bool             dont_use_hashed_id;
-};
 
 struct offset {
     ::std::size_t sz = 0;
@@ -220,11 +214,11 @@ private:
     rel_name(ast::entity_const_ptr en)
     { return rel_name(en->get_qualified_name()); }
 
-    ::std::ostream&
-    write_init(::std::ostream&, offset& off, grammar::data_initializer const& init);
+    source_stream&
+    write_init(source_stream&, offset& off, grammar::data_initializer const& init);
 
-    ::std::ostream&
-    write_data_member(::std::ostream&, offset const&, ast::variable_ptr var);
+    source_stream&
+    write_data_member(source_stream&, offset const&, ast::variable_ptr var);
 
     void
     generate_read_write( ast::structure_ptr struct_);
@@ -256,13 +250,11 @@ private:
     ast::global_namespace_ptr       ns_;
     ast::compilation_unit_ptr       unit_;
 
-    ::std::ofstream                 header_;
-    ::std::ofstream                 source_;
+    source_stream                   header_;
+    source_stream                   source_;
 
     offset                          h_off_;
     offset                          s_off_;
-
-    ::std::string                   header_guard_;
 
     qname                           current_scope_;
 

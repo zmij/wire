@@ -10,9 +10,11 @@
 
 namespace wire {
 namespace core {
+namespace detail {
 
 struct dispatch_request;
 
+}  /* namespace detail */
 }  // namespace core
 }  // namespace wire
 
