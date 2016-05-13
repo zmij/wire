@@ -31,6 +31,28 @@ qname::qname(::std::string const& name)
         throw ::std::runtime_error( "Invalid name" );
 }
 
+bool
+qname::operator ==(qname const& rhs) const
+{
+    if (fully != rhs.fully)
+        return false;
+    auto lhss = search();
+    auto rhss = rhs.search();
+
+    auto l = lhss.begin;
+    auto r = rhss.begin;
+    for (; l != lhss.end && r != rhss.end && *l == *r; ++l, ++r);
+
+    return l == lhss.end && r == rhss.end;
+}
+
+qname&
+qname::operator +=(qname const& rhs)
+{
+    components.insert(components.end(), rhs.components.begin(), rhs.components.end());
+    return *this;
+}
+
 qname
 qname::parse(::std::string const& name)
 {

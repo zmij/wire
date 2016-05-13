@@ -7,6 +7,7 @@
 
 #include <wire/wire2cpp/cpp_source_stream.hpp>
 #include <sstream>
+#include <iomanip>
 
 namespace wire {
 namespace idl {
@@ -40,12 +41,41 @@ create_header_guard(fs::path const& inc_dir, fs::path const& fname)
     return hg;
 }
 
+void
+write_name(::std::ostream& os, qname const& qn, qname const& current_scope, bool& write_abs)
+{
+    ::std::ostream::sentry s{os};
+    if (s) {
+        if (write_abs) {
+            os << qn;
+            write_abs = false;
+        } else {
+            auto target = qn.search();
+            auto current = current_scope.search();
+            for (auto c = current.begin;
+                    c != current.end && !target.empty() && *c == *target.begin;
+                    ++c, ++target);
+            if (target.empty()) {
+                os << qn;
+            } else {
+                os << target;
+            }
+        }
+    }
+}
+
+
 }  /* namespace  */
 
 source_stream::source_stream(path const& origin_path, path const& header_dir,
         string_list const& include_dirs)
     : header_dir_{header_dir},
-      is_header_{false}
+      is_header_{false},
+      current_namespace_{true},
+      scope_{false},
+      current_offset_{0},
+      tab_width_{4},
+      abs_name_{false}
 {
     for (auto const& inc : include_dirs) {
         path inc_path{inc};
@@ -60,6 +90,7 @@ source_stream::source_stream(path const& origin_path, path const& header_dir,
 
 source_stream::~source_stream()
 {
+    adjust_scope(qname{});
     if (is_header_) {
         stream_ << "#endif          /* " << header_guard_ << " */\n";
     }
@@ -135,6 +166,214 @@ source_stream::include(path inc_file)
     return *this;
 }
 
+
+void
+source_stream::start_namespace(::std::string const& name)
+{
+    if (!scope_.empty()) {
+        throw ::std::runtime_error{"Cannot start a namespace in a non-namespace scope"};
+    }
+    stream_ << "namespace " << name << "{\n";
+    current_namespace_.components.push_back(name);
+}
+
+void
+source_stream::push_scope(::std::string const& name)
+{
+    scope_.components.push_back(name);
+    ++current_offset_;
+}
+
+void
+source_stream::pop_scope()
+{
+    if (!scope_.empty()) {
+        scope_.components.pop_back();
+        --current_offset_;
+        if (scope_.empty()) {
+            // call functions that want to be at namespace level
+            for (auto const& cb: at_namespace_scope_) {
+                cb(*this);
+            }
+            at_namespace_scope_.clear();
+        }
+    } else {
+        if (current_namespace_.empty()) {
+            throw ::std::runtime_error{"Cannot pop a scop at global scope"};
+        }
+        stream_ << "} /* namespace " << current_namespace_.name() << " */\n";
+        current_namespace_.components.pop_back();
+    }
+}
+
+void
+source_stream::at_namespace_scope(callback cb)
+{
+    if (scope_.empty()) {
+        cb(*this);
+    } else {
+        at_namespace_scope_.push_back(cb);
+    }
+}
+
+void
+source_stream::adjust_scope(qname const& target_scope)
+{
+    if (!scope_.empty()) {
+        qname current = current_namespace_ + scope_;
+        if (current != target_scope) {
+            throw ::std::runtime_error{ "Cannot adjust scope in a non-namespace scope" };
+        }
+        return;
+    }
+    qname_search target = target_scope.search();
+    qname_search current = current_namespace_.search();
+
+    auto c = current.begin;
+    auto t = target.begin;
+
+    for (; c != current.end && t != target.end && *c == *t; ++c, ++t);
+    auto erase_start = c;
+    if (erase_start != current_namespace_.end()) {
+        stream_ << "\n";
+    }
+    for (; c != current.end; ++c) pop_scope();
+    if (erase_start != current_namespace_.end()) {
+        stream_ << "\n";
+    }
+
+    bool space = t != target.end;
+    for (; t != target.end; ++t) {
+        start_namespace(*t);
+    }
+    if (space) {
+        stream_ << "\n";
+        current_offset_ = 0;
+    }
+}
+
+void
+source_stream::adjust_scope(ast::entity_ptr ent)
+{
+    auto qn = ent->get_qualified_name();
+    qn.components.pop_back();
+    adjust_scope(qn);
+}
+
+qname
+source_stream::current_scope() const
+{
+    return current_namespace_ + scope_;
+}
+
+void
+source_stream::write(qname const& qn)
+{
+    write_name(stream_, qn, current_namespace_ + scope_, abs_name_);
+}
+
+void
+source_stream::write_offset(int temp)
+{
+    stream_ << "\n";
+    if (current_offset_ + temp > 0)
+        stream_ << ::std::setw( (current_offset_ + temp) * tab_width_ )
+                << ::std::setfill(' ') << " ";
+}
+
+void
+source_stream::modify_offset(int delta)
+{
+    current_offset_ += delta;
+    if (current_offset_ < 0)
+        current_offset_ = 0;
+}
+
+void
+source_stream::set_offset(int offset)
+{
+    current_offset_ = offset;
+    if (current_offset_ < 0)
+        current_offset_ = 0;
+}
+
+source_stream&
+operator << (source_stream& os, grammar::data_initializer const& init)
+{
+    switch (init.value.which()) {
+        case 0: {
+            os << ::boost::get< ::std::string >(init.value);
+            break;
+        }
+        case 1: {
+            grammar::data_initializer::initializer_list const& list =
+                    ::boost::get<grammar::data_initializer::initializer_list>(init.value);
+            if (list.size() < 3) {
+                os << "{";
+                for (auto p = list.begin(); p != list.end(); ++p) {
+                    if (p != list.begin())
+                        os << ", ";
+                    os << *(*p);
+                }
+                os << "}";
+            } else {
+                os << "{" << mod(+1);
+                for (auto p = list.begin(); p != list.end(); ++p) {
+                    if (p != list.begin())
+                        os << "," << off;
+                    os << *(*p);
+                }
+                os << mod(-1) << "}";
+            }
+            break;
+        }
+    }
+    return os;
+}
+//----------------------------------------------------------------------------
+//      code_snippet
+//----------------------------------------------------------------------------
+void
+code_snippet::write(qname const& qn)
+{
+    write_name(os_, qn, current_scope_, abs_name_);
+}
+
+void
+code_snippet::write_offset(int temp)
+{
+    lines_.emplace_back(current_offset_ + current_mod_, os_.str());
+    os_.str(::std::string{});
+
+    current_mod_ = temp;
+}
+
+void
+code_snippet::modify_offset(int delta)
+{
+    current_offset_ += delta;
+    if (current_offset_ < 0)
+        current_offset_ = 0;
+}
+
+
+source_stream&
+operator << (source_stream& os, code_snippet const& cs)
+{
+    if (!cs.lines_.empty()) {
+        auto l = cs.lines_.begin();
+        os << l->second;
+        for (++l; l != cs.lines_.end(); ++l) {
+            os.write_offset(l->first);
+            os << l->second;
+        }
+    }
+    if (!cs.os_.str().empty()) {
+        os.write_offset(cs.current_offset_ + cs.current_mod_);
+        os << cs.os_.str();
+    }
+    return os;
+}
 
 }  /* namespace cpp */
 }  /* namespace idl */

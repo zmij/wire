@@ -112,14 +112,6 @@ operator - (offset const& off, ::std::size_t sz)
     return tmp;
 }
 
-struct offset_guard {
-    offset& off_;
-    ::std::size_t init;
-
-    offset_guard(offset& off) : off_{off}, init{off.sz} {}
-    ~offset_guard() { off_.sz = init; }
-};
-
 struct relative_name {
     qname_search    current;
     qname           qn;
@@ -188,8 +180,6 @@ public:
     generate_class(ast::class_ptr class_) override;
 private:
     void
-    adjust_scope(qname_search const& qn);
-    void
     adjust_scope(ast::entity_ptr en);
     void
     pop_scope();
@@ -207,28 +197,22 @@ private:
             grammar::annotation_list const& al = type_name_rules::empty_annotations )
     { return { current_scope_.search(), t, al }; };
 
-    relative_name
-    rel_name(qname const& qn)
-    { return { current_scope_.search(), qn }; }
-    relative_name
+    qname
     rel_name(ast::entity_const_ptr en)
-    { return rel_name(en->get_qualified_name()); }
+    { return en->get_qualified_name(); }
 
     source_stream&
-    write_init(source_stream&, offset& off, grammar::data_initializer const& init);
-
-    source_stream&
-    write_data_member(source_stream&, offset const&, ast::variable_ptr var);
+    write_data_member(source_stream&, ast::variable_ptr var);
 
     void
-    generate_read_write( ast::structure_ptr struct_);
+    generate_read_write(source_stream& s, ast::structure_ptr struct_);
     void
     generate_member_read_write( ast::structure_ptr struct_,
             ast::structure_const_ptr parent, bool ovrde = true );
     void
-    generate_comparison( ast::structure_ptr struct_);
+    generate_comparison(source_stream& s, ast::structure_ptr struct_);
     void
-    generate_io( ast::structure_ptr struct_);
+    generate_io(ast::structure_ptr struct_);
 
     ::std::string
     generate_type_id_funcs(ast::entity_ptr elem);
@@ -254,7 +238,6 @@ private:
     source_stream                   source_;
 
     offset                          h_off_;
-    offset                          s_off_;
 
     qname                           current_scope_;
 
