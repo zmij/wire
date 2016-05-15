@@ -19,6 +19,19 @@ namespace wire {
 namespace core {
 
 namespace detail {
+struct identity_empty_visitor : ::boost::static_visitor< bool > {
+    bool
+    operator()(::std::string const& s) const
+    {
+        return s.empty();
+    }
+    bool
+    operator()(::boost::uuids::uuid const& u) const
+    {
+        return u.is_nil();
+    }
+};
+
 struct identity_hash_visitor : ::boost::static_visitor< ::std::size_t > {
     ::std::size_t
     operator()(::std::string const& s) const
@@ -51,6 +64,12 @@ struct identity_out_visitor : ::boost::static_visitor<> {
 };
 
 }  // namespace detail
+
+bool
+identity::empty() const
+{
+    return ::boost::apply_visitor(detail::identity_empty_visitor{}, id);
+}
 
 ::std::ostream&
 operator << (::std::ostream& os, identity const& val)

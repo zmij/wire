@@ -10,45 +10,43 @@
 
 #include <string>
 #include <wire/core/endpoint.hpp>
+#include <wire/core/reference.hpp>
+#include <wire/core/detail/ssl_options.hpp>
 
 namespace wire {
 namespace core {
 namespace detail {
 
-struct ssl_options {
-	::std::string	verify_file;
-	::std::string	cert_file;
-	::std::string	key_file;
-	bool			require_peer_cert;
-};
-
-
 struct connector_options {
-	/**
-	 * Connector name
-	 */
-	::std::string	name		= "wire.connector";
-	/**
-	 * Configuration file
-	 */
-	::std::string	config_file;
-	/**
-	 * Server-side ssl options
-	 */
-	ssl_options		server_ssl;
-	/**
-	 * Client-side ssl options
-	 */
-	ssl_options		client_ssl;
+    /**
+     * Connector name
+     */
+    ::std::string   name        = "wire.connector";
+    /**
+     * Configuration file
+     */
+    ::std::string   config_file;
+    /**
+     * Locator reference
+     */
+    reference_data  locator_ref;
+    /**
+     * Server-side ssl options
+     */
+    ssl_options     server_ssl;
+    /**
+     * Client-side ssl options
+     */
+    ssl_options     client_ssl;
 
-	connector_options() {}
-	connector_options(::std::string const& name) : name(name) {}
+    connector_options() {}
+    connector_options(::std::string const& name) : name(name) {}
 };
 
 struct adapter_options {
-	endpoint_list	endpoints;
-	::std::size_t	timeout;
-	ssl_options		adapter_ssl;
+    endpoint_list    endpoints;
+    ::std::size_t    timeout;
+    ssl_options        adapter_ssl;
 };
 
 }  // namespace detail
