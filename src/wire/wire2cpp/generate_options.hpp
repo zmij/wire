@@ -21,6 +21,7 @@ struct generate_options {
     ::std::string    source_output_dir;
 
     bool             dont_use_hashed_id;
+    bool             generate_forwards;
 };
 
 

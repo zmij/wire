@@ -14,6 +14,7 @@
 #include <wire/idl/parser.hpp>
 
 #include <wire/wire2cpp/cpp_generator.hpp>
+#include <wire/wire2cpp/fwd_generator.hpp>
 
 #include <iterator>
 #include <algorithm>
@@ -80,6 +81,9 @@ try {
         ("dont-use-hashed-ids,n",
             po::bool_switch(&gen_options.dont_use_hashed_id)->default_value(false),
             "Always use string type id in class and exception marshalling")
+        ("generate-forwards,f",
+            po::bool_switch(&gen_options.generate_forwards)->default_value(false),
+            "Generate a header with forward declarations")
     ;
 
     po::options_description generate_opts_desc{"Generate options"};
@@ -145,6 +149,10 @@ try {
             auto cu = ns->current_compilation_unit();
             wire::idl::cpp::generator gen(gen_options, preproc_opts, ns);
             cu->generate(gen);
+            if (gen_options.generate_forwards) {
+                ::wire::idl::cpp::fwd_generator fgen(gen_options, preproc_opts, ns);
+                cu->generate(fgen);
+            }
         }
     }
 

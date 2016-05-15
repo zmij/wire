@@ -103,8 +103,6 @@ private:
     void
     generate_proxy_interface(ast::interface_ptr iface);
 private:
-    using free_function = ::std::function< void() >;
-private:
     generate_options                options_;
     ast::global_namespace_ptr       ns_;
     ast::compilation_unit_ptr       unit_;

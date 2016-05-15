@@ -134,8 +134,6 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
     fs::path header_path{ opts.header_output_dir };
     fs::path source_path{ opts.source_output_dir };
 
-    ::std::string origin_path = origin.parent_path().string();
-
     if (header_path.empty()) {
         header_path = fs::current_path();
     }

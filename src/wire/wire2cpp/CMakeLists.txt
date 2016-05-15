@@ -10,6 +10,7 @@ set(
     wire2cpp_SRCS
     wire2cpp.cpp
     cpp_generator.cpp
+    fwd_generator.cpp
     cpp_source_stream.cpp
     keywords.cpp
 )
