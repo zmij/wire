@@ -71,7 +71,7 @@ public:
     generate_class(ast::class_ptr class_) override;
 private:
     void
-    adjust_scope(ast::entity_ptr en);
+    adjust_namespace(ast::entity_ptr en);
 
     ::std::string
     constant_prefix( ast::qname const& ) const;

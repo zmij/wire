@@ -21,11 +21,6 @@ exception oops {
     string message;
 };
 
-interface callback {
-    void
-    event();
-};
-
 class ball {
     int64 size;
 };
@@ -35,6 +30,14 @@ class named_ball : ball {
 };
 
 interface ping_pong {
+    interface callback {
+        void
+        event() const;
+
+        data
+        give_pass(ball b);
+    };
+
     [[sync]]
     int32
     test_int(int32 val) const;

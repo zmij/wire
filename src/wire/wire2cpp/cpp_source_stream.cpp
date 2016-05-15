@@ -104,7 +104,7 @@ source_stream::source_stream(path const& origin_path, path const& header_dir,
 
 source_stream::~source_stream()
 {
-    adjust_scope(ast::qname{});
+    adjust_namespace(ast::qname{});
     if (is_header_) {
         stream_ << "#endif          /* " << header_guard_ << " */\n";
     }
@@ -218,6 +218,22 @@ source_stream::pop_scope()
 }
 
 void
+source_stream::pop_to_namespace()
+{
+    while (!scope_.empty()) {
+        scope_.components.pop_back();
+        --current_offset_;
+    }
+    if (scope_.empty()) {
+        // call functions that want to be at namespace level
+        for (auto const& cb: at_namespace_scope_) {
+            cb(*this);
+        }
+        at_namespace_scope_.clear();
+    }
+}
+
+void
 source_stream::at_namespace_scope(callback cb)
 {
     if (scope_.empty()) {
@@ -228,15 +244,8 @@ source_stream::at_namespace_scope(callback cb)
 }
 
 void
-source_stream::adjust_scope(ast::qname const& target_scope)
+source_stream::adjust_namespace(ast::qname const& target_scope)
 {
-    if (!scope_.empty()) {
-        ast::qname current = current_namespace_ + scope_;
-        if (current != target_scope) {
-            throw ::std::runtime_error{ "Cannot adjust scope in a non-namespace scope" };
-        }
-        return;
-    }
     ast::qname_search target = target_scope.search();
     ast::qname_search current = current_namespace_.search();
 
@@ -264,11 +273,10 @@ source_stream::adjust_scope(ast::qname const& target_scope)
 }
 
 void
-source_stream::adjust_scope(ast::entity_ptr ent)
+source_stream::adjust_namespace(ast::entity_ptr ent)
 {
-    auto qn = ent->get_qualified_name();
-    qn.components.pop_back();
-    adjust_scope(qn);
+    auto qn = ent->get_namespace()->get_qualified_name();
+    adjust_namespace(qn);
 }
 
 ast::qname
@@ -353,13 +361,13 @@ write (StreamType& os, mapped_type const& val)
                     (val.type->name() == ast::STRING || val.type->name() == ast::UUID))
                 os << " const&";
         } else if (auto ref = ast::dynamic_entity_cast< ast::reference >(val.type)) {
-            os << cpp_name(val.type->get_qualified_name()) << "_prx";
+            os << qname(val.type) << "_prx";
         } else if (auto cl = ast::dynamic_type_cast< ast::class_ >(val.type)) {
-            os << cpp_name(val.type->get_qualified_name()) << "_ptr";
+            os << qname(val.type) << "_ptr";
         } else if (auto iface = ast::dynamic_type_cast< ast::interface >(val.type)) {
-            os << cpp_name(val.type->get_qualified_name()) << "_ptr";
+            os << qname(val.type) << "_ptr";
         } else {
-            os << cpp_name(val.type->get_qualified_name());
+            os << qname(val.type);
             if (val.is_arg) {
                 os << " const&";
             }
@@ -442,6 +450,25 @@ operator << (code_snippet& os, mapped_type const& v)
 
 source_stream&
 operator << (source_stream& os, code_snippet const& cs)
+{
+    if (!cs.lines_.empty()) {
+        auto l = cs.lines_.begin();
+        os << l->second;
+        for (++l; l != cs.lines_.end(); ++l) {
+            os.write_offset(l->first);
+            os << l->second;
+        }
+    }
+    if (!cs.os_.str().empty()) {
+        if (!cs.lines_.empty())
+            os.write_offset(cs.current_offset_ + cs.current_mod_);
+        os << cs.os_.str();
+    }
+    return os;
+}
+
+code_snippet&
+operator << (code_snippet& os, code_snippet const& cs)
 {
     if (!cs.lines_.empty()) {
         auto l = cs.lines_.begin();

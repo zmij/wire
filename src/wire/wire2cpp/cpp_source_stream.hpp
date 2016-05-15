@@ -86,17 +86,23 @@ public:
     push_scope(::std::string const& name);
     void
     pop_scope();
+    void
+    pop_to_namespace();
 
     void
     at_namespace_scope(callback);
 
     void
-    adjust_scope(ast::qname const& target_scope);
+    adjust_namespace(ast::qname const& target_scope);
     void
-    adjust_scope(ast::entity_ptr ent);
+    adjust_namespace(ast::entity_ptr ent);
 
     ast::qname
     current_scope() const;
+
+    ast::qname const&
+    current_namespace() const
+    { return current_namespace_; }
     //@}
 
     //@{
@@ -177,6 +183,8 @@ private:
     abs_name(code_snippet&);
     friend source_stream&
     operator << (source_stream& os, code_snippet const&);
+    friend code_snippet&
+    operator << (code_snippet& os, code_snippet const&);
 
     ast::qname              current_scope_;
     int                     current_offset_;
@@ -238,6 +246,9 @@ operator << (code_snippet& os, ast::qname const& v)
 
 source_stream&
 operator << (source_stream& os, code_snippet const&);
+
+code_snippet&
+operator << (code_snippet& os, code_snippet const& cs);
 
 struct cpp_safe_name {
     ::std::string const& name;

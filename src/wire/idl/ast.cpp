@@ -353,6 +353,18 @@ entity::get_global() const
     return const_cast< entity* >(this)->shared_this< global_namespace >();
 }
 
+namespace_ptr
+entity::get_namespace() const
+{
+    scope_ptr sc = owner();
+    if (auto ns = dynamic_entity_cast< namespace_ >(sc)) {
+        return ns;
+    }
+    if (sc)
+        return sc->get_namespace();
+    return get_global();
+}
+
 void
 entity::collect_elements(entity_const_set& elems, entity_predicate pred) const
 {
