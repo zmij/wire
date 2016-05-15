@@ -83,7 +83,8 @@ strip_quotes(::std::string& str)
 
 source_stream::source_stream(path const& origin_path, path const& header_dir,
         string_list const& include_dirs)
-    : header_dir_{header_dir},
+    : origin_path_{origin_path},
+      header_dir_{header_dir},
       is_header_{false},
       current_namespace_{true},
       scope_{false},
@@ -152,7 +153,7 @@ source_stream::include(path inc_file)
         // Absolute path, as preprocessor feeds
         auto file_path = inc_file.string();
         auto orig = origin_path_.string();
-        if (file_path.find(orig) == 0) {
+        if (!orig.empty() && file_path.find(orig) == 0) {
             // Same directory or below
             path p { file_path.substr(orig.size() + 1) };
             if (!header_dir_.empty()) {
