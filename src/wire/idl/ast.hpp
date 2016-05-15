@@ -223,6 +223,8 @@ public:
 
     global_namespace_ptr
     get_global() const;
+    namespace_ptr
+    get_namespace() const;
 
     entity_const_set
     depends_on() const

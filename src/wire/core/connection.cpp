@@ -8,7 +8,7 @@
 #include <wire/core/connection.hpp>
 #include <wire/core/adapter.hpp>
 #include <wire/core/detail/connection_impl.hpp>
-#include <wire/core/dispatch_request.hpp>
+#include <wire/core/detail/dispatch_request.hpp>
 #include <wire/core/current.hpp>
 #include <wire/core/object.hpp>
 
@@ -529,7 +529,7 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
                 incoming::encaps_guard encaps{ buffer->begin_encapsulation(b) };
                 auto const& en = encaps.encaps();
                 auto _this = shared_from_this();
-                core::dispatch_request r{
+                detail::dispatch_request r{
                     buffer, en.begin(), en.end(), en.size(),
                     [_this, req](outgoing&& res) mutable {
                         outgoing_ptr out =

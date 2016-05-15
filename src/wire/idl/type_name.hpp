@@ -21,7 +21,7 @@ struct type_name {
     using template_param = ::boost::variant< type_name_ptr, ::std::string >;
     using template_params = ::std::vector< template_param >;
 
-    qname              name;
+    ast::qname         name;
     template_params    params;
     bool               is_reference;
 };

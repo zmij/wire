@@ -216,7 +216,7 @@ TEST(Parser, QiQName)
     token_iterator end = tokens.end();
 
     grammar_type grammar(tokens);
-    qname qn;
+    ast::qname qn;
     bool r = qi::phrase_parse(iter, end, grammar, qi::in_state("WS")[tokens.self], qn);
     //bool r = qi::parse(iter, end, grammar, qn);
 

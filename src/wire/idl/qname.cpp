@@ -11,6 +11,7 @@
 
 namespace wire {
 namespace idl {
+namespace ast {
 
 qname::qname(char const* name)
     : qname(::std::string{name})
@@ -29,6 +30,28 @@ qname::qname(::std::string const& name)
     if (!qi::parse(b, e, grammar{}, *this) || b != e)
         // FIXME More specific exception
         throw ::std::runtime_error( "Invalid name" );
+}
+
+bool
+qname::operator ==(qname const& rhs) const
+{
+    if (fully != rhs.fully)
+        return false;
+    auto lhss = search();
+    auto rhss = rhs.search();
+
+    auto l = lhss.begin;
+    auto r = rhss.begin;
+    for (; l != lhss.end && r != rhss.end && *l == *r; ++l, ++r);
+
+    return l == lhss.end && r == rhss.end;
+}
+
+qname&
+qname::operator +=(qname const& rhs)
+{
+    components.insert(components.end(), rhs.components.begin(), rhs.components.end());
+    return *this;
 }
 
 qname
@@ -74,5 +97,6 @@ operator << (::std::ostream& os, qname_search const& val)
 }
 
 
+}  /* namespace ast */
 }  /* namespace idl */
 }  /* namespace wire */

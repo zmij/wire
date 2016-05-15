@@ -19,6 +19,7 @@
 
 namespace wire {
 namespace idl {
+namespace ast {
 namespace parse {
 
 template < typename InputIterator >
@@ -43,12 +44,13 @@ struct qualified_name_grammar : ::boost::spirit::qi::grammar< InputIterator, qna
         ;
     }
 
-    ::boost::spirit::qi::rule< InputIterator, qname() >  root;
+    ::boost::spirit::qi::rule< InputIterator, qname() >           root;
     ::boost::spirit::qi::rule< InputIterator, ::std::string() >   identifier;
     ::boost::spirit::qi::rule< InputIterator, string_seq() >      components;
 };
 
 }  /* namespace parse */
+}  /* namespace ast */
 }  /* namespace idl */
 }  /* namespace wire */
 

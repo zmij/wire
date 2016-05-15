@@ -10,7 +10,7 @@
 
 #include <wire/core/connection.hpp>
 #include <wire/core/reference.hpp>
-#include <wire/core/dispatch_request.hpp>
+#include <wire/core/detail/dispatch_request.hpp>
 #include <wire/core/current.hpp>
 #include <wire/core/object.hpp>
 

@@ -35,7 +35,7 @@ public:
             ::wire::core::current const& = ::wire::core::no_current) const override;
 
     void
-    test_callback(::test::callback_prx cb,
+    test_callback(::test::ping_pong::callback_prx cb,
             test_callback_return_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) override;

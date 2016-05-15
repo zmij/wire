@@ -88,7 +88,7 @@ TEST_F(PingPong, CheckedCast)
 
     auto pp_prx = core::checked_cast< ::test::ping_pong_proxy >(prx_);
     EXPECT_TRUE(pp_prx.get());
-    auto inv_prx = core::checked_cast< ::test::callback_proxy >(prx_);
+    auto inv_prx = core::checked_cast< ::test::ping_pong::callback_proxy >(prx_);
     EXPECT_FALSE(inv_prx.get());
 }
 
@@ -132,7 +132,7 @@ TEST_F(PingPong, SyncRoundtrip)
     EXPECT_THROW(pp_prx->async_error(), ::test::oops);
 
     auto prx = connector_->string_to_proxy("events tcp://localhost:8888");
-    auto cb_prx = core::unchecked_cast< ::test::callback_proxy >(prx);
+    auto cb_prx = core::unchecked_cast< ::test::ping_pong::callback_proxy >(prx);
     auto rt_prx = pp_prx->test_callback(cb_prx);
     ::std::cerr << "Proxy after roundtrip " << *rt_prx << "\n";
     EXPECT_EQ(*cb_prx, *rt_prx);

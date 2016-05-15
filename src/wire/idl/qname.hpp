@@ -14,6 +14,7 @@
 
 namespace wire {
 namespace idl {
+namespace ast {
 
 /**
  * Object for searching for a partial qname
@@ -111,6 +112,16 @@ struct qname {
     operator = (qname&&) = default;
 
     bool
+    operator == (qname const& rhs) const;
+    bool
+    operator != (qname const& rhs) const
+    {
+        return !(*this == rhs);
+    }
+    qname&
+    operator += (qname const&);
+
+    bool
     empty() const
     { return components.empty(); }
 
@@ -150,6 +161,14 @@ operator << (::std::ostream& os, qname const& val);
 ::std::ostream&
 operator << (::std::ostream& os, qname_search const& val);
 
+inline qname
+operator + (qname const& lhs, qname const& rhs)
+{
+    qname tmp{lhs};
+    return tmp += rhs;
+}
+
+}  /* namespace ast */
 }  /* namespace idl */
 }  /* namespace wire */
 
