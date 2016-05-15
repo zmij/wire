@@ -25,7 +25,7 @@ struct qname_add_component_func {
 
     template <typename Token>
     void
-    operator()(qname& qn, Token const& tok) const
+    operator()(ast::qname& qn, Token const& tok) const
     {
         qn.components.emplace_back(tok.begin(), tok.end());
     }
@@ -37,7 +37,7 @@ struct qname_add_component_func {
 struct qname_reset_func {
     using result = void;
     void
-    operator()(qname& qn) const
+    operator()(ast::qname& qn) const
     {
         qn.fully = false;
         qn.components.clear();
@@ -48,8 +48,8 @@ struct qname_reset_func {
 
 //----------------------------------------------------------------------------
 template <typename InputIterator, typename Lexer >
-struct qname_grammar : parser_value_grammar< InputIterator, qname, Lexer > {
-    using main_rule_type = parser_value_rule< InputIterator, qname, Lexer >;
+struct qname_grammar : parser_value_grammar< InputIterator, ast::qname, Lexer > {
+    using main_rule_type = parser_value_rule< InputIterator, ast::qname, Lexer >;
     using rule_type = parser_rule< InputIterator, Lexer >;
 
     template < typename TokenDef >
@@ -65,7 +65,7 @@ struct qname_grammar : parser_value_grammar< InputIterator, qname, Lexer > {
         using qi::_2;
 
         main = eps[ qname_reset(_val) ]
-            >> -tok.scope_resolution            [ phx::bind(&qname::fully, _val) = true ]
+            >> -tok.scope_resolution            [ phx::bind(&ast::qname::fully, _val) = true ]
                     >> tok.identifier           [ qname_add_component(_val, _1) ]
             >> *(tok.scope_resolution
                     >> tok.identifier           [ qname_add_component(_val, _1) ]);

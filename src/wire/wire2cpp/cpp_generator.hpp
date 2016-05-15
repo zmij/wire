@@ -76,7 +76,7 @@ private:
     pop_scope();
 
     ::std::string
-    constant_prefix( qname const& ) const;
+    constant_prefix( ast::qname const& ) const;
 
     source_stream&
     write_data_member(source_stream&, ast::variable_ptr var);
@@ -114,18 +114,11 @@ private:
     source_stream                   header_;
     source_stream                   source_;
 
-    qname                           current_scope_;
+    ast::qname                      current_scope_;
 
     ::std::deque<ast::type_ptr>     scope_stack_;
     ::std::vector< free_function >  free_functions_;
 };
-
-inline qname
-q_name(ast::entity_const_ptr en)
-{
-    return en->get_qualified_name();
-}
-
 
 }  /* namespace cpp */
 }  /* namespace idl */

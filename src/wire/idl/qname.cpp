@@ -11,6 +11,7 @@
 
 namespace wire {
 namespace idl {
+namespace ast {
 
 qname::qname(char const* name)
     : qname(::std::string{name})
@@ -96,5 +97,6 @@ operator << (::std::ostream& os, qname_search const& val)
 }
 
 
+}  /* namespace ast */
 }  /* namespace idl */
 }  /* namespace wire */

@@ -91,18 +91,18 @@ public:
     at_namespace_scope(callback);
 
     void
-    adjust_scope(qname const& target_scope);
+    adjust_scope(ast::qname const& target_scope);
     void
     adjust_scope(ast::entity_ptr ent);
 
-    qname
+    ast::qname
     current_scope() const;
     //@}
 
     //@{
     /** @name Output operations */
     void
-    write(qname const& qn);
+    write(ast::qname const& qn);
     //@}
 
     //@{
@@ -133,8 +133,8 @@ private:
     bool            is_header_;
     ::std::string   header_guard_;
 
-    qname           current_namespace_;
-    qname           scope_;
+    ast::qname      current_namespace_;
+    ast::qname      scope_;
     callback_queue  at_namespace_scope_;
 
     int             current_offset_;
@@ -156,12 +156,12 @@ public:
     using line  = ::std::pair< int, ::std::string >;
     using lines = ::std::vector< line >;
 public:
-    code_snippet(qname const& scope)
+    code_snippet(ast::qname const& scope)
         : current_scope_{scope}, current_offset_{0}, current_mod_{0}, abs_name_{false}
     {}
 
     void
-    write(qname const& qn);
+    write(ast::qname const& qn);
 
     void
     write_offset(int temp = 0);
@@ -178,13 +178,21 @@ private:
     friend source_stream&
     operator << (source_stream& os, code_snippet const&);
 
-    qname                   current_scope_;
+    ast::qname              current_scope_;
     int                     current_offset_;
     int                     current_mod_;
     ::std::ostringstream    os_;
     lines                   lines_;
     bool                    abs_name_;
 };
+
+inline ast::qname
+q_name(ast::entity_const_ptr en)
+{
+    return en->get_qualified_name();
+}
+
+
 
 //@{
 /** @name Output operations */
@@ -197,7 +205,7 @@ operator << (source_stream& os, T const& v)
 }
 
 inline source_stream&
-operator << (source_stream& os, qname const& v)
+operator << (source_stream& os, ast::qname const& v)
 {
     os.write(v);
     return os;
@@ -221,7 +229,7 @@ source_stream&
 operator << (source_stream& os, grammar::data_initializer const& init);
 
 inline code_snippet&
-operator << (code_snippet& os, qname const& v)
+operator << (code_snippet& os, ast::qname const& v)
 {
     os.write(v);
     return os;

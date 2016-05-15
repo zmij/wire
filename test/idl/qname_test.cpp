@@ -11,6 +11,7 @@
 
 namespace wire {
 namespace idl {
+namespace ast {
 namespace test {
 
 GRAMMAR_TEST(parse::qualified_name_grammar, QualifiedName,
@@ -20,5 +21,6 @@ GRAMMAR_TEST(parse::qualified_name_grammar, QualifiedName,
 
 
 }  /* namespace test */
+}  /* namespace ast */
 }  /* namespace idl */
 }  /* namespace wire */

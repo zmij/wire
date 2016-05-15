@@ -44,7 +44,7 @@ create_header_guard(fs::path const& inc_dir, fs::path const& fname)
 }
 
 void
-write_name(::std::ostream& os, qname const& qn, qname const& current_scope, bool& write_abs)
+write_name(::std::ostream& os, ast::qname const& qn, ast::qname const& current_scope, bool& write_abs)
 {
     ::std::ostream::sentry s{os};
     if (s) {
@@ -102,7 +102,7 @@ source_stream::source_stream(path const& origin_path, path const& header_dir,
 
 source_stream::~source_stream()
 {
-    adjust_scope(qname{});
+    adjust_scope(ast::qname{});
     if (is_header_) {
         stream_ << "#endif          /* " << header_guard_ << " */\n";
     }
@@ -138,10 +138,7 @@ source_stream&
 source_stream::include(path inc_file)
 {
     if (inc_file.extension() == ".wire") {
-        ::std::cerr << "Include wire file " << inc_file.string() << "\n";
         inc_file.replace_extension(".hpp");
-    } else {
-        ::std::cerr << "Include header " << inc_file.string() << "\n";
     }
     if (inc_file.is_relative() && !inc_file.has_parent_path()) {
         if (!header_dir_.empty()) {
@@ -229,17 +226,17 @@ source_stream::at_namespace_scope(callback cb)
 }
 
 void
-source_stream::adjust_scope(qname const& target_scope)
+source_stream::adjust_scope(ast::qname const& target_scope)
 {
     if (!scope_.empty()) {
-        qname current = current_namespace_ + scope_;
+        ast::qname current = current_namespace_ + scope_;
         if (current != target_scope) {
             throw ::std::runtime_error{ "Cannot adjust scope in a non-namespace scope" };
         }
         return;
     }
-    qname_search target = target_scope.search();
-    qname_search current = current_namespace_.search();
+    ast::qname_search target = target_scope.search();
+    ast::qname_search current = current_namespace_.search();
 
     auto c = current.begin;
     auto t = target.begin;
@@ -272,14 +269,14 @@ source_stream::adjust_scope(ast::entity_ptr ent)
     adjust_scope(qn);
 }
 
-qname
+ast::qname
 source_stream::current_scope() const
 {
     return current_namespace_ + scope_;
 }
 
 void
-source_stream::write(qname const& qn)
+source_stream::write(ast::qname const& qn)
 {
     write_name(stream_, qn, current_namespace_ + scope_, abs_name_);
 }
@@ -412,7 +409,7 @@ operator << (source_stream& os, grammar::data_initializer const& init)
 //      code_snippet
 //----------------------------------------------------------------------------
 void
-code_snippet::write(qname const& qn)
+code_snippet::write(ast::qname const& qn)
 {
     write_name(os_, qn, current_scope_, abs_name_);
 }

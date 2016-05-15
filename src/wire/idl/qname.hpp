@@ -14,6 +14,7 @@
 
 namespace wire {
 namespace idl {
+namespace ast {
 
 /**
  * Object for searching for a partial qname
@@ -167,6 +168,7 @@ operator + (qname const& lhs, qname const& rhs)
     return tmp += rhs;
 }
 
+}  /* namespace ast */
 }  /* namespace idl */
 }  /* namespace wire */
 

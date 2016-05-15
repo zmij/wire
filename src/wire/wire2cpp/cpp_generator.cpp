@@ -69,23 +69,23 @@ strip_quotes(::std::string& str)
     }
 }
 
-qname const root_interface {"::wire::core::object"};
-qname const root_exception {"::wire::errors::user_exception"};
+ast::qname const root_interface {"::wire::core::object"};
+ast::qname const root_exception {"::wire::errors::user_exception"};
 
-qname const hash_value_type_name { "::wire::hash_value_type" };
-qname const input_iterator_name { "::wire::encoding::incoming::const_iterator" };
-qname const outgoing_name { "::wire::encoding::outgoing" };
-qname const back_inserter { "::std::back_insert_iterator" };
-qname const wire_encoding_detail{ "::wire::encoding::detail" };
+ast::qname const hash_value_type_name { "::wire::hash_value_type" };
+ast::qname const input_iterator_name { "::wire::encoding::incoming::const_iterator" };
+ast::qname const outgoing_name { "::wire::encoding::outgoing" };
+ast::qname const back_inserter { "::std::back_insert_iterator" };
+ast::qname const wire_encoding_detail{ "::wire::encoding::detail" };
 
 
 }  /* namespace  */
 
 struct tmp_pop_scope {
-    qname&          scope;
+    ast::qname&          scope;
     ::std::string   name;
 
-    tmp_pop_scope(qname& s)
+    tmp_pop_scope(ast::qname& s)
         : scope{s}, name{s.components.back()}
     {
         scope.components.pop_back();
@@ -97,10 +97,10 @@ struct tmp_pop_scope {
 };
 
 struct tmp_push_scope {
-    qname&          scope;
+    ast::qname&          scope;
     ::std::string   name;
 
-    tmp_push_scope(qname& s, ::std::string const& n)
+    tmp_push_scope(ast::qname& s, ::std::string const& n)
         : scope{s}, name{n}
     {
         scope.components.push_back(name);
@@ -262,7 +262,7 @@ generator::pop_scope() {
 }
 
 ::std::string
-generator::constant_prefix(qname const& qn) const
+generator::constant_prefix(ast::qname const& qn) const
 {
     ::std::ostringstream os;
     for (auto c : qn.components) {
@@ -1074,7 +1074,7 @@ generator::generate_exception(ast::exception_ptr exc)
             << off << "//    Exception " << abs_name << exc->get_qualified_name()
             << off << "//" << ::std::setw(77) << ::std::setfill('-') << "-";
 
-    qname parent_name = exc->get_parent() ?
+    auto parent_name = exc->get_parent() ?
             exc->get_parent()->get_qualified_name() : root_exception;
 
     header_ << off << "class " << exc->name()
@@ -1288,8 +1288,8 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
 void
 generator::generate_proxy_interface(ast::interface_ptr iface)
 {
-    static const qname base_proxy {"::wire::core::object_proxy"};
-    static const qname ref_ptr    {"::wire::core::reference_ptr"};
+    static const ast::qname base_proxy {"::wire::core::object_proxy"};
+    static const ast::qname ref_ptr    {"::wire::core::reference_ptr"};
 
     source_ << off      << "//" << ::std::setw(77) << ::std::setfill('-') << "-"
             << off      << "//    Proxy interface for " << abs_name << iface->get_qualified_name()
@@ -1381,7 +1381,7 @@ generator::generate_class(ast::class_ptr class_)
     adjust_scope(class_);
     offset_guard hdr{header_};
     offset_guard src{header_};
-    qname cqn = class_->get_qualified_name();
+    ast::qname cqn = class_->get_qualified_name();
     source_ << off      << "//" << ::std::setw(77) << ::std::setfill('-') << "-"
             << off      << "//    Implementation for class " << abs_name << cqn
             << off      << "//" << ::std::setw(77) << ::std::setfill('-') << "-";
