@@ -35,46 +35,6 @@ namespace wire {
 namespace idl {
 namespace cpp {
 
-namespace annotations {
-
-::std::string const CPP_CONTAINER = "cpp_container";
-::std::string const GENERATE_CMP = "cpp_cmp";
-::std::string const GENERATE_IO = "cpp_io";
-
-}  /* namespace annotations */
-
-struct relative_name {
-    qname_search    current;
-    qname           qn;
-};
-
-struct type_name_rules {
-    static grammar::annotation_list const empty_annotations;
-
-    qname_search                    current;
-    ast::type_const_ptr             type;
-    grammar::annotation_list const& annotations = empty_annotations;
-    bool                            is_arg = false;
-
-    type_name_rules( qname_search const& scope, ast::type_const_ptr t,
-            grammar::annotation_list const& al = empty_annotations,
-            bool argument = false)
-        : current{scope}, type{t}, annotations{al}, is_arg{argument}
-    {}
-    type_name_rules( qname const& scope, ast::type_const_ptr t,
-            grammar::annotation_list const& al = empty_annotations,
-            bool argument = false)
-        : current{scope.search()}, type{t}, annotations{al}, is_arg{argument}
-    {}
-
-    type_name_rules(qname_search const scope, ast::type_const_ptr t, bool arg)
-        : current{ scope }, type{t}, is_arg{arg}
-    {}
-    type_name_rules(qname const& scope, ast::type_const_ptr t, bool arg)
-        : current{ scope.search() }, type{t}, is_arg{arg}
-    {}
-};
-
 class generator : public ast::generator {
 public:
     using include_dir_list = ::std::vector< std::string >;
@@ -118,20 +78,6 @@ private:
     ::std::string
     constant_prefix( qname const& ) const;
 
-    type_name_rules
-    arg_type(ast::type_const_ptr t,
-            grammar::annotation_list const& al = grammar::annotation_list{})
-    { return { current_scope_.search(), t, al, true }; }
-
-    type_name_rules
-    type_name( ast::type_const_ptr t,
-            grammar::annotation_list const& al = type_name_rules::empty_annotations )
-    { return { current_scope_.search(), t, al }; };
-
-    qname
-    rel_name(ast::entity_const_ptr en)
-    { return en->get_qualified_name(); }
-
     source_stream&
     write_data_member(source_stream&, ast::variable_ptr var);
 
@@ -173,6 +119,13 @@ private:
     ::std::deque<ast::type_ptr>     scope_stack_;
     ::std::vector< free_function >  free_functions_;
 };
+
+inline qname
+q_name(ast::entity_const_ptr en)
+{
+    return en->get_qualified_name();
+}
+
 
 }  /* namespace cpp */
 }  /* namespace idl */

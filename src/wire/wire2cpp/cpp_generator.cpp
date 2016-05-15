@@ -17,19 +17,13 @@
 #include <wire/types.hpp>
 #include <wire/idl/syntax_error.hpp>
 #include <wire/util/murmur_hash.hpp>
+#include <wire/wire2cpp/mapped_type.hpp>
 
 namespace wire {
 namespace idl {
 namespace cpp {
 
-namespace {
-
-struct type_mapping {
-    ::std::string                     type_name;
-    ::std::vector<::std::string>      headers;
-};
-
-::std::map< ::std::string, type_mapping > const wire_to_cpp = {
+wire_type_map const wire_to_cpp = {
     /* Wire type      C++ Type                  Headers                                      */
     /*--------------+-------------------------+----------------------------------------------*/
     { "void",       { "void",                   {}                                          } },
@@ -59,6 +53,8 @@ struct type_mapping {
                                                 "<wire/encoding/detail/containers_io.hpp>"} } },
 
 };
+
+namespace {
 
 ::std::size_t tab_width = 4;
 
@@ -117,89 +113,9 @@ struct tmp_push_scope {
     }
 };
 
-grammar::annotation_list const type_name_rules::empty_annotations{};
-
-::std::ostream&
-operator << (::std::ostream& os, relative_name const& val)
-{
-    ::std::ostream::sentry s(os);
-    if (s) {
-        qname_search target = val.qn.search();
-        for (auto c = val.current.begin;
-                c != val.current.end && !target.empty() && *c == *target.begin;
-                ++c, ++target);
-        if (target.empty()) {
-            os << val.qn;
-        } else {
-            os << target;
-        }
-    }
-    return os;
-}
-
-::std::ostream&
-operator << (::std::ostream& os, type_name_rules const& val)
-{
-    ::std::ostream::sentry s(os);
-    if (s) {
-        if (auto pt = ast::dynamic_entity_cast< ast::parametrized_type >(val.type)) {
-            ::std::string tmpl_name = wire_to_cpp.at(pt->name()).type_name;
-            if (pt->name() == ast::ARRAY || pt->name() == ast::SEQUENCE || pt->name() == ast::DICTONARY) {
-                auto ann = find(val.annotations, annotations::CPP_CONTAINER);
-                if (ann != val.annotations.end()) {
-                    if (ann->arguments.empty()) {
-                        throw grammar_error(val.type->decl_position(), "Invalid cpp_container annotation");
-                    }
-                    tmpl_name = ann->arguments.front()->name;
-                    strip_quotes(tmpl_name);
-                }
-            }
-            os << tmpl_name << " <";
-            for (auto p = pt->params().begin(); p != pt->params().end(); ++p) {
-                if (p != pt->params().begin())
-                    os << ", ";
-                switch (p->which()) {
-                    case ast::template_param_type::type:
-                        os << type_name_rules{ val.current, ::boost::get< ast::type_ptr >(*p) };
-                        break;
-                    case ast::template_param_type::integral:
-                        os << ::boost::get< ::std::string >(*p);
-                        break;
-                    default:
-                        throw grammar_error(val.type->decl_position(),
-                                "Unknown template parameter kind");
-                }
-            }
-            os << " >";
-            if (val.is_arg) {
-                os << " const&";
-            }
-        } else {
-            if (ast::type::is_built_in(val.type->get_qualified_name())) {
-                os << wire_to_cpp.at( val.type->name() ).type_name;
-                if (val.is_arg &&
-                        (val.type->name() == ast::STRING || val.type->name() == ast::UUID))
-                    os << " const&";
-            } else if (auto ref = ast::dynamic_entity_cast< ast::reference >(val.type)) {
-                os << relative_name{ val.current, val.type->get_qualified_name() } << "_prx";
-            } else if (auto cl = ast::dynamic_type_cast< ast::class_ >(val.type)) {
-                os << relative_name{ val.current, val.type->get_qualified_name() } << "_ptr";
-            } else if (auto iface = ast::dynamic_type_cast< ast::interface >(val.type)) {
-                os << relative_name{ val.current, val.type->get_qualified_name() } << "_ptr";
-            } else {
-                os << relative_name{ val.current, val.type->get_qualified_name() };
-                if (val.is_arg) {
-                    os << " const&";
-                }
-            }
-        }
-    }
-    return os;
-}
-
+grammar::annotation_list const mapped_type::empty_annotations{};
 
 namespace fs = ::boost::filesystem;
-
 
 generator::generator(generate_options const& opts, preprocess_options const& ppo,
         ast::global_namespace_ptr ns)
@@ -359,7 +275,7 @@ generator::constant_prefix(qname const& qn) const
 source_stream&
 generator::write_data_member(source_stream& os, ast::variable_ptr var)
 {
-    os << off << type_name(var->get_type(), var->get_annotations())
+    os << off << mapped_type{var->get_type(), var->get_annotations()}
         << " " << var->name() << ";";
     return os;
 }
@@ -420,7 +336,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
     } else {
         header_ << off << "/* Sync dispatch */"
                 << off << "virtual "
-                << type_name(func->get_return_type(), func->get_annotations())
+                << mapped_type{func->get_return_type(), func->get_annotations()}
                 << off << func->name() << "(" << formal_params
                 << "::wire::core::current const& = ::wire::core::no_current)";
         if (func->is_const()) {
@@ -428,7 +344,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
         }
         header_ << " = 0;";
         header_ << off << "/*  ----8<    copy here   8<----"
-                << off << type_name(func->get_return_type(), func->get_annotations())
+                << off << mapped_type{func->get_return_type(), func->get_annotations()}
                 << off << func->name() << "(" << formal_params
                 << "::wire::core::current const& = ::wire::core::no_current)";
         if (func->is_const()) {
@@ -458,7 +374,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
             source_ << off << "auto __beg = __req.encaps_start;"
                     << off << "auto __end = __req.encaps_end;";
             for (auto p = params.begin(); p != params.end(); ++p) {
-                source_ << off << type_name(p->first) << " " << p->second << ";";
+                source_ << off << mapped_type{p->first} << " " << p->second << ";";
                 if (p != params.begin())
                     call_params << ", ";
                 call_params << p->second;
@@ -519,7 +435,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
         call_params << arg_type(p.first) << " " << p.second << "," << off;
     }
 
-    header_ << off << type_name(func->get_return_type(), func->get_annotations())
+    header_ << off << mapped_type{func->get_return_type(), func->get_annotations()}
             << off << func->name() << "(" << call_params
             << "::wire::core::context_type const& = ::wire::core::no_context);";
 
@@ -549,11 +465,11 @@ generator::generate_invocation_function_member(ast::function_ptr func)
             <<                      "::wire::core::context_type const& _ctx = ::wire::core::no_context,"
             << off(+2)  <<          "bool _run_async = false)"
             << off(+2)  <<      "-> decltype( ::std::declval< _Promise< "
-            <<                      type_name(func->get_return_type(), func->get_annotations())
+            <<                      mapped_type{func->get_return_type(), func->get_annotations()}
             <<                      " > >().get_future() )"
             << off      << "{"
             << mod(+1)  <<      "auto promise = ::std::make_shared< _Promise <"
-                    << type_name(func->get_return_type(), func->get_annotations()) << "> >();\n"
+                    << mapped_type{func->get_return_type(), func->get_annotations()} << "> >();\n"
             << off      <<      func->name() << "_async(";
 
     header_.modify_offset(+1);
@@ -581,7 +497,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
         {
             offset_guard _f{source_};
             // Sync invocation
-            source_ << off << type_name(func->get_return_type(), func->get_annotations())
+            source_ << off << mapped_type{func->get_return_type(), func->get_annotations()}
                     << off << func->owner()->name() << "_proxy::" << func->name() << "("
                     << mod(+3) << call_params
                     << "::wire::core::context_type const& __ctx)"
@@ -655,7 +571,7 @@ generator::generate_constant(ast::constant_ptr c)
 {
     adjust_scope(c);
 
-    header_ << off << type_name(c->get_type(), c->get_annotations())
+    header_ << off << mapped_type{c->get_type(), c->get_annotations()}
             << " const " << c->name() << " = " << c->get_init() << ";";
 }
 
@@ -668,7 +584,7 @@ generator::generate_enum(ast::enumeration_ptr enum_)
     header_ << off << "enum ";
     if (enum_->constrained())
         header_ << "class ";
-    header_ << type_name(enum_) << "{";
+    header_ << enum_->name() << "{";
     header_.modify_offset(+1);
     for (auto e : enum_->get_enumerators()) {
         header_ << off << e.first;
@@ -686,7 +602,7 @@ generator::generate_type_alias( ast::type_alias_ptr ta )
     adjust_scope(ta);
 
     header_ << off << "using " << ta->name() << " = "
-            <<  type_name(ta->alias(), ta->get_annotations()) << ";";
+            <<  mapped_type{ta->alias(), ta->get_annotations()} << ";";
 }
 
 void
@@ -753,7 +669,7 @@ generator::generate_read_write(source_stream& stream, ast::structure_ptr struct_
     stream  << off      << "template < typename OutputIterator >"
             << off      << "void"
             << off      << "wire_write(OutputIterator o, "
-                                <<  type_name(struct_) << " const& v)"
+                                <<  struct_->get_qualified_name() << " const& v)"
             << off      << "{";
 
     stream << off(+1)   <<      "::wire::encoding::write(o";
@@ -766,10 +682,10 @@ generator::generate_read_write(source_stream& stream, ast::structure_ptr struct_
     stream  << off      << "template < typename InputIterator >"
             << off      << "void"
             << off      << "wire_read(InputIterator& begin, InputIterator end, "
-                            << type_name(struct_) << "& v)"
+                            << struct_->get_qualified_name() << "& v)"
             << off      << "{";
 
-    stream << mod(+1)   <<      type_name(struct_) << " tmp;"
+    stream << mod(+1)   <<      struct_->get_qualified_name() << " tmp;"
             << off      <<      "::wire::encoding::read(begin, end";
     for (auto d : dm) {
         stream << ", tmp." << d->name();
@@ -805,7 +721,7 @@ generator::generate_member_read_write( ast::structure_ptr struct_,
     //  Wire write member function
     //------------------------------------------------------------------------
     source_ << off << "void"
-            << off << rel_name(struct_)
+            << off << q_name(struct_)
             << "::__wire_write(output_iterator o) const"
             << off << "{"
             << mod(+1) << "auto encaps = o.encapsulation();";
@@ -840,7 +756,7 @@ generator::generate_member_read_write( ast::structure_ptr struct_,
     //  Wire read member function
     //------------------------------------------------------------------------
     source_ << off << "void"
-            << off << rel_name(struct_)
+            << off << q_name(struct_)
             << "::__wire_read(input_iterator& begin, input_iterator end, "
                     "bool read_head)"
             << off << "{"
@@ -1249,7 +1165,7 @@ generator::generate_exception(ast::exception_ptr exc)
             header_.modify_offset(+1);
             for (auto dm : data_members) {
                 header_ << off
-                        << type_name(dm->get_type()) << " " << dm->name() << ";";
+                        << mapped_type{dm->get_type()} << " " << dm->name() << ";";
             }
             header_.modify_offset(-1);
         }
@@ -1479,7 +1395,7 @@ generator::generate_class(ast::class_ptr class_)
     auto parent = class_->get_parent();
     ::std::string qn_str;
     if (parent) {
-        header_ << off(+1) << ": public " << rel_name(parent);
+        header_ << off(+1) << ": public " << q_name(parent);
     }
     if (!ancestors.empty()) {
         header_.modify_offset(+1);
@@ -1491,7 +1407,7 @@ generator::generate_class(ast::class_ptr class_)
         for (auto a = ancestors.begin(); a != ancestors.end(); ++a) {
             if (a != ancestors.begin())
                 header_ << "," << off << "  ";
-            header_ << "public virtual " << rel_name(*a);
+            header_ << "public virtual " << q_name(*a);
         }
         header_.modify_offset(-+11);
     } else if (class_->has_functions()) {
@@ -1545,7 +1461,7 @@ generator::generate_class(ast::class_ptr class_)
             header_ << mod(+1) <<     class_->name() << "()";
             bool need_comma {false};
             if (parent) {
-                header_ << off(+1) << ": " << rel_name(parent) << "{}";
+                header_ << off(+1) << ": " << q_name(parent) << "{}";
                 need_comma = true;
             }
             if (class_->is_abstract()) {
@@ -1557,7 +1473,7 @@ generator::generate_class(ast::class_ptr class_)
                 header_ << root_interface << "{}";
                 for (auto a : ancestors) {
                     header_ << "," << off(+1)
-                            << "  " << rel_name(a) << "{}";
+                            << "  " << q_name(a) << "{}";
                 }
                 need_comma = true;
             }
@@ -1613,7 +1529,7 @@ generator::generate_class(ast::class_ptr class_)
                 header_.modify_offset(+1);
                 for (auto dm : data_members) {
                     header_ << off
-                            << type_name(dm->get_type()) << " " << dm->name() << ";";
+                            << mapped_type{dm->get_type()} << " " << dm->name() << ";";
                 }
                 header_.modify_offset(-1);
             }

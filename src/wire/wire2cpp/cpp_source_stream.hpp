@@ -9,6 +9,8 @@
 #define WIRE_WIRE2CPP_CPP_SOURCE_STREAM_HPP_
 
 #include <wire/idl/ast.hpp>
+#include <wire/wire2cpp/mapped_type.hpp>
+
 #include <boost/filesystem.hpp>
 
 #include <fstream>
@@ -18,6 +20,14 @@
 namespace wire {
 namespace idl {
 namespace cpp {
+
+namespace annotations {
+
+::std::string const CPP_CONTAINER = "cpp_container";
+::std::string const GENERATE_CMP = "cpp_cmp";
+::std::string const GENERATE_IO = "cpp_io";
+
+}  /* namespace annotations */
 
 class source_stream {
 public:
@@ -193,6 +203,9 @@ operator << (source_stream& os, qname const& v)
     return os;
 }
 
+source_stream&
+operator << (source_stream& os, mapped_type const& v);
+
 template < typename T >
 code_snippet&
 operator << (code_snippet& os, T const& v)
@@ -200,6 +213,9 @@ operator << (code_snippet& os, T const& v)
     os.os_ << v;
     return os;
 }
+
+code_snippet&
+operator << (code_snippet& os, mapped_type const& v);
 
 source_stream&
 operator << (source_stream& os, grammar::data_initializer const& init);

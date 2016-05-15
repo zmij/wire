@@ -6,6 +6,8 @@
  */
 
 #include <wire/wire2cpp/cpp_source_stream.hpp>
+#include <wire/idl/syntax_error.hpp>
+#include <wire/idl/generator.hpp>
 #include <sstream>
 #include <iomanip>
 
@@ -64,6 +66,16 @@ write_name(::std::ostream& os, qname const& qn, qname const& current_scope, bool
     }
 }
 
+void
+strip_quotes(::std::string& str)
+{
+    if (!str.empty() && str.front() == '"') {
+        str.erase(str.begin());
+    }
+    if (!str.empty() && str.back() == '"') {
+        str.erase(--str.end());
+    }
+}
 
 }  /* namespace  */
 
@@ -297,6 +309,72 @@ source_stream::set_offset(int offset)
         current_offset_ = 0;
 }
 
+template < typename StreamType >
+StreamType&
+write (StreamType& os, mapped_type const& val)
+{
+    if (auto pt = ast::dynamic_entity_cast< ast::parametrized_type >(val.type)) {
+        auto tmpl_name = wire_to_cpp.at(pt->name()).type_name;
+        if (pt->name() == ast::ARRAY ||
+                pt->name() == ast::SEQUENCE ||
+                pt->name() == ast::DICTONARY) {
+            auto ann = find(val.annotations, annotations::CPP_CONTAINER);
+            if (ann != val.annotations.end()) {
+                if (ann->arguments.empty()) {
+                    throw grammar_error(val.type->decl_position(), "Invalid cpp_container annotation");
+                }
+                tmpl_name = ann->arguments.front()->name;
+                strip_quotes(tmpl_name);
+            }
+        }
+        os << tmpl_name << " <";
+        for (auto p = pt->params().begin(); p != pt->params().end(); ++p) {
+            if (p != pt->params().begin())
+                os << ", ";
+            switch (p->which()) {
+                case ast::template_param_type::type:
+                    os << mapped_type{ ::boost::get< ast::type_ptr >(*p) };
+                    break;
+                case ast::template_param_type::integral:
+                    os << ::boost::get< ::std::string >(*p);
+                    break;
+                default:
+                    throw grammar_error(val.type->decl_position(),
+                            "Unknown template parameter kind");
+            }
+        }
+        os << " >";
+        if (val.is_arg) {
+            os << " const&";
+        }
+    } else {
+        if (ast::type::is_built_in(val.type->get_qualified_name())) {
+            os << wire_to_cpp.at( val.type->name() ).type_name;
+            if (val.is_arg &&
+                    (val.type->name() == ast::STRING || val.type->name() == ast::UUID))
+                os << " const&";
+        } else if (auto ref = ast::dynamic_entity_cast< ast::reference >(val.type)) {
+            os << val.type->get_qualified_name() << "_prx";
+        } else if (auto cl = ast::dynamic_type_cast< ast::class_ >(val.type)) {
+            os << val.type->get_qualified_name() << "_ptr";
+        } else if (auto iface = ast::dynamic_type_cast< ast::interface >(val.type)) {
+            os << val.type->get_qualified_name() << "_ptr";
+        } else {
+            os << val.type->get_qualified_name();
+            if (val.is_arg) {
+                os << " const&";
+            }
+        }
+    }
+    return os;
+}
+
+source_stream&
+operator << (source_stream& os, mapped_type const& v)
+{
+    return write(os, v);
+}
+
 source_stream&
 operator << (source_stream& os, grammar::data_initializer const& init)
 {
@@ -356,6 +434,11 @@ code_snippet::modify_offset(int delta)
         current_offset_ = 0;
 }
 
+code_snippet&
+operator << (code_snippet& os, mapped_type const& v)
+{
+    return write(os, v);
+}
 
 source_stream&
 operator << (source_stream& os, code_snippet const& cs)
