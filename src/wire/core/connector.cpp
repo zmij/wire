@@ -11,6 +11,7 @@
 #include <wire/core/reference.hpp>
 #include <wire/core/connection.hpp>
 #include <wire/core/proxy.hpp>
+#include <wire/core/locator.hpp>
 
 #include <wire/core/detail/configuration_options.hpp>
 
@@ -60,6 +61,12 @@ struct connector::impl {
     adapter_map                 online_adapters_;
     //@}
 
+    //@{
+    /** @name Locator */
+    locator_prx                 locator_;
+    locator_registry_prx        locator_reg_;
+    //@}
+
     impl(asio_config::io_service_ptr svc)
         : io_service_{svc}, options_{},
           cmd_line_options_{ options_.name + " command line options" },
@@ -86,6 +93,12 @@ struct connector::impl {
         ((name + ".config_file").c_str(),
                     po::value<::std::string>(&options_.config_file),
                     "Configuration file")
+        ;
+        po::options_description locator_options("Locator options");
+        locator_options.add_options()
+        ((name + ".locator").c_str(),
+                po::value<reference_data>(&options_.locator_ref),
+                "Locator proxy")
         ;
         po::options_description server_ssl_opts("Server SSL Options");
         server_ssl_opts.add_options()
@@ -116,9 +129,12 @@ struct connector::impl {
         ;
 
         cmd_line_options_.add(cfg_opts)
+                .add(locator_options)
                 .add(server_ssl_opts)
                 .add(client_ssl_opts);
-        cfg_file_options_.add(server_ssl_opts)
+        cfg_file_options_
+                .add(locator_options)
+                .add(server_ssl_opts)
                 .add(client_ssl_opts);
     }
 
@@ -157,6 +173,19 @@ struct connector::impl {
             }
         }
         po::notify(vm);
+
+        if (!options_.locator_ref.object_id.empty()) {
+            object_prx prx = ::std::make_shared< object_proxy >(
+                    reference::create_reference(owner_.lock(), options_.locator_ref));
+            locator_ = checked_cast< locator_proxy >(prx);
+            if (!locator_)
+                throw errors::runtime_error("Failed to reach locator at ",
+                        options_.locator_ref);
+            locator_reg_ = locator_->get_registry();
+            if (!locator_reg_)
+                throw errors::runtime_error("Locator at ", options_.locator_ref,
+                        " doesn't provide a registry");
+        }
     }
 
     void

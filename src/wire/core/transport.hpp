@@ -10,7 +10,7 @@
 
 #include <wire/asio_config.hpp>
 #include <wire/core/endpoint.hpp>
-#include <wire/core/detail/configuration_options.hpp>
+#include <wire/core/detail/ssl_options.hpp>
 
 #include <memory>
 #include <future>

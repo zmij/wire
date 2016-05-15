@@ -58,6 +58,9 @@ struct identity {
         return category < rhs.category || (category == rhs.category && id < rhs.id);
     }
 
+    bool
+    empty() const;
+
     static ::boost::uuids::random_generator&
     uuid_gen()
     {

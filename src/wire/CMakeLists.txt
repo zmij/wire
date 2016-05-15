@@ -14,6 +14,14 @@ wire2cpp(
     OUTPUT          wired_ERRORS
 )
 
+wire2cpp(
+    ${WIRE_IDL_ROOT}/wire/core/locator.wire
+    HEADER_DIR      include/wire/core
+    INCLUDE_ROOT    wire/core
+    OUTPUT          wired_LOCATOR
+    OPTIONS         --generate-forwards
+)
+
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 
 set(wire_lib_SRCS
@@ -34,6 +42,7 @@ set(wire_lib_SRCS
     core/reference.cpp
     core/reference_io.cpp
     ${wired_ERRORS}
+    ${wired_LOCATOR}
 )
 add_library(${WIRE_LIB} SHARED ${wire_lib_SRCS})
 set_target_properties(
