@@ -8,6 +8,8 @@
 #include <wire/wire2cpp/cpp_source_stream.hpp>
 #include <wire/idl/syntax_error.hpp>
 #include <wire/idl/generator.hpp>
+#include <wire/wire2cpp/keywords.hpp>
+
 #include <sstream>
 #include <iomanip>
 
@@ -49,7 +51,7 @@ write_name(::std::ostream& os, ast::qname const& qn, ast::qname const& current_s
     ::std::ostream::sentry s{os};
     if (s) {
         if (write_abs) {
-            os << qn;
+            os << cpp_name(qn);
             write_abs = false;
         } else {
             auto target = qn.search();
@@ -58,13 +60,15 @@ write_name(::std::ostream& os, ast::qname const& qn, ast::qname const& current_s
                     c != current.end && !target.empty() && *c == *target.begin;
                     ++c, ++target);
             if (target.empty()) {
-                os << qn;
+                os << cpp_name(qn);
             } else {
-                os << target;
+                os << cpp_name(target);
             }
         }
     }
 }
+
+}  /* namespace  */
 
 void
 strip_quotes(::std::string& str)
@@ -76,8 +80,6 @@ strip_quotes(::std::string& str)
         str.erase(--str.end());
     }
 }
-
-}  /* namespace  */
 
 source_stream::source_stream(path const& origin_path, path const& header_dir,
         string_list const& include_dirs)
@@ -182,7 +184,7 @@ source_stream::start_namespace(::std::string const& name)
     if (!scope_.empty()) {
         throw ::std::runtime_error{"Cannot start a namespace in a non-namespace scope"};
     }
-    stream_ << "namespace " << name << "{\n";
+    stream_ << "namespace " << cpp_name(name) << "{\n";
     current_namespace_.components.push_back(name);
 }
 
@@ -351,13 +353,13 @@ write (StreamType& os, mapped_type const& val)
                     (val.type->name() == ast::STRING || val.type->name() == ast::UUID))
                 os << " const&";
         } else if (auto ref = ast::dynamic_entity_cast< ast::reference >(val.type)) {
-            os << val.type->get_qualified_name() << "_prx";
+            os << cpp_name(val.type->get_qualified_name()) << "_prx";
         } else if (auto cl = ast::dynamic_type_cast< ast::class_ >(val.type)) {
-            os << val.type->get_qualified_name() << "_ptr";
+            os << cpp_name(val.type->get_qualified_name()) << "_ptr";
         } else if (auto iface = ast::dynamic_type_cast< ast::interface >(val.type)) {
-            os << val.type->get_qualified_name() << "_ptr";
+            os << cpp_name(val.type->get_qualified_name()) << "_ptr";
         } else {
-            os << val.type->get_qualified_name();
+            os << cpp_name(val.type->get_qualified_name());
             if (val.is_arg) {
                 os << " const&";
             }
@@ -405,6 +407,7 @@ operator << (source_stream& os, grammar::data_initializer const& init)
     }
     return os;
 }
+
 //----------------------------------------------------------------------------
 //      code_snippet
 //----------------------------------------------------------------------------
@@ -455,6 +458,48 @@ operator << (source_stream& os, code_snippet const& cs)
     }
     return os;
 }
+
+//----------------------------------------------------------------------------
+//      cpp safe names
+//----------------------------------------------------------------------------
+::std::ostream&
+operator << (::std::ostream& os, cpp_safe_name const& val)
+{
+    ::std::ostream::sentry s (os);
+    if (s) {
+        os << val.name;
+        if (keywords.count(val.name))
+            os << "_";
+    }
+    return os;
+}
+
+::std::ostream&
+operator << (::std::ostream& os, cpp_safe_qname const& val)
+{
+    ::std::ostream::sentry s (os);
+    if (s) {
+        os << cpp_name(val.qn.search());
+    }
+    return os;
+}
+
+::std::ostream&
+operator << (::std::ostream& os, cpp_safe_qname_search const& val)
+{
+    ::std::ostream::sentry s (os);
+    if (s) {
+        if (val.qs.fully)
+            os << "::";
+        for (auto n = val.qs.begin; n != val.qs.end; ++n) {
+            if (n != val.qs.begin)
+                os << "::";
+            os << cpp_name(*n);
+        }
+    }
+    return os;
+}
+
 
 }  /* namespace cpp */
 }  /* namespace idl */

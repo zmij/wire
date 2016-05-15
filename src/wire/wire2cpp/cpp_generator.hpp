@@ -72,8 +72,6 @@ public:
 private:
     void
     adjust_scope(ast::entity_ptr en);
-    void
-    pop_scope();
 
     ::std::string
     constant_prefix( ast::qname const& ) const;
@@ -113,11 +111,6 @@ private:
 
     source_stream                   header_;
     source_stream                   source_;
-
-    ast::qname                      current_scope_;
-
-    ::std::deque<ast::type_ptr>     scope_stack_;
-    ::std::vector< free_function >  free_functions_;
 };
 
 }  /* namespace cpp */

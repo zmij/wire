@@ -11,6 +11,7 @@ set(
     wire2cpp.cpp
     cpp_generator.cpp
     cpp_source_stream.cpp
+    keywords.cpp
 )
 
 add_executable(wire2cpp ${wire2cpp_SRCS})

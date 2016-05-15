@@ -187,12 +187,13 @@ private:
 };
 
 inline ast::qname
-q_name(ast::entity_const_ptr en)
+qname(ast::entity_const_ptr en)
 {
     return en->get_qualified_name();
 }
 
-
+void
+strip_quotes(::std::string& str);
 
 //@{
 /** @name Output operations */
@@ -238,6 +239,46 @@ operator << (code_snippet& os, ast::qname const& v)
 source_stream&
 operator << (source_stream& os, code_snippet const&);
 
+struct cpp_safe_name {
+    ::std::string const& name;
+};
+struct cpp_safe_qname {
+    ast::qname const& qn;
+};
+struct cpp_safe_qname_search {
+    ast::qname_search qs;
+};
+
+inline cpp_safe_name
+cpp_name(::std::string const& name)
+{
+    return { name };
+}
+
+inline cpp_safe_name
+cpp_name(ast::entity_const_ptr const& ent)
+{
+    return cpp_name(ent->name());
+}
+
+inline cpp_safe_qname
+cpp_name(ast::qname const& qn)
+{
+    return { qn };
+}
+
+inline cpp_safe_qname_search
+cpp_name(ast::qname_search qs)
+{
+    return { qs };
+}
+
+::std::ostream&
+operator << (::std::ostream& os, cpp_safe_name const& val);
+::std::ostream&
+operator << (::std::ostream& os, cpp_safe_qname const& val);
+::std::ostream&
+operator << (::std::ostream& os, cpp_safe_qname_search const& val);
 //@}
 
 //@{

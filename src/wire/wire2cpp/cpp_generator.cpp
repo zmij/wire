@@ -56,19 +56,6 @@ wire_type_map const wire_to_cpp = {
 
 namespace {
 
-::std::size_t tab_width = 4;
-
-void
-strip_quotes(::std::string& str)
-{
-    if (!str.empty() && str.front() == '"') {
-        str.erase(str.begin());
-    }
-    if (!str.empty() && str.back() == '"') {
-        str.erase(--str.end());
-    }
-}
-
 ast::qname const root_interface {"::wire::core::object"};
 ast::qname const root_exception {"::wire::errors::user_exception"};
 
@@ -123,8 +110,7 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
       header_{ fs::path{unit_->name}.parent_path(),
             fs::path{ opts.header_include_dir }, ppo.include_dirs },
       source_{ fs::path{unit_->name}.parent_path(),
-                fs::path{ opts.header_include_dir }, ppo.include_dirs },
-      current_scope_{true}
+                fs::path{ opts.header_include_dir }, ppo.include_dirs }
 {
     auto cwd = fs::current_path();
 
@@ -250,17 +236,6 @@ void generator::adjust_scope(ast::entity_ptr ent)
     source_.adjust_scope(ent);
 }
 
-void
-generator::pop_scope() {
-    scope_stack_.pop_back();
-    if (scope_stack_.empty()) {
-        for (auto f : free_functions_) {
-            f();
-        }
-        free_functions_.clear();
-    }
-}
-
 ::std::string
 generator::constant_prefix(ast::qname const& qn) const
 {
@@ -276,7 +251,7 @@ source_stream&
 generator::write_data_member(source_stream& os, ast::variable_ptr var)
 {
     os << off << mapped_type{var->get_type(), var->get_annotations()}
-        << " " << var->name() << ";";
+        << " " << cpp_name(var) << ";";
     return os;
 }
 
@@ -292,14 +267,14 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
 
     code_snippet formal_params{ header_.current_scope() };
     for (auto const& p : params) {
-        formal_params << arg_type(p.first) << " " << p.second << ", ";
+        formal_params << arg_type(p.first) << " " << cpp_name(p.second) << ", ";
     }
 
     if (async_dispatch) {
         header_ << off << "/* Async dispatch */";
         ::std::ostringstream ret_cb_name;
         if (!func->is_void()) {
-            ret_cb_name << func->name() << "_return_callback";
+            ret_cb_name << cpp_name(func) << "_return_callback";
             header_ << off << "using " << ret_cb_name.str() << " = "
                 << "::std::function< void("
                 <<  arg_type(func->get_return_type(), func->get_annotations())
@@ -309,7 +284,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
         }
 
         header_ << off << "virtual void"
-                << off << func->name() << "(" << formal_params;
+                << off << cpp_name(func) << "(" << formal_params;
         if (!params.empty())
             header_ << off(+2);
         header_ << ret_cb_name.str() << " __resp, "
@@ -321,7 +296,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
         header_ << " = 0;";
         header_ << off << "/*  ----8<    copy here   8<----"
                 << off << "void"
-                << off << func->name() << "(" << formal_params;
+                << off << cpp_name(func) << "(" << formal_params;
         if (!params.empty())
             header_ << off(+2);
         header_ << ret_cb_name.str() << " __resp, "
@@ -337,7 +312,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
         header_ << off << "/* Sync dispatch */"
                 << off << "virtual "
                 << mapped_type{func->get_return_type(), func->get_annotations()}
-                << off << func->name() << "(" << formal_params
+                << off << cpp_name(func) << "(" << formal_params
                 << "::wire::core::current const& = ::wire::core::no_current)";
         if (func->is_const()) {
             header_ << " const";
@@ -345,7 +320,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
         header_ << " = 0;";
         header_ << off << "/*  ----8<    copy here   8<----"
                 << off << mapped_type{func->get_return_type(), func->get_annotations()}
-                << off << func->name() << "(" << formal_params
+                << off << cpp_name(func) << "(" << formal_params
                 << "::wire::core::current const& = ::wire::core::no_current)";
         if (func->is_const()) {
             header_ << " const";
@@ -356,14 +331,12 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
     }
     header_ << off << "/* dispatch function */"
             << off << "void"
-            << off << "__" << func->name()
+            << off << "__" << cpp_name(func)
             << "(::wire::core::detail::dispatch_request const&, ::wire::core::current const&);\n";
 
     {
-        tmp_pop_scope _pop{current_scope_};
-
         source_ << off << "void"
-                << off << func->owner()->name() << "::__" << func->name()
+                << off << qname(func->owner()) << "::__" << cpp_name(func)
                 << "(::wire::core::detail::dispatch_request const& __req, ::wire::core::current const& __curr)"
                 << off << "{";
 
@@ -384,7 +357,7 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
         }
 
         ::std::ostringstream fcall;
-        fcall << func->name() << "(" << call_params.str();
+        fcall << cpp_name(func) << "(" << call_params.str();
         if (!params.empty())
             fcall << ", ";
         if (async_dispatch) {
@@ -436,14 +409,14 @@ generator::generate_invocation_function_member(ast::function_ptr func)
     }
 
     header_ << off << mapped_type{func->get_return_type(), func->get_annotations()}
-            << off << func->name() << "(" << call_params
+            << off << cpp_name(func) << "(" << call_params
             << "::wire::core::context_type const& = ::wire::core::no_context);";
 
     ::std::ostringstream result_callback;
     if (func->is_void()) {
         result_callback << "::wire::core::functional::void_callback";
     } else {
-        result_callback << func->name() << "_responce_callback";
+        result_callback << cpp_name(func) << "_responce_callback";
         header_ << off << "using " << result_callback.str() << " = "
                 << "::std::function< void( "
                 << arg_type(func->get_return_type(), func->get_annotations())
@@ -451,7 +424,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
     }
 
     header_ << off      << "void"
-            << off      << func->name() << "_async(" << call_params
+            << off      << cpp_name(func) << "_async(" << call_params
             <<                      result_callback.str() << " _response,"
             << mod(+2)  <<          "::wire::core::functional::exception_callback _exception = nullptr,"
             << off      <<          "::wire::core::functional::callback< bool > _sent        = nullptr,"
@@ -461,7 +434,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
 
     header_ << off      << "template < template< typename > class _Promise = ::std::promise >"
             << off      << "auto"
-            << off      << func->name() << "_async(" << call_params
+            << off      << cpp_name(func) << "_async(" << call_params
             <<                      "::wire::core::context_type const& _ctx = ::wire::core::no_context,"
             << off(+2)  <<          "bool _run_async = false)"
             << off(+2)  <<      "-> decltype( ::std::declval< _Promise< "
@@ -470,7 +443,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
             << off      << "{"
             << mod(+1)  <<      "auto promise = ::std::make_shared< _Promise <"
                     << mapped_type{func->get_return_type(), func->get_annotations()} << "> >();\n"
-            << off      <<      func->name() << "_async(";
+            << off      <<      cpp_name(func) << "_async(";
 
     header_.modify_offset(+1);
     for (auto const& p : params) {
@@ -492,17 +465,15 @@ generator::generate_invocation_function_member(ast::function_ptr func)
 
     {
         // Sources
-        tmp_pop_scope _pop{current_scope_};
-
         {
             offset_guard _f{source_};
             // Sync invocation
             source_ << off << mapped_type{func->get_return_type(), func->get_annotations()}
-                    << off << func->owner()->name() << "_proxy::" << func->name() << "("
+                    << off << qname(func->owner()) << "_proxy::" << cpp_name(func) << "("
                     << mod(+3) << call_params
                     << "::wire::core::context_type const& __ctx)"
                     << mod(-3) << "{"
-                    << mod(+1) << "auto future = " << func->name() << "_async(";
+                    << mod(+1) << "auto future = " << cpp_name(func) << "_async(";
             for (auto const& p : params) {
                 source_ << p.second << ", ";
             }
@@ -514,7 +485,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
             // Async invocation
             offset_guard _f{source_};
             source_ << off << "void"
-                    << off << func->owner()->name() << "_proxy::" << func->name() << "_async("
+                    << off << qname(func->owner()) << "_proxy::" << cpp_name(func) << "_async("
                     << mod(+3) << call_params
                     << result_callback.str() << " _response,"
                     << off << "::wire::core::functional::exception_callback _exception,"
@@ -524,8 +495,8 @@ generator::generate_invocation_function_member(ast::function_ptr func)
                     << mod(-3) << "{";
 
             source_ << mod(+1) << "make_invocation(wire_get_reference(),"
-                    << mod(+2) << pfx << func->name() << ", _ctx,"
-                    << off << "&" << func->owner()->name() << "::" << func->name() << ","
+                    << mod(+2) << pfx << cpp_name(func) << ", _ctx,"
+                    << off << "&" << qname(func->owner()) << "::" << cpp_name(func) << ","
                     << off << "_response, _exception, _sent";
             if (!params.empty()) {
                 source_ << off;
@@ -549,18 +520,19 @@ generator::generate_forward_decl( ast::forward_declaration_ptr fwd )
             header_ << off << "struct " << fwd->get_qualified_name() << ";";
             break;
         case ast::forward_declaration::interface:
-            header_ << off << "class " << fwd->name() << "_proxy;"
-                    << off << "using " << fwd->name() << "_prx = ::std::shared_ptr< "
-                        << fwd->name() << "_proxy >;";
+            header_ << off << "class " << cpp_name(fwd) << "_proxy;"
+                    << off << "using " << cpp_name(fwd) << "_prx = ::std::shared_ptr< "
+                        << cpp_name(fwd) << "_proxy >;";
             ;
         case ast::forward_declaration::exception:
         case ast::forward_declaration::class_:
-            header_ << off << "class " << fwd->name() << ";"
-                    << off << "using " << fwd->name() << "_ptr = ::std::shared_ptr< "
-                        << fwd->name() << ">;"
-                    << off << "using " << fwd->name() << "_weak_ptr = ::std::weak_ptr< "
-                        << fwd->name() << ">;"
+            header_ << off << "class " << cpp_name(fwd) << ";"
+                    << off << "using " << cpp_name(fwd) << "_ptr = ::std::shared_ptr< "
+                        << cpp_name(fwd) << ">;"
+                    << off << "using " << cpp_name(fwd) << "_weak_ptr = ::std::weak_ptr< "
+                        << cpp_name(fwd) << ">;"
             ;
+            break;
         default:
             break;
     }
@@ -572,7 +544,7 @@ generator::generate_constant(ast::constant_ptr c)
     adjust_scope(c);
 
     header_ << off << mapped_type{c->get_type(), c->get_annotations()}
-            << " const " << c->name() << " = " << c->get_init() << ";";
+            << " const " << cpp_name(c) << " = " << c->get_init() << ";";
 }
 
 void
@@ -584,7 +556,7 @@ generator::generate_enum(ast::enumeration_ptr enum_)
     header_ << off << "enum ";
     if (enum_->constrained())
         header_ << "class ";
-    header_ << enum_->name() << "{";
+    header_ << cpp_name(enum_) << "{";
     header_.modify_offset(+1);
     for (auto e : enum_->get_enumerators()) {
         header_ << off << e.first;
@@ -601,7 +573,7 @@ generator::generate_type_alias( ast::type_alias_ptr ta )
 {
     adjust_scope(ta);
 
-    header_ << off << "using " << ta->name() << " = "
+    header_ << off << "using " << cpp_name(ta) << " = "
             <<  mapped_type{ta->alias(), ta->get_annotations()} << ";";
 }
 
@@ -610,12 +582,9 @@ generator::generate_struct( ast::structure_ptr struct_ )
 {
     adjust_scope(struct_);
 
-    header_ << off << "struct " << struct_->name() << " {";
+    header_ << off << "struct " << cpp_name(struct_) << " {";
     auto const& dm = struct_->get_data_members();
     {
-        tmp_push_scope _push{current_scope_, struct_->name()};
-        scope_stack_.push_back(struct_);
-
         header_.push_scope(struct_->name());
 
         for (auto t : struct_->get_types()) {
@@ -633,20 +602,19 @@ generator::generate_struct( ast::structure_ptr struct_ )
         if (!dm.empty()) {
             header_ << "\n"
                     << off      << "void"
-                    << off      << "swap(" << struct_->name() << "& rhs)"
+                    << off      << "swap(" << cpp_name(struct_) << "& rhs)"
                     << off      << "{"
                     << mod(+1)  <<      "using ::std::swap;";
             for (auto d : dm) {
-                header_ << off  <<      "swap(" << d->name() << ", rhs." << d->name() << ");";
+                header_ << off  <<      "swap(" << cpp_name(d) << ", rhs." << cpp_name(d) << ");";
             }
             header_ << mod(-1) << "}";
         }
 
-        header_.pop_scope();
         header_ << off << "};\n";
+        header_.pop_scope();
     }
 
-    pop_scope();
     if (!dm.empty()) {
         header_.at_namespace_scope(
         [&](source_stream& stream)
@@ -674,7 +642,7 @@ generator::generate_read_write(source_stream& stream, ast::structure_ptr struct_
 
     stream << off(+1)   <<      "::wire::encoding::write(o";
     for (auto d : dm) {
-        stream << ", v." << d->name();
+        stream << ", v." << cpp_name(d);
     }
     stream  << ");";
     stream  << off      << "}\n";
@@ -688,7 +656,7 @@ generator::generate_read_write(source_stream& stream, ast::structure_ptr struct_
     stream << mod(+1)   <<      struct_->get_qualified_name() << " tmp;"
             << off      <<      "::wire::encoding::read(begin, end";
     for (auto d : dm) {
-        stream << ", tmp." << d->name();
+        stream << ", tmp." << cpp_name(d);
     }
     stream << ");"
             << off      <<      "v.swap(tmp);";
@@ -716,12 +684,11 @@ generator::generate_member_read_write( ast::structure_ptr struct_,
                     << (( parent || ovrde ) ? " override" : "") << ";";
 
     // Source
-    tmp_pop_scope _pop{current_scope_};
     //------------------------------------------------------------------------
     //  Wire write member function
     //------------------------------------------------------------------------
     source_ << off << "void"
-            << off << q_name(struct_)
+            << off << qname(struct_)
             << "::__wire_write(output_iterator o) const"
             << off << "{"
             << mod(+1) << "auto encaps = o.encapsulation();";
@@ -739,7 +706,7 @@ generator::generate_member_read_write( ast::structure_ptr struct_,
     if (!data_members.empty()) {
         source_ << off << "::wire::encoding::write(o";
         for (auto dm : data_members) {
-            source_ << ", " << dm->name();
+            source_ << ", " << cpp_name(dm);
         }
         source_ << ");";
     }
@@ -747,7 +714,7 @@ generator::generate_member_read_write( ast::structure_ptr struct_,
     source_ << off << "encaps.end_segment();";
 
     if (parent) {
-        source_ << off << parent->name() << "::__wire_write(o);";
+        source_ << off << cpp_name(parent) << "::__wire_write(o);";
     }
 
     source_ << mod(-1) << "}\n";
@@ -756,7 +723,7 @@ generator::generate_member_read_write( ast::structure_ptr struct_,
     //  Wire read member function
     //------------------------------------------------------------------------
     source_ << off << "void"
-            << off << q_name(struct_)
+            << off << qname(struct_)
             << "::__wire_read(input_iterator& begin, input_iterator end, "
                     "bool read_head)"
             << off << "{"
@@ -764,20 +731,20 @@ generator::generate_member_read_write( ast::structure_ptr struct_,
             << off     << "if (read_head) {"
             << mod(+1) <<    "::wire::encoding::segment_header seg_head;"
             << off     <<    "encaps.read_segment_header(begin, end, seg_head);"
-            << off     << "::wire::encoding::check_segment_header< " << struct_->name()
+            << off     << "::wire::encoding::check_segment_header< " << cpp_name(struct_)
                             << " >(seg_head);"
             << mod(-1) << "}\n";
 
     if (!data_members.empty()) {
         source_ << off << "::wire::encoding::read(begin, end";
         for (auto dm : data_members) {
-            source_ << ", " << dm->name();
+            source_ << ", " << cpp_name(dm);
         }
         source_ << ");";
     }
 
     if (parent) {
-        source_ << off << parent->name() << "::__wire_read(begin, encaps.end(), true);";
+        source_ << off << cpp_name(parent) << "::__wire_read(begin, encaps.end(), true);";
     }
 
     source_ << mod(-1) << "}\n";
@@ -802,7 +769,7 @@ generator::generate_comparison(source_stream& stream, ast::structure_ptr struct_
             if (d != dm.begin()) {
                 stream << " && " << off(+2);
             }
-            stream << "lhs." << (*d)->name() << " == rhs." << (*d)->name();
+            stream << "lhs." << cpp_name((*d)) << " == rhs." << cpp_name((*d));
         }
         stream << ";";
     } else {
@@ -829,7 +796,7 @@ generator::generate_comparison(source_stream& stream, ast::structure_ptr struct_
             if (d != dm.begin()) {
                 stream << " && " << off(+2);
             }
-            stream << "lhs." << (*d)->name() << " < rhs." << (*d)->name();
+            stream << "lhs." << cpp_name((*d)) << " < rhs." << cpp_name((*d));
         }
         stream << ";";
     } else {
@@ -872,7 +839,7 @@ generator::generate_io(ast::structure_ptr struct_)
             for (auto dm = data_members.begin(); dm != data_members.end(); ++dm) {
                 if (dm != data_members.begin())
                     source_ << " << \" \"" << off;
-                source_ << "<< val." << (*dm)->name();
+                source_ << "<< val." << cpp_name((*dm));
             }
             source_.modify_offset(-1);
             source_ << " << '}';";
@@ -894,7 +861,6 @@ generator::generate_type_id_funcs(ast::entity_ptr elem)
             << off      <<       "static " << hash_value_type_name
             << off      <<       "wire_static_type_id_hash();";
 
-    tmp_pop_scope _pop{current_scope_};
     // Source
     auto eqn = elem->get_qualified_name();
     auto pfx = constant_prefix(eqn);
@@ -947,8 +913,6 @@ generator::generate_wire_functions(ast::interface_ptr iface)
             << off(+2) <<           "dispatch_seen_list&, bool throw_not_found) override;"
     ;
 
-    tmp_pop_scope _pop{current_scope_};
-
     //------------------------------------------------------------------------
     // data
     auto pfx = constant_prefix(eqn);
@@ -959,8 +923,8 @@ generator::generate_wire_functions(ast::interface_ptr iface)
         offset_guard cn{source_};
         source_.modify_offset(+1);
         for (auto f : funcs) {
-            source_ << off << "::std::string const " << pfx << f->name()
-                    << " = \"" << f->name() << "\";";
+            source_ << off << "::std::string const " << pfx << cpp_name(f)
+                    << " = \"" << cpp_name(f) << "\";";
         }
         if (!funcs.empty())
             source_ << "\n";
@@ -973,8 +937,8 @@ generator::generate_wire_functions(ast::interface_ptr iface)
 
         source_.modify_offset(+1);
         for (auto f : funcs) {
-            source_ << off << "{ " << pfx << f->name() << ", &" << eqn
-                    << "::__" << f->name() << " },";
+            source_ << off << "{ " << pfx << cpp_name(f) << ", &" << eqn
+                    << "::__" << cpp_name(f) << " },";
         }
 
         source_ << mod(-1) << "};\n";
@@ -1077,14 +1041,13 @@ generator::generate_exception(ast::exception_ptr exc)
     auto parent_name = exc->get_parent() ?
             exc->get_parent()->get_qualified_name() : root_exception;
 
-    header_ << off << "class " << exc->name()
-            << " : public " << parent_name << " {";
+    header_ << off << "class " << cpp_name(exc)
+            << " : public " << cpp_name(parent_name)<< " {";
 
     auto const& data_members = exc->get_data_members();
     ::std::string qn_str;
     {
-        tmp_push_scope _push{current_scope_, exc->name()};
-        scope_stack_.push_back(exc);
+        header_.push_scope(exc->name());
 
         if (!exc->get_types().empty()) {
             header_ << off << "public:";
@@ -1106,34 +1069,35 @@ generator::generate_exception(ast::exception_ptr exc)
         // Constructors
         header_ << off << "public:";
         header_.modify_offset(+1);
-        code_snippet members_init{current_scope_};
+        code_snippet members_init{header_.current_scope()};
         if (!data_members.empty()) {
             for (auto dm : data_members) {
-                members_init << ", " << dm->name() << "{}";
+                members_init << ", " << cpp_name(dm) << "{}";
             }
         }
 
         //@{ Default constructor
         header_ << off << "/* default constructor, for use in factories */"
-                << off << exc->name() << "() : " << parent_name << "{}"
+                << off << cpp_name(exc) << "() : " << cpp_name(parent_name) << "{}"
                 << members_init << " {}";
         //@}
 
         header_ << off << "/* templated constructor to format a ::std::runtime_error message */"
                 << off << "template < typename ... T >"
-                << off << exc->name() << "(T const& ... args) : "
+                << off << cpp_name(exc) << "(T const& ... args) : "
                 << parent_name << "(args ...)"
                 << members_init << "{}";
 
         // TODO constructors with data members variations
         if (!data_members.empty()) {
-            code_snippet args{current_scope_};
-            code_snippet init{current_scope_};
-            code_snippet msg{current_scope_};
+            auto current = header_.current_scope();
+            code_snippet args{current};
+            code_snippet init{current};
+            code_snippet msg{current};
 
             ::std::deque<::std::string> rest;
             for (auto dm : data_members) {
-                rest.push_back(dm->name() + "{}");
+                rest.push_back(dm->name() + "{}"); // FIMXE C++ safe name needed
             }
             for (auto p = data_members.begin(); p != data_members.end(); ++p) {
                 if (p != data_members.begin()) {
@@ -1141,13 +1105,13 @@ generator::generate_exception(ast::exception_ptr exc)
                     init << "," << off(+1) << "  ";
                     msg << ", ";
                 }
-                args << arg_type((*p)->get_type()) << " " << (*p)->name() << "_";
-                init << (*p)->name() << "{" << (*p)->name() << "_}";
-                msg << (*p)->name() << "_";
+                args << arg_type((*p)->get_type()) << " " << cpp_name((*p)) << "_";
+                init << cpp_name((*p)) << "{" << cpp_name((*p)) << "_}";
+                msg << cpp_name((*p)) << "_";
 
                 rest.pop_front();
 
-                header_ << off      <<  exc->name() << "(" << args << ")";
+                header_ << off      <<  cpp_name(exc) << "(" << args << ")";
                 header_ << mod(+1)  <<      ": " << parent_name
                         << "(wire_static_type_id(), " << msg << "), "
                         << off << "  " << init;
@@ -1165,7 +1129,7 @@ generator::generate_exception(ast::exception_ptr exc)
             header_.modify_offset(+1);
             for (auto dm : data_members) {
                 header_ << off
-                        << mapped_type{dm->get_type()} << " " << dm->name() << ";";
+                        << mapped_type{dm->get_type()} << " " << cpp_name(dm) << ";";
             }
             header_.modify_offset(-1);
         }
@@ -1180,13 +1144,14 @@ generator::generate_exception(ast::exception_ptr exc)
         }
 
         header_ << mod(-2) << "};\n";
+        header_.pop_scope();
     }
 
     // TODO to outer scope
-    header_ << off << "using " << exc->name() << "_ptr = ::std::shared_ptr<"
-                << exc->name() << ">;"
-            << off << "using " << exc->name() << "_weak_ptr = ::std::weak_ptr<"
-                << exc->name() << ">;\n";
+    header_ << off << "using " << cpp_name(exc) << "_ptr = ::std::shared_ptr<"
+                << cpp_name(exc) << ">;"
+            << off << "using " << cpp_name(exc) << "_weak_ptr = ::std::weak_ptr<"
+                << cpp_name(exc) << ">;\n";
 
     // Source
     //------------------------------------------------------------------------
@@ -1197,7 +1162,6 @@ generator::generate_exception(ast::exception_ptr exc)
             << exc->get_qualified_name() << " > const "
             << constant_prefix(exc->get_qualified_name()) << "_factory_init;"
             << mod(-1) << "}";
-    pop_scope();
 }
 
 void
@@ -1213,7 +1177,7 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
     header_ << off     << "/**"
             << off     << " *    Dispatch interface for " << abs_name << iface->get_qualified_name()
             << off     << " */"
-            << off     << "class " << iface->name();
+            << off     << "class " << cpp_name(iface);
 
     auto const& ancestors = iface->get_ancestors();
     if (!ancestors.empty()) {
@@ -1230,8 +1194,6 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
     header_ << " {";
 
     header_.push_scope(iface->name());
-    tmp_push_scope _push{current_scope_, iface->name()};
-    scope_stack_.push_back(iface);
 
     if (!iface->get_types().empty()) {
         header_ << off << "public:";
@@ -1252,7 +1214,7 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
     {
         // Constructor
         header_ << off      << "public:"
-                << mod(+1)  << iface->name() << "()"
+                << mod(+1)  << cpp_name(iface) << "()"
                 << mod(+1)  << ": " << root_interface << "()";
         ast::interface_list anc;
 
@@ -1282,7 +1244,6 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
 
     header_ << mod(-1)  << "};\n";
     header_.pop_scope();
-    pop_scope();
 }
 
 void
@@ -1298,8 +1259,8 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
     header_ << off      << "/**"
             << off      << " *    Proxy interface for " << abs_name << iface->get_qualified_name()
             << off      << " */"
-            << off      << "class " << iface->name() << "_proxy : "
-            << off(+1)  <<      "public virtual ::wire::core::proxy< " << iface->name();
+            << off      << "class " << cpp_name(iface) << "_proxy : "
+            << off(+1)  <<      "public virtual ::wire::core::proxy< " << cpp_name(iface);
 
 
     auto const& ancestors = iface->get_ancestors();
@@ -1318,14 +1279,12 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
             << off << "public:";
 
     header_.push_scope(iface->name());
-    tmp_push_scope _push{current_scope_, iface->name() + "_proxy"};
-    scope_stack_.push_back(iface);
     {
         offset_guard hdr{header_};
         // TODO Constructors
-        header_ << mod(+1) << iface->name() << "_proxy ()"
+        header_ << mod(+1) << cpp_name(iface) << "_proxy ()"
                 << off(+2) << ": " << base_proxy << "{} {}"
-                << off     << iface->name() << "_proxy (" << ref_ptr
+                << off     << cpp_name(iface) << "_proxy (" << ref_ptr
                     << " _ref)"
                 << off(+2) << ": " << base_proxy << "{_ref} {}";
         ;
@@ -1356,7 +1315,6 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
     header_ << off << "};\n";
 
     header_.pop_scope();
-    pop_scope();
 }
 
 void
@@ -1365,13 +1323,13 @@ generator::generate_interface(ast::interface_ptr iface)
     generate_dispatch_interface(iface);
     generate_proxy_interface(iface);
 
-    header_ << off     << "using " << iface->name()
-            << "_ptr = ::std::shared_ptr< " << iface->name() << " >;";
-    header_ << off     << "using " << iface->name()
-            << "_weak_ptr = ::std::weak_ptr< " << iface->name() << " >;";
+    header_ << off     << "using " << cpp_name(iface)
+            << "_ptr = ::std::shared_ptr< " << cpp_name(iface) << " >;";
+    header_ << off     << "using " << cpp_name(iface)
+            << "_weak_ptr = ::std::weak_ptr< " << cpp_name(iface) << " >;";
 
-    header_ << off     << "using " << iface->name()
-            << "_prx = ::std::shared_ptr< " << iface->name() << "_proxy >;";
+    header_ << off     << "using " << cpp_name(iface)
+            << "_prx = ::std::shared_ptr< " << cpp_name(iface) << "_proxy >;";
     header_ << "\n";
 }
 
@@ -1389,13 +1347,13 @@ generator::generate_class(ast::class_ptr class_)
     header_ << off      << "/**"
             << off      << " *    Class " << abs_name << cqn
             << off      << " */"
-            << off      << "class " << class_->name();
+            << off      << "class " << cpp_name(class_);
     auto const& ancestors = class_->get_ancestors();
     auto const& data_members = class_->get_data_members();
     auto parent = class_->get_parent();
     ::std::string qn_str;
     if (parent) {
-        header_ << off(+1) << ": public " << q_name(parent);
+        header_ << off(+1) << ": public " << qname(parent);
     }
     if (!ancestors.empty()) {
         header_.modify_offset(+1);
@@ -1407,7 +1365,7 @@ generator::generate_class(ast::class_ptr class_)
         for (auto a = ancestors.begin(); a != ancestors.end(); ++a) {
             if (a != ancestors.begin())
                 header_ << "," << off << "  ";
-            header_ << "public virtual " << q_name(*a);
+            header_ << "public virtual " << qname(*a);
         }
         header_.modify_offset(-+11);
     } else if (class_->has_functions()) {
@@ -1421,8 +1379,7 @@ generator::generate_class(ast::class_ptr class_)
     }
     header_ << " {";
     {
-        tmp_push_scope _push{current_scope_, class_->name()};
-        scope_stack_.push_back(class_);
+        header_.push_scope(class_->name());
 
         header_ << off     << "public:"
                 << mod(+1) << "using wire_root_type = "
@@ -1448,20 +1405,20 @@ generator::generate_class(ast::class_ptr class_)
         }
 
         {
-            code_snippet members_init{current_scope_};
+            code_snippet members_init{header_.current_scope()};
             if (!data_members.empty()) {
                 for (auto dm = data_members.begin(); dm != data_members.end(); ++dm) {
                     if (dm != data_members.begin())
                         members_init << ", ";
-                    members_init << (*dm)->name() << "{}";
+                    members_init << cpp_name((*dm)) << "{}";
                 }
             }
             // Constructor
             header_ << off     << "public:";
-            header_ << mod(+1) <<     class_->name() << "()";
+            header_ << mod(+1) <<     cpp_name(class_) << "()";
             bool need_comma {false};
             if (parent) {
-                header_ << off(+1) << ": " << q_name(parent) << "{}";
+                header_ << off(+1) << ": " << qname(parent) << "{}";
                 need_comma = true;
             }
             if (class_->is_abstract()) {
@@ -1473,7 +1430,7 @@ generator::generate_class(ast::class_ptr class_)
                 header_ << root_interface << "{}";
                 for (auto a : ancestors) {
                     header_ << "," << off(+1)
-                            << "  " << q_name(a) << "{}";
+                            << "  " << qname(a) << "{}";
                 }
                 need_comma = true;
             }
@@ -1491,7 +1448,7 @@ generator::generate_class(ast::class_ptr class_)
         }
         {
             // Destuctor
-            header_ << off(+1) << "virtual ~" << class_->name() << "() {}";
+            header_ << off(+1) << "virtual ~" << cpp_name(class_) << "() {}";
         }
         qn_str = generate_type_id_funcs(class_);
         {
@@ -1529,7 +1486,7 @@ generator::generate_class(ast::class_ptr class_)
                 header_.modify_offset(+1);
                 for (auto dm : data_members) {
                     header_ << off
-                            << mapped_type{dm->get_type()} << " " << dm->name() << ";";
+                            << mapped_type{dm->get_type()} << " " << cpp_name(dm) << ";";
                 }
                 header_.modify_offset(-1);
             }
@@ -1537,20 +1494,20 @@ generator::generate_class(ast::class_ptr class_)
 
         header_ << off << "};\n";
     }
-    pop_scope();
+    header_.pop_scope();
 
     //------------------------------------------------------------------------
     //  Type aliases for class pointers
     //------------------------------------------------------------------------
-    header_ << off << "using " << class_->name()
-            << "_ptr = ::std::shared_ptr< " << class_->name() << " >;";
-    header_ << off << "using " << class_->name()
-            << "_weak_ptr = ::std::weak_ptr< " << class_->name() << " >;\n";
+    header_ << off << "using " << cpp_name(class_)
+            << "_ptr = ::std::shared_ptr< " << cpp_name(class_) << " >;";
+    header_ << off << "using " << cpp_name(class_)
+            << "_weak_ptr = ::std::weak_ptr< " << cpp_name(class_) << " >;\n";
 
     if (class_->has_functions()) {
         generate_proxy_interface(class_);
-        header_ << off << "using " << class_->name()
-                << "_prx = ::std::shared_ptr< " << class_->name() << "_proxy >;";
+        header_ << off << "using " << cpp_name(class_)
+                << "_prx = ::std::shared_ptr< " << cpp_name(class_) << "_proxy >;";
         header_ << "\n";
     }
 }
