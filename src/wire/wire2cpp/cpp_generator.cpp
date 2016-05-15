@@ -117,19 +117,6 @@ struct tmp_push_scope {
     }
 };
 
-::std::ostream&
-operator << (::std::ostream& os, offset const& val)
-{
-    ::std::ostream::sentry s(os);
-    if (s) {
-        os << "\n";
-        for (size_t i = 0; i < val.sz * tab_width; ++i) {
-            os << " ";
-        }
-    }
-    return os;
-}
-
 grammar::annotation_list const type_name_rules::empty_annotations{};
 
 ::std::ostream&
@@ -804,12 +791,11 @@ generator::generate_member_read_write( ast::structure_ptr struct_,
     qn_os << struct_->get_qualified_name();
     auto qn_str = qn_os.str();
 
-    header_ << ++h_off_ << (( parent || ovrde ) ? "" : "virtual ") << "void"
-            << h_off_ << "__wire_write(output_iterator o) const"
-                    << (( parent || ovrde ) ? " override" : "") << ";";
-
-    header_ << h_off_ << (( parent || ovrde ) ? "" : "virtual ") << "void"
-            << h_off_ << "__wire_read(input_iterator& begin, input_iterator end, "
+    header_ << mod(+1)  << (( parent || ovrde ) ? "" : "virtual ") << "void"
+            << off      << "__wire_write(output_iterator o) const"
+                            << (( parent || ovrde ) ? " override" : "") << ";"
+            << off      << (( parent || ovrde ) ? "" : "virtual ") << "void"
+            << off      << "__wire_read(input_iterator& begin, input_iterator end, "
                             "bool read_head = true)"
                     << (( parent || ovrde ) ? " override" : "") << ";";
 
@@ -925,7 +911,7 @@ generator::generate_comparison(source_stream& stream, ast::structure_ptr struct_
         stream << off(+1) << "return ";
         for (auto d = dm.begin(); d != dm.end(); ++d) {
             if (d != dm.begin()) {
-                stream << " && " << (h_off_ + 2);
+                stream << " && " << off(+2);
             }
             stream << "lhs." << (*d)->name() << " < rhs." << (*d)->name();
         }
@@ -986,13 +972,11 @@ generator::generate_type_id_funcs(ast::entity_ptr elem)
 {
     offset_guard hdr{header_};
     offset_guard src{header_};
-    header_ << h_off_++ << "public:";
-
-    header_ << h_off_ << "static ::std::string const&"
-            << h_off_ << "wire_static_type_id();";
-
-    header_ << h_off_ << "static " << hash_value_type_name
-            << h_off_ << "wire_static_type_id_hash();";
+    header_ << off      << "public:"
+            << mod(+1)  <<       "static ::std::string const&"
+            << off      <<       "wire_static_type_id();"
+            << off      <<       "static " << hash_value_type_name
+            << off      <<       "wire_static_type_id_hash();";
 
     tmp_pop_scope _pop{current_scope_};
     // Source
@@ -1032,19 +1016,19 @@ generator::generate_wire_functions(ast::interface_ptr iface)
     offset_guard src{source_};
     auto eqn = iface->get_qualified_name();
 
-    header_ << h_off_++ << "public:";
+    header_ << off     << "public:";
 
-    header_ << h_off_ << "bool"
-            << h_off_ << "wire_is_a(::std::string const&,"
-            << (h_off_+1) << "::wire::core::current const& = ::wire::core::no_current) const override;\n"
-            << h_off_ << "::std::string const&"
-            << h_off_ << "wire_type(::wire::core::current const& = ::wire::core::no_current) const override;\n"
-            << h_off_ << "type_list const&"
-            << h_off_ << "wire_types(::wire::core::current const& = ::wire::core::no_current) const override;\n"
-            << (h_off_ - 1) << "protected:"
-            << h_off_ << "bool"
-            << h_off_ << "__wire_dispatch(::wire::core::detail::dispatch_request const&, ::wire::core::current const&,"
-            << (h_off_ +2) << "dispatch_seen_list&, bool throw_not_found) override;"
+    header_ << mod(+1) << "bool"
+            << off     <<   "wire_is_a(::std::string const&,"
+            << off(+1) <<         "::wire::core::current const& = ::wire::core::no_current) const override;\n"
+            << off     <<   "::std::string const&"
+            << off     <<   "wire_type(::wire::core::current const& = ::wire::core::no_current) const override;\n"
+            << off     <<   "type_list const&"
+            << off     <<   "wire_types(::wire::core::current const& = ::wire::core::no_current) const override;\n"
+            << off(-1) << "protected:"
+            << off     <<   "bool"
+            << off     <<   "__wire_dispatch(::wire::core::detail::dispatch_request const&, ::wire::core::current const&,"
+            << off(+2) <<           "dispatch_seen_list&, bool throw_not_found) override;"
     ;
 
     tmp_pop_scope _pop{current_scope_};
@@ -1177,7 +1161,7 @@ generator::generate_exception(ast::exception_ptr exc)
     qname parent_name = exc->get_parent() ?
             exc->get_parent()->get_qualified_name() : root_exception;
 
-    header_ << h_off_ << "class " << exc->name()
+    header_ << off << "class " << exc->name()
             << " : public " << parent_name << " {";
 
     auto const& data_members = exc->get_data_members();
@@ -1187,24 +1171,26 @@ generator::generate_exception(ast::exception_ptr exc)
         scope_stack_.push_back(exc);
 
         if (!exc->get_types().empty()) {
-            header_ << h_off_++ << "public:";
+            header_ << off << "public:";
+            header_.modify_offset(+1);
             for (auto t : exc->get_types()) {
                 generate_type_decl(t);
             }
-            --h_off_;
+            header_.modify_offset(-1);
         }
         if (!exc->get_constants().empty()) {
-            header_ << h_off_++ << "public:";
+            header_ << off << "public:";
+            header_.modify_offset(+1);
             for (auto c : exc->get_constants()) {
                 generate_constant(c);
             }
-            --h_off_;
+            header_.modify_offset(-1);
         }
 
         // Constructors
-        header_ << h_off_++ << "public:";
-
-        ::std::ostringstream members_init;
+        header_ << off << "public:";
+        header_.modify_offset(+1);
+        code_snippet members_init{current_scope_};
         if (!data_members.empty()) {
             for (auto dm : data_members) {
                 members_init << ", " << dm->name() << "{}";
@@ -1212,22 +1198,22 @@ generator::generate_exception(ast::exception_ptr exc)
         }
 
         //@{ Default constructor
-        header_ << h_off_ << "/* default constructor, for use in factories */"
-                << h_off_ << exc->name() << "() : " << parent_name << "{}"
-                << members_init.str() << " {}";
+        header_ << off << "/* default constructor, for use in factories */"
+                << off << exc->name() << "() : " << parent_name << "{}"
+                << members_init << " {}";
         //@}
 
-        header_ << h_off_ << "/* templated constructor to format a ::std::runtime_error message */"
-                << h_off_ << "template < typename ... T >"
-                << h_off_ << exc->name() << "(T const& ... args) : "
+        header_ << off << "/* templated constructor to format a ::std::runtime_error message */"
+                << off << "template < typename ... T >"
+                << off << exc->name() << "(T const& ... args) : "
                 << parent_name << "(args ...)"
-                << members_init.str() << "{}";
+                << members_init << "{}";
 
         // TODO constructors with data members variations
         if (!data_members.empty()) {
-            ::std::ostringstream args;
-            ::std::ostringstream init;
-            ::std::ostringstream msg;
+            code_snippet args{current_scope_};
+            code_snippet init{current_scope_};
+            code_snippet msg{current_scope_};
 
             ::std::deque<::std::string> rest;
             for (auto dm : data_members) {
@@ -1236,7 +1222,7 @@ generator::generate_exception(ast::exception_ptr exc)
             for (auto p = data_members.begin(); p != data_members.end(); ++p) {
                 if (p != data_members.begin()) {
                     args << ", ";
-                    init << "," << (h_off_ + 1) << "  ";
+                    init << "," << off(+1) << "  ";
                     msg << ", ";
                 }
                 args << arg_type((*p)->get_type()) << " " << (*p)->name() << "_";
@@ -1245,44 +1231,45 @@ generator::generate_exception(ast::exception_ptr exc)
 
                 rest.pop_front();
 
-                header_ << h_off_ << exc->name() << "(" << args.str() << ")";
-                header_ << ++h_off_ << ": " << parent_name
-                        << "(wire_static_type_id(), " << msg.str() << "), "
-                        << h_off_ << "  " << init.str();
+                header_ << off      <<  exc->name() << "(" << args << ")";
+                header_ << mod(+1)  <<      ": " << parent_name
+                        << "(wire_static_type_id(), " << msg << "), "
+                        << off << "  " << init;
                 for (auto const& r : rest) {
-                    header_ << "," << h_off_ << "  " << r;
+                    header_ << "," << off << "  " << r;
                 }
                 header_ << " {}";
-                --h_off_;
+                header_.modify_offset(-1);
             }
         }
-        --h_off_;
+        header_.modify_offset(-1);
 
         if (!data_members.empty()) {
-            header_ << h_off_++ << "public:";
+            header_ << off << "public:";
+            header_.modify_offset(+1);
             for (auto dm : data_members) {
-                header_ << h_off_
+                header_ << off
                         << type_name(dm->get_type()) << " " << dm->name() << ";";
             }
-            --h_off_;
+            header_.modify_offset(-1);
         }
 
         qn_str = generate_type_id_funcs(exc);
         {
             // Member functions
             generate_member_read_write(exc, exc->get_parent());
-            header_ << h_off_ << "::std::exception_ptr"
-                    << h_off_ << "make_exception_ptr() override"
-                    << h_off_ << "{ return ::std::make_exception_ptr(*this); }";
+            header_ << mod(+1) << "::std::exception_ptr"
+                    << off     << "make_exception_ptr() override"
+                    << off     << "{ return ::std::make_exception_ptr(*this); }";
         }
 
-        header_ << --h_off_ << "};\n";
+        header_ << mod(-2) << "};\n";
     }
 
     // TODO to outer scope
-    header_ << h_off_ << "using " << exc->name() << "_ptr = ::std::shared_ptr<"
+    header_ << off << "using " << exc->name() << "_ptr = ::std::shared_ptr<"
                 << exc->name() << ">;"
-            << h_off_ << "using " << exc->name() << "_weak_ptr = ::std::weak_ptr<"
+            << off << "using " << exc->name() << "_weak_ptr = ::std::weak_ptr<"
                 << exc->name() << ">;\n";
 
     // Source
@@ -1307,73 +1294,78 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
             << off      << "//    Dispatch interface for " << abs_name << iface->get_qualified_name()
             << off      << "//" << ::std::setw(77) << ::std::setfill('-') << "-";
 
-    header_ << h_off_ << "/**"
-            << h_off_ << " *    Dispatch interface for " << abs_name << iface->get_qualified_name()
-            << h_off_ << " */"
-            << h_off_ << "class " << iface->name();
+    header_ << off     << "/**"
+            << off     << " *    Dispatch interface for " << abs_name << iface->get_qualified_name()
+            << off     << " */"
+            << off     << "class " << iface->name();
 
     auto const& ancestors = iface->get_ancestors();
     if (!ancestors.empty()) {
-        header_ << ++h_off_ << ": ";
+        header_ << mod(+1) << ": ";
         for ( auto a = ancestors.begin(); a != ancestors.end(); ++a ) {
             if (a != ancestors.begin())
-                header_ << "," << h_off_ << "  ";
+                header_ << "," << off << "  ";
             header_ << "public virtual " << (*a)->get_qualified_name();
         }
-        --h_off_;
+        header_.modify_offset(-1);
     } else {
         header_ << " : public virtual " << root_interface;
     }
     header_ << " {";
 
+    header_.push_scope(iface->name());
     tmp_push_scope _push{current_scope_, iface->name()};
     scope_stack_.push_back(iface);
 
     if (!iface->get_types().empty()) {
-        header_ << h_off_++ << "public:";
+        header_ << off << "public:";
+        header_.modify_offset(+1);
         for (auto t : iface->get_types()) {
             generate_type_decl(t);
         }
-        --h_off_;
+        header_.modify_offset(-1);
     }
     if (!iface->get_constants().empty()) {
-        header_ << h_off_++ << "public:";
+        header_ << off << "public:";
+        header_.modify_offset(+1);
         for (auto c : iface->get_constants()) {
             generate_constant(c);
         }
-        --h_off_;
+        header_.modify_offset(-1);
     }
     {
         // Constructor
-        header_ << h_off_ << "public:";
-        header_ << ++h_off_ << iface->name() << "()";
-        header_ << ++h_off_ << ": " << root_interface << "()";
+        header_ << off      << "public:"
+                << mod(+1)  << iface->name() << "()"
+                << mod(+1)  << ": " << root_interface << "()";
         ast::interface_list anc;
 
         iface->collect_ancestors(anc, [](ast::entity_const_ptr){ return true; });
 
         for (auto a : anc) {
-            header_ << "," << h_off_ << "  "
+            header_ << "," << off << "  "
                     << a->get_qualified_name() << "()";
         }
 
         header_ << " {}\n";
-        h_off_ -= 2;
+        header_.modify_offset(-2);
     }
 
     auto qn_str = generate_type_id_funcs(iface);
     generate_wire_functions(iface);
     auto const& funcs = iface->get_functions();
     if (!funcs.empty()) {
-        header_ << h_off_++ << "public:";
+        header_ << off << "public:";
+        header_.modify_offset(+1);
         // Dispatch methods
         for (auto f : funcs) {
             generate_dispatch_function_member(f);
         }
-        --h_off_;
+        header_.modify_offset(-1);
     }
 
-    header_ << --h_off_ << "};\n";
+    header_ << mod(-1)  << "};\n";
+    header_.pop_scope();
     pop_scope();
 }
 
@@ -1387,45 +1379,46 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
             << off      << "//    Proxy interface for " << abs_name << iface->get_qualified_name()
             << off      << "//" << ::std::setw(77) << ::std::setfill('-') << "-";
 
-    header_ << h_off_ << "/**"
-            << h_off_ << " *    Proxy interface for " << abs_name << iface->get_qualified_name()
-            << h_off_ << " */"
-            << h_off_ << "class " << iface->name() << "_proxy : "
-            << (h_off_ + 1) << "public virtual ::wire::core::proxy< " << iface->name();
+    header_ << off      << "/**"
+            << off      << " *    Proxy interface for " << abs_name << iface->get_qualified_name()
+            << off      << " */"
+            << off      << "class " << iface->name() << "_proxy : "
+            << off(+1)  <<      "public virtual ::wire::core::proxy< " << iface->name();
 
 
     auto const& ancestors = iface->get_ancestors();
     if (!ancestors.empty()) {
-        h_off_ += 2;
+        header_.modify_offset(+2);
         for ( auto a : ancestors ) {
             auto qn = a->get_qualified_name();
             qn.components.back() += "_proxy";
-            header_ << "," << h_off_ << qn;
+            header_ << "," << off << qn;
         }
-        h_off_ -= 2;
+        header_.modify_offset(-2);
     } else {
         header_ << ", " << base_proxy;
     }
     header_ << "> {"
-            << h_off_ << "public:";
+            << off << "public:";
 
+    header_.push_scope(iface->name());
     tmp_push_scope _push{current_scope_, iface->name() + "_proxy"};
     scope_stack_.push_back(iface);
     {
         offset_guard hdr{header_};
         // TODO Constructors
-        header_ << ++h_off_ << iface->name() << "_proxy ()"
-                << (h_off_ + 2) << ": " << base_proxy << "{} {}"
-                << h_off_ << iface->name() << "_proxy (" << ref_ptr
+        header_ << mod(+1) << iface->name() << "_proxy ()"
+                << off(+2) << ": " << base_proxy << "{} {}"
+                << off     << iface->name() << "_proxy (" << ref_ptr
                     << " _ref)"
-                << (h_off_ + 2) << ": " << base_proxy << "{_ref} {}";
+                << off(+2) << ": " << base_proxy << "{_ref} {}";
         ;
     }
     {
         offset_guard hdr{header_};
-        header_ << h_off_++ << "public:"
-                << h_off_ << "static ::std::string const&"
-                << h_off_ << "wire_static_type_id();";
+        header_ << off     << "public:"
+                << mod(+1) << "static ::std::string const&"
+                << off     << "wire_static_type_id();";
 
         source_ << off      << "::std::string const&"
                 << off      << iface->get_qualified_name() << "_proxy::wire_static_type_id()"
@@ -1438,13 +1431,15 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
     auto const& funcs = iface->get_functions();
     if (!funcs.empty()) {
         offset_guard hdr{header_};
-        header_ << h_off_++ << "public:";
+        header_ << off     << "public:";
+        header_.modify_offset(+1);
         for (auto f : funcs) {
             generate_invocation_function_member(f);
         }
     }
-    header_ << h_off_ << "};\n";
+    header_ << off << "};\n";
 
+    header_.pop_scope();
     pop_scope();
 }
 
@@ -1454,12 +1449,12 @@ generator::generate_interface(ast::interface_ptr iface)
     generate_dispatch_interface(iface);
     generate_proxy_interface(iface);
 
-    header_ << h_off_ << "using " << iface->name()
+    header_ << off     << "using " << iface->name()
             << "_ptr = ::std::shared_ptr< " << iface->name() << " >;";
-    header_ << h_off_ << "using " << iface->name()
+    header_ << off     << "using " << iface->name()
             << "_weak_ptr = ::std::weak_ptr< " << iface->name() << " >;";
 
-    header_ << h_off_ << "using " << iface->name()
+    header_ << off     << "using " << iface->name()
             << "_prx = ::std::shared_ptr< " << iface->name() << "_proxy >;";
     header_ << "\n";
 }
@@ -1475,50 +1470,50 @@ generator::generate_class(ast::class_ptr class_)
             << off      << "//    Implementation for class " << abs_name << cqn
             << off      << "//" << ::std::setw(77) << ::std::setfill('-') << "-";
 
-    header_ << h_off_ << "/**"
-            << h_off_ << " *    Class " << cqn
-            << h_off_ << " */"
-            << h_off_ << "class " << class_->name();
+    header_ << off      << "/**"
+            << off      << " *    Class " << abs_name << cqn
+            << off      << " */"
+            << off      << "class " << class_->name();
     auto const& ancestors = class_->get_ancestors();
     auto const& data_members = class_->get_data_members();
     auto parent = class_->get_parent();
     ::std::string qn_str;
     if (parent) {
-        header_ << (h_off_ + 1) << ": public " << rel_name(parent);
+        header_ << off(+1) << ": public " << rel_name(parent);
     }
     if (!ancestors.empty()) {
-        ++h_off_;
+        header_.modify_offset(+1);
         if (parent) {
-            header_ << "," << h_off_ << "  ";
+            header_ << "," << off << "  ";
         } else {
-            header_ << h_off_ << ": ";
+            header_ << off << ": ";
         }
         for (auto a = ancestors.begin(); a != ancestors.end(); ++a) {
             if (a != ancestors.begin())
-                header_ << "," << h_off_ << "  ";
+                header_ << "," << off << "  ";
             header_ << "public virtual " << rel_name(*a);
         }
-        --h_off_;
+        header_.modify_offset(-+11);
     } else if (class_->has_functions()) {
-        ++h_off_;
+        header_.modify_offset(+1);
         if (parent) {
-            header_ << "," << h_off_ << "  public virtual " << root_interface;
+            header_ << "," << off << "  public virtual " << root_interface;
         } else {
-            header_ << h_off_ << ": public virtual " << root_interface;
+            header_ << off << ": public virtual " << root_interface;
         }
-        --h_off_;
+        header_.modify_offset(-1);
     }
     header_ << " {";
     {
         tmp_push_scope _push{current_scope_, class_->name()};
         scope_stack_.push_back(class_);
 
-        header_ << h_off_++ << "public:";
-        header_ << h_off_ << "using wire_root_type = "
+        header_ << off     << "public:"
+                << mod(+1) << "using wire_root_type = "
                 << class_->root_class()->get_qualified_name() << ";";
         if (!parent) {
-            header_ << h_off_ << "using input_iterator = " << input_iterator_name << ";"
-                    << h_off_ << "using output_iterator = " << back_inserter
+            header_ << off << "using input_iterator = " << input_iterator_name << ";"
+                    << off << "using output_iterator = " << back_inserter
                         << "< " << outgoing_name << " >;";
         }
         if (!class_->get_types().empty()) {
@@ -1526,17 +1521,18 @@ generator::generate_class(ast::class_ptr class_)
                 generate_type_decl(t);
             }
         }
-        --h_off_;
+        header_.modify_offset(-1);
         if (!class_->get_constants().empty()) {
-            header_ << h_off_++ << "public:";
+            header_ << off << "public:";
+            header_.modify_offset(+1);
             for (auto c : class_->get_constants()) {
                 generate_constant(c);
             }
-            --h_off_;
+            header_.modify_offset(-1);
         }
 
         {
-            ::std::ostringstream members_init;
+            code_snippet members_init{current_scope_};
             if (!data_members.empty()) {
                 for (auto dm = data_members.begin(); dm != data_members.end(); ++dm) {
                     if (dm != data_members.begin())
@@ -1545,41 +1541,41 @@ generator::generate_class(ast::class_ptr class_)
                 }
             }
             // Constructor
-            header_ << h_off_++ << "public:";
-            header_ << h_off_ << class_->name() << "()";
+            header_ << off     << "public:";
+            header_ << mod(+1) <<     class_->name() << "()";
             bool need_comma {false};
             if (parent) {
-                header_ << (h_off_ + 1) << ": " << rel_name(parent) << "{}";
+                header_ << off(+1) << ": " << rel_name(parent) << "{}";
                 need_comma = true;
             }
             if (class_->is_abstract()) {
                 if (need_comma) {
-                    header_ << "," << (h_off_ + 1) << "  ";
+                    header_ << "," << off(+1) << "  ";
                 } else {
-                    header_ << (h_off_ + 1) << ": ";
+                    header_ << off(+1) << ": ";
                 }
                 header_ << root_interface << "{}";
                 for (auto a : ancestors) {
-                    header_ << "," << (h_off_ + 1)
+                    header_ << "," << off(+1)
                             << "  " << rel_name(a) << "{}";
                 }
                 need_comma = true;
             }
             if (!data_members.empty()) {
                 if (need_comma) {
-                    header_ << "," << (h_off_ + 1) << "  ";
+                    header_ << "," << off(+1) << "  ";
                 } else {
-                    header_ << (h_off_ + 1) << ": ";
+                    header_ << off(+1) << ": ";
                 }
-                header_ << members_init.str();
+                header_ << members_init;
             }
 
             header_ << " {}";
-            --h_off_;
+            header_.modify_offset(-1);
         }
         {
             // Destuctor
-            header_ << (h_off_ + 1) << "virtual ~" << class_->name() << "() {}";
+            header_ << off(+1) << "virtual ~" << class_->name() << "() {}";
         }
         qn_str = generate_type_id_funcs(class_);
         {
@@ -1591,12 +1587,13 @@ generator::generate_class(ast::class_ptr class_)
             generate_wire_functions(class_);
             auto const& funcs = class_->get_functions();
             if (!funcs.empty()) {
-                header_ << h_off_++ << "public:";
+                header_ << off << "public:";
+                header_.modify_offset(+1);
                 // Dispatch methods
                 for (auto f : funcs) {
                     generate_dispatch_function_member(f);
                 }
-                --h_off_;
+                header_.modify_offset(-1);
             }
         } else {
             // factory initializer
@@ -1612,30 +1609,31 @@ generator::generate_class(ast::class_ptr class_)
         {
             // Data members
             if (!data_members.empty()) {
-                header_ << h_off_++ << "public:";
+                header_ << off << "public:";
+                header_.modify_offset(+1);
                 for (auto dm : data_members) {
-                    header_ << h_off_
+                    header_ << off
                             << type_name(dm->get_type()) << " " << dm->name() << ";";
                 }
-                --h_off_;
+                header_.modify_offset(-1);
             }
         }
 
-        header_ << h_off_ << "};\n";
+        header_ << off << "};\n";
     }
     pop_scope();
 
     //------------------------------------------------------------------------
     //  Type aliases for class pointers
     //------------------------------------------------------------------------
-    header_ << h_off_ << "using " << class_->name()
+    header_ << off << "using " << class_->name()
             << "_ptr = ::std::shared_ptr< " << class_->name() << " >;";
-    header_ << h_off_ << "using " << class_->name()
+    header_ << off << "using " << class_->name()
             << "_weak_ptr = ::std::weak_ptr< " << class_->name() << " >;\n";
 
     if (class_->has_functions()) {
         generate_proxy_interface(class_);
-        header_ << h_off_ << "using " << class_->name()
+        header_ << off << "using " << class_->name()
                 << "_prx = ::std::shared_ptr< " << class_->name() << "_proxy >;";
         header_ << "\n";
     }

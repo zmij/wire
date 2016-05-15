@@ -43,75 +43,6 @@ namespace annotations {
 
 }  /* namespace annotations */
 
-struct offset {
-    ::std::size_t sz = 0;
-
-    offset&
-    operator++ ()
-    {
-        ++sz;
-        return *this;
-    }
-
-    offset
-    operator++ (int)
-    {
-        offset tmp{*this};
-        ++sz;
-        return tmp;
-    }
-
-    offset&
-    operator-- ()
-    {
-        if (sz > 0)
-            --sz;
-        return *this;
-    }
-
-    offset
-    operator-- (int)
-    {
-        offset tmp{*this};
-        if (sz > 0)
-            --sz;
-        return tmp;
-    }
-
-    offset&
-    operator += (::std::size_t off)
-    {
-        sz += off;
-        return *this;
-    }
-
-    offset&
-    operator -= (::std::size_t off)
-    {
-        if (sz < off)
-            sz = 0;
-        else
-            sz -= off;
-        return *this;
-    }
-};
-
-inline offset
-operator + (offset const& off, ::std::size_t sz)
-{
-    offset tmp{off};
-    tmp += sz;
-    return tmp;
-}
-
-inline offset
-operator - (offset const& off, ::std::size_t sz)
-{
-    offset tmp{off};
-    tmp -= sz;
-    return tmp;
-}
-
 struct relative_name {
     qname_search    current;
     qname           qn;
@@ -236,8 +167,6 @@ private:
 
     source_stream                   header_;
     source_stream                   source_;
-
-    offset                          h_off_;
 
     qname                           current_scope_;
 

@@ -369,7 +369,8 @@ operator << (source_stream& os, code_snippet const& cs)
         }
     }
     if (!cs.os_.str().empty()) {
-        os.write_offset(cs.current_offset_ + cs.current_mod_);
+        if (!cs.lines_.empty())
+            os.write_offset(cs.current_offset_ + cs.current_mod_);
         os << cs.os_.str();
     }
     return os;
