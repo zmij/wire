@@ -46,8 +46,8 @@ protected:
     void
     StopPartner();
 
-    bp::child                    child_;
     asio_config::io_service_ptr io_svc;
+    bp::child                    child_;
 
     virtual void
     SetupArgs(args_type&) = 0;

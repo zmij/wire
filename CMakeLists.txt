@@ -56,6 +56,21 @@ wire_include_directories(
 )
 set(WIRE_IDL_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/idl)
 add_definitions("-std=c++11")
+add_definitions(-Wall -Werror -pedantic
+    -Wno-unused-local-typedefs
+    -Wno-unused-parameter
+    -Wno-unused-function
+)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+add_definitions(
+    -Wno-unused-local-typedef
+    -Wno-mismatched-tags
+    -Wno-unused-variable
+    -Wno-gnu-zero-variadic-macro-arguments
+    -Wno-unsequenced
+    -Wno-keyword-macro
+)
+endif()
 
 set(${LIB_NAME}_LIB ${lib_name})
 set(${LIB_NAME}_UTIL_LIB ${lib_name}-util)

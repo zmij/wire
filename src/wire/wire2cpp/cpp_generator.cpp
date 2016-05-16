@@ -76,8 +76,8 @@ ast::qname const wire_exception_callback{ "::wire::core::functional::exception_c
 ast::qname const wire_disp_request      { "::wire::core::detail::dispatch_request" };
 ast::qname const wire_current           { "::wire::core::current" };
 ast::qname const wire_no_current        { "::wire::core::no_current" };
-ast::qname const wire_context           { "::wire::core::context_type" };;
-ast::qname const wire_no_context        { "::wire::core::no_context" };;
+ast::qname const wire_context           { "::wire::core::context_type" };
+ast::qname const wire_no_context        { "::wire::core::no_context" };
 
 ast::qname const wire_seg_head          { "::wire::encoding::segment_header" };
 ast::qname const wire_seg_head_no_flags { "::wire::encoding::segment_header::none" };

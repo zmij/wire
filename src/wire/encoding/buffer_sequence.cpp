@@ -263,7 +263,7 @@ buffer_sequence::advance(This* _this,
         if (iter.position_ == normal) {
             difference_type bpos = iter.current_ - iter.buffer_->begin();
             if (n > 0) {
-                if (bpos + n < iter.buffer_->size()) {
+                if (static_cast<size_type>(bpos + n) < iter.buffer_->size()) {
                     // Same buffer
                     iter.current_ += n;
                 } else {

@@ -15,10 +15,10 @@ namespace sparring {
 
 SparringTest::SparringTest()
     : ::testing::Test(),
-        out_pipe_(bp::create_pipe()),
-        out_source_(out_pipe_.source, bio::close_handle),
+        io_svc{ std::make_shared< asio_config::io_service >() },
         child_ { 0 },
-        io_svc{ std::make_shared< asio_config::io_service >() }
+        out_pipe_{bp::create_pipe()},
+        out_source_{out_pipe_.source, bio::close_handle}
 {
 }
 
