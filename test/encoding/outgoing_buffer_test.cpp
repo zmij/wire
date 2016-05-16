@@ -112,7 +112,6 @@ TEST(OutgoingBuffer, ForwardIterators)
 
 #ifndef NDEBUG
     {
-        assert(false);
         outgoing out1{ core::connector_ptr{} };
         EXPECT_DEATH({ out.begin() - out1.begin(); }, "Iterator belongs to container");
     }
