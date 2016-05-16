@@ -279,22 +279,27 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
     bool async_dispatch = ann == func->get_annotations().end();
     auto const& params = func->get_params();
 
-    code_snippet formal_params{ header_.current_scope() };
+    code_snippet formal_params { header_.current_scope() };
+    code_snippet example_params { ast::qname{} };
     for (auto const& p : params) {
         formal_params << arg_type(p.first) << " " << cpp_name(p.second) << ", ";
+        example_params << arg_type(p.first) << " " << cpp_name(p.second) << ", ";
     }
 
     if (async_dispatch) {
         header_ << off << "/* Async dispatch */";
         code_snippet ret_cb_name{header_.current_scope()};
+        code_snippet ret_example{ast::qname{}};
         if (!func->is_void()) {
             ret_cb_name << cpp_name(func) << "_return_callback";
+            ret_example << cpp_name(func) << "_return_callback";
             header_ << off << "using " << ret_cb_name << " = "
                 << "::std::function< void("
                 <<  arg_type(func->get_return_type(), func->get_annotations())
                 << ") >;";
         } else {
             ret_cb_name << wire_void_callback;
+            ret_example << wire_void_callback;
         }
 
         header_ << off << "virtual void"
@@ -310,10 +315,10 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
         header_ << " = 0;";
         header_ << off << "/*  ----8<    copy here   8<----"
                 << off << "void"
-                << off << cpp_name(func) << "(" << formal_params;
+                << off << cpp_name(func) << "(" << example_params;
         if (!params.empty())
             header_ << off(+2);
-        header_ << ret_cb_name << " __resp, "
+        header_ << ret_example << " __resp, "
                 << off(+2) << abs_name << wire_exception_callback << " __exception,"
                 << off(+2) << abs_name << wire_current << " const& = "
                         << abs_name << wire_no_current << ")";
@@ -334,8 +339,8 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
         }
         header_ << " = 0;";
         header_ << off << "/*  ----8<    copy here   8<----"
-                << off << mapped_type{func->get_return_type(), func->get_annotations()}
-                << off << cpp_name(func) << "(" << formal_params
+                << off << abs_name << mapped_type{func->get_return_type(), func->get_annotations()}
+                << off << cpp_name(func) << "(" << example_params
                     << abs_name << wire_current << " const& = "
                     << abs_name << wire_no_current << ")";
         if (func->is_const()) {
@@ -425,7 +430,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
     }
 
     header_ << off << mapped_type{func->get_return_type(), func->get_annotations()}
-            << off << cpp_name(func) << "(" << call_params
+            << off << cpp_name(func) << "(" << call_params << " "
             << wire_context << " const& = " << wire_no_context << ");";
 
     code_snippet result_callback{ header_.current_scope() };
@@ -440,7 +445,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
     }
 
     header_ << off      << "void"
-            << off      << cpp_name(func) << "_async(" << call_params
+            << off      << cpp_name(func) << "_async(" << call_params << " "
             <<                      result_callback << " _response,"
             << mod(+2)  <<          wire_exception_callback << " _exception = nullptr,"
             << off      <<          wire_callback << "< bool > _sent        = nullptr,"
@@ -450,7 +455,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
 
     header_ << off      << "template < template< typename > class _Promise = ::std::promise >"
             << off      << "auto"
-            << off      << cpp_name(func) << "_async(" << call_params
+            << off      << cpp_name(func) << "_async(" << call_params << " "
             << off      <<          wire_context << " const& _ctx                  = " << wire_no_context << ","
             << off(+2)  <<          "bool _run_async = false)"
             << off(+2)  <<      "-> decltype( ::std::declval< _Promise< "
@@ -486,7 +491,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
             // Sync invocation
             source_ << off << mapped_type{func->get_return_type(), func->get_annotations()}
                     << off << qname(func->owner()) << "_proxy::" << cpp_name(func) << "("
-                    << mod(+3) << call_params
+                    << mod(+3) << call_params << " "
                     << wire_context << " const& __ctx)"
                     << mod(-3) << "{"
                     << mod(+1) << "auto future = " << cpp_name(func) << "_async(";
@@ -502,7 +507,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
             offset_guard _f{source_};
             source_ << off << "void"
                     << off << qname(func->owner()) << "_proxy::" << cpp_name(func) << "_async("
-                    << mod(+3) << call_params
+                    << mod(+3) << call_params << " "
                     << result_callback << " _response,"
                     << off << wire_exception_callback << " _exception,"
                     << off << wire_callback << "< bool > _sent,"
