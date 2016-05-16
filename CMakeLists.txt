@@ -69,6 +69,7 @@ add_definitions(
     -Wno-gnu-zero-variadic-macro-arguments
     -Wno-unsequenced
     -Wno-keyword-macro
+    -Wno-macro-redefined
 )
 endif()
 
