@@ -60,6 +60,7 @@ add_definitions(-Wall -Werror -pedantic
     -Wno-unused-local-typedefs
     -Wno-unused-parameter
     -Wno-unused-function
+    -Wno-unknown-pragmas
 )
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 add_definitions(
