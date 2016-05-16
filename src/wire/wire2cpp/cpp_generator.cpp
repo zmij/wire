@@ -638,12 +638,12 @@ generator::generate_struct( ast::structure_ptr struct_ )
 
     if (!dm.empty()) {
         header_.at_namespace_scope(
-        [&](source_stream& stream)
+        [this, struct_](source_stream& stream)
         {
             generate_read_write(stream, struct_);
         });
         header_.at_namespace_scope(
-        [&](source_stream& stream)
+        [this, struct_](source_stream& stream)
         {
             generate_comparison(stream, struct_);
         });
