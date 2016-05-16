@@ -80,6 +80,7 @@ struct identity {
 };
 
 using optional_identity = ::boost::optional< identity >;
+using identity_seq      = ::std::vector< identity >;
 
 template < typename OutputIterator >
 void

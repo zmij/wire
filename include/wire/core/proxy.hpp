@@ -215,6 +215,8 @@ private:
     reference_ptr   ref_;
 };
 
+using object_seq = ::std::vector< object_prx >;
+
 ::std::ostream&
 operator << (::std::ostream& os, object_proxy const& val);
 

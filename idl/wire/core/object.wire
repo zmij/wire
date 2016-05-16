@@ -47,6 +47,8 @@ interface object {
     wire_types() const;
 };
 
+using object_seq = sequence<object*>;
+
 }  /* namespace core */
 }  /* namespace wire */
 

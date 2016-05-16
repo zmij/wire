@@ -22,6 +22,9 @@ struct identity {
     id_type id;
 };
 
+using optional_identity = optional<identity>;
+using identity_seq      = sequence<identity>;
+
 
 }  /* namespace core */
 }  /* namespace wire */
