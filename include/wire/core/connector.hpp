@@ -91,9 +91,10 @@ public:
     find_local_servant(reference const& ref) const;
 
     object_prx
-    string_to_proxy(::std::string const& str);
+    string_to_proxy(::std::string const& str) const;
 
-
+    object_prx
+    make_proxy(reference_data const& ref) const;
 
     /**
      * Get an existing connection to the endpoint specified or create a new one.

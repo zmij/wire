@@ -363,10 +363,16 @@ struct connector::impl {
         ::std::istringstream is{name};
         reference_data ref_data;
         if ((bool)(is >> ref_data)) {
-            return ::std::make_shared< object_proxy > (
-                    reference::create_reference(owner_.lock(), ref_data));
+            return make_proxy(ref_data);
         }
         throw errors::runtime_error("Invalid reference string");
+    }
+
+    object_prx
+    make_proxy(reference_data const& ref_data)
+    {
+        return ::std::make_shared< object_proxy > (
+                reference::create_reference(owner_.lock(), ref_data));
     }
 
     connection_ptr
@@ -558,9 +564,15 @@ connector::find_local_servant(reference const& ref) const
 }
 
 object_prx
-connector::string_to_proxy(::std::string const& str)
+connector::string_to_proxy(::std::string const& str) const
 {
     return pimpl_->string_to_proxy(str);
+}
+
+object_prx
+connector::make_proxy(reference_data const& ref) const
+{
+    return pimpl_->make_proxy(ref);
 }
 
 connection_ptr
