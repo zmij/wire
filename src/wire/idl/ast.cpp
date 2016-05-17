@@ -234,9 +234,11 @@ builtin_types()
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, bool),
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, char),
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, byte),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, int16),
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, int32),
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, int64),
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, octet),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, uint16),
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, uint32),
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, uint64),
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, float),
@@ -244,7 +246,6 @@ builtin_types()
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, string),
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, uuid),
 
-        // FIXME Replace with parametrized type implementation
         MAKE_TEMPLATE_WIRE_TYPE(templated_type_impl, variant,
                 {{ template_param_type::type, true }}),
         MAKE_TEMPLATE_WIRE_TYPE(templated_type_impl, sequence,
