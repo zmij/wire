@@ -28,6 +28,26 @@ using socket_connection_impl        = connection_impl< transport_type::socket >;
 using tcp_listen_connection_impl    = listen_connection_impl< transport_type::tcp >;
 using socket_listen_connection_impl = listen_connection_impl< transport_type::socket >;
 
+class invocation_foolproof_guard {
+    functional::void_callback       destroy_;
+    bool                            responded_ = false;
+public:
+    invocation_foolproof_guard(functional::void_callback on_destroy)
+        : destroy_{on_destroy}
+    {}
+    ~invocation_foolproof_guard()
+    {
+        if (!responded_ && destroy_) {
+            destroy_();
+        }
+    }
+    void
+    responded()
+    {
+        responded_ = true;
+    }
+};
+
 connection_impl_ptr
 connection_impl_base::create_connection(adapter_ptr adptr, transport_type _type)
 {
@@ -529,9 +549,17 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
                 incoming::encaps_guard encaps{ buffer->begin_encapsulation(b) };
                 auto const& en = encaps.encaps();
                 auto _this = shared_from_this();
+                auto fpg = ::std::make_shared< invocation_foolproof_guard >(
+                    [_this, req]() mutable {
+                        ::std::cerr << "Invocation to " << req.operation.identity
+                                << " operation " << req.operation.operation
+                                << " failed to respond";
+                        _this->send_not_found(req.number, errors::not_found::object,
+                                req.operation);
+                    });
                 detail::dispatch_request r{
                     buffer, en.begin(), en.end(), en.size(),
-                    [_this, req](outgoing&& res) mutable {
+                    [_this, req, fpg](outgoing&& res) mutable {
                         outgoing_ptr out =
                                 ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
                         reply rep {
@@ -544,8 +572,9 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
                             out->insert_encapsulation(std::move(res));
                         }
                         _this->write_async(out);
+                        fpg->responded();
                     },
-                    [_this, req](::std::exception_ptr ex) mutable {
+                    [_this, req, fpg](::std::exception_ptr ex) mutable {
                         try {
                             ::std::rethrow_exception(ex);
                         } catch (errors::not_found const& e) {
@@ -557,6 +586,7 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
                         } catch (...) {
                             _this->send_unknown_exception(req.number);
                         }
+                        fpg->responded();
                     }
                 };
                 current curr {

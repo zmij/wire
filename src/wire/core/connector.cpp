@@ -371,6 +371,8 @@ struct connector::impl {
     object_prx
     make_proxy(reference_data const& ref_data)
     {
+        if (ref_data.object_id.empty())
+            throw errors::runtime_error{ "Empty object identity in reference" };
         return ::std::make_shared< object_proxy > (
                 reference::create_reference(owner_.lock(), ref_data));
     }
