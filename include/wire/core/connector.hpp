@@ -41,6 +41,10 @@ public:
     create_connector(asio_config::io_service_ptr svc, ::std::string const& name, int argc, char* argv[]);
     static connector_ptr
     create_connector(asio_config::io_service_ptr svc, ::std::string const& name, args_type const&);
+    static connector_ptr
+    create_connector(asio_config::io_service_ptr svc, ::std::string const& name, args_type const&, ::std::string const& cfg);
+    static connector_ptr
+    create_connector(asio_config::io_service_ptr svc, ::std::string const& name, ::std::string const& cfg);
 private:
     connector(asio_config::io_service_ptr svc);
     connector(asio_config::io_service_ptr svc, int argc, char* argv[]);
@@ -48,6 +52,8 @@ private:
     connector(asio_config::io_service_ptr svc, ::std::string const& name);
     connector(asio_config::io_service_ptr svc, ::std::string const& name, int argc, char* argv[]);
     connector(asio_config::io_service_ptr svc, ::std::string const& name, args_type const&);
+    connector(asio_config::io_service_ptr svc, ::std::string const& name, args_type const&, ::std::string const&);
+    connector(asio_config::io_service_ptr svc, ::std::string const& name, ::std::string const&);
 
     template< typename ... T >
     static connector_ptr
@@ -57,6 +63,10 @@ public:
     confugure(int argc, char* argv[]);
     void
     configure(args_type const&);
+    void
+    configure(args_type const& cmd, ::std::string const& cfg);
+    void
+    configure(::std::string const& cfg);
 
     asio_config::io_service_ptr
     io_service();

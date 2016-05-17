@@ -138,6 +138,26 @@ struct connector::impl {
                 .add(client_ssl_opts);
     }
 
+    void
+    parse_config_file(::std::istream& cfg)
+    {
+        po::variables_map vm;
+        po::parsed_options parsed_cfg = po::parse_config_file(cfg, cfg_file_options_, true);
+        po::store(parsed_cfg, vm);
+        args_type unrecognized_params = po::collect_unrecognized(parsed_cfg.options, po::exclude_positional);
+        ::std::ostringstream cfg_out;
+        // Output configuration to a "file"
+        for (args_type::iterator p = unrecognized_params.begin();
+                p != unrecognized_params.end(); ++p) {
+            auto optname = p++;
+            if (p == unrecognized_params.end())
+                break;
+            cfg_out << *optname << "=" << *p << "\n";
+        }
+        unrecognized_cfg_ = cfg_out.str();
+        po::notify(vm);
+    }
+
     template< typename ... T >
     void
     parse_configuration( T ... args )
@@ -154,26 +174,17 @@ struct connector::impl {
         if (!options_.config_file.empty()) {
             std::ifstream cfg(options_.config_file.c_str());
             if (cfg) {
-                po::parsed_options parsed_cfg = po::parse_config_file(cfg, cfg_file_options_, true);
-                po::store(parsed_cfg, vm);
-                args_type unrecognized_params = po::collect_unrecognized(parsed_cfg.options, po::exclude_positional);
-                ::std::ostringstream cfg_out;
-                // Output configuration to a "file"
-                for (args_type::iterator p = unrecognized_params.begin();
-                        p != unrecognized_params.end(); ++p) {
-                    auto optname = p++;
-                    if (p == unrecognized_params.end())
-                        break;
-                    cfg_out << *optname << "=" << *p << "\n";
-                }
-                unrecognized_cfg_ = cfg_out.str();
+                parse_config_file(cfg);
             } else {
                 throw ::std::runtime_error(
                     "Failed to open configuration file " + options_.config_file );
             }
         }
-        po::notify(vm);
+    }
 
+    void
+    apply_options()
+    {
         if (!options_.locator_ref.object_id.empty()) {
             object_prx prx = ::std::make_shared< object_proxy >(
                     reference::create_reference(owner_.lock(), options_.locator_ref));
@@ -192,12 +203,28 @@ struct connector::impl {
     configure(int argc, char* argv[])
     {
         parse_configuration(argc, argv);
+        apply_options();
     }
 
     void
-    configure(args_type const& args)
+    configure(args_type const& args, ::std::string const& cfg_str = ::std::string{})
     {
         parse_configuration(args);
+        if (!cfg_str.empty()) {
+            ::std::istringstream cfg{cfg_str};
+            parse_config_file(cfg);
+        }
+        apply_options();
+    }
+
+    void
+    configure(::std::string const& cfg_str)
+    {
+        if (!cfg_str.empty()) {
+            ::std::istringstream cfg{cfg_str};
+            parse_config_file(cfg);
+        }
+        apply_options();
     }
 
     detail::adapter_options
@@ -411,6 +438,20 @@ connector::create_connector(asio_config::io_service_ptr svc, ::std::string const
 {
     return do_create_connector(svc, name, args);
 }
+
+connector_ptr
+connector::create_connector(asio_config::io_service_ptr svc, ::std::string const& name,
+        args_type const& args, ::std::string const& cfg_str)
+{
+    return do_create_connector(svc, name, args, cfg_str);
+}
+
+connector_ptr
+connector::create_connector(asio_config::io_service_ptr svc, ::std::string const& name,
+        ::std::string const& cfg_str)
+{
+    return do_create_connector(svc, name, cfg_str);
+}
 //
 
 connector::connector(asio_config::io_service_ptr svc)
@@ -447,6 +488,19 @@ connector::connector(asio_config::io_service_ptr svc, ::std::string const& name,
     : pimpl_(::std::make_shared<impl>(svc, name))
 {
     pimpl_->configure(args);
+}
+
+connector::connector(asio_config::io_service_ptr svc, ::std::string const& name,
+        args_type const& args, ::std::string const& cfg_str)
+    : pimpl_(::std::make_shared<impl>(svc, name))
+{
+    pimpl_->configure(args, cfg_str);
+}
+connector::connector(asio_config::io_service_ptr svc, ::std::string const& name,
+        ::std::string const& cfg_str)
+    : pimpl_(::std::make_shared<impl>(svc, name))
+{
+    pimpl_->configure(cfg_str);
 }
 
 void
