@@ -684,7 +684,9 @@ struct connection::impl {
         connection_ = detail::connection_impl_base::create_connection(
             adapter_.lock(), ep.transport(),
             [](){
+                #ifdef DEBUG_OUTPUT
                 ::std::cerr << "Client connection on close\n";
+                #endif
             });
         connection_->connect_async(ep, cb, eb);
     }
@@ -699,7 +701,9 @@ struct connection::impl {
         connection_ = detail::connection_impl_base::create_listen_connection(
             adapter_.lock(), ep.transport(),
             [](){
-                ::std::cerr << "Server connetion on close\n";
+                #ifdef DEBUG_OUTPUT
+                ::std::cerr << "Server connection on close\n";
+                #endif
             });
         connection_->listen(ep);
     }
