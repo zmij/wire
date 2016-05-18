@@ -13,12 +13,12 @@
 #include <wire/asio_config.hpp>
 
 #include <wire/core/endpoint.hpp>
+#include <wire/core/identity.hpp>
 
 #include <wire/core/connector_fwd.hpp>
 #include <wire/core/connection_fwd.hpp>
 #include <wire/core/adapter_fwd.hpp>
 #include <wire/core/proxy_fwd.hpp>
-#include <wire/core/identity_fwd.hpp>
 #include <wire/core/reference_fwd.hpp>
 #include <wire/core/object_fwd.hpp>
 
@@ -36,6 +36,8 @@ public:
     static connector_ptr
     create_connector(asio_config::io_service_ptr svc, args_type const&);
     static connector_ptr
+    create_connector(asio_config::io_service_ptr svc, args_type const&, ::std::string const& cgf);
+    static connector_ptr
     create_connector(asio_config::io_service_ptr svc, ::std::string const& name);
     static connector_ptr
     create_connector(asio_config::io_service_ptr svc, ::std::string const& name, int argc, char* argv[]);
@@ -47,17 +49,18 @@ public:
     create_connector(asio_config::io_service_ptr svc, ::std::string const& name, ::std::string const& cfg);
 private:
     connector(asio_config::io_service_ptr svc);
-    connector(asio_config::io_service_ptr svc, int argc, char* argv[]);
-    connector(asio_config::io_service_ptr svc, args_type const&);
     connector(asio_config::io_service_ptr svc, ::std::string const& name);
-    connector(asio_config::io_service_ptr svc, ::std::string const& name, int argc, char* argv[]);
-    connector(asio_config::io_service_ptr svc, ::std::string const& name, args_type const&);
-    connector(asio_config::io_service_ptr svc, ::std::string const& name, args_type const&, ::std::string const&);
-    connector(asio_config::io_service_ptr svc, ::std::string const& name, ::std::string const&);
 
+    static connector_ptr
+    do_create_connector(asio_config::io_service_ptr svc);
+    static connector_ptr
+    do_create_connector(asio_config::io_service_ptr svc, ::std::string const& name);
     template< typename ... T >
     static connector_ptr
-    do_create_connector(T ... args);
+    do_create_connector(asio_config::io_service_ptr svc, T&& ... args);
+    template < typename ... T >
+    static connector_ptr
+    do_create_connector(asio_config::io_service_ptr svc, ::std::string const& name, T&& ... args);
 public:
     void
     confugure(int argc, char* argv[]);
@@ -76,14 +79,22 @@ public:
     void
     stop();
 
+    //@{
+    /** @name Adapters */
     adapter_ptr
     create_adapter(identity const& id);
     adapter_ptr
     create_adapter(identity const& id, endpoint_list const& eps);
     adapter_ptr
     bidir_adapter();
+
+    adapter_ptr
+    find_adapter(identity const& id) const;
+    identity_seq
+    adapter_ids() const;
     void
     adapter_online(adapter_ptr, endpoint const& ep);
+    //@}
 
     bool
     is_local(reference const& ref) const;

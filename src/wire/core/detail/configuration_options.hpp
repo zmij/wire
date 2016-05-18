@@ -31,6 +31,13 @@ struct connector_options {
      */
     reference_data  locator_ref;
     /**
+     * Endpoints for admin interface
+     */
+    endpoint_list   admin_endpoints;
+    identity        admin_adapter           = "admin";
+    identity        admin_connector         = "connector";
+
+    /**
      * Server-side ssl options
      */
     ssl_options     server_ssl;

@@ -19,6 +19,8 @@ namespace wire {
 namespace core {
 
 exception no_adapter {};
+exception adapter_active {};
+exception adapter_inactive {};
 
 enum class adapter_state {
     inactive,
@@ -54,12 +56,12 @@ interface adapter_admin {
      * Activate adapter
      */
     void
-    activate() throw(no_adapter);
+    activate() throw(no_adapter, adapter_active);
     /**
      * Deactivate adapter
      */
     void
-    deactivate() throw(no_adapter);
+    deactivate() throw(no_adapter, adapter_inactive);
 };
 
 }  /* namespace core */

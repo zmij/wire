@@ -10,6 +10,7 @@
 
 #include <wire/core/adapter_admin.hpp>
 #include <wire/core/connector_fwd.hpp>
+#include <wire/core/adapter_fwd.hpp>
 
 namespace wire {
 namespace core {
@@ -35,6 +36,13 @@ public:
             functional::exception_callback __exception,
             current const& = no_current) override;
     //@}
+private:
+    connector_ptr
+    get_connector() const
+    { return connector_.lock(); }
+
+    adapter_ptr
+    get_adapter(identity const&) const;
 private:
     connector_weak_ptr  connector_;
 };

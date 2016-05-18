@@ -23,17 +23,17 @@ interface connector_admin {
      */
     [[sync]]
     identity_seq
-    get_adapter_ids();
+    get_adapter_ids() const;
 
     adapter_state
-    get_adapter_state(identity adapter_id) throw (no_adapter);
+    get_adapter_state(identity adapter_id) const throw (no_adapter);
     void
-    activate(identity adapter_id) throw (no_adapter);
+    activate(identity adapter_id) throw (no_adapter, adapter_active);
     void
-    deactivate(identity adapter_id) throw (no_adapter);
+    deactivate(identity adapter_id) throw (no_adapter, adapter_inactive);
 
     adapter_admin*
-    get_adapter_admin(identity adapter_id) throw(no_adapter);
+    get_adapter_admin(identity adapter_id) const throw(no_adapter);
 };
 
 }  /* namespace core */
