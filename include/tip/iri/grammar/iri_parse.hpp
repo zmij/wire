@@ -347,7 +347,7 @@ struct ipv4_grammar< InputIterator, std::string() > :
 
 	struct print_octet {
 		void
-		operator()(std::uint8_t v, context_type& ctx, bool& pass) const
+		operator()(std::uint8_t v, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes) +=
 					boost::lexical_cast< std::string >((unsigned int)v);
@@ -395,12 +395,12 @@ struct ipv6_grammar< InputIterator, std::array< std::uint16_t, 8 >() > :
 
 	struct assign_segment {
 		void
-		operator()(std::uint16_t s, context_type& ctx, bool& pass) const
+		operator()(std::uint16_t s, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes)[ boost::fusion::at_c<0>(ctx.locals)++ ] = s;
 		}
 		void
-		operator()(ls32_value_type const& ls32, context_type& ctx, bool& pass) const
+		operator()(ls32_value_type const& ls32, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes)[6] = ls32.first;
 			boost::fusion::at_c<0>(ctx.attributes)[7] = ls32.second;
@@ -408,7 +408,7 @@ struct ipv6_grammar< InputIterator, std::array< std::uint16_t, 8 >() > :
 	};
 	struct start_action {
 		void
-		operator()(boost::spirit::unused_type, context_type& ctx, bool& pass) const
+		operator()(boost::spirit::unused_type, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes) 	= value_type();
 			boost::fusion::at_c<0>(ctx.locals)		= 0;
@@ -489,7 +489,7 @@ struct ipv6_grammar< InputIterator, std::string() > :
 
 	struct start_action {
 		void
-		operator()(boost::spirit::unused_type, context_type& ctx, bool& pass) const
+		operator()(boost::spirit::unused_type, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes) 	= value_type();
 			boost::fusion::at_c<0>(ctx.locals) = value_type();
@@ -598,13 +598,13 @@ struct path_semantic_actions {
 
 	// Start parsing
 	void
-	operator()(boost::spirit::unused_type, context_type& ctx, bool& pass) const
+	operator()(boost::spirit::unused_type, context_type& ctx, bool&) const
 	{
 		// Clear and assign rooted
 		value_type(rooted_).swap(boost::fusion::at_c<0>(ctx.attributes));
 	}
 	void
-	operator()(std::string const& segment, context_type& ctx, bool& pass) const
+	operator()(std::string const& segment, context_type& ctx, bool&) const
 	{
 		//if (!segment.empty())
 			boost::fusion::at_c<0>(ctx.attributes).push_back(segment);
@@ -729,9 +729,10 @@ using ireg_name_grammar = ireg_name_grammar_base< InputIterator, sub_delims_gram
 
 
 template < typename InputIterator,
-	typename SubDelims = sub_delims_grammar<InputIterator> >
+	typename SubDelims = sub_delims_grammar<InputIterator>,
+	typename HostType = tip::iri::host >
 struct ihost_grammar_base :
-		boost::spirit::qi::grammar< InputIterator, tip::iri::host() > {
+		boost::spirit::qi::grammar< InputIterator, HostType() > {
 	typedef SubDelims sub_delims_type;
 	typedef ireg_name_grammar_base< InputIterator, sub_delims_type > ireg_name_type;
 
@@ -742,13 +743,22 @@ struct ihost_grammar_base :
 				ireg_name;
 	}
 
-	boost::spirit::qi::rule< InputIterator, tip::iri::host() > ihost;
+	boost::spirit::qi::rule< InputIterator, HostType() > ihost;
 	ip_literal_grammar< InputIterator > ip_literal;
 	ipv4_grammar< InputIterator, std::string() > ipv4_address;
 	ireg_name_type ireg_name;
 };
 template < typename InputIterator >
-using ihost_grammar = ihost_grammar_base< InputIterator, sub_delims_grammar< InputIterator > >;
+using ihost_grammar =
+		ihost_grammar_base< InputIterator,
+			sub_delims_grammar< InputIterator >,
+			tip::iri::host >;
+
+template < typename InputIterator >
+using ihost_str_grammar =
+		ihost_grammar_base< InputIterator,
+			sub_delims_grammar< InputIterator >,
+			std::string >;
 
 template < typename InputIterator >
 struct iuser_info_grammar :
@@ -780,24 +790,24 @@ struct iauthority_grammar :
 
 	struct components {
 		void
-		operator()(tip::iri::userinfo const& u, context_type& ctx, bool& pass) const
+		operator()(tip::iri::userinfo const& u, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes).userinfo = u;
 		}
 		void
-		operator()(tip::iri::host const& h, context_type& ctx, bool& pass) const
+		operator()(tip::iri::host const& h, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes).host = h;
 		}
 		void
-		operator()(tip::iri::port const& p, context_type& ctx, bool& pass) const
+		operator()(tip::iri::port const& p, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes).port = p;
 		}
 	};
 	struct start_action {
 		void
-		operator()(boost::spirit::unused_type, context_type& ctx, bool& pass) const
+		operator()(boost::spirit::unused_type, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes) 	= value_type();
 		}
@@ -836,12 +846,12 @@ struct irelative_part_grammar :
 	> context_type;
 	struct components {
 		void
-		operator()(tip::iri::authority const& a, context_type& ctx, bool& pass) const
+		operator()(tip::iri::authority const& a, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes).authority = a;
 		}
 		void
-		operator()(tip::iri::path const& p, context_type& ctx, bool& path) const
+		operator()(tip::iri::path const& p, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes).path = p;
 		}
@@ -916,12 +926,12 @@ struct ihier_part_grammar :
 	> context_type;
 	struct components {
 		void
-		operator()(tip::iri::authority const& a, context_type& ctx, bool& pass) const
+		operator()(tip::iri::authority const& a, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes).authority = a;
 		}
 		void
-		operator()(tip::iri::path const& p, context_type& ctx, bool& path) const
+		operator()(tip::iri::path const& p, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes).path = p;
 		}
@@ -1004,22 +1014,22 @@ struct iri_grammar :
 	> context_type;
 	struct components {
 		void
-		operator()(tip::iri::scheme const& s, context_type& ctx, bool& pass) const
+		operator()(tip::iri::scheme const& s, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes).scheme = s;
 		}
 		void
-		operator()(query_type const& q, context_type& ctx, bool& pass) const
+		operator()(query_type const& q, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes).query = q;
 		}
 		void
-		operator()(tip::iri::fragment const& f, context_type& ctx, bool& pass) const
+		operator()(tip::iri::fragment const& f, context_type& ctx, bool&) const
 		{
 			boost::fusion::at_c<0>(ctx.attributes).fragment = f;
 		}
 		void
-		operator()(value_type const& i, context_type& ctx, bool& pass) const
+		operator()(value_type const& i, context_type& ctx, bool&) const
 		{
 			value_type& val = boost::fusion::at_c<0>(ctx.attributes);
 			val.authority = i.authority;
