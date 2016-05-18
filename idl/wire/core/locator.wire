@@ -8,14 +8,12 @@
 #ifndef WIRE_CORE_LOCATOR_WIRE_
 #define WIRE_CORE_LOCATOR_WIRE_
 
+#include <wire/core/adapter_admin.wire>
 #include <wire/core/identity.wire>
 #include <wire/core/object.wire>
-#include <wire/errors/exceptions.wire>
 
 namespace wire {
 namespace core {
-
-exception no_adapter {};
 
 interface locator_registry;
 

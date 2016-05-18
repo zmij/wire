@@ -39,6 +39,8 @@ struct adapter::impl {
 
     detail::adapter_options     options_;
 
+    bool                        is_active_;
+
     connections                 connections_;
     active_objects              active_objects_;
     default_servants            default_servants_;
@@ -49,7 +51,8 @@ struct adapter::impl {
     mutex_type                  mtx_;
 
     impl(connector_ptr c, identity const& id, detail::adapter_options const& options)
-        : connector_{c}, io_service_{c->io_service()}, id_{id}, options_{options}
+        : connector_{c}, io_service_{c->io_service()},
+          id_{id}, options_{options}, is_active_{false}
     {
     }
 
@@ -65,6 +68,7 @@ struct adapter::impl {
             for (auto const& ep : options_.endpoints) {
                 connections_.emplace(ep, connection{server_side{}, adp, ep });
             }
+            is_active_ = true;
         } else {
             throw ::std::runtime_error("Adapter owning implementation was destroyed");
         }
@@ -84,6 +88,7 @@ struct adapter::impl {
             c.second.close();
         }
         connections_.clear();
+        is_active_ = false;
     }
 
     void
@@ -120,13 +125,26 @@ struct adapter::impl {
     }
 
     object_prx
+    adapter_proxy()
+    {
+        return ::std::make_shared< object_proxy >(
+            reference::create_reference(
+                connector_.lock(), { id_, {}, {}, active_endpoints() }));
+    }
+    object_prx
+    create_proxy(identity const& id, ::std::string const& facet)
+    {
+        // TODO Use configuration of adapter
+        return ::std::make_shared< object_proxy >(
+            reference::create_reference(
+                connector_.lock(), { id, facet, {}, active_endpoints() }));
+    }
+    object_prx
     add_object(identity const& id, object_ptr disp)
     {
         lock_guard lock{mtx_};
         active_objects_.insert(::std::make_pair(id, disp));
-        return ::std::make_shared< object_proxy >(
-            reference::create_reference(
-                connector_.lock(), { id, {}, {}, active_endpoints() }));
+        return create_proxy(id, {});
     }
 
     void
@@ -211,10 +229,28 @@ adapter::activate()
     pimpl_->activate();
 }
 
+void
+adapter::deactivate()
+{
+    pimpl_->deactivate();
+}
+
+bool
+adapter::is_active() const
+{
+    return pimpl_->is_active_;
+}
+
 identity const&
 adapter::id() const
 {
     return pimpl_->id_;
+}
+
+object_prx
+adapter::adapter_proxy() const
+{
+    return pimpl_->adapter_proxy();
 }
 
 endpoint_list const&
@@ -227,6 +263,13 @@ endpoint_list
 adapter::active_endpoints() const
 {
     return pimpl_->active_endpoints();
+}
+
+object_prx
+adapter::create_proxy(identity const& id,
+        ::std::string const& facet) const
+{
+    return pimpl_->create_proxy(id, facet);
 }
 
 object_prx

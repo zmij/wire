@@ -1,0 +1,70 @@
+/*
+ * adapter.wire
+ *
+ *  Created on: May 16, 2016
+ *      Author: zmij
+ */
+
+/**
+ * IDL definitions for stuff associated with adapter work
+ */
+#ifndef IDL_WIRE_CORE_ADAPTER_ADMIN_WIRE_
+#define IDL_WIRE_CORE_ADAPTER_ADMIN_WIRE_
+
+#include <wire/core/identity.wire>
+#include <wire/errors/exceptions.wire>
+#include <wire/core/object.wire>
+
+namespace wire {
+namespace core {
+
+exception no_adapter {};
+exception adapter_active {};
+exception adapter_inactive {};
+
+enum class adapter_state {
+    inactive,
+    active
+};
+
+interface adapter_admin {
+    /**
+     *
+     * @return Adapter identity
+     */
+    [[sync]]
+    identity
+    get_id() const throw(no_adapter);
+
+    /**
+     *
+     * @return A pseudo proxy object, identity is the adapter's identity,
+     *          endpoints enumerate listen endpoints of the adapter.
+     */
+    [[sync]]
+    object*
+    get_adapter_proxy() const throw(no_adapter);
+    /**
+     *
+     * @return Adapter state
+     */
+    [[sync]]
+    adapter_state
+    get_state() const throw(no_adapter);
+
+    /**
+     * Activate adapter
+     */
+    void
+    activate() throw(no_adapter, adapter_active);
+    /**
+     * Deactivate adapter
+     */
+    void
+    deactivate() throw(no_adapter, adapter_inactive);
+};
+
+}  /* namespace core */
+}  /* namespace wire */
+
+#endif /* IDL_WIRE_CORE_ADAPTER_ADMIN_WIRE_ */

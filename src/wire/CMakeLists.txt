@@ -22,6 +22,15 @@ wire2cpp(
     OPTIONS         --generate-forwards
 )
 
+wire2cpp(
+    ${WIRE_IDL_ROOT}/wire/core/adapter_admin.wire
+    ${WIRE_IDL_ROOT}/wire/core/connector_admin.wire
+    HEADER_DIR      include/wire/core
+    INCLUDE_ROOT    wire/core
+    OUTPUT          wired_ADMIN
+    OPTIONS         --generate-forwards
+)
+
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 
 set(wire_lib_SRCS
@@ -43,6 +52,9 @@ set(wire_lib_SRCS
     core/reference_io.cpp
     ${wired_ERRORS}
     ${wired_LOCATOR}
+    ${wired_ADMIN}
+    core/adapter_admin_impl.cpp
+    core/connector_admin_impl.cpp
 )
 add_library(${WIRE_LIB} SHARED ${wire_lib_SRCS})
 set_target_properties(

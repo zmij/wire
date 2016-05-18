@@ -51,10 +51,17 @@ public:
     void
     activate();
     /**
-     * Stop accepting connections. Stop dispatching requests.
+     * Stop accepting connections.
+     * Send close to clients, close read ends.
+     * Finish dispatching current requests, then close connections.
      */
     void
     deactivate();
+    /**
+     * @return State of adapter.
+     */
+    bool
+    is_active() const;
 
     /**
      * Adapter identity
@@ -62,6 +69,11 @@ public:
      */
     identity const&
     id() const;
+    /**
+     * @return Pseudo proxy containing adapter identity and endpoints
+     */
+    object_prx
+    adapter_proxy() const;
     /**
      * Get adapter configured endpoints list
      * @return
@@ -76,6 +88,14 @@ public:
     endpoint_list
     active_endpoints() const;
 
+    /**
+     * Create a proxy with given identity and properties of adapter
+     * @param id
+     * @return
+     */
+    object_prx
+    create_proxy(identity const& id,
+            ::std::string const& facet = ::std::string{}) const;
     /**
      * Add servant object with random UUID
      * @param

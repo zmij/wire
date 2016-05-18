@@ -11,7 +11,10 @@
 #include <wire/core/reference.hpp>
 #include <wire/core/connection.hpp>
 #include <wire/core/proxy.hpp>
+
 #include <wire/core/locator.hpp>
+#include <wire/core/connector_admin_impl.hpp>
+#include <wire/core/adapter_admin_impl.hpp>
 
 #include <wire/core/detail/configuration_options.hpp>
 
@@ -94,11 +97,20 @@ struct connector::impl {
                     po::value<::std::string>(&options_.config_file),
                     "Configuration file")
         ;
-        po::options_description locator_options("Locator options");
-        locator_options.add_options()
+        po::options_description connector_options("Connector options");
+        connector_options.add_options()
         ((name + ".locator").c_str(),
                 po::value<reference_data>(&options_.locator_ref),
                 "Locator proxy")
+        ((name + ".admin.endpoints").c_str(),
+                po::value<endpoint_list>(&options_.admin_endpoints),
+                "Connector admin enpoints")
+        ((name + ".admin.adapter").c_str(),
+                po::value<identity>(&options_.admin_adapter),
+                "Identity for admin adapter")
+        ((name + ".admin.connector").c_str(),
+                po::value<identity>(&options_.admin_connector),
+                "Identity for connector admin")
         ;
         po::options_description server_ssl_opts("Server SSL Options");
         server_ssl_opts.add_options()
@@ -129,11 +141,11 @@ struct connector::impl {
         ;
 
         cmd_line_options_.add(cfg_opts)
-                .add(locator_options)
+                .add(connector_options)
                 .add(server_ssl_opts)
                 .add(client_ssl_opts);
         cfg_file_options_
-                .add(locator_options)
+                .add(connector_options)
                 .add(server_ssl_opts)
                 .add(client_ssl_opts);
     }
@@ -197,6 +209,9 @@ struct connector::impl {
                 throw errors::runtime_error("Locator at ", options_.locator_ref,
                         " doesn't provide a registry");
         }
+        if (!options_.admin_endpoints.empty()) {
+            create_connector_admin();
+        }
     }
 
     void
@@ -225,6 +240,17 @@ struct connector::impl {
             parse_config_file(cfg);
         }
         apply_options();
+    }
+
+    void
+    create_connector_admin()
+    {
+        adapter_ptr adm = create_adapter(options_.admin_adapter, options_.admin_endpoints);
+        adm->activate();
+        adm->add_object(options_.admin_connector,
+                ::std::make_shared< connector_admin_impl >( owner_.lock(), adm ));
+        auto adapt_adm = ::std::make_shared< adapter_admin_impl >( owner_.lock() );
+        adm->add_default_servant(adapt_adm);
     }
 
     detail::adapter_options
@@ -292,6 +318,8 @@ struct connector::impl {
         if (!conn) {
             throw errors::runtime_error("Connector already destroyed");
         }
+        if (find_adapter(id))
+            throw errors::runtime_error("Adapter ", id, " is already configured");
         detail::adapter_options opts = configure_adapter(id, eps);
         auto adptr = adapter::create_adapter(conn, id, opts);
         listen_adapters_.push_back(adptr);
@@ -310,6 +338,26 @@ struct connector::impl {
             bidir_adapter_ = adapter::create_adapter(conn, identity::random("client"), opts);
         }
         return bidir_adapter_;
+    }
+
+    adapter_ptr
+    find_adapter(identity const& id)
+    {
+        for (auto const& a: listen_adapters_) {
+            if (a->id() == id) {
+                return a;
+            }
+        }
+        return adapter_ptr{};
+    }
+    identity_seq
+    adapter_ids()
+    {
+        identity_seq ids;
+        for (auto const& a : listen_adapters_) {
+            ids.push_back( a->id() );
+        }
+        return ids;
     }
 
     void
@@ -409,12 +457,40 @@ struct connector::impl {
     }
 };
 
+connector_ptr
+connector::do_create_connector(asio_config::io_service_ptr svc)
+{
+    connector_ptr c(new connector(svc));
+    c->pimpl_->owner_ = c;
+    return c;
+}
+
+connector_ptr
+connector::do_create_connector(asio_config::io_service_ptr svc, ::std::string const& name)
+{
+    connector_ptr c(new connector(svc, name));
+    c->pimpl_->owner_ = c;
+    return c;
+}
+
 template < typename ... T >
 connector_ptr
-connector::do_create_connector(T ... args)
+connector::do_create_connector(asio_config::io_service_ptr svc, T&& ... args)
 {
-    connector_ptr c(new connector(args ...));
+    connector_ptr c(new connector(svc));
     c->pimpl_->owner_ = c;
+    c->pimpl_->configure(::std::forward<T>(args) ...);
+    return c;
+}
+
+template < typename ... T >
+connector_ptr
+connector::do_create_connector(asio_config::io_service_ptr svc,
+        ::std::string const& name, T&& ... args)
+{
+    connector_ptr c(new connector(svc, name));
+    c->pimpl_->owner_ = c;
+    c->pimpl_->configure(::std::forward<T>(args) ...);
     return c;
 }
 
@@ -435,6 +511,14 @@ connector::create_connector(asio_config::io_service_ptr svc, args_type const& ar
 {
     return do_create_connector(svc, args);
 }
+
+connector_ptr
+connector::create_connector(asio_config::io_service_ptr svc,
+        args_type const& args, ::std::string const& cfg_str)
+{
+    return do_create_connector(svc, args, cfg_str);
+}
+
 
 connector_ptr
 connector::create_connector(asio_config::io_service_ptr svc, ::std::string const& name)
@@ -469,55 +553,16 @@ connector::create_connector(asio_config::io_service_ptr svc, ::std::string const
 {
     return do_create_connector(svc, name, cfg_str);
 }
-//
+//----------------------------------------------------------------------------
 
 connector::connector(asio_config::io_service_ptr svc)
     : pimpl_(::std::make_shared<impl>(svc))
 {
 }
 
-connector::connector(asio_config::io_service_ptr svc, int argc, char* argv[])
-    : pimpl_(::std::make_shared<impl>(svc))
-{
-    pimpl_->configure(argc, argv);
-}
-
-connector::connector(asio_config::io_service_ptr svc, args_type const& args)
-    : pimpl_(::std::make_shared<impl>(svc))
-{
-    pimpl_->configure(args);
-}
-
 connector::connector(asio_config::io_service_ptr svc, ::std::string const& name)
     : pimpl_(::std::make_shared<impl>(svc, name))
 {
-}
-
-connector::connector(asio_config::io_service_ptr svc, ::std::string const& name,
-        int argc, char* argv[])
-    : pimpl_(::std::make_shared<impl>(svc, name))
-{
-    pimpl_->configure(argc, argv);
-}
-
-connector::connector(asio_config::io_service_ptr svc, ::std::string const& name,
-        args_type const& args)
-    : pimpl_(::std::make_shared<impl>(svc, name))
-{
-    pimpl_->configure(args);
-}
-
-connector::connector(asio_config::io_service_ptr svc, ::std::string const& name,
-        args_type const& args, ::std::string const& cfg_str)
-    : pimpl_(::std::make_shared<impl>(svc, name))
-{
-    pimpl_->configure(args, cfg_str);
-}
-connector::connector(asio_config::io_service_ptr svc, ::std::string const& name,
-        ::std::string const& cfg_str)
-    : pimpl_(::std::make_shared<impl>(svc, name))
-{
-    pimpl_->configure(cfg_str);
 }
 
 void
@@ -554,6 +599,18 @@ adapter_ptr
 connector::bidir_adapter()
 {
     return pimpl_->bidir_adapter();
+}
+
+adapter_ptr
+connector::find_adapter(identity const& id) const
+{
+    return pimpl_->find_adapter(id);
+}
+
+identity_seq
+connector::adapter_ids() const
+{
+    return pimpl_->adapter_ids();
 }
 
 void
