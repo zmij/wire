@@ -49,13 +49,14 @@ public:
 };
 
 connection_impl_ptr
-connection_impl_base::create_connection(adapter_ptr adptr, transport_type _type)
+connection_impl_base::create_connection(adapter_ptr adptr, transport_type _type,
+        functional::void_callback on_close)
 {
     switch (_type) {
         case transport_type::tcp :
-            return ::std::make_shared< tcp_connection_impl >( client_side{}, adptr );
+            return ::std::make_shared< tcp_connection_impl >( client_side{}, adptr, on_close );
         case transport_type::socket :
-            return ::std::make_shared< socket_connection_impl >(client_side{}, adptr );
+            return ::std::make_shared< socket_connection_impl >(client_side{}, adptr, on_close );
         default:
             break;
     }
@@ -63,32 +64,35 @@ connection_impl_base::create_connection(adapter_ptr adptr, transport_type _type)
 }
 
 connection_impl_ptr
-connection_impl_base::create_listen_connection(adapter_ptr adptr, transport_type _type)
+connection_impl_base::create_listen_connection(adapter_ptr adptr, transport_type _type,
+        functional::void_callback on_close)
 {
     adapter_weak_ptr adptr_weak = adptr;
     switch (_type) {
         case transport_type::tcp:
             return ::std::make_shared< tcp_listen_connection_impl >(
                 adptr,
-                [adptr_weak]( asio_config::io_service_ptr svc ){
+                [adptr_weak, on_close]( asio_config::io_service_ptr svc ){
                     adapter_ptr a = adptr_weak.lock();
                     // TODO Throw an error if adapter gone away
                     if (!a) {
                         throw errors::runtime_error{ "Adapter gone away" };
                     }
-                    return ::std::make_shared< tcp_connection_impl >( server_side{}, a );
-                });
+                    return ::std::make_shared< tcp_connection_impl >( server_side{}, a, on_close );
+                },
+                on_close);
         case transport_type::socket:
             return ::std::make_shared< socket_listen_connection_impl >(
                 adptr,
-                [adptr_weak]( asio_config::io_service_ptr svc ){
+                [adptr_weak, on_close]( asio_config::io_service_ptr svc ){
                     adapter_ptr a = adptr_weak.lock();
                     // TODO Throw an error if adapter gone away
                     if (!a) {
                         throw errors::runtime_error{ "Adapter gone away" };
                     }
-                    return ::std::make_shared< socket_connection_impl >( server_side{}, a );
-                });
+                    return ::std::make_shared< socket_connection_impl >( server_side{}, a, on_close );
+                },
+                on_close);
         default:
             break;
     }
@@ -171,6 +175,9 @@ connection_impl_base::handle_close()
         req.second.error(ex);
     }
     pending_replies_.clear();
+
+    if (on_close_)
+        on_close_();
 }
 
 void
@@ -653,13 +660,17 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
 }  // namespace detail
 
 struct connection::impl {
+    connection const*           owner_;
     adapter_weak_ptr            adapter_;
     connector_weak_ptr          connector_;
     asio_config::io_service_ptr io_service_;
     detail::connection_impl_ptr connection_;
 
-    impl(adapter_ptr adp)
-        : adapter_{adp}, connector_{adp->get_connector()}, io_service_{adp->io_service()}
+    impl(connection const* owner, adapter_ptr adp)
+        : owner_{owner},
+          adapter_{adp},
+          connector_{adp->get_connector()},
+          io_service_{adp->io_service()}
     {
     }
     void
@@ -670,7 +681,11 @@ struct connection::impl {
             // Do something with the old connection
             // Or throw exception
         }
-        connection_ = detail::connection_impl_base::create_connection(adapter_.lock(), ep.transport());
+        connection_ = detail::connection_impl_base::create_connection(
+            adapter_.lock(), ep.transport(),
+            [](){
+                ::std::cerr << "Client connection on close\n";
+            });
         connection_->connect_async(ep, cb, eb);
     }
 
@@ -681,7 +696,11 @@ struct connection::impl {
             // Do something with the old connection
             // Or throw exception
         }
-        connection_ = detail::connection_impl_base::create_listen_connection(adapter_.lock(), ep.transport());
+        connection_ = detail::connection_impl_base::create_listen_connection(
+            adapter_.lock(), ep.transport(),
+            [](){
+                ::std::cerr << "Server connetion on close\n";
+            });
         connection_->listen(ep);
     }
 
@@ -726,19 +745,19 @@ struct connection::impl {
 };
 
 connection::connection(client_side const&, adapter_ptr adp)
-    : pimpl_{::std::make_shared<impl>(adp)}
+    : pimpl_{::std::make_shared<impl>(this, adp)}
 {
 }
 
 connection::connection(client_side const&, adapter_ptr adp, endpoint const& ep,
         functional::void_callback cb, functional::exception_callback eb)
-    : pimpl_{::std::make_shared<impl>(adp)}
+    : pimpl_{::std::make_shared<impl>(this, adp)}
 {
     pimpl_->connect_async(ep, cb, eb);
 }
 
 connection::connection(server_side const&, adapter_ptr adp, endpoint const& ep)
-    : pimpl_{::std::make_shared<impl>(adp)}
+    : pimpl_{::std::make_shared<impl>(this, adp)}
 {
     pimpl_->start_accept(ep);
 }

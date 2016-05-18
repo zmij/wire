@@ -396,10 +396,11 @@ struct connector::impl {
                 ::std::cerr << "Connected to " << ep << "\n";
                 #endif
             },
-            [ep](::std::exception_ptr ex) {
+            [this, ep](::std::exception_ptr ex) {
                 #ifdef DEBUG_OUTPUT
                 ::std::cerr << "Failed to connect to " << ep << "\n";
                 #endif
+                outgoing_.erase(ep);
             });
             outgoing_.emplace(ep, conn);
             return conn;

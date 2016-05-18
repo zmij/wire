@@ -35,6 +35,8 @@ struct client_side {};
 
 class connection {
 public:
+    using close_callback = functional::callback<connection*>;
+public:
     /**
      * Create connection with no endpoint.
      */

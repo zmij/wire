@@ -413,23 +413,29 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     using incoming_buffer_ptr    = ::std::shared_ptr< incoming_buffer >;
 
     static connection_impl_ptr
-    create_connection( adapter_ptr adptr, transport_type _type );
+    create_connection( adapter_ptr adptr, transport_type _type,
+            functional::void_callback on_close );
     static connection_impl_ptr
-    create_listen_connection( adapter_ptr adptr, transport_type _type );
+    create_listen_connection( adapter_ptr adptr, transport_type _type,
+            functional::void_callback on_close );
 
-    connection_impl_base( client_side const&, adapter_ptr adptr)
+    connection_impl_base( client_side const&, adapter_ptr adptr,
+            functional::void_callback on_close)
         : adapter_{adptr},
           connector_{adptr->get_connector()},
           io_service_{adptr->io_service()},
-          request_no_{0}
+          request_no_{0},
+          on_close_{ on_close }
     {
         mode_ = client;
     }
-    connection_impl_base( server_side const&, adapter_ptr adptr)
+    connection_impl_base( server_side const&, adapter_ptr adptr,
+            functional::void_callback on_close)
         : adapter_{adptr},
           connector_{adptr->get_connector()},
           io_service_{adptr->io_service()},
-          request_no_{0}
+          request_no_{0},
+          on_close_{ on_close }
     {
         mode_ = server;
     }
@@ -556,6 +562,7 @@ protected:
     ::std::atomic<uint32_t>     request_no_;
     encoding::incoming_ptr      incoming_;
     pending_replies_type        pending_replies_;
+    functional::void_callback   on_close_;
 };
 
 template < transport_type _type >
@@ -564,12 +571,14 @@ struct connection_impl : connection_impl_base {
     using transport_type    = typename transport_traits::type;
     using socket_type        = typename transport_traits::listen_socket_type;
 
-    connection_impl(client_side const& c, adapter_ptr adptr)
-        : connection_impl_base{c, adptr}, transport_{ io_service_ }
+    connection_impl(client_side const& c, adapter_ptr adptr,
+            functional::void_callback on_close)
+        : connection_impl_base{c, adptr, on_close}, transport_{ io_service_ }
     {
     }
-    connection_impl(server_side const& s, adapter_ptr adptr)
-        : connection_impl_base{s, adptr}, transport_{ io_service_ }
+    connection_impl(server_side const& s, adapter_ptr adptr,
+            functional::void_callback on_close)
+        : connection_impl_base{s, adptr, on_close}, transport_{ io_service_ }
     {
     }
     virtual ~connection_impl() {}
@@ -627,8 +636,9 @@ struct listen_connection_impl : connection_impl_base {
     using session_factory    = typename listener_type::session_factory;
     using transport_traits    = transport_type_traits< _type >;
 
-    listen_connection_impl(adapter_ptr adptr, session_factory factory)
-        : connection_impl_base{server_side{}, adptr},
+    listen_connection_impl(adapter_ptr adptr, session_factory factory,
+            functional::void_callback on_close)
+        : connection_impl_base{server_side{}, adptr, on_close},
           listener_(adptr->io_service(), factory)
     {
     }
