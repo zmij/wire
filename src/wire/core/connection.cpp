@@ -369,9 +369,9 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
                     #endif
                     if (f->second.reply) {
                         incoming::encaps_guard encaps{buffer->begin_encapsulation(b)};
-                        version const& ever = encaps.encaps().encoding_version();
 
                         #ifdef DEBUG_OUTPUT
+                        version const& ever = encaps.encaps().encoding_version();
                         ::std::cerr << "Reply encaps v" << ever.major << "." << ever.minor
                                 << " size " << encaps.size() << "\n";
                         #endif
@@ -404,9 +404,9 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
                     #endif
                     if (f->second.error) {
                         incoming::encaps_guard encaps{buffer->begin_encapsulation(b)};
-                        version const& ever = encaps.encaps().encoding_version();
 
                         #ifdef DEBUG_OUTPUT
+                        version const& ever = encaps.encaps().encoding_version();
                         ::std::cerr << "Reply encaps v" << ever.major << "." << ever.minor
                                 << " size " << encaps.size() << "\n";
                         #endif
@@ -440,13 +440,11 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
                     #endif
                     if (f->second.error) {
                         incoming::encaps_guard encaps{buffer->begin_encapsulation(b)};
-                        version const& ever = encaps.encaps().encoding_version();
 
                         #ifdef DEBUG_OUTPUT
-
+                        version const& ever = encaps.encaps().encoding_version();
                         ::std::cerr << "Reply encaps v" << ever.major << "." << ever.minor
                                 << " size " << encaps.size() << "\n";
-
                         #endif
                         errors::user_exception_ptr exc;
                         auto b = encaps->begin();
