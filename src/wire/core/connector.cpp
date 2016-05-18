@@ -86,7 +86,7 @@ struct connector::impl {
     void
     create_options_description()
     {
-        std::string const& name = options_.name;
+        ::std::string const& name = options_.name;
 
         po::options_description cfg_opts("Configuration file");
         cfg_opts.add_options()
@@ -172,7 +172,7 @@ struct connector::impl {
         po::notify(vm);
 
         if (!options_.config_file.empty()) {
-            std::ifstream cfg(options_.config_file.c_str());
+            ::std::ifstream cfg(options_.config_file.c_str());
             if (cfg) {
                 parse_config_file(cfg);
             } else {
@@ -318,10 +318,14 @@ struct connector::impl {
         lock_guard lock(mtx_);
         auto f = online_adapters_.find(ep);
         if ( f != online_adapters_.end() ) {
+            #ifdef DEBUG_OUTPUT
             ::std::cerr << "Adapter " << f->second->id() << " was listening to " << ep << "\n";
+            #endif
             online_adapters_.erase(f);
         }
+        #ifdef DEBUG_OUTPUT
         ::std::cerr << "Adapter " << adptr->id() << " is listening to " << ep << "\n";
+        #endif
         online_adapters_.emplace(ep, adptr);
     }
 
@@ -388,10 +392,14 @@ struct connector::impl {
             auto conn = ::std::make_shared< connection >(
             client_side{}, bidir_adapter(), ep,
             [ep](){
+                #ifdef DEBUG_OUTPUT
                 ::std::cerr << "Connected to " << ep << "\n";
+                #endif
             },
             [ep](::std::exception_ptr ex) {
+                #ifdef DEBUG_OUTPUT
                 ::std::cerr << "Failed to connect to " << ep << "\n";
+                #endif
             });
             outgoing_.emplace(ep, conn);
             return conn;

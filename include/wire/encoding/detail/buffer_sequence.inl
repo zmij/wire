@@ -224,13 +224,11 @@ buffer_sequence::in_encaps_state::read_segment_header(InputIterator& begin,
         read(begin, end_, type_id);
         sh.type_id = type_id;
         type_map_.push_back(sh.type_id);
-        ::std::cerr << "Read string type id " << sh.type_id << "\n";
     } else if (sh.flags & segment_header::hash_type_id) {
         hash_value_type type_id;
         read(begin, end_, type_id);
         sh.type_id = type_id;
         type_map_.push_back(sh.type_id);
-        ::std::cerr << "Read hash type id " << sh.type_id << "\n";
     } else {
         size_type type_idx;
         read(begin, end_, type_idx);
@@ -238,8 +236,6 @@ buffer_sequence::in_encaps_state::read_segment_header(InputIterator& begin,
             throw errors::unmarshal_error("Invalid type index in encapsulation");
         }
         sh.type_id = type_map_[ type_idx - 1 ];
-        ::std::cerr << "Read type index " << type_idx << " ("
-                << sh.type_id << ")\n";
     }
     read(begin, end_, sh.size);
     end = begin + sh.size;

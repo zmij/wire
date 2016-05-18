@@ -89,7 +89,9 @@ struct adapter::impl {
     void
     connection_online(endpoint const& local, endpoint const& remote)
     {
+        #ifdef DEBUG_OUTPUT
         ::std::cerr << "Connection " << local << " -> " << remote << " is online\n";
+        #endif
     }
     void
     listen_connection_online(endpoint const& ep)
@@ -102,7 +104,9 @@ struct adapter::impl {
     void
     connection_offline(endpoint const& ep)
     {
+        #ifdef DEBUG_OUTPUT
         ::std::cerr << "Connection " << ep << " is offline\n";
+        #endif
     }
 
     endpoint_list

@@ -26,6 +26,8 @@ endif()
 
 option(BUILD_TESTS "Build tests for ${lib_name} library" ON)
 option(COMPILE_TESTS "Test compile generated sources" OFF)
+option(DEBUG_OUTPUT "Generate debug output" OFF)
+
 include(cmake/scripts/wire2cpp.cmake)
 
 set(
@@ -72,6 +74,9 @@ add_definitions(
     -Wno-keyword-macro
     -Wno-macro-redefined
 )
+endif()
+if(DEBUG_OUTPUT)
+add_definitions(-DDEBUG_OUTPUT)
 endif()
 
 set(${LIB_NAME}_LIB ${lib_name})
