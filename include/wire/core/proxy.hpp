@@ -231,7 +231,9 @@ unchecked_cast(::std::shared_ptr< SourcePrx > v)
 {
     static_assert(::std::is_base_of<object_proxy, SourcePrx>::value,
             "Can cast only from instances of object_proxy");
-    return v->template cast_to<TargetPrx>();
+    if (v)
+        return v->template cast_to<TargetPrx>();
+    return ::std::shared_ptr< TargetPrx >{};
 }
 
 template < typename TargetPrx, typename SourcePrx >
@@ -240,7 +242,7 @@ checked_cast(::std::shared_ptr< SourcePrx > v)
 {
     static_assert(::std::is_base_of<object_proxy, SourcePrx>::value,
             "Can cast only from instances of object_proxy");
-    if (v->wire_is_a(TargetPrx::wire_static_type_id())) {
+    if (v && v->wire_is_a(TargetPrx::wire_static_type_id())) {
         return v->template cast_to<TargetPrx>();
     }
     return ::std::shared_ptr< TargetPrx >{};

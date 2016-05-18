@@ -32,7 +32,7 @@ namespace core {
 namespace detail {
 
 struct connection_impl_base;
-using connection_impl_ptr = std::shared_ptr< connection_impl_base >;
+using connection_impl_ptr = ::std::shared_ptr< connection_impl_base >;
 
 namespace events {
 
@@ -46,7 +46,7 @@ struct start{};
 struct close{};
 
 struct connection_failure {
-    std::exception_ptr                error;
+    ::std::exception_ptr                error;
 };
 
 struct receive_validate{};
@@ -100,11 +100,13 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         operator()(events::connect const& evt, fsm_type& fsm, SourceState&, TargetState&)
         {
-            std::cerr << "connect action\n";
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "connect action\n";
+            #endif
             // Do connect async
             fsm->do_connect_async(evt.ep,
-                std::bind( &concrete_type::handle_connected,
-                    fsm->shared_from_this(), std::placeholders::_1));
+                ::std::bind( &concrete_type::handle_connected,
+                    fsm->shared_from_this(), ::std::placeholders::_1));
         }
     };
     struct on_connected {
@@ -127,7 +129,9 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         operator()(events::connection_failure const& evt, fsm_type& fsm,
                 SourceState&, TargetState&)
         {
+            #ifdef DEBUG_OUTPUT
             ::std::cerr << "Disconnected on error\n";
+            #endif
             fsm->handle_close();
         }
         template < typename SourceState, typename TargetState >
@@ -135,7 +139,9 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         operator()(events::close const& evt, fsm_type& fsm,
                 SourceState&, TargetState&)
         {
+            #ifdef DEBUG_OUTPUT
             ::std::cerr << "Disconnected gracefully\n";
+            #endif
             fsm->handle_close();
         }
     };
@@ -144,7 +150,9 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         operator()(Event const&, fsm_type& fsm, SourceState&, TargetState&)
         {
-            std::cerr << "send validate action\n";
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "send validate action\n";
+            #endif
             fsm->send_validate_message();
         }
     };
@@ -169,7 +177,9 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         operator()(events::receive_request const& req, fsm_type& fsm, SourceState&, TargetState&)
         {
-            std::cerr << "Dispatch request\n";
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "Dispatch request\n";
+            #endif
             fsm->dispatch_incoming_request(req.incoming);
         }
     };
@@ -199,7 +209,9 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         on_entry(events::connect const& evt, fsm_type& fsm)
         {
-            std::cerr << "connecting enter\n";
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "connecting enter\n";
+            #endif
             success = evt.success;
             fail    = evt.fail;
         }
@@ -211,12 +223,16 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         on_exit( events::connected const&, fsm_type& )
         {
-            std::cerr << "connecting exit (success)\n";
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "connecting exit (success)\n";
+            #endif
         }
         void
         on_exit(events::connection_failure const& err, fsm_type&)
         {
-            std::cerr << "connecting exit (fail)\n";
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "connecting exit (fail)\n";
+            #endif
             if (fail) {
                 fail(err.error);
             }
@@ -235,20 +251,26 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         on_entry(Event const&, fsm_type& fsm)
         {
-            std::cerr << "wait_validate enter\n";
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "wait_validate enter\n";
+            #endif
             fsm->start_read();
         }
         template < typename Event >
         void
         on_exit(Event const&, fsm_type&)
         {
-            std::cerr << "wait_validate exit\n";
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "wait_validate exit\n";
+            #endif
             clear_callbacks();
         }
         void
         on_exit( events::receive_validate const&, fsm_type& )
         {
-            std::cerr << "wait_validate exit (success)\n";
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "wait_validate exit (success)\n";
+            #endif
             if (success) {
                 success();
             }
@@ -257,7 +279,9 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         on_exit( events::connection_failure const& evt, fsm_type& )
         {
-            std::cerr << "wait_validate (fail)\n";
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "wait_validate (fail)\n";
+            #endif
             if (fail) {
                 fail(evt.error);
             }
@@ -287,13 +311,17 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         on_entry(Event const&, fsm_type& fsm)
         {
-            std::cerr << "connected enter\n";
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "connected enter\n";
+            #endif
         }
         template < typename Event >
         void
         on_exit(Event const&, fsm_type& fsm)
         {
-            std::cerr << "connected exit\n";
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "connected exit\n";
+            #endif
         }
     };
 
@@ -302,7 +330,9 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         on_entry(Event const&, fsm_type& fsm)
         {
-            std::cerr << "terminated enter\n";
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "terminated enter\n";
+            #endif
             fsm->do_close();
         }
     };
@@ -377,35 +407,43 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
         encoding::reply_callback        reply;
         functional::exception_callback  error;
     };
-    using pending_replies_type    = std::map< uint32_t, pending_reply >;
+    using pending_replies_type    = ::std::map< uint32_t, pending_reply >;
 
-    using incoming_buffer        = std::array< unsigned char, 1024 >;
-    using incoming_buffer_ptr    = std::shared_ptr< incoming_buffer >;
+    using incoming_buffer        = ::std::array< unsigned char, 1024 >;
+    using incoming_buffer_ptr    = ::std::shared_ptr< incoming_buffer >;
 
     static connection_impl_ptr
-    create_connection( adapter_ptr adptr, transport_type _type );
+    create_connection( adapter_ptr adptr, transport_type _type,
+            functional::void_callback on_close );
     static connection_impl_ptr
-    create_listen_connection( adapter_ptr adptr, transport_type _type );
+    create_listen_connection( adapter_ptr adptr, transport_type _type,
+            functional::void_callback on_close );
 
-    connection_impl_base( client_side const&, adapter_ptr adptr)
+    connection_impl_base( client_side const&, adapter_ptr adptr,
+            functional::void_callback on_close)
         : adapter_{adptr},
           connector_{adptr->get_connector()},
           io_service_{adptr->io_service()},
-          request_no_{0}
+          request_no_{0},
+          on_close_{ on_close }
     {
         mode_ = client;
     }
-    connection_impl_base( server_side const&, adapter_ptr adptr)
+    connection_impl_base( server_side const&, adapter_ptr adptr,
+            functional::void_callback on_close)
         : adapter_{adptr},
           connector_{adptr->get_connector()},
           io_service_{adptr->io_service()},
-          request_no_{0}
+          request_no_{0},
+          on_close_{ on_close }
     {
         mode_ = server;
     }
     virtual ~connection_impl_base()
     {
+        #ifdef DEBUG_OUTPUT
         ::std::cerr << "Destroy connection instance\n";
+        #endif
     }
 
     connector_ptr
@@ -439,7 +477,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     void
     write_async(encoding::outgoing_ptr, functional::void_callback cb = nullptr);
     void
-    handle_write(asio_config::error_code const& ec, std::size_t bytes,
+    handle_write(asio_config::error_code const& ec, ::std::size_t bytes,
             functional::void_callback cb, encoding::outgoing_ptr);
 
     void
@@ -447,11 +485,11 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     void
     read_async(incoming_buffer_ptr);
     void
-    handle_read(asio_config::error_code const& ec, std::size_t bytes,
+    handle_read(asio_config::error_code const& ec, ::std::size_t bytes,
             incoming_buffer_ptr);
 
     void
-    read_incoming_message(incoming_buffer_ptr, std::size_t bytes);
+    read_incoming_message(incoming_buffer_ptr, ::std::size_t bytes);
     void
     dispatch_incoming(encoding::incoming_ptr);
 
@@ -471,7 +509,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     send_unknown_exception(uint32_t req_num);
 
     void
-    invoke(identity const&, std::string const& op, context_type const& ctx,
+    invoke(identity const&, ::std::string const& op, context_type const& ctx,
             bool run_sync,
             encoding::outgoing&&,
             encoding::reply_callback reply,
@@ -524,6 +562,7 @@ protected:
     ::std::atomic<uint32_t>     request_no_;
     encoding::incoming_ptr      incoming_;
     pending_replies_type        pending_replies_;
+    functional::void_callback   on_close_;
 };
 
 template < transport_type _type >
@@ -532,12 +571,14 @@ struct connection_impl : connection_impl_base {
     using transport_type    = typename transport_traits::type;
     using socket_type        = typename transport_traits::listen_socket_type;
 
-    connection_impl(client_side const& c, adapter_ptr adptr)
-        : connection_impl_base{c, adptr}, transport_{ io_service_ }
+    connection_impl(client_side const& c, adapter_ptr adptr,
+            functional::void_callback on_close)
+        : connection_impl_base{c, adptr, on_close}, transport_{ io_service_ }
     {
     }
-    connection_impl(server_side const& s, adapter_ptr adptr)
-        : connection_impl_base{s, adptr}, transport_{ io_service_ }
+    connection_impl(server_side const& s, adapter_ptr adptr,
+            functional::void_callback on_close)
+        : connection_impl_base{s, adptr, on_close}, transport_{ io_service_ }
     {
     }
     virtual ~connection_impl() {}
@@ -595,8 +636,9 @@ struct listen_connection_impl : connection_impl_base {
     using session_factory    = typename listener_type::session_factory;
     using transport_traits    = transport_type_traits< _type >;
 
-    listen_connection_impl(adapter_ptr adptr, session_factory factory)
-        : connection_impl_base{server_side{}, adptr},
+    listen_connection_impl(adapter_ptr adptr, session_factory factory,
+            functional::void_callback on_close)
+        : connection_impl_base{server_side{}, adptr, on_close},
           listener_(adptr->io_service(), factory)
     {
     }
@@ -619,7 +661,9 @@ private:
     void
     do_listen(endpoint const& ep, bool reuse_port) override
     {
+        #ifdef DEBUG_OUTPUT
         ::std::cerr << "Open endpoint " << ep << "\n";
+        #endif
         listener_.open(ep, reuse_port);
         auto adptr = adapter_.lock();
         if (adptr) {

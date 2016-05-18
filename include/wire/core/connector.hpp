@@ -41,6 +41,10 @@ public:
     create_connector(asio_config::io_service_ptr svc, ::std::string const& name, int argc, char* argv[]);
     static connector_ptr
     create_connector(asio_config::io_service_ptr svc, ::std::string const& name, args_type const&);
+    static connector_ptr
+    create_connector(asio_config::io_service_ptr svc, ::std::string const& name, args_type const&, ::std::string const& cfg);
+    static connector_ptr
+    create_connector(asio_config::io_service_ptr svc, ::std::string const& name, ::std::string const& cfg);
 private:
     connector(asio_config::io_service_ptr svc);
     connector(asio_config::io_service_ptr svc, int argc, char* argv[]);
@@ -48,6 +52,8 @@ private:
     connector(asio_config::io_service_ptr svc, ::std::string const& name);
     connector(asio_config::io_service_ptr svc, ::std::string const& name, int argc, char* argv[]);
     connector(asio_config::io_service_ptr svc, ::std::string const& name, args_type const&);
+    connector(asio_config::io_service_ptr svc, ::std::string const& name, args_type const&, ::std::string const&);
+    connector(asio_config::io_service_ptr svc, ::std::string const& name, ::std::string const&);
 
     template< typename ... T >
     static connector_ptr
@@ -57,6 +63,10 @@ public:
     confugure(int argc, char* argv[]);
     void
     configure(args_type const&);
+    void
+    configure(args_type const& cmd, ::std::string const& cfg);
+    void
+    configure(::std::string const& cfg);
 
     asio_config::io_service_ptr
     io_service();
@@ -81,9 +91,10 @@ public:
     find_local_servant(reference const& ref) const;
 
     object_prx
-    string_to_proxy(::std::string const& str);
+    string_to_proxy(::std::string const& str) const;
 
-
+    object_prx
+    make_proxy(reference_data const& ref) const;
 
     /**
      * Get an existing connection to the endpoint specified or create a new one.

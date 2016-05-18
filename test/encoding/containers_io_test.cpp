@@ -504,10 +504,10 @@ TEST(IO, Array)
     using array_type = ::std::array< double, 4 >;
     {
         buffer_type buffer;
-        array_type in_value{ 1, 2, 3, 4};
+        array_type in_value{{ 1, 2, 3, 4}};
         EXPECT_NO_THROW(write(std::back_inserter(buffer), in_value));
         ::std::cerr << "Buffer size " << buffer.size() << "\n";
-        array_type out_value{ 0, 0, 0, 0};
+        array_type out_value{{ 0, 0, 0, 0}};
         input_iterator b = buffer.begin();
         input_iterator e = buffer.end();
         EXPECT_NO_THROW(read(b, e, out_value));

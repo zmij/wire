@@ -117,8 +117,6 @@ struct writer_impl< T, CLASS > {
             _id = encaps.enqueue_object(val,
                 [o, val](object_stream_id id)
                 {
-                    ::std::cerr << "Output object " << class_type::wire_static_type_id()
-                        << " with id " << id << "\n";
                     write(o, id);
                     if (!val) {
                         throw errors::marshal_error{ "Object pointer is empty :(" };

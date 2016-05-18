@@ -79,7 +79,7 @@ session::handle_read(asio_config::error_code const& ec, size_t bytes_transferred
                 if (m.type() != encoding::message::request) {
                     throw std::runtime_error("Unexpected message type");
                 }
-                if (e - b < m.size) {
+                if (static_cast<encoding::message::size_type>(::std::distance(b, e)) < m.size) {
                     throw std::runtime_error("Data is not enough");
                 }
                 e = b + m.size;

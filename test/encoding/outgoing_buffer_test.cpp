@@ -110,10 +110,12 @@ TEST(OutgoingBuffer, ForwardIterators)
         EXPECT_EQ(INSERT_CHARS, steps);
     }
 
+#ifndef NDEBUG
     {
         outgoing out1{ core::connector_ptr{} };
         EXPECT_DEATH({ out.begin() - out1.begin(); }, "Iterator belongs to container");
     }
+#endif
 }
 
 TEST(OutgoingBuffer, ReverseIterators)

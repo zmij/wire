@@ -57,10 +57,13 @@ struct variant_write_unwrapper_base< OutputIterator, util::indexes_tuple< Indexe
     static func_table_type&
     functions()
     {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-braces"  // clang is terribly wrong suggesting braces here
         static func_table_type table_{
             &write_nth_type< iterator_type, variant_type, Indexes, T >::output ...
         };
         return table_;
+#pragma clang diagnostic pop
     }
 
     static void
@@ -129,10 +132,13 @@ struct variant_read_unwrapper_base< InputIterator, util::indexes_tuple< Indexes 
     static func_table_type&
     functions()
     {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-braces"  // clang is terribly wrong suggesting braces here
         static func_table_type table_{
             &read_nth_type< iterator_type, variant_type, Indexes, T >::input ...
         };
         return table_;
+#pragma clang diagnostic pop
     }
 
     static void

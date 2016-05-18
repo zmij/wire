@@ -30,11 +30,13 @@ wire_type_map const wire_to_cpp = {
     { "bool",       { "bool",                   {}                                          } },
     { "char",       { "char",                   {}                                          } },
     { "byte",       { "::std::int8_t",          {"<cstdint>"}                               } },
+    { "int16",      { "::std::int16_t",         {"<cstdint>"}                               } },
     { "int32",      { "::std::int32_t",         {"<cstdint>"}                               } },
     { "int64",      { "::std::int64_t",         {"<cstdint>"}                               } },
     { "octet",      { "::std::uint8_t",         {"<cstdint>"}                               } },
-    { "uint32",     { "::std::int32_t",         {"<cstdint>"}                               } },
-    { "uint64",     { "::std::int64_t",         {"<cstdint>"}                               } },
+    { "uint16",     { "::std::uint16_t",        {"<cstdint>"}                               } },
+    { "uint32",     { "::std::uint32_t",        {"<cstdint>"}                               } },
+    { "uint64",     { "::std::uint64_t",        {"<cstdint>"}                               } },
     { "float",      { "float",                  {}                                          } },
     { "double",     { "double",                 {}                                          } },
     { "string",     { "::std::string",          {"<string>"}                                } },
@@ -76,8 +78,8 @@ ast::qname const wire_exception_callback{ "::wire::core::functional::exception_c
 ast::qname const wire_disp_request      { "::wire::core::detail::dispatch_request" };
 ast::qname const wire_current           { "::wire::core::current" };
 ast::qname const wire_no_current        { "::wire::core::no_current" };
-ast::qname const wire_context           { "::wire::core::context_type" };;
-ast::qname const wire_no_context        { "::wire::core::no_context" };;
+ast::qname const wire_context           { "::wire::core::context_type" };
+ast::qname const wire_no_context        { "::wire::core::no_context" };
 
 ast::qname const wire_seg_head          { "::wire::encoding::segment_header" };
 ast::qname const wire_seg_head_no_flags { "::wire::encoding::segment_header::none" };
@@ -638,12 +640,12 @@ generator::generate_struct( ast::structure_ptr struct_ )
 
     if (!dm.empty()) {
         header_.at_namespace_scope(
-        [&](source_stream& stream)
+        [this, struct_](source_stream& stream)
         {
             generate_read_write(stream, struct_);
         });
         header_.at_namespace_scope(
-        [&](source_stream& stream)
+        [this, struct_](source_stream& stream)
         {
             generate_comparison(stream, struct_);
         });

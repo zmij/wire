@@ -263,7 +263,7 @@ buffer_sequence::advance(This* _this,
         if (iter.position_ == normal) {
             difference_type bpos = iter.current_ - iter.buffer_->begin();
             if (n > 0) {
-                if (bpos + n < iter.buffer_->size()) {
+                if (static_cast<size_type>(bpos + n) < iter.buffer_->size()) {
                     // Same buffer
                     iter.current_ += n;
                 } else {
@@ -552,12 +552,10 @@ buffer_sequence::out_encaps_state::enqueue_object(void const* obj, marshal_func 
     auto f = object_ids_.find(obj);
     if (f == object_ids_.end()) {
         object_stream_id id = object_ids_.size() + 1;
-        ::std::cerr << "Enqueue object with id " << id << "\n";
         object_write_queue_.push_back({id, func});
         object_ids_.emplace(obj, id);
         return id;
     }
-    ::std::cerr << "Object already enqueued with id " << f->second << "\n";
     return f->second;
 }
 
@@ -568,7 +566,6 @@ buffer_sequence::out_encaps_state::write_indirection_table()
     queue.swap(object_write_queue_);
     write(::std::back_inserter(sp_.back_buffer()), queue.size());
     while (!queue.empty()) {
-        ::std::cerr << "Outgoing object queue size: " << queue.size() << "\n";
         for (auto const& o: queue) {
             o.marshal(o.id);
         }
@@ -585,13 +582,10 @@ buffer_sequence::out_encaps_state::segment::~segment()
         auto sz = sp_.size();
         write(out, flags);
         if (flags & string_type_id) {
-            ::std::cerr << "Write string type id " << type_id << "\n";
             write(out, ::boost::get<::std::string>(type_id));
         } else if (flags & hash_type_id) {
-            ::std::cerr << "Write hash type id " << type_id << "\n";
             write(out, ::boost::get<hash_value_type>(type_id));
         } else {
-            ::std::cerr << "Write type id index " << type_idx_ << "\n";
             write(out, type_idx_);
         }
         write(out, sz);
@@ -621,7 +615,6 @@ buffer_sequence::in_encaps_state::read_indirection_table(input_iterator& begin)
     size_type sz;
     read(begin, end_, sz);
     while (sz > 0) {
-        ::std::cerr << "Read indirection table size " << sz << "\n";
         for (size_type i = 0; i < sz; ++i) {
             object_stream_id id;
             read(begin, end_, id);
