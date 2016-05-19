@@ -11,6 +11,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/use_future.hpp>
+#include <boost/asio/system_timer.hpp>
 
 #include <memory>
 #include <functional>
@@ -35,6 +36,8 @@ using asio_rw_callback  = ::std::function< void(error_code const&, std::size_t) 
 
 using ssl_context       = ASIO_NS::ssl::context;
 using ssl_context_ptr   = ::std::shared_ptr< ssl_context >;
+
+using system_timer      = ASIO_NS::system_timer;
 
 constexpr ASIO_NS::use_future_t<> use_future;
 

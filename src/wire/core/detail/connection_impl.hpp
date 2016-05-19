@@ -83,7 +83,8 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
     using concrete_type = Concrete;
     enum connection_mode {
         client,
-        server
+        server,
+        server_routing
     };
     //@}
     //@{
@@ -334,6 +335,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
             ::std::cerr << "terminated enter\n";
             #endif
             fsm->do_close();
+            fsm->handle_close();
         }
     };
 
@@ -346,7 +348,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         bool
         operator()(Event const&, fsm_type& fsm, SourceState&, TargetState&)
         {
-            return fsm.mode_ == server;
+            return fsm.mode_ >= server;
         }
     };
     struct is_stream_oriented {
@@ -380,9 +382,9 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         Row<    connected,        events::close,                terminated,           send_close,      none                    >,
         Row<    connected,        events::receive_close,        terminated,           none,            none                    >,
         /* Connection failure */
-        Row<    connecting,       events::connection_failure,   terminated,           on_disconnected, none                    >,
-        Row<    wait_validate,    events::connection_failure,   terminated,           on_disconnected, none                    >,
-        Row<    connected,        events::connection_failure,   terminated,           on_disconnected, none                    >
+        Row<    connecting,       events::connection_failure,   terminated,           none,            none                    >,
+        Row<    wait_validate,    events::connection_failure,   terminated,           none,            none                    >,
+        Row<    connected,        events::connection_failure,   terminated,           none,            none                    >
     > {};
     //@}
 
@@ -424,7 +426,9 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
         : adapter_{adptr},
           connector_{adptr->get_connector()},
           io_service_{adptr->io_service()},
+          timer_{*io_service_},
           request_no_{0},
+          outstanding_responses_{0},
           on_close_{ on_close }
     {
         mode_ = client;
@@ -434,11 +438,14 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
         : adapter_{adptr},
           connector_{adptr->get_connector()},
           io_service_{adptr->io_service()},
+          timer_{*io_service_},
           request_no_{0},
+          outstanding_responses_{0},
           on_close_{ on_close }
     {
         mode_ = server;
     }
+
     virtual ~connection_impl_base()
     {
         #ifdef DEBUG_OUTPUT
@@ -452,6 +459,13 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 
     virtual bool
     is_stream_oriented() const = 0;
+
+    void
+    set_timer();
+    void
+    on_timeout(asio_config::error_code const& ec);
+    bool
+    can_drop() const;
 
     void
     connect_async(endpoint const&,
@@ -555,14 +569,16 @@ private:
     virtual void
     do_read_async(incoming_buffer_ptr, asio_config::asio_rw_callback) = 0;
 public:
-    adapter_weak_ptr            adapter_;
+    adapter_weak_ptr                adapter_;
 protected:
-    connector_weak_ptr          connector_;
-    asio_config::io_service_ptr io_service_;
-    ::std::atomic<uint32_t>     request_no_;
-    encoding::incoming_ptr      incoming_;
-    pending_replies_type        pending_replies_;
-    functional::void_callback   on_close_;
+    connector_weak_ptr              connector_;
+    asio_config::io_service_ptr     io_service_;
+    asio_config::system_timer       timer_;
+    ::std::atomic<uint32_t>         request_no_;
+    encoding::incoming_ptr          incoming_;
+    pending_replies_type            pending_replies_;
+    ::std::atomic<::std::int32_t>   outstanding_responses_;
+    functional::void_callback       on_close_;
 };
 
 template < transport_type _type >

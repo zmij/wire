@@ -57,6 +57,8 @@ public:
      */
     connection(server_side const&, adapter_ptr, endpoint const&);
 
+    ~connection();
+
     connection(connection&&);
     connection&
     operator = (connection&&);

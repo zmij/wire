@@ -100,6 +100,47 @@ connection_impl_base::create_listen_connection(adapter_ptr adptr, transport_type
 }
 
 void
+connection_impl_base::set_timer()
+{
+    if (can_drop()) {
+        // FIXME Configurable timeout
+        if (timer_.expires_from_now(::std::chrono::seconds{10}) > 0) {
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "Reset timer\n";
+            #endif
+            timer_.async_wait(::std::bind(&connection_impl_base::on_timeout,
+                    shared_from_this(), ::std::placeholders::_1));
+        } else {
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "Set timer\n";
+            #endif
+            timer_.async_wait(::std::bind(&connection_impl_base::on_timeout,
+                    shared_from_this(), ::std::placeholders::_1));
+        }
+    }
+}
+
+void
+connection_impl_base::on_timeout(asio_config::error_code const& ec)
+{
+    if (!ec) {
+        #ifdef DEBUG_OUTPUT
+        ::std::cerr << "Timer expired\n";
+        #endif
+        if (can_drop())
+            process_event(events::close{});
+    }
+}
+
+bool
+connection_impl_base::can_drop() const
+{
+    return false; // Turn off connection timeout
+    // TODO Check if peer endpoint has a routable bidir adapter
+    //return pending_replies_.empty() && outstanding_responses_ <= 0;
+}
+
+void
 connection_impl_base::connect_async(endpoint const& ep,
         functional::void_callback cb, functional::exception_callback eb)
 {
@@ -170,11 +211,19 @@ connection_impl_base::send_close_message()
 void
 connection_impl_base::handle_close()
 {
-    auto ex = ::std::make_exception_ptr(errors::connection_failed{ "Conection closed" });
-    for (auto const& req : pending_replies_) {
-        req.second.error(ex);
+    #ifdef DEBUG_OUTPUT
+    ::std::cerr << "Handle close\n";
+    #endif
+    timer_.cancel();
+    if (!pending_replies_.empty()) {
+        auto ex = ::std::make_exception_ptr(errors::connection_failed{ "Conection closed" });
+        for (auto const& req : pending_replies_) {
+            try {
+                req.second.error(ex);
+            } catch (...) {}
+        }
+        pending_replies_.clear();
     }
-    pending_replies_.clear();
 
     if (on_close_)
         on_close_();
@@ -198,6 +247,7 @@ connection_impl_base::handle_write(asio_config::error_code const& ec, ::std::siz
 {
     if (!ec) {
         if (cb) cb();
+        set_timer();
     } else {
         #ifdef DEBUG_OUTPUT
         ::std::cerr << "Write failed " << ec.message() << "\n";
@@ -230,6 +280,7 @@ connection_impl_base::handle_read(asio_config::error_code const& ec, ::std::size
     if (!ec) {
         read_incoming_message(buffer, bytes);
         start_read();
+        set_timer();
     } else {
         #ifdef DEBUG_OUTPUT
         ::std::cerr << "Read failed " << ec.message() << "\n";
@@ -477,6 +528,9 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
                     break;
             }
             pending_replies_.erase(f);
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "Pending replies: " << pending_replies_.size() << "\n";
+            #endif
         } else {
             // else discard the reply (it can be timed out)
             #ifdef DEBUG_OUTPUT
@@ -770,6 +824,13 @@ connection::connection(connection&& rhs)
     : pimpl_(rhs.pimpl_)
 {
     rhs.pimpl_.reset();
+}
+
+connection::~connection()
+{
+    #ifdef DEBUG_OUTPUT
+    ::std::cerr << "Destroy connection façade\n";
+    #endif
 }
 
 connection&

@@ -15,6 +15,8 @@
 #include <wire/core/reference.hpp>
 #include <wire/errors/exceptions.hpp>
 
+#include <thread>
+
 using ::wire::util::console;
 namespace core = ::wire::core;
 
@@ -108,8 +110,9 @@ struct adapter_console {
     operator()()
     {
         auto ret = cons_.read_line();
-        while (ret != console::quit && ret != console::eof)
+        while (ret != console::quit && ret != console::eof) {
             ret = cons_.read_line();
+        }
         return ret;
     }
 };
@@ -148,8 +151,9 @@ struct select_adapter {
     {
         if (cons_.get_commands().size() > 1) {
             auto ret = cons_.read_line();
-            while (ret != console::quit && ret != console::eof)
+            while (ret != console::quit && ret != console::eof) {
                 ret = cons_.read_line();
+            }
             return ret;
         }
         return console::quit;
@@ -254,10 +258,14 @@ try {
         ("ls", console::command{ list_adapters_cmd{admin_prx}, [](){ return  "List adapters"; }})
         ("use", console::command{ use_adapter_cmd{admin_prx}, [](){ return "Use adapter admin";}});
 
+    auto t = ::std::thread{[io_service](){ io_service->run(); }};
+
     auto ret = cnctr_cons.read_line();
     while (ret != console::quit && ret != console::eof) {
         ret = cnctr_cons.read_line();
     }
+    io_service->stop();
+    t.join();
     return 0;
 } catch (::std::exception const& e) {
     ::std::cerr << "Exception: " << e.what() << "\n";
