@@ -11,7 +11,7 @@ wire2cpp(
     ${WIRE_LIST}
     HEADER_DIR include/test
     INCLUDE_ROOT test
-    OUTPUT wire_CPPS
+    SOURCES wire_CPPS
 )
 
 get_property(inc_dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)

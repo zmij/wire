@@ -28,6 +28,8 @@ option(BUILD_TESTS "Build tests for ${lib_name} library" ON)
 option(COMPILE_TESTS "Test compile generated sources" OFF)
 option(DEBUG_OUTPUT "Generate debug output" OFF)
 
+set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules" )
+
 include(cmake/scripts/wire2cpp.cmake)
 
 set(
@@ -42,6 +44,11 @@ set(BOOST_VERSION 1.58) # We want endian library.
 find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(Readline)
+
+if (Readline_INCLUDE_DIR)
+    option(BUILD_CMD_UTILS "Build command line utils" ON)
+endif()
 
 if (NOT TIP_IRI_INCLUDE_DIRS)
     set(_TIP_IRI_SUBTREE ON)
@@ -52,6 +59,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_BINARY_DIR}/src
     ${Boost_INCLUDE_DIRS}
+    ${Readline_INCLUDE_DIR}
 )
 wire_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/idl
@@ -82,6 +90,9 @@ endif()
 set(${LIB_NAME}_LIB ${lib_name})
 set(${LIB_NAME}_UTIL_LIB ${lib_name}-util)
 set(${LIB_NAME}_IDL_LIB ${lib_name}-idl)
+if (BUILD_CMD_UTILS)
+set(${LIB_NAME}_CONSOLE_LIB ${lib_name}-console)
+endif()
 
 if(_TIP_IRI_SUBTREE)
     add_subdirectory(lib/iri)
@@ -96,8 +107,9 @@ if (NOT BOOST_PROCESS_INCLUDE_DIRS)
     set(BUILD_TESTS ${_BP_BUILD_TESTS})
 endif()
 message(STATUS "Boost process includes ${BOOST_PROCESS_INCLUDE_DIRS}")
-include_directories(${BOOST_PROCESS_INCLUDE_DIRS})
 
+include_directories(${BOOST_PROCESS_INCLUDE_DIRS})
+include_directories(${CMAKE_BINARY_DIR}/include)
 include_directories(${TIP_IRI_INCLUDE_DIRS})
 
 # Add subdirectories here
@@ -110,6 +122,6 @@ endif()
 
 get_directory_property(has_parent PARENT_DIRECTORY)
 if (has_parent)
-    set(${LIB_NAME}_LIB ${PROJECT_PREFIX}-${lib_name} CACHE INTERNAL "Name of wire library target")
-    set(${LIB_NAME}_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE INTERNAL "Path to wire libaray includes" )
+    set(${LIB_NAME}_LIB ${lib_name} CACHE INTERNAL "Name of wire library target")
+    set(${LIB_NAME}_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE INTERNAL "Path to wire libaray includes" )
 endif()

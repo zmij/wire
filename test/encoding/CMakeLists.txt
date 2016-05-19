@@ -16,7 +16,7 @@ wire2cpp(
     classes_for_io.wire
     HEADER_DIR include/test
     INCLUDE_ROOT test
-    OUTPUT wired_SRCS
+    SOURCES wired_SRCS
     OPTIONS --dont-use-hashed-ids
 )
 

@@ -6,34 +6,39 @@
 cmake_minimum_required(VERSION 2.6)
 
 add_subdirectory(util)
+set(
+    GENERATED_HEADERS_DIR
+    ${CMAKE_BINARY_DIR}/include
+)
 
 wire2cpp(
     ${WIRE_IDL_ROOT}/wire/errors/unexpected.wire
-    HEADER_DIR      include/wire/errors
+    HEADER_DIR      ${GENERATED_HEADERS_DIR}/wire/errors
     INCLUDE_ROOT    wire/errors
-    OUTPUT          wired_ERRORS
+    SOURCES         wired_ERRORS
 )
 
 wire2cpp(
     ${WIRE_IDL_ROOT}/wire/core/locator.wire
-    HEADER_DIR      include/wire/core
+    HEADER_DIR      ${GENERATED_HEADERS_DIR}/wire/core
     INCLUDE_ROOT    wire/core
-    OUTPUT          wired_LOCATOR
+    SOURCES         wired_LOCATOR
     OPTIONS         --generate-forwards
 )
 
 wire2cpp(
     ${WIRE_IDL_ROOT}/wire/core/adapter_admin.wire
     ${WIRE_IDL_ROOT}/wire/core/connector_admin.wire
-    HEADER_DIR      include/wire/core
+    HEADER_DIR      ${GENERATED_HEADERS_DIR}/wire/core
     INCLUDE_ROOT    wire/core
-    OUTPUT          wired_ADMIN
+    SOURCES         wired_ADMIN
     OPTIONS         --generate-forwards
 )
 
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
-
 set(wire_lib_SRCS
+    ${wired_ERRORS}
+    ${wired_LOCATOR}
+    ${wired_ADMIN}
     encoding/buffer_sequence.cpp
     encoding/buffers.cpp
     encoding/message.cpp
@@ -50,9 +55,6 @@ set(wire_lib_SRCS
     core/proxy.cpp
     core/reference.cpp
     core/reference_io.cpp
-    ${wired_ERRORS}
-    ${wired_LOCATOR}
-    ${wired_ADMIN}
     core/adapter_admin_impl.cpp
     core/connector_admin_impl.cpp
 )

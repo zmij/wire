@@ -495,6 +495,13 @@ connector::do_create_connector(asio_config::io_service_ptr svc,
 }
 
 connector_ptr
+connector::create_connector()
+{
+    asio_config::io_service_ptr svc = ::std::make_shared< asio_config::io_service >();
+    return do_create_connector(svc);
+}
+
+connector_ptr
 connector::create_connector(asio_config::io_service_ptr svc)
 {
     return do_create_connector(svc);
@@ -581,6 +588,12 @@ asio_config::io_service_ptr
 connector::io_service()
 {
     return pimpl_->io_service_;
+}
+
+void
+connector::run()
+{
+    pimpl_->io_service_->run();
 }
 
 adapter_ptr

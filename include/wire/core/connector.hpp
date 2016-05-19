@@ -30,6 +30,8 @@ public:
     typedef ::std::vector<::std::string> args_type;
 public:
     static connector_ptr
+    create_connector();
+    static connector_ptr
     create_connector(asio_config::io_service_ptr svc);
     static connector_ptr
     create_connector(asio_config::io_service_ptr svc, int argc, char* argv[]);

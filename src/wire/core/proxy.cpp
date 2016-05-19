@@ -62,6 +62,12 @@ object_proxy::wire_get_connection() const
     return wire_get_reference().get_connection();
 }
 
+connector_ptr
+object_proxy::wire_get_connector() const
+{
+    return wire_get_reference().get_connector();
+}
+
 bool
 object_proxy::wire_is_a(::std::string const& type_id, context_type const& ctx)
 {

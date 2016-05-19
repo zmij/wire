@@ -11,6 +11,7 @@
 #include <wire/core/proxy_fwd.hpp>
 #include <wire/core/reference.hpp>
 #include <wire/core/connection_fwd.hpp>
+#include <wire/core/connector_fwd.hpp>
 
 #include <wire/core/context.hpp>
 #include <wire/core/functional.hpp>
@@ -57,6 +58,8 @@ public:
 
     connection_ptr
     wire_get_connection() const;
+    connector_ptr
+    wire_get_connector() const;
 
     template < typename T >
     ::std::shared_ptr<T>
