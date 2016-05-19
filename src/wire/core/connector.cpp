@@ -17,6 +17,7 @@
 #include <wire/core/adapter_admin_impl.hpp>
 
 #include <wire/core/detail/configuration_options.hpp>
+#include <wire/core/detail/io_service_monitor.hpp>
 
 #include <boost/program_options.hpp>
 
@@ -75,6 +76,7 @@ struct connector::impl {
           cmd_line_options_{ options_.name + " command line options" },
           cfg_file_options_{ options_.name + " config file options" }
     {
+        register_shutdown_observer();
         create_options_description();
     }
 
@@ -83,7 +85,21 @@ struct connector::impl {
           cmd_line_options_{ options_.name + " command line options" },
           cfg_file_options_{ options_.name + " config file options" }
     {
+        register_shutdown_observer();
         create_options_description();
+    }
+
+    void
+    register_shutdown_observer()
+    {
+        auto& mon = ASIO_NS::use_service< detail::io_service_monitor >(*io_service_);
+        mon.add_observer([](){});
+    }
+
+    void
+    hadnle_shutdown()
+    {
+        ;
     }
 
     void

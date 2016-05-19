@@ -17,7 +17,8 @@ namespace core {
 template < typename Session, transport_type Type >
 transport_listener< Session, Type >::transport_listener(
         asio_config::io_service_ptr svc, session_factory factory)
-    : io_service_{svc}, acceptor_{*svc}, factory_{factory}, ready_{false}
+    : io_service_{svc}, acceptor_{*svc}, factory_{factory},
+      ready_{false}, closed_{false}
 {
 }
 
@@ -35,6 +36,7 @@ transport_listener< Session, Type >::open(endpoint const& ep, bool rp)
     acceptor_.bind(proto_ep);
     acceptor_.listen();
 
+    closed_ = false;
     start_accept();
     ready_ = true;
 }
@@ -43,8 +45,10 @@ template < typename Session, transport_type Type >
 void
 transport_listener< Session, Type >::close()
 {
+    closed_ = true;
     acceptor_.cancel();
     acceptor_.close();
+    ready_ = false;
 }
 
 template < typename Session, transport_type Type >
@@ -77,8 +81,13 @@ transport_listener<Session, Type>::handle_accept(session_ptr session, asio_confi
 {
     if (!ec) {
         session->start_session();
+        if (!closed_)
+            start_accept();
+    } else {
+        #ifdef DEBUG_OUTPUT
+        ::std::cerr << "Listener accept error code " << ec.message() << "\n";
+        #endif
     }
-    start_accept();
 }
 
 }  // namespace core

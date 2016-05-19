@@ -581,7 +581,10 @@ struct connection_impl : connection_impl_base {
         : connection_impl_base{s, adptr, on_close}, transport_{ io_service_ }
     {
     }
-    virtual ~connection_impl() {}
+    virtual ~connection_impl()
+    {
+        process_event(events::close{});
+    }
 
     bool
     is_stream_oriented() const override

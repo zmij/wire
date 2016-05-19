@@ -14,6 +14,7 @@
 
 #include <memory>
 #include <future>
+#include <atomic>
 
 namespace wire {
 namespace core {
@@ -451,7 +452,8 @@ private:
     asio_config::io_service_ptr io_service_;
     acceptor_type               acceptor_;
     session_factory             factory_;
-    bool                        ready_;
+    ::std::atomic<bool>         ready_;
+    ::std::atomic<bool>         closed_;
 };
 
 template<>

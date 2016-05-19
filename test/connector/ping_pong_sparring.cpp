@@ -46,6 +46,16 @@ try {
     ::wire::asio_config::io_service_ptr io_service =
             ::std::make_shared< ::wire::asio_config::io_service >();
 
+    ASIO_NS::signal_set signals(*io_service);
+    signals.add(SIGINT);
+    signals.add(SIGTERM);
+    signals.add(SIGQUIT);
+    signals.async_wait(
+    [io_service](::wire::asio_config::error_code const&, int signo){
+        ::std::cerr << "Signal " << signo << "\n";
+        io_service->stop();
+    });
+
     connector_ptr conn = connector::create_connector(io_service, unrecognized_cmd);
     adapter_ptr adptr = conn->create_adapter(
             "ping_pong", { ::wire::core::endpoint::tcp("127.0.0.1", port_no) });

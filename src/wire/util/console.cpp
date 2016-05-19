@@ -65,7 +65,8 @@ struct console::impl {
     void
     get_history()
     {
-        free(history_);
+        if (history_)
+            free(history_);
         history_ = history_get_history_state();
     }
 

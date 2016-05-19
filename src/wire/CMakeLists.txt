@@ -57,6 +57,7 @@ set(wire_lib_SRCS
     core/reference_io.cpp
     core/adapter_admin_impl.cpp
     core/connector_admin_impl.cpp
+    core/detail/io_service_monitor.cpp
 )
 add_library(${WIRE_LIB} SHARED ${wire_lib_SRCS})
 set_target_properties(
