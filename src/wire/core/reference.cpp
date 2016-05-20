@@ -80,6 +80,12 @@ reference::get_connection() const
     return future.get();
 }
 
+asio_config::io_service_ptr
+reference::io_service() const
+{
+    return get_connector()->io_service();
+}
+
 //----------------------------------------------------------------------------
 //      Fixed reference implementation
 //----------------------------------------------------------------------------

@@ -8,6 +8,8 @@
 #ifndef WIRE_CORE_REFERENCE_HPP_
 #define WIRE_CORE_REFERENCE_HPP_
 
+#include <wire/asio_config.hpp>
+
 #include <wire/core/identity.hpp>
 #include <wire/core/endpoint.hpp>
 
@@ -88,6 +90,9 @@ public:
     ::std::string const&
     facet() const
     { return ref_.facet; }
+
+    asio_config::io_service_ptr
+    io_service() const;
 
     connector_ptr
     get_connector() const
