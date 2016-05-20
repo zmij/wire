@@ -7,6 +7,7 @@
 
 #include <wire/core/reference.hpp>
 
+#include <iostream>
 #include <sstream>
 
 #include <wire/core/connector.hpp>
@@ -72,6 +73,13 @@ reference::get_local_object() const
     return obj;
 }
 
+connection_ptr
+reference::get_connection() const
+{
+    auto future = get_connection_async(true);
+    return future.get();
+}
+
 //----------------------------------------------------------------------------
 //      Fixed reference implementation
 //----------------------------------------------------------------------------
@@ -82,8 +90,10 @@ fixed_reference::fixed_reference(connector_ptr cn, reference_data const& ref)
         throw errors::runtime_error{ "Reference endpoint list is empty" };
 }
 
-connection_ptr
-fixed_reference::get_connection() const
+void
+fixed_reference::get_connection_async( connection_callback on_get,
+        functional::exception_callback on_error,
+        bool sync) const
 {
     connection_ptr conn = connection_.lock();
     if (!conn) {
@@ -94,10 +104,33 @@ fixed_reference::get_connection() const
         if (current_ == ref_.endpoints.end()) {
             current_ = ref_.endpoints.begin();
         }
-        conn = cntr->get_outgoing_connection(*current_++);
-        connection_ = conn;
+        ::std::cerr << "Get fixed reference to " << *current_ << "\n";
+        cntr->get_outgoing_connection_async(
+            *current_++,
+            [this, on_get, on_error](connection_ptr c)
+            {
+                connection_ = c;
+                try {
+                    on_get(c);
+                } catch(...) {
+                    try {
+                        on_error(::std::current_exception());
+                    } catch(...) {}
+                }
+            },
+            [on_error](::std::exception_ptr ex)
+            {
+                try {
+                    on_error(::std::current_exception());
+                } catch(...) {}
+            },
+            sync);
+    } else {
+        ::std::cerr << "Fixed reference is still there\n";
+        try {
+            on_get(conn);
+        } catch(...) {}
     }
-    return conn;
 }
 
 }  // namespace core

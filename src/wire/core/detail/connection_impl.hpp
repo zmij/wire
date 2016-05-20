@@ -105,9 +105,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
             ::std::cerr << "connect action\n";
             #endif
             // Do connect async
-            fsm->do_connect_async(evt.ep,
-                ::std::bind( &concrete_type::handle_connected,
-                    fsm->shared_from_this(), ::std::placeholders::_1));
+            fsm->do_connect_async(evt.ep);
         }
     };
     struct on_connected {
@@ -115,8 +113,8 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         operator()(events::connected const& evt, fsm_type& fsm,
                 connecting& from, wait_validate& to)
         {
-            to.success = from.success;
-            to.fail = from.fail;
+            ::std::swap(to.success, from.success);
+            ::std::swap(to.fail, from.fail);
         }
         void
         operator()(events::receive_validate const& evt, fsm_type& fsm,
@@ -220,6 +218,10 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         on_exit(Event const&, fsm_type&)
         {
+            #ifdef DEBUG_OUTPUT
+            ::std::cerr << "connecting exit (unexpected event)\n";
+            #endif
+            clear_callbacks();
         }
         void
         on_exit( events::connected const&, fsm_type& )
@@ -235,8 +237,18 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
             ::std::cerr << "connecting exit (fail)\n";
             #endif
             if (fail) {
-                fail(err.error);
+                try {
+                    fail(err.error);
+                } catch (...) {}
             }
+            clear_callbacks();
+        }
+
+        void
+        clear_callbacks()
+        {
+            success = nullptr;
+            fail    = nullptr;
         }
 
         functional::void_callback       success;
@@ -247,6 +259,11 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         typedef ::boost::mpl::vector<
             events::send_request
         > deferred_events;
+
+        wait_validate()
+            : success{nullptr}, fail{nullptr}
+        {
+        }
 
         template < typename Event >
         void
@@ -292,8 +309,8 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         clear_callbacks()
         {
-            success = functional::void_callback{};
-            fail    = functional::exception_callback{};
+            success = nullptr;
+            fail    = nullptr;
         }
         functional::void_callback       success;
         functional::exception_callback  fail;
@@ -551,14 +568,22 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     virtual endpoint
     remote_endpoint() const = 0;
 
-    virtual void
-    do_connect_async(endpoint const& ep, asio_config::asio_callback cb)
+    void
+    do_connect_async(endpoint const& ep)
     {
-        throw ::std::logic_error("do_connect_async is not implemented");
+        do_connect_async_impl(ep,
+            ::std::bind(&connection_impl_base::handle_connected, shared_from_this(),
+                    ::std::placeholders::_1));
     }
+
     virtual void
     do_close() = 0;
 private:
+    virtual void
+    do_connect_async_impl(endpoint const& ep, asio_config::asio_callback cb)
+    {
+        throw ::std::logic_error("do_connect_async is not implemented");
+    }
     virtual void
     do_listen(endpoint const&, bool reuse_port)
     {
@@ -599,7 +624,7 @@ struct connection_impl : connection_impl_base {
     }
     virtual ~connection_impl()
     {
-        process_event(events::close{});
+        transport_.close();
     }
 
     bool
@@ -624,7 +649,7 @@ struct connection_impl : connection_impl_base {
     }
 private:
     void
-    do_connect_async(endpoint const& ep, asio_config::asio_callback cb) override
+    do_connect_async_impl(endpoint const& ep, asio_config::asio_callback cb) override
     {
         transport_.connect_async(ep, cb);
     }

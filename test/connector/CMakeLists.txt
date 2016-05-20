@@ -50,6 +50,7 @@ set(ping_pong_SRCS
 add_executable(ping-pong-sparring ${ping_pong_SRCS})
 target_link_libraries(ping-pong-sparring
     ${WIRE_LIB}
+    ${CMAKE_THREAD_LIBS_INIT}
 )
 
 add_executable(ping-pong-client ping_pong_client.cpp ${wired_SRCS})

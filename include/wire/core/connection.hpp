@@ -35,7 +35,7 @@ struct client_side {};
 
 class connection {
 public:
-    using close_callback = functional::callback<connection*>;
+    using close_callback = functional::callback<connection const*>;
 public:
     /**
      * Create connection with no endpoint.
@@ -46,8 +46,9 @@ public:
      * @param
      */
     connection(client_side const&, adapter_ptr, endpoint const&,
-            functional::void_callback = nullptr,
-            functional::exception_callback = nullptr);
+            functional::void_callback       on_connect  = nullptr,
+            functional::exception_callback  on_error    = nullptr,
+            close_callback                  on_close    = nullptr);
 
     /**
      * Create a connection and start accepting at specified
@@ -73,8 +74,9 @@ public:
      */
     void
     connect_async(endpoint const&,
-            functional::void_callback = nullptr,
-            functional::exception_callback = nullptr);
+            functional::void_callback       on_connect  = nullptr,
+            functional::exception_callback  on_error    = nullptr,
+            close_callback                  on_close    = nullptr);
 
 
     void

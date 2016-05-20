@@ -445,31 +445,75 @@ struct connector::impl {
                 reference::create_reference(owner_.lock(), ref_data));
     }
 
-    connection_ptr
-    get_connection(endpoint const& ep)
+    void
+    get_outgoing(endpoint const& ep,
+            connection_callback on_get,
+            functional::exception_callback on_error,
+            bool sync)
     {
-        lock_guard lock{ mtx_ };
-        auto f = outgoing_.find(ep);
+        auto f = outgoing_.end();
+        {
+            lock_guard lock{mtx_};
+            f = outgoing_.find(ep);
+        }
+
         if (f != outgoing_.end()) {
-            return f->second;
+            on_get(f->second);
         } else {
             auto conn = ::std::make_shared< connection >(
-            client_side{}, bidir_adapter(), ep,
-            [ep](){
-                #ifdef DEBUG_OUTPUT
-                ::std::cerr << "Connected to " << ep << "\n";
-                #endif
-            },
-            [this, ep](::std::exception_ptr ex) {
-                #ifdef DEBUG_OUTPUT
-                ::std::cerr << "Failed to connect to " << ep << "\n";
-                #endif
-                outgoing_.erase(ep);
-            });
-            outgoing_.emplace(ep, conn);
-            return conn;
+                    client_side{}, bidir_adapter() );
+            {
+                lock_guard lock{mtx_};
+                outgoing_.emplace(ep, conn);
+            }
+
+            auto res = ::std::make_shared< ::std::atomic<bool> >(false);
+            conn->connect_async(ep,
+                [on_get, conn, res, ep]()
+                {
+                    #ifdef DEBUG_OUTPUT
+                    ::std::cerr << "Connected to " << ep << "\n";
+                    #endif
+                    *res = true;
+                    try {
+                        on_get(conn);
+                    } catch(...) {}
+                },
+                [this, on_error, conn, res, ep](::std::exception_ptr ex)
+                {
+                    #ifdef DEBUG_OUTPUT
+                    ::std::cerr << "Failed to connect to " << ep << "\n";
+                    #endif
+                    *res = true;
+                    erase_outgoing(conn.get());
+                    try {
+                        on_error(ex);
+                    } catch (...) {}
+                },
+                [this](connection const* c)
+                {
+                    erase_outgoing(c);
+                });
+
+            if (sync) {
+                asio_config::run_until(io_service_, [res](){ return (bool)*res; });
+            }
         }
-        return connection_ptr{};
+    }
+
+    void
+    erase_outgoing(connection const* conn)
+    {
+        lock_guard lock{mtx_};
+        for (auto c = outgoing_.begin(); c != outgoing_.end(); ++c) {
+            if (c->second.get() == conn) {
+                #ifdef DEBUG_OUTPUT
+                ::std::cerr << "Outgoing connection to " << c->first << " closed\n";
+                #endif
+                outgoing_.erase(c);
+                break;
+            }
+        }
     }
 };
 
@@ -579,14 +623,16 @@ connector::create_connector(asio_config::io_service_ptr svc, ::std::string const
 //----------------------------------------------------------------------------
 
 connector::connector(asio_config::io_service_ptr svc)
-    : pimpl_(::std::make_shared<impl>(svc))
+    : pimpl_(new impl{svc})
 {
 }
 
 connector::connector(asio_config::io_service_ptr svc, ::std::string const& name)
-    : pimpl_(::std::make_shared<impl>(svc, name))
+    : pimpl_(new impl{svc, name})
 {
 }
+
+connector::~connector() = default;
 
 void
 connector::confugure(int argc, char* argv[])
@@ -675,7 +721,17 @@ connector::make_proxy(reference_data const& ref) const
 connection_ptr
 connector::get_outgoing_connection(endpoint const& ep)
 {
-    return pimpl_->get_connection(ep);
+    auto future = get_outgoing_connection_async(ep, true);
+    return future.get();
+}
+
+void
+connector::get_outgoing_connection_async(endpoint const& ep,
+        connection_callback             on_get,
+        functional::exception_callback  on_error,
+        bool sync)
+{
+    pimpl_->get_outgoing(ep, on_get, on_error, sync);
 }
 
 }  // namespace core

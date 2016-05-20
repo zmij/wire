@@ -15,8 +15,11 @@
 #include <wire/core/connector_fwd.hpp>
 #include <wire/core/reference_fwd.hpp>
 #include <wire/core/object_fwd.hpp>
+#include <wire/core/functional.hpp>
 
 #include <wire/encoding/detail/optional_io.hpp>
+
+#include <future>
 
 namespace wire {
 namespace core {
@@ -59,6 +62,8 @@ operator >> (::std::istream& is, reference_data& val);
  */
 class reference {
 public:
+    using connection_callback = functional::callback< connection_ptr >;
+public:
     reference(connector_ptr cn, reference_data const& ref)
         : connector_{cn}, ref_{ref} {}
 
@@ -88,8 +93,33 @@ public:
     get_connector() const
     { return connector_.lock(); }
 
-    virtual connection_ptr
-    get_connection() const = 0;
+    connection_ptr
+    get_connection() const;
+
+    template < template < typename  > class _Promise = ::std::promise >
+    auto
+    get_connection_async(bool sync = false) const
+        -> decltype(::std::declval< _Promise< connection_ptr > >().get_future() )
+    {
+        auto promise = ::std::make_shared< _Promise< connection_ptr > >();
+        get_connection_async(
+            [promise](connection_ptr val)
+            {
+                promise->set_value(val);
+            },
+            [promise](::std::exception_ptr ex)
+            {
+                promise->set_exception(::std::move(ex));
+            }, sync
+        );
+
+        return promise->get_future();
+    }
+
+    virtual void
+    get_connection_async( connection_callback on_get,
+            functional::exception_callback on_error,
+            bool sync = false) const  = 0;
 private:
     connector_weak_ptr  connector_;
 protected:
@@ -106,8 +136,10 @@ class fixed_reference : public reference {
 public:
     fixed_reference(connector_ptr cn, reference_data const& ref);
 
-    connection_ptr
-    get_connection() const override;
+    void
+    get_connection_async( connection_callback on_get,
+            functional::exception_callback on_error,
+            bool sync = false) const override;
 private:
     connection_weak_ptr mutable             connection_;
     endpoint_list::const_iterator mutable   current_;

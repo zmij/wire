@@ -729,20 +729,25 @@ struct connection::impl {
     }
     void
     connect_async(endpoint const& ep,
-            functional::void_callback cb, functional::exception_callback eb)
+            functional::void_callback       on_connect,
+            functional::exception_callback  on_error,
+            close_callback                  on_close)
     {
         if (connection_) {
             // Do something with the old connection
             // Or throw exception
         }
+        connection const* owner = owner_;
         connection_ = detail::connection_impl_base::create_connection(
             adapter_.lock(), ep.transport(),
-            [](){
+            [owner, on_close](){
                 #ifdef DEBUG_OUTPUT
                 ::std::cerr << "Client connection on close\n";
                 #endif
+                if (on_close)
+                    on_close(owner);
             });
-        connection_->connect_async(ep, cb, eb);
+        connection_->connect_async(ep, on_connect, on_error);
     }
 
     void
@@ -808,10 +813,12 @@ connection::connection(client_side const&, adapter_ptr adp)
 }
 
 connection::connection(client_side const&, adapter_ptr adp, endpoint const& ep,
-        functional::void_callback cb, functional::exception_callback eb)
+        functional::void_callback on_connect,
+        functional::exception_callback on_error,
+        close_callback on_close)
     : pimpl_{::std::make_shared<impl>(this, adp)}
 {
-    pimpl_->connect_async(ep, cb, eb);
+    pimpl_->connect_async(ep, on_connect, on_error, on_close);
 }
 
 connection::connection(server_side const&, adapter_ptr adp, endpoint const& ep)
@@ -850,9 +857,11 @@ connection::get_connector() const
 
 void
 connection::connect_async(endpoint const& ep,
-        functional::void_callback cb, functional::exception_callback eb)
+        functional::void_callback       on_connect,
+        functional::exception_callback  on_error,
+        close_callback                  on_close)
 {
-    pimpl_->connect_async(ep, cb, eb);
+    pimpl_->connect_async(ep, on_connect, on_error, on_close);
 }
 
 void

@@ -31,6 +31,7 @@ if(BUILD_CMD_UTILS)
     add_executable(wire-cnctr-admin connector_admin.cpp)
     target_link_libraries(
         wire-cnctr-admin
+        ${CMAKE_THREAD_LIBS_INIT}
         wire
         ${CONSOLE_LIB}
     )

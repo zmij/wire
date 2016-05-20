@@ -101,7 +101,7 @@ transport_type_traits< transport_type::socket >::get_endpoint_data(endpoint_type
 //    TCP transport
 //----------------------------------------------------------------------------
 tcp_transport::tcp_transport(asio_config::io_service_ptr io_svc)
-    : resolver_(*io_svc), socket_(*io_svc)
+    : resolver_{*io_svc}, socket_{*io_svc}, strand_{*io_svc}
 {
 }
 
@@ -129,9 +129,18 @@ tcp_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
     ep.check(traits::value);
     traits::endpoint_data const& tcp_data = ep.get< traits::endpoint_data >();
     resolver_type::query query( tcp_data.host, std::to_string(tcp_data.port) );
-    resolver_.async_resolve(query,
-            std::bind( &tcp_transport::handle_resolve, this,
-                    std::placeholders::_1, std::placeholders::_2, cb));
+//    try {
+//        resolver_type::iterator iter = resolver_.resolve(query);
+//        ASIO_NS::async_connect(socket_, iter, std::bind( &tcp_transport::handle_connect, this,
+//                    std::placeholders::_1, cb));
+//    } catch (std::exception const& e) {
+//        // FIXME connection_failed class
+//        ::std::cerr << "TCP connection error " << e.what() << "\n";
+//        throw errors::connection_failed(e.what());
+//    }
+    resolver_.async_resolve(query, strand_.wrap(
+            ::std::bind( &tcp_transport::handle_resolve, this,
+                    std::placeholders::_1, std::placeholders::_2, cb)));
 }
 
 void
@@ -147,9 +156,9 @@ tcp_transport::handle_resolve(asio_config::error_code const& ec,
         asio_config::asio_callback cb)
 {
     if (!ec) {
-        ASIO_NS::async_connect(socket_, endpoint_iterator,
+        ASIO_NS::async_connect(socket_, endpoint_iterator, strand_.wrap(
             std::bind( &tcp_transport::handle_connect, this,
-                    std::placeholders::_1, cb));
+                    std::placeholders::_1, cb)));
     } else if (cb) {
         cb(ec);
     }

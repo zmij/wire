@@ -119,6 +119,7 @@ struct tcp_transport {
     using socket_type           = traits::socket_type;
     using listen_socket_type    = traits::listen_socket_type;
     using resolver_type         = traits::resolver_type;
+    using strand_type           = asio_config::io_service::strand;
 
     tcp_transport(asio_config::io_service_ptr);
 
@@ -132,7 +133,7 @@ struct tcp_transport {
     template<typename BufferType, typename HandlerType>
     void async_write(BufferType const& buffer, HandlerType const& handler)
     {
-        ASIO_NS::async_write(socket_, buffer, handler);
+        ASIO_NS::async_write(socket_, buffer, strand_.wrap(handler));
     }
 
     template < typename BufferType >
@@ -147,7 +148,7 @@ struct tcp_transport {
     async_read(BufferType&& buffer, HandlerType handler)
     {
         ASIO_NS::async_read(socket_, std::forward< BufferType&& >(buffer),
-                ASIO_NS::transfer_at_least(1), handler);
+                ASIO_NS::transfer_at_least(1), strand_.wrap(handler));
     }
 
     template < typename BufferType >
@@ -191,6 +192,7 @@ private:
     resolver_type   resolver_;
     socket_type     socket_;
 
+    strand_type     strand_;
     // TODO timeout settings
 };
 

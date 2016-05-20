@@ -21,13 +21,17 @@
 #include <wire/core/proxy_fwd.hpp>
 #include <wire/core/reference_fwd.hpp>
 #include <wire/core/object_fwd.hpp>
+#include <wire/core/functional.hpp>
+
+#include <future>
 
 namespace wire {
 namespace core {
 
 class connector : public ::std::enable_shared_from_this<connector> {
 public:
-    typedef ::std::vector<::std::string> args_type;
+    using args_type             = ::std::vector<::std::string>;
+    using connection_callback   = ::std::function< void(connection_ptr) >;
 public:
     static connector_ptr
     create_connector();
@@ -64,6 +68,7 @@ private:
     static connector_ptr
     do_create_connector(asio_config::io_service_ptr svc, ::std::string const& name, T&& ... args);
 public:
+    ~connector();
     void
     confugure(int argc, char* argv[]);
     void
@@ -116,9 +121,40 @@ public:
      */
     connection_ptr
     get_outgoing_connection(endpoint const&);
+
+    template < template <typename> class _Promise = ::std::promise >
+    auto
+    get_outgoing_connection_async(endpoint const& ep, bool sync = false)
+        -> decltype(::std::declval<_Promise<connection_ptr>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<connection_ptr> >();
+        get_outgoing_connection_async(ep,
+            [promise](connection_ptr val)
+            {
+                promise->set_value(val);
+            },
+            [promise](::std::exception_ptr ex)
+            {
+                promise->set_exception(::std::move(ex));
+            }, sync
+        );
+
+        return promise->get_future();
+    }
+    void
+    get_outgoing_connection_async(endpoint const&,
+            connection_callback             on_get,
+            functional::exception_callback  on_error,
+            bool sync = false);
 private:
+    connector(connector const&) = delete;
+    connector(connector&&) = delete;
+    connector&
+    operator = (connector const&) = delete;
+    connector&
+    operator = (connector&&) = delete;
     struct impl;
-    typedef std::shared_ptr<impl> pimpl;
+    typedef ::std::unique_ptr<impl> pimpl;
     pimpl pimpl_;
 };
 
