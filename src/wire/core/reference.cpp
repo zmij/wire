@@ -121,7 +121,7 @@ fixed_reference::get_connection_async( connection_callback on_get,
             [on_error](::std::exception_ptr ex)
             {
                 try {
-                    on_error(::std::current_exception());
+                    on_error(ex);
                 } catch(...) {}
             },
             sync);

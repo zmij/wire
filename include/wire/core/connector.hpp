@@ -135,7 +135,7 @@ public:
             },
             [promise](::std::exception_ptr ex)
             {
-                promise->set_exception(::std::move(ex));
+                promise->set_exception(ex);
             }, sync
         );
 
