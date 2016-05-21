@@ -258,11 +258,20 @@ try {
         ("ls", console::command{ list_adapters_cmd{admin_prx}, [](){ return  "List adapters"; }})
         ("use", console::command{ use_adapter_cmd{admin_prx}, [](){ return "Use adapter admin";}});
 
-    auto t = ::std::thread{[io_service](){ io_service->run(); }};
+    auto t = ::std::thread{
+        [io_service]()
+        {
+            io_service->run();
+            ::std::cerr << ::std::this_thread::get_id() << " IO Svc exited\n";
+
+        }};
 
     auto ret = cnctr_cons.read_line();
     while (ret != console::quit && ret != console::eof) {
         ret = cnctr_cons.read_line();
+        if (io_service->stopped()) {
+            ::std::cerr << "IO Service is stopped!\n";
+        }
     }
     io_service->stop();
     t.join();
