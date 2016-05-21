@@ -221,6 +221,7 @@ int
 main(int argc, char* argv[])
 try {
     namespace po = ::boost::program_options;
+    using ::wire::asio_config::io_service;
 
     options opts;
 
@@ -241,9 +242,8 @@ try {
     }
     po::notify(vm);
 
-    ::wire::asio_config::io_service_ptr io_service =
-            ::std::make_shared<::wire::asio_config::io_service>();
-    core::connector_ptr conn = core::connector::create_connector(io_service);
+    auto io_svc = ::std::make_shared<io_service>();
+    core::connector_ptr conn = core::connector::create_connector(io_svc);
     core::object_prx obj = conn->make_proxy(opts.admin_ref);
     core::connector_admin_prx admin_prx =
             core::checked_cast< core::connector_admin_proxy >(obj);
@@ -258,22 +258,16 @@ try {
         ("ls", console::command{ list_adapters_cmd{admin_prx}, [](){ return  "List adapters"; }})
         ("use", console::command{ use_adapter_cmd{admin_prx}, [](){ return "Use adapter admin";}});
 
-    auto t = ::std::thread{
-        [io_service]()
-        {
-            io_service->run();
-            ::std::cerr << ::std::this_thread::get_id() << " IO Svc exited\n";
+    auto t = ::std::thread{ [io_svc]() { io_svc->run(); }};
 
-        }};
+    auto work = ::std::make_shared< io_service::work >(*io_svc);
 
     auto ret = cnctr_cons.read_line();
     while (ret != console::quit && ret != console::eof) {
         ret = cnctr_cons.read_line();
-        if (io_service->stopped()) {
-            ::std::cerr << "IO Service is stopped!\n";
-        }
     }
-    io_service->stop();
+    work.reset();
+    io_svc->stop();
     t.join();
     return 0;
 } catch (::std::exception const& e) {
