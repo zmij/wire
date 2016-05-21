@@ -28,7 +28,7 @@ option(BUILD_TESTS "Build tests for ${lib_name} library" ON)
 option(COMPILE_TESTS "Test compile generated sources" OFF)
 option(DEBUG_OUTPUT "Generate debug output" OFF)
 
-set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules" )
+set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules" )
 
 include(cmake/scripts/wire2cpp.cmake)
 

@@ -75,3 +75,10 @@ target_link_libraries(
 
 add_subdirectory(idl)
 add_subdirectory(wire2cpp)
+
+install (
+    TARGETS ${WIRE_LIB}
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
