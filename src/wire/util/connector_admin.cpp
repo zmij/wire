@@ -258,17 +258,11 @@ try {
         ("ls", console::command{ list_adapters_cmd{admin_prx}, [](){ return  "List adapters"; }})
         ("use", console::command{ use_adapter_cmd{admin_prx}, [](){ return "Use adapter admin";}});
 
-    auto t = ::std::thread{ [io_svc]() { io_svc->run(); }};
-
-    auto work = ::std::make_shared< io_service::work >(*io_svc);
-
     auto ret = cnctr_cons.read_line();
     while (ret != console::quit && ret != console::eof) {
         ret = cnctr_cons.read_line();
     }
-    work.reset();
     io_svc->stop();
-    t.join();
     return 0;
 } catch (::std::exception const& e) {
     ::std::cerr << "Exception: " << e.what() << "\n";
