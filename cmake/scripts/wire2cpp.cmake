@@ -31,12 +31,32 @@ function(wire_include_directories)
     set_property(DIRECTORY APPEND PROPERTY WIRE_INCLUDE_DIRECTORIES ${wire_includes})
 endfunction()
 
+## wire2cpp macro
+# Generates commands for generating C++ header and source files from wire
+# idl files.
+# INCLUDE_ROOT All includes with files from the same directory will be
+#              prepended with this path
+# HEADER_DIR   Directory to place header files
+# SOURCE_DIR   Directory to place source files
+# SOURCES      List of generated source files
+# HEADERS      List of generated header files
+# DEPENDENCIES List of generated dependency targets
+# OPTIONS      Additional options to pass to wire2cpp generator program
 function(wire2cpp)
-    set(argnames INCLUDE_ROOT HEADER_DIR SOURCE_DIR SOURCES HEADERS OPTIONS)
+    set(argnames
+        INCLUDE_ROOT
+        HEADER_DIR
+        SOURCE_DIR
+        SOURCES
+        HEADERS
+        DEPENDENCIES
+        OPTIONS)
     parse_argn("" argnames ${ARGN})
     set(out_cpps ${${SOURCES}})
     set(out_hpps ${${HEADERS}})
+    set(deps)
     set(wire2cpp_options ${WIRE_INCLUDE_DIRECTORIES})
+
     if(HEADER_DIR)
         list(APPEND wire2cpp_options --header-output-dir=${HEADER_DIR})
     endif()
@@ -74,7 +94,19 @@ function(wire2cpp)
             DEPENDS ${base_dir}/${wire_file} wire2cpp
             COMMENT "Generate C++ sources from ${wire_file}"
         )
+        if (DEPENDENCIES)
+            get_filename_component(target_name ${wire_file} NAME)
+            set(target_name ".${target_name}")
+            add_custom_target(
+                ${target_name}
+                COMMAND ${CMAKE_COMMAND} -E touch ${target_name}
+                DEPENDS ${cpp_file} ${hpp_file})
+            list(APPEND deps ${target_name})
+        endif()
     endforeach()
+    if (DEPENDENCIES)
+        set(${DEPENDENCIES} ${deps} PARENT_SCOPE)
+    endif()
     if (SOURCES)
         set(${SOURCES} ${out_cpps} PARENT_SCOPE)
     endif()
