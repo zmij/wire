@@ -9,6 +9,7 @@
 #define WIRE_DETAIL_WIRE_TRAITS_HPP_
 
 #include <wire/encoding/types.hpp>
+#include <wire/util/integral_constants.hpp>
 
 #include <type_traits>
 #include <string>
@@ -44,13 +45,6 @@ enum wire_types {
 template < wire_types V >
 using wire_type_constant = ::std::integral_constant< wire_types, V >;
 
-template < typename ConstantType, bool Condition, ConstantType ifTrue, ConstantType ifFalse >
-struct conditional_constant : ::std::integral_constant<ConstantType, ifTrue> {};
-
-template < typename ConstantType, ConstantType ifTrue, ConstantType ifFalse >
-struct conditional_constant< ConstantType, false, ifTrue, ifFalse >
-    : ::std::integral_constant<ConstantType, ifFalse> {};
-
 template < typename T >
 struct is_user_exception : ::std::false_type{};
 template < typename T >
@@ -61,9 +55,9 @@ struct wire_polymorphic_type;
 
 template < typename T >
 struct wire_polymorphic_type< T, true >
-    : conditional_constant<wire_types,
+    : util::conditional_constant<wire_types,
             is_user_exception<T>::value, EXCEPTION,
-            conditional_constant< wire_types,
+            util::conditional_constant< wire_types,
                 is_proxy<T>::value, PROXY, CLASS>::value
     > {};
 
@@ -127,29 +121,29 @@ struct wire_type< ::std::string > : ::std::integral_constant< wire_types, SCALAR
 template < typename T, ::std::size_t N >
 struct wire_type< ::std::array< T, N > > : ::std::integral_constant< wire_types, ARRAY_FIXED > {};
 
-template < typename T >
-struct wire_type< ::std::vector< T > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
-template < typename T >
-struct wire_type< ::std::list< T > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
-template < typename T >
-struct wire_type< ::std::deque< T > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
-template < typename T >
-struct wire_type< ::std::set< T > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
-template < typename T >
-struct wire_type< ::std::multiset< T > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
-template < typename T >
-struct wire_type< ::std::unordered_set< T > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
-template < typename T >
-struct wire_type< ::std::unordered_multiset< T > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
+template < typename T, typename ... Rest >
+struct wire_type< ::std::vector< T, Rest ... > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
+template < typename T, typename ... Rest >
+struct wire_type< ::std::list< T, Rest ... > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
+template < typename T, typename ... Rest >
+struct wire_type< ::std::deque< T, Rest ... > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
+template < typename T, typename ... Rest >
+struct wire_type< ::std::set< T, Rest ... > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
+template < typename T, typename ... Rest >
+struct wire_type< ::std::multiset< T, Rest ... > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
+template < typename T, typename ... Rest >
+struct wire_type< ::std::unordered_set< T, Rest ... > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
+template < typename T, typename ... Rest >
+struct wire_type< ::std::unordered_multiset< T, Rest ... > > : ::std::integral_constant< wire_types, ARRAY_VARLEN > {};
 
-template < typename K, typename V >
-struct wire_type< ::std::map< K, V > > : ::std::integral_constant< wire_types, DICTIONARY > {};
-template < typename K, typename V >
-struct wire_type< ::std::multimap< K, V > > : ::std::integral_constant< wire_types, DICTIONARY > {};
-template < typename K, typename V >
-struct wire_type< ::std::unordered_map< K, V > > : ::std::integral_constant< wire_types, DICTIONARY > {};
-template < typename K, typename V >
-struct wire_type< ::std::unordered_multimap< K, V > > : ::std::integral_constant< wire_types, DICTIONARY > {};
+template < typename K, typename V, typename ... Rest >
+struct wire_type< ::std::map< K, V, Rest ... > > : ::std::integral_constant< wire_types, DICTIONARY > {};
+template < typename K, typename V, typename ... Rest >
+struct wire_type< ::std::multimap< K, V, Rest ... > > : ::std::integral_constant< wire_types, DICTIONARY > {};
+template < typename K, typename V, typename ... Rest >
+struct wire_type< ::std::unordered_map< K, V, Rest ... > > : ::std::integral_constant< wire_types, DICTIONARY > {};
+template < typename K, typename V, typename ... Rest >
+struct wire_type< ::std::unordered_multimap< K, V, Rest ... > > : ::std::integral_constant< wire_types, DICTIONARY > {};
 
 template < typename T >
 struct polymorphic_type {
