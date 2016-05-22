@@ -28,6 +28,9 @@ constexpr bool transport_type_traits< transport_type::socket >::stream_oriented;
 //----------------------------------------------------------------------------
 //    Transport traits implementation
 //----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//    TCP transport traits implementation
+//----------------------------------------------------------------------------
 transport_type_traits< transport_type::tcp >::endpoint_type
 transport_type_traits< transport_type::tcp >::create_endpoint(
         asio_config::io_service_ptr svc, endpoint const& ep)
@@ -46,6 +49,9 @@ transport_type_traits< transport_type::tcp >::get_endpoint_data(endpoint_type co
     return endpoint::tcp(ep.address().to_string(), ep.port());
 }
 
+//----------------------------------------------------------------------------
+//    SSL transport traits implementation
+//----------------------------------------------------------------------------
 transport_type_traits< transport_type::ssl >::endpoint_type
 transport_type_traits< transport_type::ssl >::create_endpoint(
         asio_config::io_service_ptr svc, endpoint const& ep)
@@ -76,12 +82,18 @@ transport_type_traits< transport_type::udp >::create_endpoint(
     return proto_ep;
 }
 
+//----------------------------------------------------------------------------
+//    UDP transport traits implementation
+//----------------------------------------------------------------------------
 endpoint
 transport_type_traits< transport_type::udp >::get_endpoint_data(endpoint_type const& ep)
 {
     return endpoint::udp(ep.address().to_string(), ep.port());
 }
 
+//----------------------------------------------------------------------------
+//    Socket transport traits implementation
+//----------------------------------------------------------------------------
 transport_type_traits< transport_type::socket >::endpoint_type
 transport_type_traits< transport_type::socket >::create_endpoint(
         asio_config::io_service_ptr svc, endpoint const& ep)
@@ -95,6 +107,16 @@ endpoint
 transport_type_traits< transport_type::socket >::get_endpoint_data(endpoint_type const& ep)
 {
     return endpoint::socket(ep.path());
+}
+
+void
+transport_type_traits< transport_type::socket >::close_acceptor(acceptor_type& acceptor)
+{
+    auto ep = acceptor.local_endpoint();
+    auto path = ep.path();
+    acceptor.cancel();
+    acceptor.close();
+    unlink(path.c_str());
 }
 
 //----------------------------------------------------------------------------

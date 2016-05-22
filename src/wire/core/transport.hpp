@@ -51,6 +51,13 @@ struct transport_type_traits<transport_type::tcp> {
     create_endpoint(asio_config::io_service_ptr svc, endpoint const&);
     static endpoint
     get_endpoint_data(endpoint_type const&);
+
+    static void
+    close_acceptor(acceptor_type& acceptor)
+    {
+        acceptor.cancel();
+        acceptor.close();
+    }
 };
 
 template<>
@@ -72,6 +79,13 @@ struct transport_type_traits<transport_type::ssl> {
     create_endpoint(asio_config::io_service_ptr svc, endpoint const&);
     static endpoint
     get_endpoint_data(endpoint_type const&);
+
+    static void
+    close_acceptor(acceptor_type& acceptor)
+    {
+        acceptor.cancel();
+        acceptor.close();
+    }
 };
 
 template<>
@@ -112,6 +126,9 @@ struct transport_type_traits<transport_type::socket> {
     create_endpoint(asio_config::io_service_ptr svc, endpoint const&);
     static endpoint
     get_endpoint_data(endpoint_type const&);
+
+    static void
+    close_acceptor(acceptor_type& acceptor);
 };
 
 struct tcp_transport {
@@ -421,6 +438,7 @@ struct transport_listener {
     using session_factory       = std::function< session_ptr(asio_config::io_service_ptr) >;
 
     transport_listener(asio_config::io_service_ptr, session_factory);
+    ~transport_listener();
 
     void
     open(endpoint const&, bool reuse_port = false);
