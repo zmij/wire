@@ -25,7 +25,6 @@
 #include <sstream>
 #include <fstream>
 #include <mutex>
-#include <thread>
 
 namespace wire {
 namespace core {
@@ -41,11 +40,6 @@ struct connector::impl {
 
     connector_weak_ptr          owner_;
     asio_config::io_service_ptr io_service_;
-    // Not to let the io_service::run to exit before stop is called
-    asio_config::io_service::work work_;
-    // Thread to run io_service for supporting async operations
-    // in sync code
-    ::std::thread                work_thread_;
 
     //@{
     /** @name Configuration */
@@ -78,9 +72,7 @@ struct connector::impl {
     //@}
 
     impl(asio_config::io_service_ptr svc)
-        : io_service_{svc}, work_{*io_service_},
-          work_thread_{ [svc](){ svc->run(); } },
-          options_{},
+        : io_service_{svc}, options_{},
           cmd_line_options_{ options_.name + " command line options" },
           cfg_file_options_{ options_.name + " config file options" }
     {
@@ -89,19 +81,12 @@ struct connector::impl {
     }
 
     impl(asio_config::io_service_ptr svc, ::std::string const& name)
-        : io_service_{svc}, work_{*io_service_},
-          work_thread_{ [svc](){ svc->run(); } },
-          options_{name},
+        : io_service_{svc}, options_{name},
           cmd_line_options_{ options_.name + " command line options" },
           cfg_file_options_{ options_.name + " config file options" }
     {
         register_shutdown_observer();
         create_options_description();
-    }
-
-    ~impl()
-    {
-        work_thread_.join();
     }
 
     void
