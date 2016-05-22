@@ -658,6 +658,12 @@ connector::run()
     pimpl_->io_service_->run();
 }
 
+detail::connector_options const&
+connector::options() const
+{
+    return pimpl_->options_;
+}
+
 adapter_ptr
 connector::create_adapter(identity const& id)
 {

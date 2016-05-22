@@ -21,6 +21,8 @@
 #include <wire/core/proxy_fwd.hpp>
 #include <wire/core/reference_fwd.hpp>
 #include <wire/core/object_fwd.hpp>
+#include <wire/core/detail/configuration_options_fwd.hpp>
+
 #include <wire/core/functional.hpp>
 
 #include <future>
@@ -85,6 +87,9 @@ public:
     run();
     void
     stop();
+
+    detail::connector_options const&
+    options() const;
 
     //@{
     /** @name Adapters */

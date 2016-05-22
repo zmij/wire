@@ -223,6 +223,12 @@ adapter::io_service() const
     return pimpl_->io_service_;
 }
 
+detail::adapter_options const&
+adapter::options() const
+{
+    return pimpl_->options_;
+}
+
 void
 adapter::activate()
 {

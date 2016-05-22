@@ -12,6 +12,8 @@
 #include <wire/core/adapter.hpp>
 #include <wire/core/connector.hpp>
 
+#include <wire/core/detail/configuration_options.hpp>
+
 #include <wire/encoding/buffers.hpp>
 
 #include <wire/errors/not_found.hpp>
@@ -606,20 +608,47 @@ protected:
     functional::void_callback       on_close_;
 };
 
+template < typename T >
+struct is_secure : ::std::false_type {};
+template <>
+struct is_secure< ssl_transport > : ::std::true_type {};
+
 template < transport_type _type >
 struct connection_impl : connection_impl_base {
     using transport_traits    = transport_type_traits< _type >;
     using transport_type    = typename transport_traits::type;
     using socket_type        = typename transport_traits::listen_socket_type;
 
+    template < typename T = transport_type >
     connection_impl(client_side const& c, adapter_ptr adptr,
-            functional::void_callback on_close)
+            functional::void_callback on_close,
+            typename ::std::enable_if< !is_secure< T >::value, void >::type* = nullptr)
         : connection_impl_base{c, adptr, on_close}, transport_{ io_service_ }
     {
     }
+    template < typename T = transport_type >
     connection_impl(server_side const& s, adapter_ptr adptr,
-            functional::void_callback on_close)
+            functional::void_callback on_close,
+            typename ::std::enable_if< !is_secure< T >::value, void >::type* = nullptr)
         : connection_impl_base{s, adptr, on_close}, transport_{ io_service_ }
+    {
+    }
+    template < typename T = transport_type >
+    connection_impl(client_side const& c, adapter_ptr adptr,
+            functional::void_callback on_close,
+            detail::adapter_options const& opts = {},
+            typename ::std::enable_if< is_secure< T >::value, void >::type* = nullptr)
+        : connection_impl_base{c, adptr, on_close},
+          transport_{ io_service_, adptr->options().adapter_ssl }
+    {
+    }
+    template < typename T = transport_type >
+    connection_impl(server_side const& s, adapter_ptr adptr,
+            functional::void_callback on_close,
+            detail::adapter_options const& opts = {},
+            typename ::std::enable_if< is_secure< T >::value, void >::type* = nullptr)
+        : connection_impl_base{s, adptr, on_close},
+          transport_{ io_service_, adptr->options().adapter_ssl }
     {
     }
     virtual ~connection_impl()

@@ -23,9 +23,11 @@ namespace core {
 namespace detail {
 
 using tcp_connection_impl           = connection_impl< transport_type::tcp >;
+using ssl_connection_impl           = connection_impl< transport_type::ssl >;
 using socket_connection_impl        = connection_impl< transport_type::socket >;
 
 using tcp_listen_connection_impl    = listen_connection_impl< transport_type::tcp >;
+using ssl_listen_connection_impl    = listen_connection_impl< transport_type::ssl >;
 using socket_listen_connection_impl = listen_connection_impl< transport_type::socket >;
 
 class invocation_foolproof_guard {
@@ -55,12 +57,31 @@ connection_impl_base::create_connection(adapter_ptr adptr, transport_type _type,
     switch (_type) {
         case transport_type::tcp :
             return ::std::make_shared< tcp_connection_impl >( client_side{}, adptr, on_close );
+        case transport_type::ssl:
+            return ::std::make_shared< ssl_connection_impl >( client_side{}, adptr, on_close );
         case transport_type::socket :
-            return ::std::make_shared< socket_connection_impl >(client_side{}, adptr, on_close );
+            return ::std::make_shared< socket_connection_impl >( client_side{}, adptr, on_close );
         default:
             break;
     }
     throw errors::logic_error(_type, " connection is not implemented yet");
+}
+
+template < typename ListenConnection, typename Session >
+::std::shared_ptr< ListenConnection >
+create_listen_connection_impl(adapter_ptr adptr, functional::void_callback on_close)
+{
+    adapter_weak_ptr adptr_weak = adptr;
+    return ::std::make_shared< ListenConnection >(
+    adptr,
+    [adptr_weak, on_close]( asio_config::io_service_ptr svc) {
+        adapter_ptr a = adptr_weak.lock();
+        // TODO Throw an error if adapter gone away
+        if (!a) {
+            throw errors::runtime_error{ "Adapter gone away" };
+        }
+        return ::std::make_shared< Session >( server_side{}, a, on_close );
+    }, on_close);
 }
 
 connection_impl_ptr
@@ -70,29 +91,17 @@ connection_impl_base::create_listen_connection(adapter_ptr adptr, transport_type
     adapter_weak_ptr adptr_weak = adptr;
     switch (_type) {
         case transport_type::tcp:
-            return ::std::make_shared< tcp_listen_connection_impl >(
-                adptr,
-                [adptr_weak, on_close]( asio_config::io_service_ptr svc ){
-                    adapter_ptr a = adptr_weak.lock();
-                    // TODO Throw an error if adapter gone away
-                    if (!a) {
-                        throw errors::runtime_error{ "Adapter gone away" };
-                    }
-                    return ::std::make_shared< tcp_connection_impl >( server_side{}, a, on_close );
-                },
-                on_close);
+            return create_listen_connection_impl<
+                    tcp_listen_connection_impl,
+                    tcp_connection_impl >(adptr, on_close);
+        case transport_type::ssl:
+            return create_listen_connection_impl<
+                    ssl_listen_connection_impl,
+                    ssl_connection_impl >(adptr, on_close);
         case transport_type::socket:
-            return ::std::make_shared< socket_listen_connection_impl >(
-                adptr,
-                [adptr_weak, on_close]( asio_config::io_service_ptr svc ){
-                    adapter_ptr a = adptr_weak.lock();
-                    // TODO Throw an error if adapter gone away
-                    if (!a) {
-                        throw errors::runtime_error{ "Adapter gone away" };
-                    }
-                    return ::std::make_shared< socket_connection_impl >( server_side{}, a, on_close );
-                },
-                on_close);
+            return create_listen_connection_impl<
+                    socket_listen_connection_impl,
+                    socket_connection_impl >(adptr, on_close);
         default:
             break;
     }

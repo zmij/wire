@@ -17,6 +17,7 @@
 #include <wire/core/proxy_fwd.hpp>
 #include <wire/core/object_locator_fwd.hpp>
 #include <wire/core/endpoint.hpp>
+#include <wire/core/detail/configuration_options_fwd.hpp>
 
 #include <string>
 
@@ -45,6 +46,10 @@ public:
 
     asio_config::io_service_ptr
     io_service() const;
+
+    detail::adapter_options const&
+    options() const;
+
     /**
      * Start accepting connections
      */

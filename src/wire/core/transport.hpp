@@ -137,6 +137,7 @@ struct tcp_transport {
     using listen_socket_type    = traits::listen_socket_type;
     using resolver_type         = traits::resolver_type;
     using strand_type           = asio_config::io_service::strand;
+    static constexpr transport_type type = transport_type::tcp;
 
     tcp_transport(asio_config::io_service_ptr);
 
@@ -219,6 +220,7 @@ struct ssl_transport {
     using listen_socket_type    = traits::listen_socket_type;
     using resolver_type         = traits::resolver_type;
     using verify_mode           = ASIO_NS::ssl::verify_mode;
+    static constexpr transport_type type = transport_type::ssl;
 
     static asio_config::ssl_context
     create_context(detail::ssl_options const&);
@@ -257,7 +259,7 @@ struct ssl_transport {
 
     template < typename BufferType, typename HandlerType >
     void
-    async_read(BufferType& buffer, HandlerType handler)
+    async_read(BufferType&& buffer, HandlerType handler)
     {
         ASIO_NS::async_read(socket_, buffer,
                 ASIO_NS::transfer_at_least(1), handler);
@@ -309,6 +311,7 @@ struct udp_transport {
     using socket_type           = traits::socket_type;
     using endpoint_type         = traits::endpoint_type;
     using resolver_type         = traits::resolver_type;
+    static constexpr transport_type type = transport_type::udp;
 
     udp_transport(asio_config::io_service_ptr);
     /**
@@ -364,6 +367,7 @@ struct socket_transport {
     using socket_type = traits::socket_type;
     using listen_socket_type    = traits::listen_socket_type;
     using endpoint_type = traits::endpoint_type;
+    static constexpr transport_type type = transport_type::socket;
 
     socket_transport(asio_config::io_service_ptr);
     /**

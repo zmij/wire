@@ -362,14 +362,58 @@ TEST_F(Client, ProxyPingSyncTest)
     EXPECT_FALSE(tests[1]);
 }
 
-TEST_F(Client, DISABLED_SSL)
+TEST_F(Client, SSL)
 {
+    typedef transport_type_traits< transport_type::ssl > used_transport;
+    current_transport = used_transport::value;
     add_args.insert(add_args.end(), {
         "--cert-file", wire::test::SERVER_CERT,
         "--key-file", wire::test::SERVER_KEY,
+        "--validate-message"
     });
+    StartPartner();
+
+    ASSERT_NE(0, child_.pid);
+    ASSERT_EQ(used_transport::value, endpoint_.transport());
+    ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
+
+    connector::args_type config {
+        "--wire.connector.ssl.client.verify_file",
+        wire::test::CA_ROOT
+    };
+
+
+    connector_ptr cnctr = connector::create_connector(io_svc, config);
+    adapter_ptr bidir = cnctr->bidir_adapter();
+    connection c{client_side{}, bidir};
+
+    bool connected = false;
+    bool error = false;
+
+    c.connect_async(endpoint_,
+    [&](){
+        connected = true;
+        c.close();
+    },
+    [&](std::exception_ptr) {
+        error = true;
+    });
+
+    io_svc->run();
+
+    EXPECT_TRUE(connected);
+    EXPECT_FALSE(error);
+}
+
+TEST_F(Client, SSLInvalidServerCert)
+{
     typedef transport_type_traits< transport_type::ssl > used_transport;
     current_transport = used_transport::value;
+    add_args.insert(add_args.end(), {
+        "--cert-file", wire::test::SERVER_CERT,
+        "--key-file", wire::test::SERVER_KEY,
+        "--validate-message"
+    });
     StartPartner();
 
     ASSERT_NE(0, child_.pid);
@@ -386,6 +430,56 @@ TEST_F(Client, DISABLED_SSL)
     c.connect_async(endpoint_,
     [&](){
         connected = true;
+        c.close();
+    },
+    [&](std::exception_ptr) {
+        error = true;
+    });
+
+    io_svc->run();
+
+    EXPECT_FALSE(connected);
+    EXPECT_TRUE(error);
+}
+
+TEST_F(Client, SSLValidClientCert)
+{
+    typedef transport_type_traits< transport_type::ssl > used_transport;
+    current_transport = used_transport::value;
+    add_args.insert(add_args.end(), {
+        "--cert-file", wire::test::SERVER_CERT,
+        "--key-file", wire::test::SERVER_KEY,
+        "--verify-file", wire::test::CA_ROOT,
+        "--verify-client",
+        "--validate-message"
+    });
+    StartPartner();
+
+    ASSERT_NE(0, child_.pid);
+    ASSERT_EQ(used_transport::value, endpoint_.transport());
+    ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
+
+    connector::args_type config {
+        "--wire.connector.ssl.client.verify_file",
+        wire::test::CA_ROOT,
+        "--wire.connector.ssl.client.certificate",
+        wire::test::CLIENT_CERT,
+        "--wire.connector.ssl.client.key",
+        wire::test::CLIENT_KEY
+    };
+
+
+    connector_ptr cnctr = connector::create_connector(io_svc, config);
+    adapter_ptr bidir = cnctr->bidir_adapter();
+    connection c{client_side{}, bidir};
+
+    bool connected = false;
+    bool error = false;
+
+    c.connect_async(endpoint_,
+    [&](){
+        connected = true;
+        c.close();
     },
     [&](std::exception_ptr) {
         error = true;
@@ -395,6 +489,100 @@ TEST_F(Client, DISABLED_SSL)
 
     EXPECT_TRUE(connected);
     EXPECT_FALSE(error);
+}
+
+TEST_F(Client, SSLInvalidClientCert)
+{
+    typedef transport_type_traits< transport_type::ssl > used_transport;
+    current_transport = used_transport::value;
+    add_args.insert(add_args.end(), {
+        "--cert-file", wire::test::SERVER_CERT,
+        "--key-file", wire::test::SERVER_KEY,
+        "--verify-file", wire::test::CA_ROOT,
+        "--verify-client",
+        "--validate-message"
+    });
+    StartPartner();
+
+    ASSERT_NE(0, child_.pid);
+    ASSERT_EQ(used_transport::value, endpoint_.transport());
+    ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
+
+    connector::args_type config {
+        "--wire.connector.ssl.client.verify_file",
+        wire::test::OTHER_CA,
+        "--wire.connector.ssl.client.certificate",
+        wire::test::OTHER_CERT,
+        "--wire.connector.ssl.client.key",
+        wire::test::OTHER_KEY
+    };
+
+
+    connector_ptr cnctr = connector::create_connector(io_svc, config);
+    adapter_ptr bidir = cnctr->bidir_adapter();
+    connection c{client_side{}, bidir};
+
+    bool connected = false;
+    bool error = false;
+
+    c.connect_async(endpoint_,
+    [&](){
+        connected = true;
+        c.close();
+    },
+    [&](std::exception_ptr) {
+        error = true;
+    });
+
+    io_svc->run();
+
+    EXPECT_FALSE(connected);
+    EXPECT_TRUE(error);
+}
+
+TEST_F(Client, SSLNoClientCert)
+{
+    typedef transport_type_traits< transport_type::ssl > used_transport;
+    current_transport = used_transport::value;
+    add_args.insert(add_args.end(), {
+        "--cert-file", wire::test::SERVER_CERT,
+        "--key-file", wire::test::SERVER_KEY,
+        "--verify-file", wire::test::CA_ROOT,
+        "--verify-client",
+        "--validate-message"
+    });
+    StartPartner();
+
+    ASSERT_NE(0, child_.pid);
+    ASSERT_EQ(used_transport::value, endpoint_.transport());
+    ASSERT_NE(0, endpoint_.get< used_transport::endpoint_data >().port);
+
+    connector::args_type config {
+        "--wire.connector.ssl.client.verify_file",
+        wire::test::CA_ROOT
+    };
+
+
+    connector_ptr cnctr = connector::create_connector(io_svc, config);
+    adapter_ptr bidir = cnctr->bidir_adapter();
+    connection c{client_side{}, bidir};
+
+    bool connected = false;
+    bool error = false;
+
+    c.connect_async(endpoint_,
+    [&](){
+        connected = true;
+        c.close();
+    },
+    [&](std::exception_ptr) {
+        error = true;
+    });
+
+    io_svc->run();
+
+    EXPECT_FALSE(connected);
+    EXPECT_TRUE(error);
 }
 
 }  // namespace test
