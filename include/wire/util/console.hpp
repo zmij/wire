@@ -27,6 +27,24 @@ public:
         command_func    func;
         help_func       help;
 
+        command() = default;
+        /**
+         * Intentionally implicit
+         * @param f
+         * @param h
+         */
+        command( command_func f, help_func h = nullptr )
+            : func{f}, help{h} {}
+        command( command_func f, ::std::string const& help_str)
+            : func{f}, help{[help_str](){ return help_str; }} {}
+
+        command(command const&) = default;
+        command(command&&) = default;
+        command&
+        operator = (command const&) = default;
+        command&
+        operator = (command&&) = default;
+
         ret_code_type
         operator()(args_type const& args) const
         {
