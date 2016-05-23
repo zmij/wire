@@ -31,11 +31,11 @@ struct json_tokens : ::boost::spirit::lex::lexer< Lexer > {
     json_tokens()
         : string_literal{R"~(\"((\\\")|(\\.)|[^\"])+\")~" },
           empty_string{R"~("")~"},
-          decimal_literal{"-?([1-9][0-9]*)|0"},
+          integral_literal{"-?([1-9][0-9]*)|0"},
           float_literal{"-?([1-9][0-9]*)?\\.[0-9]*([eE]-?[1-9][0-9]*)?"},
           true_{"true"}, false_{"false"}, null{"null"}
     {
-        self = string_literal | decimal_literal | float_literal
+        self = string_literal | integral_literal | float_literal
             | true_ | false_ | null
             | '{' | '}' | '[' | ']' | ':' | ','
         ;
@@ -45,7 +45,7 @@ struct json_tokens : ::boost::spirit::lex::lexer< Lexer > {
         ;
     }
 
-    token_def<> string_literal, empty_string, decimal_literal, float_literal;
+    token_def<> string_literal, empty_string, integral_literal, float_literal;
     token_def<> true_, false_, null;
 };
 
