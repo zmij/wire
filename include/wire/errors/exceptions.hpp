@@ -34,6 +34,14 @@ public:
     connection_failed(T const& ... args) : runtime_error(args ...) {}
 };
 
+class request_timed_out : public runtime_error {
+public:
+    request_timed_out(std::string const& msg) : runtime_error{msg} {}
+    template < typename ... T >
+    request_timed_out(T const& ... args) : runtime_error(args ...) {}
+};
+
+
 class invalid_magic_number : public runtime_error {
 public:
     invalid_magic_number(std::string const& message) : runtime_error(message) {}

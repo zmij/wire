@@ -109,44 +109,80 @@ connection_impl_base::create_listen_connection(adapter_ptr adptr, transport_type
 }
 
 void
-connection_impl_base::set_timer()
+connection_impl_base::set_connection_timer()
 {
-    if (can_drop()) {
+    if (can_drop_connection()) {
         // FIXME Configurable timeout
-        if (timer_.expires_from_now(::std::chrono::seconds{10}) > 0) {
+        if (connection_timer_.expires_from_now(::std::chrono::seconds{10}) > 0) {
             #ifdef DEBUG_OUTPUT
             ::std::cerr << "Reset timer\n";
             #endif
-            timer_.async_wait(::std::bind(&connection_impl_base::on_timeout,
+            connection_timer_.async_wait(::std::bind(&connection_impl_base::on_connection_timeout,
                     shared_from_this(), ::std::placeholders::_1));
         } else {
             #ifdef DEBUG_OUTPUT
             ::std::cerr << "Set timer\n";
             #endif
-            timer_.async_wait(::std::bind(&connection_impl_base::on_timeout,
+            connection_timer_.async_wait(::std::bind(&connection_impl_base::on_connection_timeout,
                     shared_from_this(), ::std::placeholders::_1));
         }
     }
 }
 
 void
-connection_impl_base::on_timeout(asio_config::error_code const& ec)
+connection_impl_base::on_connection_timeout(asio_config::error_code const& ec)
 {
     if (!ec) {
         #ifdef DEBUG_OUTPUT
         ::std::cerr << "Timer expired\n";
         #endif
-        if (can_drop())
+        if (can_drop_connection())
             process_event(events::close{});
     }
 }
 
 bool
-connection_impl_base::can_drop() const
+connection_impl_base::can_drop_connection() const
 {
     return false; // Turn off connection timeout
     // TODO Check if peer endpoint has a routable bidir adapter
     //return pending_replies_.empty() && outstanding_responses_ <= 0;
+}
+
+void
+connection_impl_base::start_request_timer()
+{
+    request_timer_.expires_from_now(::std::chrono::milliseconds{500});
+    request_timer_.async_wait(::std::bind(&connection_impl_base::on_request_timeout,
+                    shared_from_this(), ::std::placeholders::_1));
+}
+
+void
+connection_impl_base::on_request_timeout(asio_config::error_code const& ec)
+{
+    {
+        lock_guard lock{reply_mutex_};
+        auto now = clock_type::now();
+        for (auto r = pending_replies_.begin(); r != pending_replies_.end(); ++r) {
+            if (r->second.expires < now) {
+                #ifdef DEBUG_OUTPUT
+                ::std::cerr << "Request timed out\n";
+                #endif
+                if (r->second.error) {
+                    auto err_handler = r->second.error;
+                    io_service_->post([err_handler](){
+                        try {
+                            err_handler(::std::make_exception_ptr(
+                                errors::request_timed_out{ "Request timed out" }
+                            ));
+                        } catch(...) {}
+                    });
+                }
+                pending_replies_.erase(r++);
+            }
+        }
+    }
+    start_request_timer();
 }
 
 void
@@ -183,6 +219,7 @@ connection_impl_base::handle_connected(asio_config::error_code const& ec)
         if (adp) {
             adp->connection_online(local_endpoint(), remote_endpoint());
         }
+        start_request_timer();
     } else {
         process_event(events::connection_failure{
             ::std::make_exception_ptr(errors::connection_failed(ec.message()))
@@ -223,15 +260,19 @@ connection_impl_base::handle_close()
     #ifdef DEBUG_OUTPUT
     ::std::cerr << "Handle close\n";
     #endif
-    timer_.cancel();
-    if (!pending_replies_.empty()) {
-        auto ex = ::std::make_exception_ptr(errors::connection_failed{ "Conection closed" });
-        for (auto const& req : pending_replies_) {
-            try {
-                req.second.error(ex);
-            } catch (...) {}
+    connection_timer_.cancel();
+    request_timer_.cancel();
+    {
+        lock_guard lock{reply_mutex_};
+        if (!pending_replies_.empty()) {
+            auto ex = ::std::make_exception_ptr(errors::connection_failed{ "Conection closed" });
+            for (auto const& req : pending_replies_) {
+                try {
+                    req.second.error(ex);
+                } catch (...) {}
+            }
+            pending_replies_.clear();
         }
-        pending_replies_.clear();
     }
 
     if (on_close_)
@@ -256,7 +297,7 @@ connection_impl_base::handle_write(asio_config::error_code const& ec, ::std::siz
 {
     if (!ec) {
         if (cb) cb();
-        set_timer();
+        set_connection_timer();
     } else {
         #ifdef DEBUG_OUTPUT
         ::std::cerr << "Write failed " << ec.message() << "\n";
@@ -289,7 +330,7 @@ connection_impl_base::handle_read(asio_config::error_code const& ec, ::std::size
     if (!ec) {
         read_incoming_message(buffer, bytes);
         start_read();
-        set_timer();
+        set_connection_timer();
     } else {
         #ifdef DEBUG_OUTPUT
         ::std::cerr << "Read failed " << ec.message() << "\n";
@@ -405,7 +446,12 @@ connection_impl_base::invoke(identity const& id, ::std::string const& op, contex
     params.close_all_encaps();
     out->insert_encapsulation(::std::move(params));
     functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
-    pending_replies_.insert(::std::make_pair( r.number, pending_reply{ reply, exception } ));
+    // TODO Pass timeout in invokation parameters
+    time_point expires = clock_type::now() + expire_duration{5000};
+    {
+        lock_guard lock{reply_mutex_};
+        pending_replies_.insert(::std::make_pair( r.number, pending_reply{ reply, exception, expires } ));
+    }
     process_event(events::send_request{ out, write_cb });
 
     if (run_sync) {
@@ -427,7 +473,11 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
         incoming::const_iterator b = buffer->begin();
         incoming::const_iterator e = buffer->end();
         read(b, e, rep);
-        auto f = pending_replies_.find(rep.number);
+        pending_replies_type::iterator f = pending_replies_.end();
+        {
+            lock_guard lock{reply_mutex_};
+            f = pending_replies_.find(rep.number);
+        }
         if (f != pending_replies_.end()) {
             switch (rep.status) {
                 case reply::success:{
@@ -536,7 +586,10 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
                     }
                     break;
             }
-            pending_replies_.erase(f);
+            {
+                lock_guard lock{reply_mutex_};
+                pending_replies_.erase(f);
+            }
             #ifdef DEBUG_OUTPUT
             ::std::cerr << "Pending replies: " << pending_replies_.size() << "\n";
             #endif

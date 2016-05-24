@@ -122,9 +122,11 @@ TEST_F(Client, TCPConnect)
     [&](){
         connected = true;
         c.close();
+        io_svc->stop();
     },
     [&](std::exception_ptr) {
         error = true;
+        io_svc->stop();
     });
 
     io_svc->run();
@@ -156,9 +158,11 @@ TEST_F(Client, TCPConnectFail)
     [&](){
         connected = true;
         c.close();
+        io_svc->stop();
     },
     [&](std::exception_ptr) {
         error = true;
+        io_svc->stop();
     });
 
     io_svc->run();
@@ -189,9 +193,11 @@ TEST_F(Client, TCPConnectInvalidValidate)
     [&](){
         connected = true;
         c.close();
+        io_svc->stop();
     },
     [&](std::exception_ptr) {
         error = true;
+        io_svc->stop();
     });
 
     io_svc->run();
@@ -239,11 +245,13 @@ TEST_F(Client, TCPSendRequest)
             test_int = i;
 
             c.close();
+            io_svc->stop();
         },
         [&](std::exception_ptr){
             std::cerr << "Exception received\n";
             tests[2] = true;
             c.close();
+            io_svc->stop();
         },
         [&](bool ){
             std::cerr << "Request sent\n";
@@ -254,6 +262,7 @@ TEST_F(Client, TCPSendRequest)
     [&](std::exception_ptr) {
         tests[4] = true;
         c.close();
+        io_svc->stop();
     });
 
     io_svc->run();
@@ -394,9 +403,11 @@ TEST_F(Client, SSL)
     [&](){
         connected = true;
         c.close();
+        io_svc->stop();
     },
     [&](std::exception_ptr) {
         error = true;
+        io_svc->stop();
     });
 
     io_svc->run();
@@ -431,9 +442,11 @@ TEST_F(Client, SSLInvalidServerCert)
     [&](){
         connected = true;
         c.close();
+        io_svc->stop();
     },
     [&](std::exception_ptr) {
         error = true;
+        io_svc->stop();
     });
 
     io_svc->run();
@@ -480,9 +493,11 @@ TEST_F(Client, SSLValidClientCert)
     [&](){
         connected = true;
         c.close();
+        io_svc->stop();
     },
     [&](std::exception_ptr) {
         error = true;
+        io_svc->stop();
     });
 
     io_svc->run();
@@ -529,9 +544,11 @@ TEST_F(Client, SSLInvalidClientCert)
     [&](){
         connected = true;
         c.close();
+        io_svc->stop();
     },
     [&](std::exception_ptr) {
         error = true;
+        io_svc->stop();
     });
 
     io_svc->run();
@@ -574,9 +591,11 @@ TEST_F(Client, SSLNoClientCert)
     [&](){
         connected = true;
         c.close();
+        io_svc->stop();
     },
     [&](std::exception_ptr) {
         error = true;
+        io_svc->stop();
     });
 
     io_svc->run();

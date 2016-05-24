@@ -28,6 +28,7 @@
 #include <iostream>
 #include <atomic>
 #include <map>
+#include <mutex>
 
 namespace wire {
 namespace core {
@@ -424,14 +425,21 @@ typedef ::boost::msm::back::state_machine< connection_fsm_< connection_impl_base
 
 struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_base>,
         connection_fsm {
+    using clock_type            = ::std::chrono::system_clock;
+    using time_point            = ::std::chrono::time_point< clock_type >;
+    using expire_duration       = ::std::chrono::duration< ::std::int64_t, ::std::milli >;
+
     struct pending_reply {
         encoding::reply_callback        reply;
         functional::exception_callback  error;
+        time_point                      expires;
     };
-    using pending_replies_type    = ::std::map< uint32_t, pending_reply >;
+    using pending_replies_type  = ::std::map< uint32_t, pending_reply >;
 
-    using incoming_buffer        = ::std::array< unsigned char, 1024 >;
-    using incoming_buffer_ptr    = ::std::shared_ptr< incoming_buffer >;
+    using incoming_buffer       = ::std::array< unsigned char, 1024 >;
+    using incoming_buffer_ptr   = ::std::shared_ptr< incoming_buffer >;
+    using mutex_type            = ::std::mutex;
+    using lock_guard            = ::std::lock_guard<mutex_type>;
 
     static connection_impl_ptr
     create_connection( adapter_ptr adptr, transport_type _type,
@@ -445,8 +453,9 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
         : adapter_{adptr},
           connector_{adptr->get_connector()},
           io_service_{adptr->io_service()},
-          timer_{*io_service_},
+          connection_timer_{*io_service_},
           request_no_{0},
+          request_timer_{*io_service_},
           outstanding_responses_{0},
           on_close_{ on_close }
     {
@@ -457,8 +466,9 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
         : adapter_{adptr},
           connector_{adptr->get_connector()},
           io_service_{adptr->io_service()},
-          timer_{*io_service_},
+          connection_timer_{*io_service_},
           request_no_{0},
+          request_timer_{*io_service_},
           outstanding_responses_{0},
           on_close_{ on_close }
     {
@@ -467,6 +477,8 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 
     virtual ~connection_impl_base()
     {
+        connection_timer_.cancel();
+        request_timer_.cancel();
         #ifdef DEBUG_OUTPUT
         ::std::cerr << "Destroy connection instance\n";
         #endif
@@ -480,11 +492,16 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     is_stream_oriented() const = 0;
 
     void
-    set_timer();
+    set_connection_timer();
     void
-    on_timeout(asio_config::error_code const& ec);
+    on_connection_timeout(asio_config::error_code const& ec);
     bool
-    can_drop() const;
+    can_drop_connection() const;
+
+    void
+    start_request_timer();
+    void
+    on_request_timeout(asio_config::error_code const& ec);
 
     void
     connect_async(endpoint const&,
@@ -600,10 +617,14 @@ public:
 protected:
     connector_weak_ptr              connector_;
     asio_config::io_service_ptr     io_service_;
-    asio_config::system_timer       timer_;
-    ::std::atomic<uint32_t>         request_no_;
-    encoding::incoming_ptr          incoming_;
+    asio_config::system_timer       connection_timer_;
+
+    ::std::atomic<::std::uint32_t>  request_no_;
+    asio_config::system_timer       request_timer_;
     pending_replies_type            pending_replies_;
+    mutex_type                      reply_mutex_;
+
+    encoding::incoming_ptr          incoming_;
     ::std::atomic<::std::int32_t>   outstanding_responses_;
     functional::void_callback       on_close_;
 };
