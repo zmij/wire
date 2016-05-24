@@ -17,8 +17,21 @@ namespace test {
 
 static_assert( traits::json_type< bool >::value == traits::value_type::BOOL,
         "Correct json value type" );
-static_assert( traits::json_type< int >::value == traits::value_type::NUMBER,
+static_assert( traits::json_type< int >::value == traits::value_type::INTEGRAL,
         "Correct json value type" );
+static_assert( traits::json_type< unsigned long >::value == traits::value_type::INTEGRAL,
+        "Correct json value type" );
+static_assert( traits::json_type< ::std::int64_t >::value == traits::value_type::INTEGRAL,
+        "Correct json value type" );
+static_assert( traits::json_type< char >::value == traits::value_type::INTEGRAL,
+        "Correct json value type" );
+
+static_assert( traits::json_type< traits::value_type >::value == traits::value_type::INTEGRAL,
+        "Correct json value type" );
+
+static_assert( traits::json_type< double >::value == traits::value_type::FLOATING,
+        "Correct json value type" );
+
 static_assert( traits::json_type< ::std::string >::value == traits::value_type::STRING,
         "Correct json value type");
 static_assert( traits::json_type< ::boost::uuids::uuid >::value == traits::value_type::STRING,

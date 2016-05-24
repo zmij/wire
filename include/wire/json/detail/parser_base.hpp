@@ -12,7 +12,6 @@
 #include <cstdint>
 #include <exception>
 #include <memory>
-#include <sstream>
 
 namespace wire {
 namespace json {
@@ -89,58 +88,6 @@ struct ignore_object_parser : ignore_parser {
 
     bool
     end_object() override;
-};
-
-template < typename T >
-struct streamable_object_parser : parser_base {
-    T& value;
-
-    virtual ~streamable_object_parser() {}
-
-    bool
-    string_literal(::std::string const& val) override
-    {
-        ::std::istringstream is(val);
-        T tmp;
-        if ((bool)(is >> tmp)) {
-            ::std::swap(value, tmp);
-            return true;
-        }
-        throw ::std::runtime_error{"Incompatible string value"};
-    }
-    bool
-    integral_literal(::std::int64_t val) override
-    {
-        ::std::istringstream is(::std::to_string(val));
-        T tmp;
-        if ((bool)(is >> tmp)) {
-            ::std::swap(value, tmp);
-            return true;
-        }
-        throw ::std::runtime_error{"Incompatible integral value"};
-    }
-    bool
-    float_literal(long double val) override
-    {
-        ::std::istringstream is(::std::to_string(val));
-        T tmp;
-        if ((bool)(is >> tmp)) {
-            ::std::swap(value, tmp);
-            return true;
-        }
-        throw ::std::runtime_error{"Incompatible float value"};
-    }
-    bool
-    bool_literal(bool val) override
-    {
-        ::std::istringstream is(val ? "true" : "false");
-        T tmp;
-        if ((bool)(is >> tmp)) {
-            ::std::swap(value, tmp);
-            return true;
-        }
-        throw ::std::runtime_error{"Incompatible boolean value"};
-    }
 };
 
 }  /* namespace detail */
