@@ -110,7 +110,6 @@ fixed_reference::get_connection_async( connection_callback on_get,
         if (current_ == ref_.endpoints.end()) {
             current_ = ref_.endpoints.begin();
         }
-        ::std::cerr << "Get fixed reference to " << *current_ << "\n";
         cntr->get_outgoing_connection_async(
             *current_++,
             [this, on_get, on_error](connection_ptr c)
@@ -132,7 +131,6 @@ fixed_reference::get_connection_async( connection_callback on_get,
             },
             sync);
     } else {
-        ::std::cerr << "Fixed reference is still there\n";
         try {
             on_get(conn);
         } catch(...) {}
