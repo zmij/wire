@@ -434,10 +434,10 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
         functional::exception_callback  error;
         time_point                      expires;
     };
-    using pending_replies_type  = ::std::map< uint32_t, pending_reply >;
+    using pending_replies_type    = ::std::map< uint32_t, pending_reply >;
 
-    using incoming_buffer       = ::std::array< unsigned char, 1024 >;
-    using incoming_buffer_ptr   = ::std::shared_ptr< incoming_buffer >;
+    using incoming_buffer        = ::std::array< unsigned char, 1024 >;
+    using incoming_buffer_ptr    = ::std::shared_ptr< incoming_buffer >;
     using mutex_type            = ::std::mutex;
     using lock_guard            = ::std::lock_guard<mutex_type>;
 
