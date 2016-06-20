@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <exception>
 #include <memory>
+#include <iosfwd>
 
 namespace wire {
 namespace json {
@@ -132,6 +133,13 @@ struct delegate_parser : parser_base {
     parse_result
     start_member(::std::string const&) override;
 };
+
+bool
+parse(parser_base&, char const* first, ::std::size_t size);
+bool
+parse(parser_base&, ::std::string const& data);
+bool
+parse(parser_base&, ::std::istream& is);
 
 }  /* namespace detail */
 }  /* namespace json */

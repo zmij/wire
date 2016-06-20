@@ -86,7 +86,10 @@ struct integral_parser_impl< true, T > : parser_base {
 
 template < typename T >
 struct integral_parser :
-        integral_parser_impl< ::std::is_enum<T>::value, T > {};
+        integral_parser_impl< ::std::is_enum<T>::value, T > {
+    using base_type = integral_parser_impl< ::std::is_enum<T>::value, T >;
+    integral_parser(T& value) : base_type{value} {}
+};
 
 struct boolean_parser : parser_base {
     bool& value;

@@ -6,6 +6,7 @@
  */
 
 #include <wire/json/detail/parser_base.hpp>
+#include <wire/json/detail/parser_traits.hpp>
 
 namespace wire {
 namespace json {
@@ -388,6 +389,45 @@ delegate_parser::start_member(::std::string const& name)
     if (current_parser_)
         return current_parser_->start_member(name);
     throw ::std::runtime_error{ "Unexpected member start" };
+}
+
+//----------------------------------------------------------------------------
+bool
+parse(parser_base& p, char const* first, ::std::size_t size)
+{
+    namespace qi = ::boost::spirit::qi;
+    using parser_traits = detail::parser_traits< char const* >;
+
+    parser_traits::tokenizer_type tokens;
+    parser_traits::token_iterator iter = tokens.begin(first, first + size);
+    parser_traits::token_iterator end = tokens.end();
+
+    parser_traits::grammar_type grammar(tokens, p);
+    return qi::phrase_parse(iter, end, grammar, qi::in_state("WS")[tokens.self]);
+}
+
+bool
+parse(parser_base& p, ::std::string const& str)
+{
+    return parse(p, str.data(), str.size());
+}
+
+bool
+parse(parser_base& p, ::std::istream& is)
+{
+    namespace qi = ::boost::spirit::qi;
+    using istream_iterator = ::boost::spirit::istream_iterator;
+    using parser_traits = detail::parser_traits< istream_iterator >;
+
+    istream_iterator sb{is};
+    istream_iterator se;
+
+    parser_traits::tokenizer_type tokens;
+    parser_traits::token_iterator iter = tokens.begin(sb, se);
+    parser_traits::token_iterator end = tokens.end();
+
+    parser_traits::grammar_type grammar(tokens, p);
+    return qi::phrase_parse(iter, end, grammar, qi::in_state("WS")[tokens.self]);
 }
 
 }  /* namespace detail */

@@ -7,8 +7,7 @@
 
 #include <gtest/gtest.h>
 #include <wire/json/parser.hpp>
-#include <wire/json/detail/parser_traits.hpp>
-#include <wire/json/detail/parser_base.hpp>
+#include <iterator>
 
 namespace wire {
 namespace json {
@@ -104,22 +103,53 @@ struct debug_parser : detail::parser_base {
     }
 };
 
-TEST(Parser, LexerConcept)
+TEST(Parser, CharIterator)
 {
-    namespace qi = ::boost::spirit::qi;
-    using parser_traits = detail::parser_traits< char const* >;
+    debug_parser parser;
+    bool r = detail::parse(parser, TEST_JSON_OBJECT.data(), TEST_JSON_OBJECT.size());
+    EXPECT_TRUE(r);
+}
 
-    auto sb = TEST_JSON_OBJECT.data();
-    auto se = sb + TEST_JSON_OBJECT.size();
-
-    parser_traits::tokenizer_type tokens;
-    parser_traits::token_iterator iter = tokens.begin(sb, se);
-    parser_traits::token_iterator end = tokens.end();
+TEST(Parser, StreamIterator)
+{
+    ::std::istringstream is{ TEST_JSON_OBJECT };
 
     debug_parser parser;
-    parser_traits::grammar_type grammar(tokens, parser);
-    bool r = qi::phrase_parse(iter, end, grammar, qi::in_state("WS")[tokens.self]);
+    bool r = detail::parse(parser, is);
     EXPECT_TRUE(r);
+}
+
+TEST(Parser, BoolParser)
+{
+    ::std::string json{"true"};
+
+    bool val{false};
+    detail::boolean_parser parser{val};
+
+    EXPECT_TRUE(detail::parse(parser, json));
+    EXPECT_TRUE(val);
+
+    json = "false";
+    EXPECT_TRUE(detail::parse(parser, json));
+    EXPECT_FALSE(val);
+}
+
+TEST(Parser, IntegralParser)
+{
+    ::std::string json{"42"};
+
+    int val{0};
+    detail::integral_parser< int > parser{val};
+    EXPECT_TRUE(detail::parse(parser, json));
+    EXPECT_EQ(42, val);
+
+    json = "0";
+    EXPECT_TRUE(detail::parse(parser, json));
+    EXPECT_EQ(0, val);
+
+    json = "-42";
+    EXPECT_TRUE(detail::parse(parser, json));
+    EXPECT_EQ(-42, val);
 }
 
 }  /* namespace test */
