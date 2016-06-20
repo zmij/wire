@@ -78,17 +78,6 @@ struct parser_state_adapter {
     };
     //@}
 
-    struct start_member_func {
-        using result = void;
-        state_type& state;
-
-        void
-        operator()(::std::string const& name) const
-        {
-            state.start_member(name);
-        }
-    };
-
     struct start_array_func {
         using result = void;
         state_type& state;
@@ -107,6 +96,16 @@ struct parser_state_adapter {
         operator()() const
         {
             state.end_array();
+        }
+    };
+    struct start_element_func {
+        using result = void;
+        state_type& state;
+
+        void
+        operator()() const
+        {
+            state.start_element();
         }
     };
 
@@ -130,6 +129,17 @@ struct parser_state_adapter {
             state.end_object();
         }
     };
+    struct start_member_func {
+        using result = void;
+        state_type& state;
+
+        void
+        operator()(::std::string const& name) const
+        {
+            state.start_member(name);
+        }
+    };
+
 
     parser_state_adapter(state_type& st)
         : state{st},
@@ -138,11 +148,12 @@ struct parser_state_adapter {
           float_literal     { float_literal_func{st} },
           bool_literal      { bool_literal_func{st} },
           null_literal      { null_literal_func{st} },
-          start_member      { start_member_func{st} },
           start_array       { start_array_func{st} },
           end_array         { end_array_func{st} },
+          start_element     { start_element_func{st} },
           start_object      { start_object_func{st} },
-          end_object        { end_object_func{st} }
+          end_object        { end_object_func{st} },
+          start_member      { start_member_func{st} }
     {
     }
 
@@ -157,11 +168,12 @@ struct parser_state_adapter {
     //@}
     //@{
     /** @name Scopes */
-    fn< start_member_func >     start_member;
     fn< start_array_func >      start_array;
     fn< end_array_func >        end_array;
+    fn< start_element_func >    start_element;
     fn< start_object_func >     start_object;
     fn< end_object_func >       end_object;
+    fn< start_member_func >     start_member;
     //@}
 };
 

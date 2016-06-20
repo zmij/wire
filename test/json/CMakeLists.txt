@@ -19,12 +19,14 @@ include_directories(${GTEST_INCLUDE_DIRS}
 
 set(json_test_SRCS
     static_tests.cpp
+    parse_tests.cpp
 )
 
 add_executable(test-json ${json_test_SRCS})
 target_link_libraries(test-json
     ${GTEST_BOTH_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
+    wire-json
 )
 
 if (GTEST_XML_OUTPUT)

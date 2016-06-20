@@ -8,6 +8,8 @@
 #include <gtest/gtest.h>
 
 #include <wire/json/traits.hpp>
+#include <wire/json/parser.hpp>
+
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 

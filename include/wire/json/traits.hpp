@@ -93,7 +93,7 @@ struct json_type< ::std::multiset< T, Rest ... > > : json_type_constant< value_t
 template < typename T, typename ... Rest>
 struct json_type< ::std::unordered_set< T, Rest ... > > : json_type_constant< value_type::ARRAY >{};
 template < typename T, typename ... Rest>
-struct json_type< ::std::unordered_multimap< T, Rest ... > > : json_type_constant< value_type::ARRAY >{};
+struct json_type< ::std::unordered_multiset< T, Rest ... > > : json_type_constant< value_type::ARRAY >{};
 //@}
 
 }  /* namespace traits */

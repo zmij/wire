@@ -28,14 +28,27 @@ struct json_tokens : ::boost::spirit::lex::lexer< Lexer > {
     template < typename ... T >
     using token_def = ::boost::spirit::lex::token_def<T...>;
 
+    enum token_ids {
+        id_string        = 1000,
+        id_empty_string,
+        id_integral,
+        id_float,
+        id_true,
+        id_false,
+        id_null
+    };
+
     json_tokens()
-        : string_literal{R"~(\"((\\\")|(\\.)|[^\"])+\")~" },
-          empty_string{R"~("")~"},
-          integral_literal{"-?([1-9][0-9]*)|0"},
-          float_literal{"-?([1-9][0-9]*)?\\.[0-9]*([eE]-?[1-9][0-9]*)?"},
-          true_{"true"}, false_{"false"}, null{"null"}
+        : string_literal{R"~(\"((\\\")|(\\.)|[^\"])+\")~", id_string },
+          empty_string{R"~(\"\")~", id_empty_string},
+          integral_literal{"-?([1-9][0-9]*)|0", id_integral},
+          float_literal{"-?([1-9][0-9]*)?\\.[0-9]*([eE]-?[1-9][0-9]*)?", id_float},
+          true_{"true", id_true},
+          false_{"false", id_false},
+          null{"null", id_null}
     {
-        self = string_literal | integral_literal | float_literal
+        self = string_literal | empty_string
+            | integral_literal | float_literal
             | true_ | false_ | null
             | '{' | '}' | '[' | ']' | ':' | ','
         ;
@@ -45,8 +58,11 @@ struct json_tokens : ::boost::spirit::lex::lexer< Lexer > {
         ;
     }
 
-    token_def<> string_literal, empty_string, integral_literal, float_literal;
-    token_def<> true_, false_, null;
+    token_def< ::std::string > string_literal, empty_string;
+    token_def< long > integral_literal;
+    token_def< long double > float_literal;
+    token_def< bool > true_, false_;
+    token_def<> null;
 };
 
 }  /* namespace lexer */

@@ -13,92 +13,97 @@
 
 namespace wire {
 namespace json {
-namespace detal {
+namespace detail {
 
 template < typename T >
 struct streamable_object_parser : parser_base {
     T& value;
 
+    explicit
+    streamable_object_parser(T& v) : value{v} {}
     virtual ~streamable_object_parser() {}
 
-    bool
+    parse_result
     string_literal(::std::string const& val) override
     {
         ::std::istringstream is(val);
         T tmp;
         if ((bool)(is >> tmp)) {
             ::std::swap(value, tmp);
-            return true;
+            return parse_result::done;
         }
         throw ::std::runtime_error{"Incompatible string value"};
     }
-    bool
+    parse_result
     integral_literal(::std::int64_t val) override
     {
         ::std::istringstream is(::std::to_string(val));
         T tmp;
         if ((bool)(is >> tmp)) {
             ::std::swap(value, tmp);
-            return true;
+            return parse_result::done;
         }
         throw ::std::runtime_error{"Incompatible integral value"};
     }
-    bool
+    parse_result
     float_literal(long double val) override
     {
         ::std::istringstream is(::std::to_string(val));
         T tmp;
         if ((bool)(is >> tmp)) {
             ::std::swap(value, tmp);
-            return true;
+            return parse_result::done;
         }
         throw ::std::runtime_error{"Incompatible float value"};
     }
-    bool
+    parse_result
     bool_literal(bool val) override
     {
         ::std::istringstream is(val ? "true" : "false");
         T tmp;
         if ((bool)(is >> tmp)) {
             ::std::swap(value, tmp);
-            return true;
+            return parse_result::done;
         }
         throw ::std::runtime_error{"Incompatible boolean value"};
     }
 };
 
 template<>
-struct streamable_object_parser< ::std::string > {
+struct streamable_object_parser< ::std::string > : parser_base {
     ::std::string& value;
+
+    explicit
+    streamable_object_parser(::std::string& v) : value{v} {}
     virtual ~streamable_object_parser() {}
 
-    bool
+    parse_result
     string_literal(::std::string const& val) override
     {
         value = val;
-        return true;
+        return parse_result::done;
     }
-    bool
+    parse_result
     integral_literal(::std::int64_t val) override
     {
         value = ::std::to_string(val);
-        return true;
+        return parse_result::done;
     }
-    bool
+    parse_result
     float_literal(long double val) override
     {
         value = ::std::to_string(val);
-        return true;
+        return parse_result::done;
     }
-    bool
+    parse_result
     bool_literal(bool val) override
     {
         value = val ? "true" : "false";
-        return true;
+        return parse_result::done;
     }
 };
 
-}  /* namespace detal */
+}  /* namespace detail */
 }  /* namespace json */
 }  /* namespace wire */
 

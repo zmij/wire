@@ -47,10 +47,10 @@ struct json_grammar : idl::grammar::parser_grammar< InputIterator, Lexer > {
         namespace qi = ::boost::spirit::qi;
         using qi::_1;
         using qi::eps;
+        using qi::lit;
 
         state_adapter parser{state};
 
-        json = value;
         value = object | array
             | tok.string_literal        [ parser.string_literal( dequote(_1) ) ]
             | tok.empty_string          [ parser.string_literal("") ]
@@ -61,9 +61,10 @@ struct json_grammar : idl::grammar::parser_grammar< InputIterator, Lexer > {
             | tok.null                  [ parser.null_literal() ]
         ;
 
-        array   = '['  >> eps           [ parser.start_array() ]
-                >> -(value >> *(',' >> value))
-                >> ']' >> eps           [ parser.end_array() ]
+        array   = ( '[' >> lit(']')     [ parser.start_array(), parser.end_array() ])
+                | ('[' >> eps           [ parser.start_array() ]
+                >> -(element >> *(',' >> element))
+                >> ']' >> eps           [ parser.end_array() ])
         ;
         object  = '{'  >> eps           [ parser.start_object() ]
                 >> -(member >> *(',' >> member))
@@ -71,10 +72,15 @@ struct json_grammar : idl::grammar::parser_grammar< InputIterator, Lexer > {
         ;
         member  = tok.string_literal    [ parser.start_member( dequote(_1) ) ]
                 >> ':' >> value;
+
+        element = eps                   [ parser.start_element() ]
+                >> value;
+
+        json = value.alias();
     }
 
     main_rule_type          json;
-    rule_type               member;
+    rule_type               member, element;
     rule_type               value, object, array;
 };
 

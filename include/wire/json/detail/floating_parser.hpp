@@ -15,37 +15,37 @@ namespace json {
 namespace detail {
 
 template < typename T >
-struct floating_parser_impl : parser_base {
+struct floating_parser : parser_base {
     T& value;
 
-    bool
+    parse_result
     string_literal(::std::string const& val) override
     {
         ::std::istringstream is(val);
         T tmp;
         if ((bool)(is >> tmp)) {
             ::std::swap(value, tmp);
-            return true;
+            return parse_result::done;
         }
         throw ::std::runtime_error{"Incompatible string value"};
     }
-    bool
+    parse_result
     integral_literal(::std::int64_t val) override
     {
         value = val;
-        return true;
+        return parse_result::done;
     }
-    bool
+    parse_result
     float_literal(long double val) override
     {
         value = val;
-        return true;
+        return parse_result::done;
     }
-    bool
+    parse_result
     bool_literal(bool val) override
     {
         value = val;
-        return true;
+        return parse_result::done;
     }
 };
 

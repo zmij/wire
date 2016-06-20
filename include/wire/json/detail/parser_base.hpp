@@ -23,31 +23,41 @@ struct parser;
 struct parser_base;
 using parser_base_ptr = ::std::shared_ptr<parser_base>;
 
+enum class parse_result {
+    need_more,
+    done
+};
+
 struct parser_base {
     virtual ~parser_base() {}
 
-    virtual bool
+    ::std::size_t
+    stack_size() const;
+
+    virtual parse_result
     string_literal(::std::string const&);
-    virtual bool
+    virtual parse_result
     integral_literal(::std::int64_t val);
-    virtual bool
+    virtual parse_result
     float_literal(long double val);
-    virtual bool
+    virtual parse_result
     bool_literal(bool val);
-    virtual bool
+    virtual parse_result
     null_literal();
 
-    virtual bool
-    start_member(::std::string const& name);
-
-    virtual bool
+    virtual parse_result
     start_array();
-    virtual bool
+    virtual parse_result
     end_array();
-    virtual bool
+    virtual parse_result
+    start_element();
+
+    virtual parse_result
     start_object();
-    virtual bool
+    virtual parse_result
     end_object();
+    virtual parse_result
+    start_member(::std::string const& name);
 protected:
     parser_base_ptr     current_parser_ = nullptr;
 };
@@ -55,39 +65,72 @@ protected:
 struct ignore_parser : parser_base {
     virtual ~ignore_parser() {}
 
-    bool
+    parse_result
     string_literal(::std::string const&) override;
-    bool
+    parse_result
     integral_literal(::std::int64_t val) override;
-    bool
+    parse_result
     float_literal(long double val) override;
-    bool
+    parse_result
     bool_literal(bool val) override;
-    bool
+    parse_result
     null_literal() override;
 
-    bool
+    parse_result
     start_array() override;
-    bool
+    parse_result
     end_array() override;
-    bool
+    parse_result
     start_object() override;
-    bool
+    parse_result
     end_object() override;
 };
 
 struct ignore_array_parser : ignore_parser {
     virtual ~ignore_array_parser() {}
 
-    bool
+    parse_result
     end_array() override;
+    parse_result
+    start_element() override;
 };
 
 struct ignore_object_parser : ignore_parser {
     virtual ~ignore_object_parser() {}
 
-    bool
+    parse_result
     end_object() override;
+    parse_result
+    start_member(::std::string const&) override;
+};
+
+struct delegate_parser : parser_base {
+    virtual ~delegate_parser() {}
+
+    parse_result
+    string_literal(::std::string const&) override;
+    parse_result
+    integral_literal(::std::int64_t val) override;
+    parse_result
+    float_literal(long double val) override;
+    parse_result
+    bool_literal(bool val) override;
+    parse_result
+    null_literal() override;
+
+    parse_result
+    start_array() override;
+    parse_result
+    end_array() override;
+    parse_result
+    start_element() override;
+
+    parse_result
+    start_object() override;
+    parse_result
+    end_object() override;
+    parse_result
+    start_member(::std::string const&) override;
 };
 
 }  /* namespace detail */
