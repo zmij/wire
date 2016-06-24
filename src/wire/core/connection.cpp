@@ -163,6 +163,7 @@ connection_impl_base::on_request_timeout(asio_config::error_code const& ec)
     {
         lock_guard lock{reply_mutex_};
         auto now = clock_type::now();
+        ::std::vector<pending_replies_type::const_iterator> to_erase;
         for (auto r = pending_replies_.begin(); r != pending_replies_.end(); ++r) {
             if (r->second.expires < now) {
                 #ifdef DEBUG_OUTPUT
@@ -178,8 +179,11 @@ connection_impl_base::on_request_timeout(asio_config::error_code const& ec)
                         } catch(...) {}
                     });
                 }
-                pending_replies_.erase(r++);
+                to_erase.push_back(r);
             }
+        }
+        for (auto r : to_erase) {
+            pending_replies_.erase(r);
         }
     }
     start_request_timer();
@@ -264,15 +268,15 @@ connection_impl_base::handle_close()
     request_timer_.cancel();
     {
         lock_guard lock{reply_mutex_};
-        if (!pending_replies_.empty()) {
-            auto ex = ::std::make_exception_ptr(errors::connection_failed{ "Conection closed" });
-            for (auto const& req : pending_replies_) {
-                try {
-                    req.second.error(ex);
-                } catch (...) {}
-            }
-            pending_replies_.clear();
+    if (!pending_replies_.empty()) {
+        auto ex = ::std::make_exception_ptr(errors::connection_failed{ "Conection closed" });
+        for (auto const& req : pending_replies_) {
+            try {
+                req.second.error(ex);
+            } catch (...) {}
         }
+        pending_replies_.clear();
+    }
     }
 
     if (on_close_)
@@ -588,7 +592,7 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
             }
             {
                 lock_guard lock{reply_mutex_};
-                pending_replies_.erase(f);
+            pending_replies_.erase(f);
             }
             #ifdef DEBUG_OUTPUT
             ::std::cerr << "Pending replies: " << pending_replies_.size() << "\n";
