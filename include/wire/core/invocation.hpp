@@ -16,7 +16,7 @@
 
 #include <wire/errors/not_found.hpp>
 
-#include <wire/util/function_traits.hpp>
+#include <pushkin/meta/function_traits.hpp>
 
 namespace wire {
 namespace core {
@@ -94,17 +94,17 @@ struct local_invocation;
 template < typename Handler, typename Member,
             size_t ... Indexes, typename ... Args >
 struct local_invocation< Handler, Member,
-            util::indexes_tuple< Indexes ... >, Args ... > {
+            ::psst::meta::indexes_tuple< Indexes ... >, Args ... > {
     using member_type       = Member;
-    using member_traits     = util::function_traits< member_type >;
+    using member_traits     = ::psst::meta::function_traits< member_type >;
     using interface_type    = typename member_traits::class_type;
     using servant_ptr       = ::std::shared_ptr< interface_type >;
 
     using response_hander   = Handler;
-    using response_traits   = util::function_traits<response_hander>;
+    using response_traits   = ::psst::meta::function_traits<response_hander>;
     using response_args     = typename response_traits::decayed_args_tuple_type;
 
-    static constexpr bool is_void       = util::is_func_void< member_type >::value;
+    static constexpr bool is_void       = ::psst::meta::is_func_void< member_type >::value;
     static constexpr bool is_sync       = is_sync_dispatch< member_type >::value;
     static constexpr bool void_response = response_traits::arity == 0;
 
@@ -253,7 +253,7 @@ struct local_invocation< Handler, Member,
                 auto end = encaps.end();
                 read(begin, end, args);
                 encaps.read_indirection_table(begin);
-                util::invoke(resp, args);
+                ::psst::meta::invoke(resp, args);
             } catch (...) {
                 if (exc) {
                     try {
@@ -287,7 +287,7 @@ struct remote_invocation;
 
 template < typename Handler, size_t ... Indexes, typename ... Args >
 struct remote_invocation< Handler,
-                util::indexes_tuple< Indexes ... >, Args ... > {
+        ::psst::meta::indexes_tuple< Indexes ... >, Args ... > {
     using invocation_args =
             ::std::tuple<
                   ::std::reference_wrapper<
@@ -327,7 +327,7 @@ make_invocation(reference const&        ref,
         functional::callback< bool >    sent,
         Args const& ...                 args)
 {
-    using index_type        = typename util::index_builder< sizeof ... (Args) >::type;
+    using index_type        = typename ::psst::meta::index_builder< sizeof ... (Args) >::type;
     using remote_invocation = detail::remote_invocation< Handler, index_type, Args ... >;
     using remote_args       = typename remote_invocation::invocation_args;
     using local_invocation  = detail::local_invocation< Handler, Member, index_type, Args ... >;

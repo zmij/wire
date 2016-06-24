@@ -20,7 +20,7 @@ static_assert(core::detail::is_sync_dispatch<decltype(&::test::ping_pong::test_i
 static_assert(!core::detail::is_sync_dispatch<decltype(&::test::ping_pong::async_error)>::value,
         "test_string is async");
 static_assert(::std::is_same<
-        util::function_traits<decltype(&::test::ping_pong::async_error)>::class_type,
+        ::psst::meta::function_traits<decltype(&::test::ping_pong::async_error)>::class_type,
         ::test::ping_pong>::value, "Correct class owner");
 
 ::std::int32_t
