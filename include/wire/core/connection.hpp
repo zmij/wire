@@ -21,7 +21,7 @@
 #include <wire/core/adapter_fwd.hpp>
 #include <wire/core/functional.hpp>
 
-#include <wire/util/function_traits.hpp>
+#include <pushkin/meta/function_traits.hpp>
 
 #include <wire/encoding/buffers.hpp>
 
@@ -86,8 +86,8 @@ public:
     set_adapter(adapter_ptr);
 
     template < typename Handler, typename ... Args >
-    typename ::std::enable_if< (util::is_callable<Handler>::value &&
-            util::function_traits< Handler >::arity > 0), void >::type
+    typename ::std::enable_if< (::psst::meta::is_callable_object<Handler>::value &&
+            ::psst::meta::function_traits< Handler >::arity > 0), void >::type
     invoke(identity const& id, ::std::string const& op, context_type const& ctx,
             bool run_sync,
             Handler response,
@@ -95,7 +95,7 @@ public:
             functional::callback< bool > sent,
             Args const& ... args)
     {
-        using handler_traits = util::function_traits<Handler>;
+        using handler_traits = ::psst::meta::function_traits<Handler>;
         using args_tuple = typename handler_traits::decayed_args_tuple_type;
 
         using encoding::incoming;
@@ -108,7 +108,7 @@ public:
                     args_tuple args;
                     encoding::read(begin, end, args);
                     encaps.read_indirection_table(begin);
-                    util::invoke(response, args);
+                    ::psst::meta::invoke(response, args);
                 } catch(...) {
                     if (exception) {
                         try {

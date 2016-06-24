@@ -54,6 +54,10 @@ if (NOT TIP_IRI_INCLUDE_DIRS)
     set(_TIP_IRI_SUBTREE ON)
 endif()
 
+if (NOT METAPUSHKIN_INCLUDE_DIR)
+    set(_METAPUSHKIN_SUBTREE ON)
+endif()
+
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -98,6 +102,10 @@ if(_TIP_IRI_SUBTREE)
     add_subdirectory(lib/iri)
 endif()
 
+if(_METAPUSHKIN_SUBTREE)
+    add_subdirectory(lib/meta)
+endif()
+
 if (NOT BOOST_PROCESS_INCLUDE_DIRS)
     message(STATUS "Use bundled boost::process")
     set(_BP_BUILD_TESTS ${BUILD_TESTS})
@@ -108,9 +116,12 @@ if (NOT BOOST_PROCESS_INCLUDE_DIRS)
 endif()
 message(STATUS "Boost process includes ${BOOST_PROCESS_INCLUDE_DIRS}")
 
-include_directories(${BOOST_PROCESS_INCLUDE_DIRS})
-include_directories(${CMAKE_BINARY_DIR}/include)
-include_directories(${TIP_IRI_INCLUDE_DIRS})
+include_directories(
+    ${CMAKE_BINARY_DIR}/include
+    ${BOOST_PROCESS_INCLUDE_DIRS}
+    ${TIP_IRI_INCLUDE_DIRS}
+    ${METAPUSHKIN_INCLUDE_DIR}
+)
 
 # Add subdirectories here
 add_subdirectory(experiments)

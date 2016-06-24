@@ -12,7 +12,6 @@
 #include <wire/encoding/detail/helpers.hpp>
 #include <wire/encoding/detail/fixed_io.hpp>
 #include <wire/encoding/detail/wire_io_detail.hpp>
-#include <wire/util/meta_helpers.hpp>
 
 namespace wire {
 namespace encoding {

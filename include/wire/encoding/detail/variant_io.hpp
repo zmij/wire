@@ -12,7 +12,7 @@
 #include <wire/encoding/detail/helpers.hpp>
 #include <wire/encoding/detail/varint_io.hpp>
 #include <wire/encoding/detail/wire_io_fwd.hpp>
-#include <wire/util/meta_helpers.hpp>
+#include <pushkin/meta/index_tuple.hpp>
 
 #include <functional>
 #include <array>
@@ -44,7 +44,7 @@ template < typename OutputIterator, typename IndexesTuple, typename ... T >
 struct variant_write_unwrapper_base;
 
 template < typename OutputIterator, ::std::size_t ... Indexes, typename ... T >
-struct variant_write_unwrapper_base< OutputIterator, util::indexes_tuple< Indexes ... >, T ... > {
+struct variant_write_unwrapper_base< OutputIterator, ::psst::meta::indexes_tuple< Indexes ... >, T ... > {
     using variant_type      = ::boost::variant< T ... >;
     using in_type           = typename arg_type_helper< variant_type >::in_type;
     using iterator_type     = OutputIterator;
@@ -76,7 +76,7 @@ struct variant_write_unwrapper_base< OutputIterator, util::indexes_tuple< Indexe
 
 template < typename OutputIterator, typename ... T >
 struct variant_write_unwrapper :
-    variant_write_unwrapper_base< OutputIterator, typename util::index_builder< sizeof ... (T) >::type, T ... > {};
+    variant_write_unwrapper_base< OutputIterator, typename ::psst::meta::index_builder< sizeof ... (T) >::type, T ... > {};
 
 
 template < typename ... T >
@@ -118,7 +118,7 @@ template < typename InputIterator, typename IndexesTuple, typename ... T >
 struct variant_read_unwrapper_base;
 
 template < typename InputIterator, ::std::size_t ... Indexes, typename ... T >
-struct variant_read_unwrapper_base< InputIterator, util::indexes_tuple< Indexes ... >, T ... > {
+struct variant_read_unwrapper_base< InputIterator, ::psst::meta::indexes_tuple< Indexes ... >, T ... > {
     using variant_type      = ::boost::variant< T ... >;
     using out_type          = typename arg_type_helper< variant_type >::out_type;
     using iterator_type     = InputIterator;
@@ -151,7 +151,8 @@ struct variant_read_unwrapper_base< InputIterator, util::indexes_tuple< Indexes 
 
 template < typename InputIterator, typename ... T >
 struct variant_read_unwrapper :
-    variant_read_unwrapper_base< InputIterator, typename util::index_builder< sizeof ... (T) >::type, T ... > {};
+    variant_read_unwrapper_base< InputIterator,
+        typename ::psst::meta::index_builder< sizeof ... (T) >::type, T ... > {};
 
 template < typename ... T >
 struct reader< ::boost::variant< T ... > > {

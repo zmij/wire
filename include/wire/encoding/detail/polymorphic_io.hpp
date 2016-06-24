@@ -15,8 +15,6 @@
 #include <wire/encoding/segment.hpp>
 #include <wire/encoding/buffers.hpp>
 
-#include <wire/util/meta_helpers.hpp>
-
 namespace wire {
 namespace encoding {
 namespace detail {
