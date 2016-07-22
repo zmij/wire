@@ -196,7 +196,6 @@ struct connection_fsm_def :
             ::std::cerr << "Dispatch request\n";
             #endif
             fsm->post(&concrete_type::dispatch_incoming_request, req.incoming);
-            //fsm->dispatch_incoming_request(req.incoming);
         }
     };
     struct dispatch_reply {
@@ -205,7 +204,6 @@ struct connection_fsm_def :
         operator()(events::receive_reply const& rep, fsm_type& fsm, SourceState&, TargetState&)
         {
             fsm->post(&concrete_type::dispatch_reply, rep.incoming);
-            //fsm->dispatch_reply(rep.incoming);
         }
     };
     //@}
