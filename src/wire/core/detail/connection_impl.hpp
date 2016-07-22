@@ -20,10 +20,7 @@
 #include <wire/errors/user_exception.hpp>
 #include <wire/errors/unexpected.hpp>
 
-#include <boost/msm/back/state_machine.hpp>
-#include <boost/msm/front/state_machine_def.hpp>
-#include <boost/msm/front/functor_row.hpp>
-#include <boost/msm/front/euml/operator.hpp>
+#include <afsm/fsm.hpp>
 
 #include <iostream>
 #include <atomic>
@@ -69,21 +66,37 @@ struct send_reply{};
 
 }  // namespace events
 
-template < typename Concrete >
-struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_< Concrete > > {
+template < typename Mutex, typename Concrete >
+struct connection_fsm_def :
+        ::afsm::def::state_machine<
+             connection_fsm_def< Mutex, Concrete > > {
+    using concrete_type = Concrete;
+    using mutex_type    = Mutex;
+
+    using this_type     = connection_fsm_def< mutex_type, concrete_type >;
+    typedef ::afsm::state_machine< this_type, mutex_type > fsm_type;
     //@{
-    /** @name Typedefs for MSM types */
+    /** @name Typedefs for AFSM types */
+    template < typename StateDef, typename ... Tags >
+    using state = ::afsm::def::state<StateDef, Tags...>;
+    template < typename MachineDef, typename ... Tags >
+    using state_machine = ::afsm::def::state_machine<MachineDef, Tags...>;
     template < typename ... T >
-    using Row = boost::msm::front::Row< T ... >;
+    using transition_table = ::afsm::def::transition_table<T...>;
+    template < typename Predicate >
+    using not_ = ::psst::meta::not_<Predicate>;
+
+    using none = ::afsm::none;
+
+    template < typename Event, typename Action = none, typename Guard = none >
+    using in = ::afsm::def::internal_transition< Event, Action, Guard>;
+    template <typename SourceState, typename Event, typename TargetState,
+            typename Action = none, typename Guard = none>
+    using tr = ::afsm::def::transition<SourceState, Event, TargetState, Action, Guard>;
     template < typename ... T >
-    using Internal = boost::msm::front::Internal< T ... >;
-    using none = boost::msm::front::none;
-    template < typename T >
-    using Not = boost::msm::front::euml::Not_< T >;
+    using type_tuple = ::psst::meta::type_tuple<T...>;
     //@}
     //@{
-    typedef ::boost::msm::back::state_machine< connection_fsm_ > fsm_type;
-    using concrete_type = Concrete;
     enum connection_mode {
         client,
         server,
@@ -197,19 +210,19 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 
     //@{
     /** @name States */
-    struct unplugged : ::boost::msm::front::state<> {
-        typedef ::boost::mpl::vector<
+    struct unplugged : state< unplugged > {
+        using deferred_events = type_tuple<
             events::send_request
-        > deferred_events;
+        >;
     };
 
-    struct connecting : ::boost::msm::front::state<> {
-        typedef ::boost::mpl::vector<
+    struct connecting : state< connecting > {
+        using deferred_events = type_tuple<
             events::send_request
-        > deferred_events;
+        >;
 
         void
-        on_entry(events::connect const& evt, fsm_type& fsm)
+        on_enter(events::connect const& evt, fsm_type& fsm)
         {
             #ifdef DEBUG_OUTPUT
             ::std::cerr << "connecting enter\n";
@@ -258,10 +271,10 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         functional::exception_callback  fail;
     };
 
-    struct wait_validate : ::boost::msm::front::state<> {
-        typedef ::boost::mpl::vector<
+    struct wait_validate : state< wait_validate > {
+        using deferred_events = type_tuple<
             events::send_request
-        > deferred_events;
+        >;
 
         wait_validate()
             : success{nullptr}, fail{nullptr}
@@ -270,7 +283,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 
         template < typename Event >
         void
-        on_entry(Event const&, fsm_type& fsm)
+        on_enter(Event const&, fsm_type& fsm)
         {
             #ifdef DEBUG_OUTPUT
             ::std::cerr << "wait_validate enter\n";
@@ -319,18 +332,17 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         functional::exception_callback  fail;
     };
 
-    struct connected : ::boost::msm::front::state<> {
-        struct internal_transition_table : ::boost::mpl::vector<
-            /*           Event                      Action              Guard    */
-            Internal<    events::send_request,      send_request,       none    >,
-            Internal<    events::receive_request,   dispatch_request,   none    >,
-            Internal<    events::receive_reply,     dispatch_reply,     none    >,
-            Internal<    events::receive_validate,  none,               none    >,
-            Internal<    events::connected,         none,               none    >
-        > {};
+    struct connected : state< connected > {
+        using internal_transitions = transition_table<
+            in< events::send_request,       send_request,       none    >,
+            in< events::receive_request,    dispatch_request,   none    >,
+            in< events::receive_reply,      dispatch_reply,     none    >,
+            in< events::receive_validate,   none,               none    >,
+            in< events::connected,          none,               none    >
+        >;
         template < typename Event >
         void
-        on_entry(Event const&, fsm_type& fsm)
+        on_enter(Event const&, fsm_type& fsm)
         {
             #ifdef DEBUG_OUTPUT
             ::std::cerr << "connected enter\n";
@@ -346,10 +358,10 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         }
     };
 
-    struct terminated : ::boost::msm::front::terminate_state<> {
+    struct terminated : ::afsm::def::terminal_state< terminated > {
         template < typename Event >
         void
-        on_entry(Event const&, fsm_type& fsm)
+        on_enter(Event const&, fsm_type& fsm)
         {
             #ifdef DEBUG_OUTPUT
             ::std::cerr << "terminated enter\n";
@@ -364,17 +376,17 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
     //@{
     /** @name Guards */
     struct is_server {
-        template < typename Event, typename SourceState, typename TargetState >
+        template < typename State >
         bool
-        operator()(Event const&, fsm_type& fsm, SourceState&, TargetState&)
+        operator()(fsm_type const& fsm, State const&)
         {
             return fsm.mode_ >= server;
         }
     };
     struct is_stream_oriented {
-        template < typename Event, typename SourceState, typename TargetState >
+        template < typename State >
         bool
-        operator()(Event const&, fsm_type& fsm, SourceState&, TargetState&)
+        operator()(fsm_type const& fsm, State const&)
         {
             return fsm->is_stream_oriented();
         }
@@ -383,29 +395,29 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 
     //@{
     /** @name Transition table */
-    struct transition_table : ::boost::mpl::vector<
-            /*    Start            Event                        Next                Action            Guard            */
+    using transitions = transition_table<
+        /*  Start           Event                       Next                Action          Guard                       */
         /* Start client connection */
-        Row<    unplugged,        events::connect,              connecting,           connect,         none                    >,
-        Row<    connecting,       events::connected,            wait_validate,        on_connected,    is_stream_oriented      >,
-        Row<    connecting,       events::connected,            connected,            none,            Not<is_stream_oriented> >,
+        tr< unplugged,      events::connect,            connecting,         connect,        none                        >,
+        tr< connecting,     events::connected,          wait_validate,      on_connected,   is_stream_oriented          >,
+        tr< connecting,     events::connected,          connected,          none,           not_<is_stream_oriented>    >,
         /* Start server connection */
-        Row<    unplugged,        events::start,                wait_validate,        send_validate,    none                   >,
-        Row<    unplugged,        events::start,                connected,            none,            Not<is_stream_oriented> >,
+        tr< unplugged,      events::start,              wait_validate,      send_validate,  none                        >,
+        tr< unplugged,      events::start,              connected,          none,           not_<is_stream_oriented>    >,
         /* Validate connection */
-        Row<    wait_validate,    events::receive_validate,     connected,            on_connected,    is_server               >,
-        Row<    wait_validate,    events::receive_validate,     connected,            send_validate,   Not<is_server>          >,
+        tr< wait_validate,  events::receive_validate,   connected,          on_connected,   is_server                   >,
+        tr< wait_validate,  events::receive_validate,   connected,          send_validate,  not_<is_server>             >,
         /* Close connection */
-        Row<    unplugged,        events::close,                terminated,           none,            none                    >,
-        Row<    connecting,       events::close,                terminated,           none,            none                    >,
-        Row<    wait_validate,    events::close,                terminated,           none,            none                    >,
-        Row<    connected,        events::close,                terminated,           send_close,      none                    >,
-        Row<    connected,        events::receive_close,        terminated,           none,            none                    >,
+        tr< unplugged,      events::close,              terminated,         none,           none                        >,
+        tr< connecting,     events::close,              terminated,         none,           none                        >,
+        tr< wait_validate,  events::close,              terminated,         none,           none                        >,
+        tr< connected,      events::close,              terminated,         send_close,     none                        >,
+        tr< connected,      events::receive_close,      terminated,         none,           none                        >,
         /* Connection failure */
-        Row<    connecting,       events::connection_failure,   terminated,           none,            none                    >,
-        Row<    wait_validate,    events::connection_failure,   terminated,           none,            none                    >,
-        Row<    connected,        events::connection_failure,   terminated,           none,            none                    >
-    > {};
+        tr< connecting,     events::connection_failure, terminated,         none,           none                        >,
+        tr< wait_validate,  events::connection_failure, terminated,         none,           none                        >,
+        tr< connected,      events::connection_failure, terminated,         none,           none                        >
+    >;
     //@}
 
     concrete_type*
@@ -421,7 +433,8 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
     connection_mode mode_;
 };
 
-typedef ::boost::msm::back::state_machine< connection_fsm_< connection_impl_base > > connection_fsm;
+using connection_fsm = ::afsm::state_machine<
+        connection_fsm_def<::std::mutex, connection_impl_base>, ::std::mutex >;
 
 struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_base>,
         connection_fsm {

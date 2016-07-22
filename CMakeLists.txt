@@ -58,6 +58,10 @@ if (NOT METAPUSHKIN_INCLUDE_DIR)
     set(_METAPUSHKIN_SUBTREE ON)
 endif()
 
+if (NOT AFSM_INCLUDE_DIR)
+    set(_AFSM_SUBTREE ON)
+endif()
+
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -106,6 +110,10 @@ if(_METAPUSHKIN_SUBTREE)
     add_subdirectory(lib/meta)
 endif()
 
+if (_AFSM_SUBTREE)
+    add_subdirectory(lib/afsm)
+endif()
+
 if (NOT BOOST_PROCESS_INCLUDE_DIRS)
     message(STATUS "Use bundled boost::process")
     set(_BP_BUILD_TESTS ${BUILD_TESTS})
@@ -121,6 +129,7 @@ include_directories(
     ${BOOST_PROCESS_INCLUDE_DIRS}
     ${TIP_IRI_INCLUDE_DIRS}
     ${METAPUSHKIN_INCLUDE_DIR}
+    ${AFSM_INCLUDE_DIR}
 )
 
 # Add subdirectories here
