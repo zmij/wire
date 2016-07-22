@@ -195,7 +195,8 @@ struct connection_fsm_def :
             #ifdef DEBUG_OUTPUT
             ::std::cerr << "Dispatch request\n";
             #endif
-            fsm->dispatch_incoming_request(req.incoming);
+            fsm->post(&concrete_type::dispatch_incoming_request, req.incoming);
+            //fsm->dispatch_incoming_request(req.incoming);
         }
     };
     struct dispatch_reply {
@@ -203,7 +204,8 @@ struct connection_fsm_def :
         void
         operator()(events::receive_reply const& rep, fsm_type& fsm, SourceState&, TargetState&)
         {
-            fsm->dispatch_reply(rep.incoming);
+            fsm->post(&concrete_type::dispatch_reply, rep.incoming);
+            //fsm->dispatch_reply(rep.incoming);
         }
     };
     //@}
@@ -578,6 +580,23 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
             encoding::reply_callback reply,
             functional::exception_callback exception,
             functional::callback< bool > sent);
+
+    template < typename Handler >
+    void
+    post( Handler&& handler )
+    {
+        io_service_->post(::std::forward<Handler>(handler));
+    }
+
+    template < typename ... Args >
+    void
+    post( void (connection_impl_base::* method)(Args ...), Args ... args)
+    {
+        auto shared_this = shared_from_this();
+        io_service_->post([shared_this, method, args...]() mutable {
+            (shared_this.get()->*method)(args...);
+        });
+    }
 
     template < typename Pred >
     void
