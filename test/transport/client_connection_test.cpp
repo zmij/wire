@@ -206,7 +206,7 @@ TEST_F(Client, TCPConnectInvalidValidate)
     EXPECT_TRUE(error);
 }
 
-TEST_F(Client, TCPSendRequest)
+TEST_F(Client, DISABLED_TCPSendRequest)
 {
     typedef transport_type_traits< transport_type::tcp > used_transport;
     current_transport = used_transport::value;

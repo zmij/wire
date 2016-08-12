@@ -327,6 +327,14 @@ struct connector::impl {
         return aopts;
     }
 
+    void
+    stop()
+    {
+        for (auto a : listen_adapters_) {
+            a->deactivate();
+        }
+    }
+
     adapter_ptr
     create_adapter(identity const& id, endpoint_list const& eps = endpoint_list{})
     {
@@ -656,6 +664,12 @@ void
 connector::run()
 {
     pimpl_->io_service_->run();
+}
+
+void
+connector::stop()
+{
+    pimpl_->stop();
 }
 
 detail::connector_options const&
