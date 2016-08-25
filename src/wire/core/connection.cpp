@@ -459,7 +459,7 @@ connection_impl_base::invoke(identity const& id, ::std::string const& op, contex
     process_event(events::send_request{ out, write_cb });
 
     if (run_sync) {
-        wait_until([&](){
+        util::run_until(io_service_, [&](){
             return pending_replies_.count(r.number);
         });
     }

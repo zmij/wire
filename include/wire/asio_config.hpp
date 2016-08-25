@@ -41,22 +41,6 @@ using system_timer      = ASIO_NS::system_timer;
 
 constexpr ASIO_NS::use_future_t<> use_future;
 
-template < typename Pred >
-void
-run_while( io_service_ptr svc, Pred pred )
-{
-    while(pred())
-        svc->poll();
-}
-
-template < typename Pred >
-void
-run_until( io_service_ptr svc, Pred pred)
-{
-    while(!pred())
-        svc->poll();
-}
-
 }  // namespace asio_config
 }  // namespace wire
 

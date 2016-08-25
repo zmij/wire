@@ -90,7 +90,7 @@ reference::io_service() const
 //      Fixed reference implementation
 //----------------------------------------------------------------------------
 fixed_reference::fixed_reference(connector_ptr cn, reference_data const& ref)
-    : reference{cn, ref}, current_{ref_.endpoints.begin()}
+    : reference{cn, ref}, current_{ref_.endpoints.end()}
 {
     if (ref_.endpoints.empty())
         throw errors::runtime_error{ "Reference endpoint list is empty" };
@@ -110,8 +110,10 @@ fixed_reference::get_connection_async( connection_callback on_get,
         if (current_ == ref_.endpoints.end()) {
             current_ = ref_.endpoints.begin();
         }
+        auto ep = *current_;
+        ++current_;
         cntr->get_outgoing_connection_async(
-            *current_++,
+            ep,
             [this, on_get, on_error](connection_ptr c)
             {
                 connection_ = c;

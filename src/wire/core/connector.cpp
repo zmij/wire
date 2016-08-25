@@ -19,6 +19,8 @@
 #include <wire/core/detail/configuration_options.hpp>
 #include <wire/core/detail/io_service_monitor.hpp>
 
+#include <wire/util/io_service_wait.hpp>
+
 #include <boost/program_options.hpp>
 
 #include <iostream>
@@ -504,7 +506,7 @@ struct connector::impl {
                 });
 
             if (sync) {
-                asio_config::run_until(io_service_, [res](){ return (bool)*res; });
+                util::run_until(io_service_, [res](){ return (bool)*res; });
             }
         }
     }

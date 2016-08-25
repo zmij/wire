@@ -292,26 +292,120 @@ struct remote_invocation< Handler,
             ::std::tuple<
                   ::std::reference_wrapper<
                         typename ::std::decay< Args >::type const > ... >;
-    using response_hander   = Handler;
+    using response_hanlder  = Handler;
+    using response_traits   = ::psst::meta::function_traits<response_hanlder>;
+    using is_void           = ::std::integral_constant< bool, (response_traits::arity == 0) >;
     using exception_handler = functional::exception_callback;
     using sent_handler      = functional::callback< bool >;
 
-    reference const&        ref;
+    struct invocation_data {
+        identity            id;
+        ::std::string       op;
+        context_type        ctx;
+        encoding::outgoing  out;
 
-    ::std::string const&    op;
-    context_type const&     ctx;
-    invocation_args         args;
+        response_hanlder    response;
+        exception_handler   exception;
+        sent_handler        sent;
+    };
 
-    response_hander         response;
-    exception_handler       exception;
-    sent_handler            sent;
+    remote_invocation( reference const& r, ::std::string const& o,
+            context_type const& c, invocation_args&& args,
+            response_hanlder resp, exception_handler exc, sent_handler snt)
+        : ref(r),
+          data{ new invocation_data{ ref.object_id(), o, c,
+              encoding::outgoing{ ref.get_connector() }, resp, exc, snt } }
+    {
+        encoding::write(::std::back_inserter(data->out),
+                ::std::get< Indexes >(args).get() ...);
+    }
+
+    /**
+     * Make a connection response callback for a non-void function invokation
+     * @param response
+     * @param exception
+     * @param
+     * @return
+     */
+    template <typename ReplyHandler>
+    typename ::std::enable_if< (::psst::meta::function_traits< ReplyHandler >::arity > 0),
+        encoding::reply_callback >::type
+    make_callback(ReplyHandler response, exception_handler exception,
+            ::std::false_type const&) const
+    {
+        using encoding::incoming;
+        using reply_traits = ::psst::meta::function_traits<ReplyHandler>;
+        using reply_tuple  = typename reply_traits::decayed_args_tuple_type;
+        if (response)
+            return [response, exception](incoming::const_iterator begin, incoming::const_iterator end) {
+                try {
+                    auto encaps = begin.incoming_encapsulation();
+                    reply_tuple args;
+                    encoding::read(begin, end, args);
+                    encaps.read_indirection_table(begin);
+                    ::psst::meta::invoke(response, args);
+                } catch(...) {
+                    if (exception) {
+                        try {
+                            exception(::std::current_exception());
+                        } catch (...) {}
+                    }
+                }
+            };
+        return [](incoming::const_iterator, incoming::const_iterator) {};
+    }
+
+    /**
+     * Make a connection response callback for a void function invokation
+     * @param response
+     * @param exception
+     * @param
+     * @return
+     */
+    encoding::reply_callback
+    make_callback(response_hanlder response, exception_handler exception,
+            ::std::true_type const&) const
+    {
+        using encoding::incoming;
+        if (response)
+            return [response, exception](incoming::const_iterator, incoming::const_iterator) {
+                try {
+                    response();
+                } catch(...) {
+                    if (exception) {
+                        try {
+                            exception(::std::current_exception());
+                        } catch (...) {}
+                    }
+                }
+            };
+        return [](incoming::const_iterator, incoming::const_iterator) {};
+    }
 
     void
     operator()(bool run_sync) const
     {
-        ref.get_connection()->invoke(ref.object_id(), op, ctx, run_sync,
-                response, exception, sent, ::std::get< Indexes >(args).get() ...);
+        auto reply = make_callback(data->response, data->exception, is_void{});
+        if (run_sync) {
+            ref.get_connection()->invoke(data->id, data->op, data->ctx, true,
+                    ::std::move(data->out), reply, data->exception, data->sent);
+        } else {
+            auto d = data;
+            ref.get_connection_async(
+            [d, reply](connection_ptr conn) {
+                conn->invoke(d->id, d->op, d->ctx, false,
+                    ::std::move(d->out), reply, d->exception, d->sent);
+            },
+            [d](::std::exception_ptr ex) {
+                if (d->exception) {
+                    d->exception(ex);
+                }
+            });
+        }
     }
+
+    reference const&                        ref;
+    ::std::shared_ptr< invocation_data >    data;
 };
 
 }  /* namespace detail */
