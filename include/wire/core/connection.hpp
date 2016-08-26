@@ -165,7 +165,7 @@ private:
     operator = (connection const&) = delete;
 private:
     struct impl;
-    using pimpl = ::std::shared_ptr<impl>;
+    using pimpl = ::std::unique_ptr<impl>;
     pimpl pimpl_;
 };
 

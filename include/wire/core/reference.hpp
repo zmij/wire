@@ -95,8 +95,7 @@ public:
     io_service() const;
 
     connector_ptr
-    get_connector() const
-    { return connector_.lock(); }
+    get_connector() const;
 
     connection_ptr
     get_connection() const;
@@ -140,12 +139,17 @@ using reference_ptr = ::std::shared_ptr<reference>;
 class fixed_reference : public reference {
 public:
     fixed_reference(connector_ptr cn, reference_data const& ref);
+    fixed_reference(fixed_reference const& rhs);
+    fixed_reference(fixed_reference&& rhs);
 
     void
     get_connection_async( connection_callback on_get,
             functional::exception_callback on_error,
             bool sync = false) const override;
 private:
+    using mutex_type                        = ::std::mutex;
+    using lock_type                         = ::std::lock_guard<mutex_type>;
+    mutex_type mutable                      mutex_;
     connection_weak_ptr mutable             connection_;
     endpoint_list::const_iterator mutable   current_;
 };

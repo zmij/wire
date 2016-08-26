@@ -12,6 +12,7 @@
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/use_future.hpp>
 #include <boost/asio/system_timer.hpp>
+#include <boost/asio/error.hpp>
 
 #include <memory>
 #include <functional>
@@ -40,6 +41,15 @@ using ssl_context_ptr   = ::std::shared_ptr< ssl_context >;
 using system_timer      = ASIO_NS::system_timer;
 
 constexpr ASIO_NS::use_future_t<> use_future;
+
+namespace error = ASIO_NS::error;
+
+template <typename Code>
+error_code
+make_error_code(Code c)
+{
+    return error::make_error_code(c);
+}
 
 }  // namespace asio_config
 }  // namespace wire

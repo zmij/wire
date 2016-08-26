@@ -80,6 +80,15 @@ reference::get_connection() const
     return future.get();
 }
 
+connector_ptr
+reference::get_connector() const
+{
+    auto cnctr = connector_.lock();
+    if (!cnctr)
+        throw errors::runtime_error{ "Connector already destroyed" };
+    return cnctr;
+}
+
 asio_config::io_service_ptr
 reference::io_service() const
 {
@@ -96,6 +105,16 @@ fixed_reference::fixed_reference(connector_ptr cn, reference_data const& ref)
         throw errors::runtime_error{ "Reference endpoint list is empty" };
 }
 
+fixed_reference::fixed_reference(fixed_reference const& rhs)
+    : reference{rhs}, current_{ref_.endpoints.end()}
+{
+}
+
+fixed_reference::fixed_reference(fixed_reference&& rhs)
+    : reference{::std::move(rhs)}, current_{ref_.endpoints.end()}
+{
+}
+
 void
 fixed_reference::get_connection_async( connection_callback on_get,
         functional::exception_callback on_error,
@@ -103,22 +122,29 @@ fixed_reference::get_connection_async( connection_callback on_get,
 {
     connection_ptr conn = connection_.lock();
     if (!conn) {
-        connector_ptr cntr = get_connector();
-        if (!cntr) {
-            throw ::std::runtime_error{"Connector is already destroyed"};
+        lock_type lock{mutex_};
+        conn = connection_.lock();
+        if (conn) {
+            try {
+                on_get(conn);
+            } catch (...) {}
+            return;
         }
+        connector_ptr cntr = get_connector();
         if (current_ == ref_.endpoints.end()) {
             current_ = ref_.endpoints.begin();
         }
-        auto ep = *current_;
-        ++current_;
         cntr->get_outgoing_connection_async(
-            ep,
+            *current_++,
             [this, on_get, on_error](connection_ptr c)
             {
-                connection_ = c;
+                auto conn = connection_.lock();
+                if (!conn || conn != c) {
+                    connection_ = c;
+                    conn = c;
+                }
                 try {
-                    on_get(c);
+                    on_get(conn);
                 } catch(...) {
                     try {
                         on_error(::std::current_exception());

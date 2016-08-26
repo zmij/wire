@@ -462,21 +462,22 @@ struct connector::impl {
             bool sync)
     {
         auto f = outgoing_.end();
+        connection_ptr conn;
+        bool new_conn = false;
         {
             lock_guard lock{mtx_};
             f = outgoing_.find(ep);
+            if (f != outgoing_.end() ) {
+                conn = f->second;
+            } else {
+                conn = ::std::make_shared< connection >(
+                        client_side{}, bidir_adapter() );
+                outgoing_.emplace(ep, conn);
+                new_conn = true;
+            }
         }
 
-        if (f != outgoing_.end()) {
-            on_get(f->second);
-        } else {
-            auto conn = ::std::make_shared< connection >(
-                    client_side{}, bidir_adapter() );
-            {
-                lock_guard lock{mtx_};
-                outgoing_.emplace(ep, conn);
-            }
-
+        if (new_conn) {
             auto res = ::std::make_shared< ::std::atomic<bool> >(false);
             conn->connect_async(ep,
                 [on_get, conn, res, ep]()
@@ -508,6 +509,8 @@ struct connector::impl {
             if (sync) {
                 util::run_until(io_service_, [res](){ return (bool)*res; });
             }
+        } else {
+            on_get(conn);
         }
     }
 

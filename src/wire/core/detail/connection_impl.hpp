@@ -64,7 +64,9 @@ struct send_request{
     encoding::outgoing_ptr            outgoing;
     functional::void_callback         sent;
 };
-struct send_reply{};
+struct send_reply{
+    encoding::outgoing_ptr            outgoing;
+};
 
 }  // namespace events
 
@@ -109,7 +111,7 @@ struct connection_fsm_def :
     /** @name State forwards */
     struct connecting;
     struct wait_validate;
-    struct connected;
+    struct online;
 
     //@}
     //@{
@@ -136,7 +138,7 @@ struct connection_fsm_def :
         }
         void
         operator()(events::receive_validate const& evt, fsm_type& fsm,
-                wait_validate& from, connected& to)
+                wait_validate& from, online& to)
         {
         }
     };
@@ -187,6 +189,14 @@ struct connection_fsm_def :
         operator()(events::send_request const& req, fsm_type& fsm, SourceState&, TargetState&)
         {
             fsm->write_async(req.outgoing, req.sent);
+        }
+    };
+    struct send_reply {
+        template < typename SourceState, typename TargetState >
+        void
+        operator()(events::send_reply const& rep, fsm_type& fsm, SourceState&, TargetState&)
+        {
+            fsm->write_async(rep.outgoing);
         }
     };
     struct dispatch_request {
@@ -334,9 +344,10 @@ struct connection_fsm_def :
         functional::exception_callback  fail;
     };
 
-    struct connected : state< connected > {
+    struct online : state< online > {
         using internal_transitions = transition_table<
             in< events::send_request,       send_request,       none    >,
+            in< events::send_reply,         send_reply,         none    >,
             in< events::receive_request,    dispatch_request,   none    >,
             in< events::receive_reply,      dispatch_reply,     none    >,
             in< events::receive_validate,   none,               none    >,
@@ -402,23 +413,23 @@ struct connection_fsm_def :
         /* Start client connection */
         tr< unplugged,      events::connect,            connecting,         connect,        none                        >,
         tr< connecting,     events::connected,          wait_validate,      on_connected,   is_stream_oriented          >,
-        tr< connecting,     events::connected,          connected,          none,           not_<is_stream_oriented>    >,
+        tr< connecting,     events::connected,          online,             none,           not_<is_stream_oriented>    >,
         /* Start server connection */
         tr< unplugged,      events::start,              wait_validate,      send_validate,  none                        >,
-        tr< unplugged,      events::start,              connected,          none,           not_<is_stream_oriented>    >,
+        tr< unplugged,      events::start,              online,             none,           not_<is_stream_oriented>    >,
         /* Validate connection */
-        tr< wait_validate,  events::receive_validate,   connected,          on_connected,   is_server                   >,
-        tr< wait_validate,  events::receive_validate,   connected,          send_validate,  not_<is_server>             >,
+        tr< wait_validate,  events::receive_validate,   online,             on_connected,   is_server                   >,
+        tr< wait_validate,  events::receive_validate,   online,             send_validate,  not_<is_server>             >,
         /* Close connection */
         tr< unplugged,      events::close,              terminated,         none,           none                        >,
         tr< connecting,     events::close,              terminated,         none,           none                        >,
         tr< wait_validate,  events::close,              terminated,         none,           none                        >,
-        tr< connected,      events::close,              terminated,         send_close,     none                        >,
-        tr< connected,      events::receive_close,      terminated,         none,           none                        >,
+        tr< online,         events::close,              terminated,         send_close,     none                        >,
+        tr< online,         events::receive_close,      terminated,         none,           none                        >,
         /* Connection failure */
         tr< connecting,     events::connection_failure, terminated,         none,           none                        >,
         tr< wait_validate,  events::connection_failure, terminated,         none,           none                        >,
-        tr< connected,      events::connection_failure, terminated,         none,           none                        >
+        tr< online,         events::connection_failure, terminated,         none,           none                        >
     >;
     //@}
 
@@ -449,10 +460,10 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
         functional::exception_callback  error;
         time_point                      expires;
     };
-    using pending_replies_type    = ::std::map< uint32_t, pending_reply >;
+    using pending_replies_type  = ::std::unordered_map< uint32_t, pending_reply >;
 
-    using incoming_buffer        = ::std::array< unsigned char, 1024 >;
-    using incoming_buffer_ptr    = ::std::shared_ptr< incoming_buffer >;
+    using incoming_buffer       = ::std::array< unsigned char, 1024 >;
+    using incoming_buffer_ptr   = ::std::shared_ptr< incoming_buffer >;
     using mutex_type            = ::std::mutex;
     using lock_guard            = ::std::lock_guard<mutex_type>;
 
