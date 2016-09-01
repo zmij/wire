@@ -61,9 +61,11 @@ public:
     outgoing(core::connector_ptr cnctr);
     outgoing(core::connector_ptr cnctr, message::message_flags);
     /** Copy construct */
-    outgoing(outgoing const&);
+    outgoing(outgoing const&) = delete;
     /** Move construct */
     outgoing(outgoing&&);
+
+    ~outgoing();
 
     /** Swap contents */
     void
@@ -71,7 +73,7 @@ public:
 
     /** Copy assign */
     outgoing&
-    operator = (outgoing const&);
+    operator = (outgoing const&) = delete;
     /** Move assign */
     outgoing&
     operator = (outgoing&&);
@@ -188,7 +190,7 @@ public:
 private:
     friend class incoming;
     struct impl;
-    using pimpl = ::std::shared_ptr<impl>;
+    using pimpl = ::std::unique_ptr<impl>;
     pimpl pimpl_;
 };
 

@@ -89,24 +89,26 @@ struct outgoing::impl : detail::buffer_sequence {
 };
 
 outgoing::outgoing(core::connector_ptr cnctr)
-    : pimpl_(std::make_shared<impl>(cnctr, this))
+    : pimpl_(new impl(cnctr, this))
 {
 }
 outgoing::outgoing(core::connector_ptr cnctr, message::message_flags flags)
-    : pimpl_(std::make_shared<impl>(cnctr, this, flags))
+    : pimpl_(new impl(cnctr, this, flags))
 {
 }
 
-outgoing::outgoing(outgoing const& rhs)
-    : pimpl_(std::make_shared<impl>(this, *rhs.pimpl_))
-{
-}
+//outgoing::outgoing(outgoing const& rhs)
+//    : pimpl_(new impl(this, *rhs.pimpl_))
+//{
+//}
 
 outgoing::outgoing(outgoing&& rhs)
     : pimpl_(std::move(rhs.pimpl_))
 {
     pimpl_->container_ = this;
 }
+
+outgoing::~outgoing() = default;
 
 void
 outgoing::swap(outgoing& rhs)
@@ -116,19 +118,19 @@ outgoing::swap(outgoing& rhs)
     swap(pimpl_->container_, rhs.pimpl_->container_);
 }
 
-outgoing&
-outgoing::operator =(outgoing const& rhs)
-{
-    outgoing tmp(rhs);
-    swap(tmp);
-    return *this;
-}
+//outgoing&
+//outgoing::operator =(outgoing const& rhs)
+//{
+//    outgoing tmp(rhs);
+//    swap(tmp);
+//    return *this;
+//}
 
 outgoing&
 outgoing::operator =(outgoing&& rhs)
 {
     pimpl_ = std::move(rhs.pimpl_);
-    rhs.pimpl_.reset();
+//    rhs.pimpl_.reset();
     return *this;
 }
 

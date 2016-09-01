@@ -52,9 +52,9 @@ public:
     identity const&
     wire_identity() const;
 
-    reference const&
+    reference_const_ptr
     wire_get_reference() const
-    { return *ref_; }
+    { return ref_; }
 
     connection_ptr
     wire_get_connection() const;
@@ -269,7 +269,7 @@ struct writer_impl< T, PROXY > {
     output(OutputIterator o, proxy_type const& prx)
     {
         using output_iterator_check = octet_output_iterator_concept< OutputIterator >;
-        write(o, prx.wire_get_reference().data());
+        write(o, prx.wire_get_reference()->data());
     }
 
     template < typename OutputIterator >

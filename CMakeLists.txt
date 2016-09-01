@@ -92,7 +92,10 @@ add_definitions(
 )
 endif()
 if(DEBUG_OUTPUT)
-add_definitions(-DDEBUG_OUTPUT)
+if(NOT WIRE_DEBUG_LEVEL)
+    set(WIRE_DEBUG_LEVEL 1)
+endif()
+add_definitions(-DDEBUG_OUTPUT=${WIRE_DEBUG_LEVEL})
 endif()
 
 set(${LIB_NAME}_LIB ${lib_name})

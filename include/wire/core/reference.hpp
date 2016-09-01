@@ -131,8 +131,6 @@ protected:
     object_weak_ptr mutable local_object_cache_;
 };
 
-using reference_ptr = ::std::shared_ptr<reference>;
-
 /**
  * Fixed reference
  */

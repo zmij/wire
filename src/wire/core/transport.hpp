@@ -168,8 +168,12 @@ struct tcp_transport {
     void
     async_read(BufferType&& buffer, HandlerType handler)
     {
-        ASIO_NS::async_read(socket_, std::forward< BufferType&& >(buffer),
-                ASIO_NS::transfer_at_least(1), strand_.wrap(handler));
+        if (socket_.is_open()) {
+            ASIO_NS::async_read(socket_, std::forward< BufferType&& >(buffer),
+                    ASIO_NS::transfer_at_least(1), strand_.wrap(handler));
+        } else {
+            handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
+        }
     }
 
     listen_socket_type&
@@ -266,8 +270,12 @@ struct ssl_transport {
     void
     async_read(BufferType&& buffer, HandlerType handler)
     {
-        ASIO_NS::async_read(socket_, buffer,
-                ASIO_NS::transfer_at_least(1), handler);
+        if (socket_.lowest_layer().is_open()) {
+            ASIO_NS::async_read(socket_, buffer,
+                    ASIO_NS::transfer_at_least(1), handler);
+        } else {
+            handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
+        }
     }
 
     listen_socket_type&
@@ -348,7 +356,11 @@ struct udp_transport {
     template<typename BufferType, typename HandlerType>
     void async_read(BufferType& buffer, HandlerType handler)
     {
-        socket_.async_receive(buffer, handler);
+        if (socket_.is_open()) {
+            socket_.async_receive(buffer, handler);
+        } else {
+            handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
+        }
     }
 
     endpoint
@@ -416,8 +428,12 @@ struct socket_transport {
     void
     async_read(BufferType&& buffer, HandlerType handler)
     {
-        ASIO_NS::async_read(socket_, ::std::forward< BufferType >(buffer),
-                ASIO_NS::transfer_at_least(1), handler);
+        if (socket_.is_open()) {
+            ASIO_NS::async_read(socket_, ::std::forward< BufferType >(buffer),
+                    ASIO_NS::transfer_at_least(1), handler);
+        } else {
+            handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
+        }
     }
 
     template < typename BufferType >

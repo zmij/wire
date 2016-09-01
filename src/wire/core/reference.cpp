@@ -106,12 +106,16 @@ fixed_reference::fixed_reference(connector_ptr cn, reference_data const& ref)
 }
 
 fixed_reference::fixed_reference(fixed_reference const& rhs)
-    : reference{rhs}, current_{ref_.endpoints.end()}
+    : reference{rhs},
+      connection_{rhs.connection_.lock()},
+      current_{ref_.endpoints.end()}
 {
 }
 
 fixed_reference::fixed_reference(fixed_reference&& rhs)
-    : reference{::std::move(rhs)}, current_{ref_.endpoints.end()}
+    : reference{::std::move(rhs)},
+      connection_{rhs.connection_.lock()},
+      current_{ref_.endpoints.end()}
 {
 }
 

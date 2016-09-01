@@ -53,19 +53,19 @@ object_proxy::wire_static_type_id()
 identity const&
 object_proxy::wire_identity() const
 {
-    return wire_get_reference().object_id();
+    return wire_get_reference()->object_id();
 }
 
 connection_ptr
 object_proxy::wire_get_connection() const
 {
-    return wire_get_reference().get_connection();
+    return wire_get_reference()->get_connection();
 }
 
 connector_ptr
 object_proxy::wire_get_connector() const
 {
-    return wire_get_reference().get_connector();
+    return wire_get_reference()->get_connector();
 }
 
 bool
@@ -161,7 +161,7 @@ operator << (::std::ostream& os, object_proxy const& val)
 {
     ::std::ostream::sentry s (os);
     if (s) {
-        os << val.wire_get_reference().data();
+        os << val.wire_get_reference()->data();
     }
     return os;
 }

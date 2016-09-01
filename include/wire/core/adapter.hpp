@@ -41,6 +41,8 @@ public:
     create_adapter(connector_ptr c, identity const& id,
             detail::adapter_options const& options);
 public:
+    ~adapter();
+
     connector_ptr
     get_connector() const;
 

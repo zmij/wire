@@ -121,7 +121,7 @@ struct connection_fsm_def :
         void
         operator()(events::connect const& evt, fsm_type& fsm, SourceState&, TargetState&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connect action\n";
             #endif
             // Do connect async
@@ -148,7 +148,7 @@ struct connection_fsm_def :
         operator()(events::connection_failure const& evt, fsm_type& fsm,
                 SourceState&, TargetState&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 3
             ::std::cerr << "Disconnected on error\n";
             #endif
             fsm->handle_close();
@@ -158,7 +158,7 @@ struct connection_fsm_def :
         operator()(events::close const& evt, fsm_type& fsm,
                 SourceState&, TargetState&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 3
             ::std::cerr << "Disconnected gracefully\n";
             #endif
             fsm->handle_close();
@@ -169,7 +169,7 @@ struct connection_fsm_def :
         void
         operator()(Event const&, fsm_type& fsm, SourceState&, TargetState&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "send validate action\n";
             #endif
             fsm->send_validate_message();
@@ -204,7 +204,7 @@ struct connection_fsm_def :
         void
         operator()(events::receive_request const& req, fsm_type& fsm, SourceState&, TargetState&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "Dispatch request\n";
             #endif
             fsm->post(&concrete_type::dispatch_incoming_request, req.incoming);
@@ -236,7 +236,7 @@ struct connection_fsm_def :
         void
         on_enter(events::connect const& evt, fsm_type& fsm)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connecting enter\n";
             #endif
             success = evt.success;
@@ -246,7 +246,7 @@ struct connection_fsm_def :
         void
         on_exit(Event const&, fsm_type&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connecting exit (unexpected event)\n";
             #endif
             clear_callbacks();
@@ -254,14 +254,14 @@ struct connection_fsm_def :
         void
         on_exit( events::connected const&, fsm_type& )
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connecting exit (success)\n";
             #endif
         }
         void
         on_exit(events::connection_failure const& err, fsm_type&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connecting exit (fail)\n";
             #endif
             if (fail) {
@@ -297,7 +297,7 @@ struct connection_fsm_def :
         void
         on_enter(Event const&, fsm_type& fsm)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "wait_validate enter\n";
             #endif
             fsm->start_read();
@@ -306,7 +306,7 @@ struct connection_fsm_def :
         void
         on_exit(Event const&, fsm_type&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "wait_validate exit\n";
             #endif
             clear_callbacks();
@@ -314,7 +314,7 @@ struct connection_fsm_def :
         void
         on_exit( events::receive_validate const&, fsm_type& )
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "wait_validate exit (success)\n";
             #endif
             if (success) {
@@ -325,7 +325,7 @@ struct connection_fsm_def :
         void
         on_exit( events::connection_failure const& evt, fsm_type& )
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "wait_validate (fail)\n";
             #endif
             if (fail) {
@@ -357,7 +357,7 @@ struct connection_fsm_def :
         void
         on_enter(Event const&, fsm_type& fsm)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connected enter\n";
             #endif
         }
@@ -365,7 +365,7 @@ struct connection_fsm_def :
         void
         on_exit(Event const&, fsm_type& fsm)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connected exit\n";
             #endif
         }
@@ -376,7 +376,7 @@ struct connection_fsm_def :
         void
         on_enter(Event const&, fsm_type& fsm)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "terminated enter\n";
             #endif
             fsm->do_close();
@@ -443,6 +443,7 @@ struct connection_fsm_def :
     {
         return static_cast<concrete_type const*>(this);
     }
+
     connection_mode mode_;
 };
 
@@ -485,6 +486,9 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
           outstanding_responses_{0},
           on_close_{ on_close }
     {
+        #if DEBUG_OUTPUT >= 1
+        ::std::cerr << "Create client connection instance\n";
+        #endif
         mode_ = client;
     }
     connection_impl_base( server_side const&, adapter_ptr adptr,
@@ -498,6 +502,9 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
           outstanding_responses_{0},
           on_close_{ on_close }
     {
+        #if DEBUG_OUTPUT >= 1
+        ::std::cerr << "Create server connection instance\n";
+        #endif
         mode_ = server;
     }
 
@@ -505,7 +512,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     {
         connection_timer_.cancel();
         request_timer_.cancel();
-        #ifdef DEBUG_OUTPUT
+        #if DEBUG_OUTPUT >= 1
         ::std::cerr << "Destroy connection instance\n";
         #endif
     }
@@ -516,6 +523,12 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 
     virtual bool
     is_stream_oriented() const = 0;
+
+    bool
+    is_terminated() const
+    {
+        return connection_fsm::is_in_state< connection_fsm_def::terminated >();
+    }
 
     void
     set_connection_timer();
@@ -782,7 +795,7 @@ private:
     void
     do_listen(endpoint const& ep, bool reuse_port) override
     {
-        #ifdef DEBUG_OUTPUT
+        #if DEBUG_OUTPUT >= 1
         ::std::cerr << "Open endpoint " << ep << "\n";
         #endif
         listener_.open(ep, reuse_port);

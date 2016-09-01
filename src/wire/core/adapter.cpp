@@ -26,7 +26,7 @@ namespace {
 }  /* namespace  */
 
 struct adapter::impl {
-    using connections       = ::std::unordered_map< endpoint, connection >;
+    using connections       = ::std::unordered_map< endpoint, connection_ptr >;
     using active_objects    = ::std::unordered_map< identity, object_ptr >;
     using default_servants  = ::std::unordered_map< ::std::string, object_ptr >;
     using object_locators   = ::std::unordered_map< ::std::string, object_locator_ptr >;
@@ -66,7 +66,8 @@ struct adapter::impl {
                 options_.endpoints.push_back(endpoint::tcp("0.0.0.0", 0));
             }
             for (auto const& ep : options_.endpoints) {
-                connections_.emplace(ep, connection{server_side{}, adp, ep });
+                connections_.emplace(ep,
+                    std::make_shared<connection>(server_side{}, adp, ep ));
             }
             is_active_ = true;
         } else {
@@ -85,7 +86,7 @@ struct adapter::impl {
     {
         lock_guard lock{mtx_};
         for (auto& c : connections_) {
-            c.second.close();
+            c.second->close();
         }
         connections_.clear();
         is_active_ = false;
@@ -119,7 +120,7 @@ struct adapter::impl {
     {
         endpoint_list endpoints;
         for (auto const& cn : connections_) {
-            endpoints.push_back(cn.second.local_endpoint());
+            endpoints.push_back(cn.second->local_endpoint());
         }
         return endpoints;
     }
@@ -210,6 +211,8 @@ adapter::adapter(connector_ptr c, identity const& id,
     : pimpl_( ::std::make_shared<impl>(c, id, options) )
 {
 }
+
+adapter::~adapter() = default;
 
 connector_ptr
 adapter::get_connector() const

@@ -43,6 +43,9 @@ public:
     connection(client_side const&, adapter_ptr);
     /**
      * Create connection and start asynchronous connect.
+     * @param endpoint
+     * @param cb Connected callback
+     * @param ecb Exception callback
      * @param
      */
     connection(client_side const&, adapter_ptr, endpoint const&,
@@ -59,10 +62,6 @@ public:
     connection(server_side const&, adapter_ptr, endpoint const&);
 
     ~connection();
-
-    connection(connection&&);
-    connection&
-    operator = (connection&&);
 
     connector_ptr
     get_connector() const;
@@ -160,7 +159,10 @@ public:
     endpoint
     local_endpoint() const;
 private:
+    connection(connection&&) = delete;
     connection(connection const&) = delete;
+    connection&
+    operator = (connection&&) = delete;
     connection&
     operator = (connection const&) = delete;
 private:

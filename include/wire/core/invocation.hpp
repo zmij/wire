@@ -117,7 +117,7 @@ struct local_invocation< Handler, Member,
     using exception_handler = functional::exception_callback;
     using sent_handler      = functional::callback< bool >;
 
-    reference const&        ref;
+    reference_const_ptr     ref;
     member_type             member;
 
     ::std::string const&    op;
@@ -132,19 +132,19 @@ struct local_invocation< Handler, Member,
     operator()(bool run_sync) const
     {
         invocation_sent();
-        object_ptr obj = ref.get_local_object();
+        object_ptr obj = ref->get_local_object();
         if (!obj) {
             invokation_error(
                 ::std::make_exception_ptr(errors::no_object{
-                    ref.object_id(),
-                    ref.facet(),
+                    ref->object_id(),
+                    ref->facet(),
                     op
             }));
             return;
         }
         servant_ptr srv = ::std::dynamic_pointer_cast< interface_type >(obj);
 
-        current curr{{ref.object_id(), ref.facet(), op}, ctx};
+        current curr{{ref->object_id(), ref->facet(), op}, ctx};
         if (!srv) {
             dispatch(obj, curr, run_sync);
         } else {
@@ -267,7 +267,7 @@ struct local_invocation< Handler, Member,
     dispatch(object_ptr obj, current const& curr,  bool run_sync) const
     {
         using namespace encoding;
-        outgoing out{ ref.get_connector() };
+        outgoing out{ ref->get_connector() };
         write_args(out, ::std::integral_constant<bool, is_sync>{});
         out.close_all_encaps();
         incoming_ptr in = ::std::make_shared< incoming >(message{}, ::std::move(out));
@@ -309,12 +309,12 @@ struct remote_invocation< Handler,
         sent_handler        sent;
     };
 
-    remote_invocation( reference const& r, ::std::string const& o,
+    remote_invocation( reference_const_ptr r, ::std::string const& o,
             context_type const& c, invocation_args&& args,
             response_hanlder resp, exception_handler exc, sent_handler snt)
         : ref(r),
-          data{ new invocation_data{ ref.object_id(), o, c,
-              encoding::outgoing{ ref.get_connector() }, resp, exc, snt } }
+          data{ new invocation_data{ ref->object_id(), o, c,
+              encoding::outgoing{ ref->get_connector() }, resp, exc, snt } }
     {
         encoding::write(::std::back_inserter(data->out),
                 ::std::get< Indexes >(args).get() ...);
@@ -387,11 +387,11 @@ struct remote_invocation< Handler,
     {
         auto reply = make_callback(data->response, data->exception, is_void{});
         if (run_sync) {
-            ref.get_connection()->invoke(data->id, data->op, data->ctx, true,
+            ref->get_connection()->invoke(data->id, data->op, data->ctx, true,
                     ::std::move(data->out), reply, data->exception, data->sent);
         } else {
             auto d = data;
-            ref.get_connection_async(
+            ref->get_connection_async(
             [d, reply](connection_ptr conn) {
                 conn->invoke(d->id, d->op, d->ctx, false,
                     ::std::move(d->out), reply, d->exception, d->sent);
@@ -404,7 +404,7 @@ struct remote_invocation< Handler,
         }
     }
 
-    reference const&                        ref;
+    reference_const_ptr                     ref;
     ::std::shared_ptr< invocation_data >    data;
 };
 
@@ -412,7 +412,7 @@ struct remote_invocation< Handler,
 
 template < typename Handler, typename Member, typename ... Args>
 functional::invocation_function
-make_invocation(reference const&        ref,
+make_invocation(reference_const_ptr     ref,
         ::std::string const&            op,
         context_type const&             ctx,
         Member                          member,
@@ -427,7 +427,10 @@ make_invocation(reference const&        ref,
     using local_invocation  = detail::local_invocation< Handler, Member, index_type, Args ... >;
     using local_args        = typename local_invocation::invocation_args;
 
-    if (ref.is_local()) {
+    if (!ref)
+        throw errors::runtime_error{"Empty reference"};
+
+    if (ref->is_local()) {
         return local_invocation {
             ref, member, op, ctx,
             local_args{ args ... },
