@@ -334,7 +334,7 @@ TEST_F(Client, ProxyPingAsyncTest)
     EXPECT_TRUE(tests[2]);
 }
 
-TEST_F(Client, ProxyPingSyncTest)
+TEST_F(Client, DISABLED_ProxyPingSyncTest)
 {
     typedef transport_type_traits< transport_type::tcp > used_transport;
     current_transport = used_transport::value;

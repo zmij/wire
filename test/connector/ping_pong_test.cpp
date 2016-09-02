@@ -110,7 +110,7 @@ TEST_F(PingPong, WireFunctions)
     EXPECT_EQ(2, wire_types.size());
 }
 
-TEST_F(PingPong, SyncRoundtrip)
+TEST_F(PingPong, DISABLED_SyncRoundtrip)
 {
     ASSERT_NE(0, child_.pid);
     ASSERT_TRUE(connector_.get());
