@@ -462,8 +462,8 @@ struct connector::impl {
             bool sync)
     {
         auto f = outgoing_.end();
-        connection_ptr conn;
         bool new_conn = false;
+        connection_ptr conn;
         {
             lock_guard lock{mtx_};
             f = outgoing_.find(ep);
@@ -471,13 +471,17 @@ struct connector::impl {
                 conn = f->second;
             } else {
                 conn = ::std::make_shared< connection >(
-                        client_side{}, bidir_adapter() );
+                        client_side{}, bidir_adapter(), ep.transport(),
+                        [this](connection const* c)
+                        {
+                            erase_outgoing(c);
+                        });
                 outgoing_.emplace(ep, conn);
                 new_conn = true;
             }
         }
-
         if (new_conn) {
+            // TODO move connect outside the mutex
             auto res = ::std::make_shared< ::std::atomic<bool> >(false);
             conn->connect_async(ep,
                 [on_get, conn, res, ep]()
@@ -500,17 +504,15 @@ struct connector::impl {
                     try {
                         on_error(ex);
                     } catch (...) {}
-                },
-                [this](connection const* c)
-                {
-                    erase_outgoing(c);
                 });
 
             if (sync) {
                 util::run_until(io_service_, [res](){ return (bool)*res; });
             }
         } else {
-            on_get(conn);
+            try {
+                on_get(conn);
+            } catch(...) {}
         }
     }
 

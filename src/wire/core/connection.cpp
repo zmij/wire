@@ -51,7 +51,7 @@ public:
 };
 
 connection_impl_ptr
-connection_impl_base::create_connection(adapter_ptr adptr, transport_type _type,
+connection_implementation::create_connection(adapter_ptr adptr, transport_type _type,
         functional::void_callback on_close)
 {
     switch (_type) {
@@ -85,7 +85,7 @@ create_listen_connection_impl(adapter_ptr adptr, functional::void_callback on_cl
 }
 
 connection_impl_ptr
-connection_impl_base::create_listen_connection(adapter_ptr adptr, transport_type _type,
+connection_implementation::create_listen_connection(adapter_ptr adptr, transport_type _type,
         functional::void_callback on_close)
 {
     adapter_weak_ptr adptr_weak = adptr;
@@ -109,7 +109,7 @@ connection_impl_base::create_listen_connection(adapter_ptr adptr, transport_type
 }
 
 void
-connection_impl_base::set_connection_timer()
+connection_implementation::set_connection_timer()
 {
     if (can_drop_connection()) {
         // FIXME Configurable timeout
@@ -117,20 +117,20 @@ connection_impl_base::set_connection_timer()
             #if DEBUG_OUTPUT >= 5
             ::std::cerr << "Reset timer\n";
             #endif
-            connection_timer_.async_wait(::std::bind(&connection_impl_base::on_connection_timeout,
+            connection_timer_.async_wait(::std::bind(&connection_implementation::on_connection_timeout,
                     shared_from_this(), ::std::placeholders::_1));
         } else {
             #if DEBUG_OUTPUT >= 5
             ::std::cerr << "Set timer\n";
             #endif
-            connection_timer_.async_wait(::std::bind(&connection_impl_base::on_connection_timeout,
+            connection_timer_.async_wait(::std::bind(&connection_implementation::on_connection_timeout,
                     shared_from_this(), ::std::placeholders::_1));
         }
     }
 }
 
 void
-connection_impl_base::on_connection_timeout(asio_config::error_code const& ec)
+connection_implementation::on_connection_timeout(asio_config::error_code const& ec)
 {
     if (!ec) {
         #if DEBUG_OUTPUT >= 5
@@ -142,7 +142,7 @@ connection_impl_base::on_connection_timeout(asio_config::error_code const& ec)
 }
 
 bool
-connection_impl_base::can_drop_connection() const
+connection_implementation::can_drop_connection() const
 {
     return false; // Turn off connection timeout
     // TODO Check if peer endpoint has a routable bidir adapter
@@ -150,15 +150,15 @@ connection_impl_base::can_drop_connection() const
 }
 
 void
-connection_impl_base::start_request_timer()
+connection_implementation::start_request_timer()
 {
     request_timer_.expires_from_now(::std::chrono::milliseconds{500});
-    request_timer_.async_wait(::std::bind(&connection_impl_base::on_request_timeout,
+    request_timer_.async_wait(::std::bind(&connection_implementation::on_request_timeout,
                     shared_from_this(), ::std::placeholders::_1));
 }
 
 void
-connection_impl_base::on_request_timeout(asio_config::error_code const& ec)
+connection_implementation::on_request_timeout(asio_config::error_code const& ec)
 {
     {
         lock_guard lock{reply_mutex_};
@@ -190,7 +190,7 @@ connection_impl_base::on_request_timeout(asio_config::error_code const& ec)
 }
 
 void
-connection_impl_base::connect_async(endpoint const& ep,
+connection_implementation::connect_async(endpoint const& ep,
         functional::void_callback cb, functional::exception_callback eb)
 {
     mode_ = client;
@@ -198,7 +198,7 @@ connection_impl_base::connect_async(endpoint const& ep,
 }
 
 void
-connection_impl_base::start_session()
+connection_implementation::start_session()
 {
     mode_ = server;
     #if DEBUG_OUTPUT >= 1
@@ -208,14 +208,14 @@ connection_impl_base::start_session()
 }
 
 void
-connection_impl_base::listen(endpoint const& ep, bool reuse_port)
+connection_implementation::listen(endpoint const& ep, bool reuse_port)
 {
     mode_ = server;
     do_listen(ep, reuse_port);
 }
 
 void
-connection_impl_base::handle_connected(asio_config::error_code const& ec)
+connection_implementation::handle_connected(asio_config::error_code const& ec)
 {
     #if DEBUG_OUTPUT >= 1
     ::std::cerr << "Handle connected\n";
@@ -235,7 +235,7 @@ connection_impl_base::handle_connected(asio_config::error_code const& ec)
 }
 
 void
-connection_impl_base::send_validate_message()
+connection_implementation::send_validate_message()
 {
     encoding::outgoing_ptr out =
         ::std::make_shared<encoding::outgoing>(
@@ -246,13 +246,13 @@ connection_impl_base::send_validate_message()
 
 
 void
-connection_impl_base::close()
+connection_implementation::close()
 {
     process_event(events::close{});
 }
 
 void
-connection_impl_base::send_close_message()
+connection_implementation::send_close_message()
 {
     encoding::outgoing_ptr out =
             ::std::make_shared<encoding::outgoing>(
@@ -262,7 +262,7 @@ connection_impl_base::send_close_message()
 }
 
 void
-connection_impl_base::handle_close()
+connection_implementation::handle_close()
 {
     #if DEBUG_OUTPUT >= 1
     ::std::cerr << "Handle close\n";
@@ -287,19 +287,19 @@ connection_impl_base::handle_close()
 }
 
 void
-connection_impl_base::write_async(encoding::outgoing_ptr out,
+connection_implementation::write_async(encoding::outgoing_ptr out,
         functional::void_callback cb)
 {
     #if DEBUG_OUTPUT >= 3
     ::std::cerr << "Send message " << out->type() << " size " << out->size() << "\n";
     #endif
     do_write_async( out,
-        ::std::bind(&connection_impl_base::handle_write, shared_from_this(),
+        ::std::bind(&connection_implementation::handle_write, shared_from_this(),
                 ::std::placeholders::_1, ::std::placeholders::_2, cb, out));
 }
 
 void
-connection_impl_base::handle_write(asio_config::error_code const& ec, ::std::size_t bytes,
+connection_implementation::handle_write(asio_config::error_code const& ec, ::std::size_t bytes,
         functional::void_callback cb, encoding::outgoing_ptr out)
 {
     if (!ec) {
@@ -316,7 +316,7 @@ connection_impl_base::handle_write(asio_config::error_code const& ec, ::std::siz
 }
 
 void
-connection_impl_base::start_read()
+connection_implementation::start_read()
 {
     if (!is_terminated()) {
         incoming_buffer_ptr buffer = ::std::make_shared< incoming_buffer >();
@@ -325,15 +325,15 @@ connection_impl_base::start_read()
 }
 
 void
-connection_impl_base::read_async(incoming_buffer_ptr buffer)
+connection_implementation::read_async(incoming_buffer_ptr buffer)
 {
     do_read_async(buffer,
-        ::std::bind(&connection_impl_base::handle_read, shared_from_this(),
+        ::std::bind(&connection_implementation::handle_read, shared_from_this(),
                 ::std::placeholders::_1, ::std::placeholders::_2, buffer));
 }
 
 void
-connection_impl_base::handle_read(asio_config::error_code const& ec, ::std::size_t bytes,
+connection_implementation::handle_read(asio_config::error_code const& ec, ::std::size_t bytes,
         incoming_buffer_ptr buffer)
 {
     if (!ec) {
@@ -351,7 +351,7 @@ connection_impl_base::handle_read(asio_config::error_code const& ec, ::std::size
 }
 
 void
-connection_impl_base::read_incoming_message(incoming_buffer_ptr buffer, ::std::size_t bytes)
+connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::std::size_t bytes)
 {
     using encoding::message;
     auto b = buffer->begin();
@@ -417,7 +417,7 @@ connection_impl_base::read_incoming_message(incoming_buffer_ptr buffer, ::std::s
 }
 
 void
-connection_impl_base::dispatch_incoming(encoding::incoming_ptr incoming)
+connection_implementation::dispatch_incoming(encoding::incoming_ptr incoming)
 {
     using encoding::message;
     switch (incoming->type()) {
@@ -435,7 +435,7 @@ connection_impl_base::dispatch_incoming(encoding::incoming_ptr incoming)
 }
 
 void
-connection_impl_base::invoke(identity const& id, ::std::string const& op, context_type const& ctx,
+connection_implementation::invoke(identity const& id, ::std::string const& op, context_type const& ctx,
         bool run_sync,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
@@ -471,7 +471,7 @@ connection_impl_base::invoke(identity const& id, ::std::string const& op, contex
 }
 
 void
-connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
+connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
 {
     using namespace encoding;
     try {
@@ -623,7 +623,7 @@ connection_impl_base::dispatch_reply(encoding::incoming_ptr buffer)
 }
 
 void
-connection_impl_base::send_not_found(
+connection_implementation::send_not_found(
         uint32_t req_num, errors::not_found::subject subj,
         encoding::operation_specs const& op)
 {
@@ -642,7 +642,7 @@ connection_impl_base::send_not_found(
 }
 
 void
-connection_impl_base::send_exception(uint32_t req_num, errors::user_exception const& e)
+connection_implementation::send_exception(uint32_t req_num, errors::user_exception const& e)
 {
     using namespace encoding;
     outgoing_ptr out =
@@ -658,7 +658,7 @@ connection_impl_base::send_exception(uint32_t req_num, errors::user_exception co
 }
 
 void
-connection_impl_base::send_exception(uint32_t req_num, ::std::exception const& e)
+connection_implementation::send_exception(uint32_t req_num, ::std::exception const& e)
 {
     using namespace encoding;
     outgoing_ptr out =
@@ -676,7 +676,7 @@ connection_impl_base::send_exception(uint32_t req_num, ::std::exception const& e
 }
 
 void
-connection_impl_base::send_unknown_exception(uint32_t req_num)
+connection_implementation::send_unknown_exception(uint32_t req_num)
 {
     using namespace encoding;
     outgoing_ptr out =
@@ -694,7 +694,7 @@ connection_impl_base::send_unknown_exception(uint32_t req_num)
 }
 
 void
-connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
+connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buffer)
 {
     using namespace encoding;
     try {
@@ -785,141 +785,34 @@ connection_impl_base::dispatch_incoming_request(encoding::incoming_ptr buffer)
 
 }  // namespace detail
 
-struct connection::impl {
-    using mutex_type            = ::std::mutex;
-    using lock_type             = ::std::lock_guard<mutex_type>;
-
-    connection const*           owner_;
-    adapter_weak_ptr            adapter_;
-    connector_weak_ptr          connector_;
-    asio_config::io_service_ptr io_service_;
-    detail::connection_impl_ptr connection_;
-    mutex_type                  mutex_;
-
-    impl(connection const* owner, adapter_ptr adp)
-        : owner_{owner},
-          adapter_{adp},
-          connector_{adp->get_connector()},
-          io_service_{adp->io_service()}
-    {
-    }
-
-    detail::connection_impl_ptr
-    get_connection()
-    {
-        lock_type lock{mutex_};
-        return connection_;
-    }
-
-    void
-    connect_async(endpoint const& ep,
-            functional::void_callback       on_connect,
-            functional::exception_callback  on_error,
-            close_callback                  on_close)
-    {
-        auto conn = get_connection();
-        if (conn) {
-            // Do something with the old connection
-            // Or throw exception
-        }
-        {
-            lock_type lock{mutex_};
-            connection const* owner = owner_;
-            conn = detail::connection_impl_base::create_connection(
-                adapter_.lock(), ep.transport(),
-                [owner, on_close](){
-                    #if DEBUG_OUTPUT >= 1
-                    ::std::cerr << "Client connection on close\n";
-                    #endif
-                    if (on_close)
-                        on_close(owner);
-                });
-            connection_.swap(conn);
-        }
-        connection_->connect_async(ep, on_connect, on_error);
-    }
-
-    void
-    start_accept(endpoint const& ep)
-    {
-        auto conn = get_connection();
-        if (conn) {
-            // Do something with the old connection
-            // Or throw exception
-        }
-        lock_type lock{mutex_};
-        connection_ = detail::connection_impl_base::create_listen_connection(
-            adapter_.lock(), ep.transport(),
-            [](){
-                #if DEBUG_OUTPUT >= 1
-                ::std::cerr << "Server connection on close\n";
-                #endif
-            });
-        connection_->listen(ep);
-    }
-
-    void
-    close()
-    {
-        auto conn = get_connection();
-        if (!conn)
-            throw errors::runtime_error{ "Connection is not initialized" };
-        conn->close();
-    }
-
-    void
-    invoke(identity const& id, ::std::string const& op, context_type const& ctx,
-            bool run_sync,
-            encoding::outgoing&& params,
-            encoding::reply_callback reply,
-            functional::exception_callback exception,
-            functional::callback< bool > sent)
-    {
-        auto conn = get_connection();
-        if (!conn)
-            throw errors::runtime_error{ "Connection is not initialized" };
-        conn->invoke(id, op, ctx, run_sync,
-                ::std::move(params), reply, exception, sent);
-    }
-
-    void
-    set_adapter(adapter_ptr adp)
-    {
-        adapter_ = adp;
-        auto conn = get_connection();
-        if (conn) {
-            conn->adapter_ = adp;
-        }
-    }
-
-    endpoint
-    local_endpoint()
-    {
-        auto conn = get_connection();
-        if (!conn)
-            throw errors::runtime_error{ "Connection is not initialized" };
-        return conn->local_endpoint();
-    }
-};
-
-connection::connection(client_side const&, adapter_ptr adp)
-    : pimpl_{new impl{this, adp}}
+connection::connection(client_side const&, adapter_ptr adp, transport_type tt,
+        close_callback on_close)
+    : pimpl_{}
 {
+    create_client_connection(adp, tt, on_close);
 }
 
 connection::connection(client_side const&, adapter_ptr adp, endpoint const& ep,
         functional::void_callback on_connect,
         functional::exception_callback on_error,
         close_callback on_close)
-    : pimpl_{new impl{this, adp}}
+    : pimpl_{}
 {
-    pimpl_->connect_async(ep, on_connect, on_error, on_close);
+    create_client_connection(adp, ep.transport(), on_close);
+    connect_async(ep, on_connect, on_error);
 }
 
 connection::connection(server_side const&, adapter_ptr adp, endpoint const& ep)
-    : pimpl_{new impl{this, adp}}
+    : pimpl_{}
 {
-    pimpl_->start_accept(ep);
+    pimpl_ = detail::connection_implementation::create_listen_connection(
+        adp, ep.transport(),
+        [](){
+            #if DEBUG_OUTPUT >= 1
+            ::std::cerr << "Server connection on close\n";
+            #endif
+        });
+    pimpl_->listen(ep);
 }
 
 connection::~connection()
@@ -929,33 +822,48 @@ connection::~connection()
     #endif
 }
 
+void
+connection::create_client_connection(adapter_ptr adp, transport_type tt,
+        close_callback on_close)
+{
+    pimpl_ = detail::connection_implementation::create_connection(
+            adp, tt,
+            [this, on_close](){
+                #if DEBUG_OUTPUT >= 1
+                ::std::cerr << "Client connection on close\n";
+                #endif
+                if (on_close)
+                    on_close(this);
+            });
+}
+
 connector_ptr
 connection::get_connector() const
 {
     assert(pimpl_.get() && "Connection implementation is not set");
-    return pimpl_->connector_.lock();
+    return pimpl_->get_connector();
 }
 
 void
 connection::connect_async(endpoint const& ep,
         functional::void_callback       on_connect,
-        functional::exception_callback  on_error,
-        close_callback                  on_close)
+        functional::exception_callback  on_error)
 {
     assert(pimpl_.get() && "Connection implementation is not set");
-    pimpl_->connect_async(ep, on_connect, on_error, on_close);
+    pimpl_->connect_async(ep, on_connect, on_error);
 }
 
 void
 connection::set_adapter(adapter_ptr adp)
 {
     assert(pimpl_.get() && "Connection implementation is not set");
-    pimpl_->set_adapter(adp);
+    pimpl_->adapter_= adp;
 }
 
 void
 connection::close()
 {
+    assert(pimpl_.get() && "Connection implementation is not set");
     pimpl_->close();
 }
 

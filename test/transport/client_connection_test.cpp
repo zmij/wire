@@ -113,7 +113,7 @@ TEST_F(Client, TCPConnect)
 
     connector_ptr cnctr = connector::create_connector(io_svc);
     adapter_ptr bidir = cnctr->bidir_adapter();
-    connection c{client_side{}, bidir};
+    connection c{client_side{}, bidir, endpoint_.transport(), [](connection const*){}};
 
     bool connected = false;
     bool error = false;
@@ -149,7 +149,7 @@ TEST_F(Client, TCPConnectFail)
 
     connector_ptr cnctr = connector::create_connector(io_svc);
     adapter_ptr bidir = cnctr->bidir_adapter();
-    connection c{client_side{}, bidir};
+    connection c{client_side{}, bidir, endpoint_.transport(), [](connection const*){}};
 
     bool connected = false;
     bool error = false;
@@ -184,7 +184,7 @@ TEST_F(Client, TCPConnectInvalidValidate)
 
     connector_ptr cnctr = connector::create_connector(io_svc);
     adapter_ptr bidir = cnctr->bidir_adapter();
-    connection c{client_side{}, bidir};
+    connection c{client_side{}, bidir, endpoint_.transport(), [](connection const*){}};
 
     bool connected = false;
     bool error = false;
@@ -223,7 +223,7 @@ TEST_F(Client, DISABLED_TCPSendRequest)
 
     connector_ptr cnctr = connector::create_connector(io_svc);
     adapter_ptr bidir = cnctr->bidir_adapter();
-    connection c{client_side{}, bidir};
+    connection c{client_side{}, bidir, endpoint_.transport(), [](connection const*){}};
 
     std::bitset< 5 > tests;
 
@@ -394,7 +394,7 @@ TEST_F(Client, SSL)
 
     connector_ptr cnctr = connector::create_connector(io_svc, config);
     adapter_ptr bidir = cnctr->bidir_adapter();
-    connection c{client_side{}, bidir};
+    connection c{client_side{}, bidir, endpoint_.transport(), [](connection const*){}};
 
     bool connected = false;
     bool error = false;
@@ -433,7 +433,7 @@ TEST_F(Client, SSLInvalidServerCert)
 
     connector_ptr cnctr = connector::create_connector(io_svc);
     adapter_ptr bidir = cnctr->bidir_adapter();
-    connection c{client_side{}, bidir};
+    connection c{client_side{}, bidir, endpoint_.transport(), [](connection const*){}};
 
     bool connected = false;
     bool error = false;
@@ -484,7 +484,7 @@ TEST_F(Client, SSLValidClientCert)
 
     connector_ptr cnctr = connector::create_connector(io_svc, config);
     adapter_ptr bidir = cnctr->bidir_adapter();
-    connection c{client_side{}, bidir};
+    connection c{client_side{}, bidir, endpoint_.transport(), [](connection const*){}};
 
     bool connected = false;
     bool error = false;
@@ -535,7 +535,7 @@ TEST_F(Client, SSLInvalidClientCert)
 
     connector_ptr cnctr = connector::create_connector(io_svc, config);
     adapter_ptr bidir = cnctr->bidir_adapter();
-    connection c{client_side{}, bidir};
+    connection c{client_side{}, bidir, endpoint_.transport(), [](connection const*){}};
 
     bool connected = false;
     bool error = false;
@@ -582,7 +582,7 @@ TEST_F(Client, SSLNoClientCert)
 
     connector_ptr cnctr = connector::create_connector(io_svc, config);
     adapter_ptr bidir = cnctr->bidir_adapter();
-    connection c{client_side{}, bidir};
+    connection c{client_side{}, bidir, endpoint_.transport(), [](connection const*){}};
 
     bool connected = false;
     bool error = false;

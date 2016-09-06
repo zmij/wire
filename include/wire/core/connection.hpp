@@ -33,6 +33,12 @@ namespace core {
 struct server_side {};
 struct client_side {};
 
+namespace detail {
+
+struct connection_implementation;
+using connection_impl_ptr = ::std::shared_ptr<connection_implementation>;
+}  /* namespace detail */
+
 class connection {
 public:
     using close_callback = functional::callback<connection const*>;
@@ -40,7 +46,7 @@ public:
     /**
      * Create connection with no endpoint.
      */
-    connection(client_side const&, adapter_ptr);
+    connection(client_side const&, adapter_ptr, transport_type, close_callback);
     /**
      * Create connection and start asynchronous connect.
      * @param endpoint
@@ -74,8 +80,7 @@ public:
     void
     connect_async(endpoint const&,
             functional::void_callback       on_connect  = nullptr,
-            functional::exception_callback  on_error    = nullptr,
-            close_callback                  on_close    = nullptr);
+            functional::exception_callback  on_error    = nullptr);
 
 
     void
@@ -165,10 +170,13 @@ private:
     operator = (connection&&) = delete;
     connection&
     operator = (connection const&) = delete;
+
+    void
+    create_client_connection(adapter_ptr, transport_type, close_callback);
 private:
-    struct impl;
-    using pimpl = ::std::unique_ptr<impl>;
-    pimpl pimpl_;
+//    struct impl;
+//    using pimpl = ::std::unique_ptr<impl>;
+    detail::connection_impl_ptr pimpl_;
 };
 
 }  // namespace core

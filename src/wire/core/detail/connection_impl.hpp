@@ -33,8 +33,8 @@ namespace wire {
 namespace core {
 namespace detail {
 
-struct connection_impl_base;
-using connection_impl_ptr = ::std::shared_ptr< connection_impl_base >;
+struct connection_implementation;
+using connection_impl_ptr = ::std::shared_ptr< connection_implementation >;
 
 namespace events {
 
@@ -448,9 +448,9 @@ struct connection_fsm_def :
 };
 
 using connection_fsm = ::afsm::state_machine<
-        connection_fsm_def<::std::mutex, connection_impl_base>, ::std::mutex >;
+        connection_fsm_def<::std::mutex, connection_implementation>, ::std::mutex >;
 
-struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_base>,
+struct connection_implementation : ::std::enable_shared_from_this<connection_implementation>,
         connection_fsm {
     using clock_type            = ::std::chrono::system_clock;
     using time_point            = ::std::chrono::time_point< clock_type >;
@@ -475,7 +475,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     create_listen_connection( adapter_ptr adptr, transport_type _type,
             functional::void_callback on_close );
 
-    connection_impl_base( client_side const&, adapter_ptr adptr,
+    connection_implementation( client_side const&, adapter_ptr adptr,
             functional::void_callback on_close)
         : adapter_{adptr},
           connector_{adptr->get_connector()},
@@ -491,7 +491,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
         #endif
         mode_ = client;
     }
-    connection_impl_base( server_side const&, adapter_ptr adptr,
+    connection_implementation( server_side const&, adapter_ptr adptr,
             functional::void_callback on_close)
         : adapter_{adptr},
           connector_{adptr->get_connector()},
@@ -508,7 +508,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
         mode_ = server;
     }
 
-    virtual ~connection_impl_base()
+    virtual ~connection_implementation()
     {
         connection_timer_.cancel();
         request_timer_.cancel();
@@ -614,7 +614,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
 
     template < typename ... Args >
     void
-    post( void (connection_impl_base::* method)(Args ...), Args ... args)
+    post( void (connection_implementation::* method)(Args ...), Args ... args)
     {
         auto shared_this = shared_from_this();
         io_service_->post([shared_this, method, args...]() mutable {
@@ -631,7 +631,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     do_connect_async(endpoint const& ep)
     {
         do_connect_async_impl(ep,
-            ::std::bind(&connection_impl_base::handle_connected, shared_from_this(),
+            ::std::bind(&connection_implementation::handle_connected, shared_from_this(),
                     ::std::placeholders::_1));
     }
 
@@ -675,7 +675,7 @@ template <>
 struct is_secure< ssl_transport > : ::std::true_type {};
 
 template < transport_type _type >
-struct connection_impl : connection_impl_base {
+struct connection_impl : connection_implementation {
     using transport_traits    = transport_type_traits< _type >;
     using transport_type    = typename transport_traits::type;
     using socket_type        = typename transport_traits::listen_socket_type;
@@ -684,14 +684,14 @@ struct connection_impl : connection_impl_base {
     connection_impl(client_side const& c, adapter_ptr adptr,
             functional::void_callback on_close,
             typename ::std::enable_if< !is_secure< T >::value, void >::type* = nullptr)
-        : connection_impl_base{c, adptr, on_close}, transport_{ io_service_ }
+        : connection_implementation{c, adptr, on_close}, transport_{ io_service_ }
     {
     }
     template < typename T = transport_type >
     connection_impl(server_side const& s, adapter_ptr adptr,
             functional::void_callback on_close,
             typename ::std::enable_if< !is_secure< T >::value, void >::type* = nullptr)
-        : connection_impl_base{s, adptr, on_close}, transport_{ io_service_ }
+        : connection_implementation{s, adptr, on_close}, transport_{ io_service_ }
     {
     }
     template < typename T = transport_type >
@@ -699,7 +699,7 @@ struct connection_impl : connection_impl_base {
             functional::void_callback on_close,
             detail::adapter_options const& opts = {},
             typename ::std::enable_if< is_secure< T >::value, void >::type* = nullptr)
-        : connection_impl_base{c, adptr, on_close},
+        : connection_implementation{c, adptr, on_close},
           transport_{ io_service_, adptr->options().adapter_ssl }
     {
     }
@@ -708,7 +708,7 @@ struct connection_impl : connection_impl_base {
             functional::void_callback on_close,
             detail::adapter_options const& opts = {},
             typename ::std::enable_if< is_secure< T >::value, void >::type* = nullptr)
-        : connection_impl_base{s, adptr, on_close},
+        : connection_implementation{s, adptr, on_close},
           transport_{ io_service_, adptr->options().adapter_ssl }
     {
     }
@@ -764,7 +764,7 @@ private:
 };
 
 template < transport_type _type >
-struct listen_connection_impl : connection_impl_base {
+struct listen_connection_impl : connection_implementation {
     using session_type         = connection_impl< _type >;
     using listener_type        = transport_listener< session_type, _type >;
     using session_factory    = typename listener_type::session_factory;
@@ -772,7 +772,7 @@ struct listen_connection_impl : connection_impl_base {
 
     listen_connection_impl(adapter_ptr adptr, session_factory factory,
             functional::void_callback on_close)
-        : connection_impl_base{server_side{}, adptr, on_close},
+        : connection_implementation{server_side{}, adptr, on_close},
           listener_(adptr->io_service(), factory)
     {
     }
