@@ -138,13 +138,14 @@ fixed_reference::get_connection_async( connection_callback on_get,
         if (current_ == ref_.endpoints.end()) {
             current_ = ref_.endpoints.begin();
         }
+        auto _this = shared_this<fixed_reference>();
         cntr->get_outgoing_connection_async(
             *current_++,
-            [this, on_get, on_error](connection_ptr c)
+            [_this, on_get, on_error](connection_ptr c)
             {
-                auto conn = connection_.lock();
+                auto conn = _this->connection_.lock();
                 if (!conn || conn != c) {
-                    connection_ = c;
+                    _this->connection_ = c;
                     conn = c;
                 }
                 try {

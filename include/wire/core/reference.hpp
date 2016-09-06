@@ -62,7 +62,7 @@ operator >> (::std::istream& is, reference_data& val);
 /**
  * Class for a reference.
  */
-class reference {
+class reference : public ::std::enable_shared_from_this<reference> {
 public:
     using connection_callback = functional::callback< connection_ptr >;
 public:
@@ -124,6 +124,19 @@ public:
     get_connection_async( connection_callback on_get,
             functional::exception_callback on_error,
             bool sync = false) const  = 0;
+protected:
+    template < typename T >
+    ::std::shared_ptr<T>
+    shared_this()
+    {
+        return ::std::static_pointer_cast<T>(shared_from_this());
+    }
+    template < typename T >
+    ::std::shared_ptr<T const>
+    shared_this() const
+    {
+        return ::std::static_pointer_cast<T const>(shared_from_this());
+    }
 private:
     connector_weak_ptr  connector_;
 protected:
