@@ -80,7 +80,7 @@ ac.
 
 }  /* namespace  */
 
-TEST_F(PingPong, DISABLED_CheckedCast)
+TEST_F(PingPong, CheckedCast)
 {
     ASSERT_NE(0, child_.pid);
     ASSERT_TRUE(connector_.get());
@@ -92,7 +92,7 @@ TEST_F(PingPong, DISABLED_CheckedCast)
     EXPECT_FALSE(inv_prx.get());
 }
 
-TEST_F(PingPong, DISABLED_WireFunctions)
+TEST_F(PingPong, WireFunctions)
 {
     ASSERT_NE(0, child_.pid);
     ASSERT_TRUE(connector_.get());
@@ -110,7 +110,7 @@ TEST_F(PingPong, DISABLED_WireFunctions)
     EXPECT_EQ(2, wire_types.size());
 }
 
-TEST_F(PingPong, DISABLED_SyncRoundtrip)
+TEST_F(PingPong, SyncRoundtrip)
 {
     ASSERT_NE(0, child_.pid);
     ASSERT_TRUE(connector_.get());

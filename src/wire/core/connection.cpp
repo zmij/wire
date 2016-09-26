@@ -464,8 +464,10 @@ connection_implementation::invoke(identity const& id, ::std::string const& op, c
     process_event(events::send_request{ out, write_cb });
 
     if (run_sync) {
-        util::run_until(io_service_, [&](){
-            return pending_replies_.count(r.number);
+        auto _this = shared_from_this();
+        auto r_no = r.number;
+        util::run_while(io_service_, [_this, r_no](){
+            return _this->pending_replies_.count(r_no);
         });
     }
 }
