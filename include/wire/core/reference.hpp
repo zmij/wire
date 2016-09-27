@@ -59,6 +59,9 @@ operator << (::std::ostream& os, reference_data const& val);
 ::std::istream&
 operator >> (::std::istream& is, reference_data& val);
 
+reference_data
+operator "" _wire_ref(char const*, ::std::size_t);
+
 /**
  * Class for a reference.
  */
@@ -171,6 +174,6 @@ class routed_reference : public reference {
 }  // namespace core
 }  // namespace wire
 
-
+using ::wire::core::operator ""_wire_ref;
 
 #endif /* WIRE_CORE_REFERENCE_HPP_ */

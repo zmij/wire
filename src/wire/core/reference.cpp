@@ -37,6 +37,16 @@ operator < (reference_data const& lhs, reference_data const& rhs)
             lhs.endpoints < rhs.endpoints;
 }
 
+reference_data
+operator "" _wire_ref(char const* str, ::std::size_t sz)
+{
+    ::std::string literal{str, sz};
+    ::std::istringstream is{literal};
+    reference_data ref;
+    if (!(is >> ref))
+        throw ::std::runtime_error{"Invalid ::wire::core::reference_data literal " + literal};
+    return ref;
+}
 
 //----------------------------------------------------------------------------
 //      Base reference implementation

@@ -104,8 +104,13 @@ operator << (::std::ostream& os, identity const& val);
 ::std::istream&
 operator >> (::std::istream& is, identity& val);
 
+identity
+operator "" _wire_id(char const*, ::std::size_t);
+
 }  // namespace core
 }  // namespace wire
+
+using ::wire::core::operator ""_wire_id;
 
 namespace std {
 
