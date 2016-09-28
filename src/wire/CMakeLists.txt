@@ -58,6 +58,7 @@ set(wire_lib_SRCS
     core/adapter_admin_impl.cpp
     core/connector_admin_impl.cpp
     core/detail/io_service_monitor.cpp
+    core/service.cpp
 )
 add_library(${WIRE_LIB} SHARED ${wire_lib_SRCS})
 set_target_properties(
@@ -76,6 +77,7 @@ target_link_libraries(
 
 add_subdirectory(idl)
 add_subdirectory(wire2cpp)
+add_subdirectory(locator)
 
 install (
     TARGETS ${WIRE_LIB}

@@ -21,11 +21,21 @@
 #include <wire/core/proxy_fwd.hpp>
 #include <wire/core/reference_fwd.hpp>
 #include <wire/core/object_fwd.hpp>
+#include <wire/core/locator_fwd.hpp>
 #include <wire/core/detail/configuration_options_fwd.hpp>
 
 #include <wire/core/functional.hpp>
 
 #include <future>
+
+namespace boost {
+namespace program_options {
+
+class options_description;
+class variables_map;
+
+}  /* namespace program_options */
+}  /* namespace boost */
 
 namespace wire {
 namespace core {
@@ -35,6 +45,8 @@ public:
     using args_type             = ::std::vector<::std::string>;
     using connection_callback   = ::std::function< void(connection_ptr) >;
 public:
+    //@{
+    /** @name Connector creation functions */
     static connector_ptr
     create_connector();
     static connector_ptr
@@ -55,6 +67,7 @@ public:
     create_connector(asio_config::io_service_ptr svc, ::std::string const& name, args_type const&, ::std::string const& cfg);
     static connector_ptr
     create_connector(asio_config::io_service_ptr svc, ::std::string const& name, ::std::string const& cfg);
+    //@}
 private:
     connector(asio_config::io_service_ptr svc);
     connector(asio_config::io_service_ptr svc, ::std::string const& name);
@@ -71,25 +84,65 @@ private:
     do_create_connector(asio_config::io_service_ptr svc, ::std::string const& name, T&& ... args);
 public:
     ~connector();
+    //@{
+    /** @name Configuration */
+    /**
+     * Configure connector with a command line
+     * @param argc
+     * @param argv
+     */
     void
     confugure(int argc, char* argv[]);
+    /**
+     * Configure connector with a vector of command line arguments
+     * @param
+     */
     void
     configure(args_type const&);
+    /**
+     * Configure connector with a vector of command line arguments and
+     * configuration file contents
+     * @param cmd
+     * @param cfg
+     */
     void
     configure(args_type const& cmd, ::std::string const& cfg);
+    /**
+     * Configure connector with configuration file contents
+     * @param cfg
+     */
     void
     configure(::std::string const& cfg);
 
+    /**
+     * Connector options access
+     * @return
+     */
+    detail::connector_options const&
+    options() const;
+
+    /**
+     * Configure external options with the unrecognized options captured
+     * on configuration step.
+     * Particularly useful for services.
+     * @param desc
+     * @param vm
+     */
+    void
+    configure_options(::boost::program_options::options_description const& desc,
+            ::boost::program_options::variables_map& vm) const;
+    //@}
+
     asio_config::io_service_ptr
     io_service();
+
+    ::std::string const&
+    name() const;
 
     void
     run();
     void
     stop();
-
-    detail::connector_options const&
-    options() const;
 
     //@{
     /** @name Adapters */
@@ -108,6 +161,8 @@ public:
     adapter_online(adapter_ptr, endpoint const& ep);
     //@}
 
+    //@{
+    /** @name References */
     bool
     is_local(reference const& ref) const;
     object_ptr
@@ -118,7 +173,10 @@ public:
 
     object_prx
     make_proxy(reference_data const& ref) const;
+    //@}
 
+    //@{
+    /** @name Connections */
     /**
      * Get an existing connection to the endpoint specified or create a new one.
      * @param
@@ -151,6 +209,15 @@ public:
             connection_callback             on_get,
             functional::exception_callback  on_error,
             bool sync = false);
+    //@}
+
+    //@{
+    /** @name Locator */
+    locator_prx
+    get_locator() const;
+    locator_registry_prx
+    get_locator_registry() const;
+    //@}
 private:
     connector(connector const&) = delete;
     connector(connector&&) = delete;

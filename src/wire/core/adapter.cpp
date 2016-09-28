@@ -10,6 +10,7 @@
 #include <wire/core/connector.hpp>
 #include <wire/core/proxy.hpp>
 #include <wire/core/object_locator.hpp>
+#include <wire/core/locator.hpp>
 
 #include <wire/core/detail/configuration_options.hpp>
 
@@ -60,8 +61,12 @@ struct adapter::impl {
     activate()
     {
         lock_guard lock{mtx_};
-        adapter_ptr adp = owner_.lock();
+        auto adp = owner_.lock();
         if (adp) {
+            auto cnctr = connector_.lock();
+            if (!cnctr)
+                // FIXME Correct exception
+                throw ::std::runtime_error("Connector was already destroyed");
             if (options_.endpoints.empty()) {
                 options_.endpoints.push_back(endpoint::tcp("0.0.0.0", 0));
             }
@@ -70,7 +75,12 @@ struct adapter::impl {
                     std::make_shared<connection>(server_side{}, adp, ep ));
             }
             is_active_ = true;
+            auto reg = cnctr->get_locator_registry();
+            if (reg) {
+                reg->add_adapter(adapter_proxy());
+            }
         } else {
+            // FIXME Correct exception
             throw ::std::runtime_error("Adapter owning implementation was destroyed");
         }
     }
@@ -125,12 +135,28 @@ struct adapter::impl {
         return endpoints;
     }
 
+    endpoint_list
+    published_endpoints()
+    {
+        endpoint_list endpoints;
+        if (!connections_.empty()) {
+            for (auto const& cn : connections_) {
+                cn.second->local_endpoint().published_endpoints(endpoints);
+            }
+        } else {
+            for (auto const& ep : options_.endpoints) {
+                ep.published_endpoints(endpoints);
+            }
+        }
+        return endpoints;
+    }
+
     object_prx
     adapter_proxy()
     {
         return ::std::make_shared< object_proxy >(
             reference::create_reference(
-                connector_.lock(), { id_, {}, {}, active_endpoints() }));
+                connector_.lock(), { id_, {}, {}, published_endpoints() }));
     }
     object_prx
     create_proxy(identity const& id, ::std::string const& facet)
@@ -138,7 +164,7 @@ struct adapter::impl {
         // TODO Use configuration of adapter
         return ::std::make_shared< object_proxy >(
             reference::create_reference(
-                connector_.lock(), { id, facet, {}, active_endpoints() }));
+                connector_.lock(), { id, facet, {}, published_endpoints() }));
     }
     object_prx
     add_object(identity const& id, object_ptr disp)

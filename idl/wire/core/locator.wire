@@ -45,12 +45,47 @@ interface locator {
     get_registry() const;
 };
 
-interface locator_registry {
-    void
-    add_adapter(object* adapter);
+exception well_known_object_exists {};
+exception adapter_exists {
+    identity id;
+};
 
+interface locator_registry {
+    /**
+     * Add a well-known object to the registry.
+     * @param obj Object proxy
+     * @throw well_known_object_exists If the object with the same identity
+     *      exists in the registry with different endpoints and is alive.
+     */
     void
-    add_well_known_object(object* adapter);
+    add_well_known_object(object* obj)
+        throw(well_known_object_exists);
+
+    /**
+     * Add adapter direct proxy, as created by the adapter itself.
+     * @param adapter Direct proxy created by adapter object.
+     * @throw adapter_exists if the adapter with the same identity and different
+     *      endpoints exists in the registry.
+     */
+    void
+    add_adapter(object* adapter)
+        throw(adapter_exists);
+    /**
+     * Add replicated adapter to the registry. If there is already information
+     * about such an adapter, endpoints are added.
+     * @param adapter Direct proxy created by adapter object.
+     */
+    void
+    add_replicated_adapter(object* adapter);
+    /**
+     * Remove adapter info. If the adapter is replicated, only specified endpoints
+     * are erased. If all enpoints are erased, adapter object is removed.
+     * @param adapter Direct proxy created by adapter object.
+     * @throw no_adapter If no adapter with such id is in the registry.
+     */
+    void
+    remove_adapter(object* adapter)
+        throw(no_adapter);
 };
 
 }  /* namespace core */

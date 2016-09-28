@@ -313,20 +313,24 @@ struct connector::impl {
         adapter_opts.add(adapter_general_opts).add(adapter_ssl_opts);
 
         po::variables_map vm;
+        configure_options(adapter_opts, vm);
+        return aopts;
+    }
+
+    void
+    configure_options(po::options_description const& desc, po::variables_map& vm)
+    {
         po::parsed_options parsed_cmd =
-                po::command_line_parser(unrecognized_cmd_).options(adapter_opts).
+                po::command_line_parser(unrecognized_cmd_).options(desc).
                     allow_unregistered().run();
         po::store(parsed_cmd, vm);
 
         if (!unrecognized_cfg_.empty()) {
             ::std::istringstream cfg(unrecognized_cfg_);
-            po::parsed_options parsed_cfg = po::parse_config_file(cfg, adapter_opts, true);
+            po::parsed_options parsed_cfg = po::parse_config_file(cfg, desc, true);
             po::store(parsed_cfg, vm);
         }
-
         po::notify(vm);
-
-        return aopts;
     }
 
     void
@@ -661,10 +665,22 @@ connector::configure(args_type const& args)
     pimpl_->configure(args);
 }
 
+void
+connector::configure_options(po::options_description const& desc, po::variables_map& vm) const
+{
+    pimpl_->configure_options(desc, vm);
+}
+
 asio_config::io_service_ptr
 connector::io_service()
 {
     return pimpl_->io_service_;
+}
+
+::std::string const&
+connector::name() const
+{
+    return pimpl_->options_.name;
 }
 
 void
@@ -759,6 +775,18 @@ connector::get_outgoing_connection_async(endpoint const& ep,
         bool sync)
 {
     pimpl_->get_outgoing(ep, on_get, on_error, sync);
+}
+
+locator_prx
+connector::get_locator() const
+{
+    return pimpl_->locator_;
+}
+
+locator_registry_prx
+connector::get_locator_registry() const
+{
+    return pimpl_->locator_reg_;
 }
 
 }  // namespace core
