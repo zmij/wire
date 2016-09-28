@@ -68,6 +68,7 @@ set_target_properties(
 )
 target_link_libraries(
     ${WIRE_LIB}
+    ${WIRE_UTIL_LIB}
     ${Boost_PROGRAM_OPTIONS_LIBRARIES}
     ${Boost_SYSTEM_LIBRARIES}
     ${OPENSSL_LIBRARIES}
