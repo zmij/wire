@@ -30,6 +30,8 @@ using udp               = ASIO_NS::ip::udp;
 using local_socket      = ASIO_NS::local::stream_protocol;
 
 using address           = ASIO_NS::ip::address;
+using address_v4        = ASIO_NS::ip::address_v4;
+using address_v6        = ASIO_NS::ip::address_v6;
 
 using error_code        = ::boost::system::error_code;
 using asio_callback     = ::std::function< void(error_code const&) >;

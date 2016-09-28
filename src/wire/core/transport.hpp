@@ -34,8 +34,9 @@ struct transport_type_traits;
 
 template<>
 struct transport_type_traits<transport_type::tcp> {
-    static constexpr transport_type value = transport_type::tcp;
-    static constexpr bool stream_oriented = true;
+    static constexpr transport_type value   = transport_type::tcp;
+    static constexpr bool stream_oriented   = true;
+    static constexpr bool is_ip             = true;
 
     using type = tcp_transport;
     using endpoint_data         = detail::tcp_endpoint_data;
@@ -62,8 +63,9 @@ struct transport_type_traits<transport_type::tcp> {
 
 template<>
 struct transport_type_traits<transport_type::ssl> {
-    static constexpr transport_type value = transport_type::ssl;
-    static constexpr bool stream_oriented = true;
+    static constexpr transport_type value   = transport_type::ssl;
+    static constexpr bool stream_oriented   = true;
+    static constexpr bool is_ip             = true;
 
     using type                  = ssl_transport;
     using endpoint_data         = detail::ssl_endpoint_data;
@@ -90,8 +92,9 @@ struct transport_type_traits<transport_type::ssl> {
 
 template<>
 struct transport_type_traits<transport_type::udp> {
-    static constexpr transport_type value = transport_type::udp;
-    static constexpr bool stream_oriented = false;
+    static constexpr transport_type value   = transport_type::udp;
+    static constexpr bool stream_oriented   = false;
+    static constexpr bool is_ip             = true;
 
     using type                  = udp_transport;
     using endpoint_data         = detail::udp_endpoint_data;
@@ -110,8 +113,9 @@ struct transport_type_traits<transport_type::udp> {
 
 template<>
 struct transport_type_traits<transport_type::socket> {
-    static constexpr transport_type value = transport_type::socket;
-    static constexpr bool stream_oriented = true;
+    static constexpr transport_type value   = transport_type::socket;
+    static constexpr bool stream_oriented   = true;
+    static constexpr bool is_ip             = false;
 
     using type                  = socket_transport;
     using endpoint_data         = detail::socket_endpoint_data;

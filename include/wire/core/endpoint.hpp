@@ -93,6 +93,9 @@ struct inet_endpoint_data {
     check() const;
     void
     check(transport_type expected) const;
+
+    bool
+    is_meta_address() const;
 };
 
 ::std::ostream&
@@ -206,6 +209,10 @@ struct endpoint_data_traits< socket_endpoint_data >
 
 }  // namespace detail
 
+class endpoint;
+using endpoint_list = ::std::vector<endpoint>;
+using endpoint_set = ::std::unordered_set<endpoint>;
+
 class endpoint {
 public:
     using endpoint_data
@@ -293,6 +300,9 @@ public:
     void
     check(transport_type expected) const;
 
+    void
+    published_endpoints(endpoint_list&) const;
+
     template < typename OutputIterator >
     void
     write( OutputIterator o ) const
@@ -317,9 +327,6 @@ public:
 private:
     endpoint_data    endpoint_data_;
 };
-
-using endpoint_list = ::std::vector<endpoint>;
-using endpoint_set = ::std::unordered_set<endpoint>;
 
 template < typename OutputIterator >
 void

@@ -7,6 +7,8 @@
 
 #include <wire/core/endpoint.hpp>
 #include <wire/core/grammar/endpoint_parse.hpp>
+#include <wire/asio_config.hpp>
+#include <wire/util/enumerate_interfaces.hpp>
 
 #include <boost/spirit/include/support_istream_iterator.hpp>
 #include <boost/spirit/include/support_multi_pass.hpp>
@@ -91,6 +93,13 @@ operator >> (std::istream& in, transport_type& val)
 
 namespace detail {
 
+namespace {
+
+asio_config::address meta_address_v4{ asio_config::address_v4::from_string("0.0.0.0") };
+asio_config::address meta_address_v6{ asio_config::address_v6::from_string("::") };
+
+}  /* namespace  */
+
 void
 inet_endpoint_data::check() const
 {
@@ -113,6 +122,18 @@ inet_endpoint_data::check(transport_type t) const
     }
 }
 
+bool
+inet_endpoint_data::is_meta_address() const
+{
+    asio_config::address addr{ asio_config::address::from_string(host) };
+    if (addr.is_v4()) {
+        return addr == meta_address_v4;
+    } else {
+        return addr == meta_address_v6;
+    }
+}
+
+//----------------------------------------------------------------------------
 void
 socket_endpoint_data::check(transport_type t) const
 {
@@ -192,7 +213,7 @@ struct endpoint_data_check : boost::static_visitor<> {
     void
     operator()( empty_endpoint const& data ) const
     {
-        throw errors::logic_error( "Empty endpoint is not connectible" );
+        throw errors::logic_error( "Empty endpoint is not connectable" );
     }
     void
     operator()( inet_endpoint_data const& data ) const
@@ -205,6 +226,61 @@ struct endpoint_data_check : boost::static_visitor<> {
         data.check(expected_type);
     }
 };
+
+struct collect_published_endpoints : boost::static_visitor<> {
+    endpoint_list& endpoints;
+
+    collect_published_endpoints(endpoint_list& eps) : endpoints{eps} {}
+
+    void
+    operator()( empty_endpoint const& data ) const
+    {
+        throw errors::logic_error( "Empty endpoint is not connectable" );
+    }
+    template<typename Endpoint>
+    void
+    check_meta_address(Endpoint const& data,
+            endpoint (*func)(::std::string const&, uint16_t)) const
+    {
+        if (data.is_meta_address()) {
+            asio_config::address addr{ asio_config::address::from_string(data.host) };
+            util::get_interface_options opts =
+                util::get_interface_options::loopback | util::get_interface_options::regular;
+            if (addr.is_v4()) {
+                opts = opts | util::get_interface_options::ip4;
+            } else {
+                opts = opts | util::get_interface_options::ip6;
+            }
+            auto addresses = util::get_local_interfaces(opts);
+            for (auto const& addr : addresses) {
+                endpoints.emplace_back( func( addr.to_string(), data.port ) );
+            }
+        } else {
+            endpoints.emplace_back( data );
+        }
+    }
+    void
+    operator()( tcp_endpoint_data const& data ) const
+    {
+        check_meta_address(data, endpoint::tcp);
+    }
+    void
+    operator()( ssl_endpoint_data const& data ) const
+    {
+        check_meta_address(data, endpoint::ssl);
+    }
+    void
+    operator()( udp_endpoint_data const& data ) const
+    {
+        check_meta_address(data, endpoint::udp);
+    }
+    void
+    operator()( socket_endpoint_data const& data ) const
+    {
+        endpoints.emplace_back( data );
+    }
+};
+
 }  // namespace detail
 
 void
@@ -216,6 +292,12 @@ endpoint::check(transport_type expected) const
                 " for ", expected, " transport");
     }
     boost::apply_visitor(detail::endpoint_data_check{ expected }, endpoint_data_);
+}
+
+void
+endpoint::published_endpoints(endpoint_list& eps) const
+{
+    boost::apply_visitor(detail::collect_published_endpoints{ eps }, endpoint_data_ );
 }
 
 std::ostream&

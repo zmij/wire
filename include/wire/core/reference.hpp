@@ -30,7 +30,7 @@ struct reference_data {
     identity                object_id;
     ::std::string           facet;
     optional_identity       adapter;
-    endpoint_list           endpoints;
+    endpoint_list           endpoints; // TODO Replace with endpoint_set
 };
 
 template < typename OutputIterator >
