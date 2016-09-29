@@ -9,6 +9,7 @@
 #include <wire/util/make_unique.hpp>
 #include <wire/errors/not_found.hpp>
 
+#include <iostream>
 #include <mutex>
 #include <unordered_map>
 
@@ -36,7 +37,7 @@ struct locator::impl {
         if (f != objects_.end()) {
             return f->second;
         }
-        throw errors::no_object{id, "", ""};
+        throw core::object_not_found{id};
     }
 
     void
@@ -84,6 +85,11 @@ struct locator::impl {
     add_adapter(core::object_prx adapter)
     {
         auto id = adapter->wire_identity();
+
+        #if DEBUG_OUTPUT >= 1
+        ::std::cout << "Locator add adapter " << id
+                << " " << adapter->wire_get_reference()->data().endpoints << "\n";
+        #endif
         lock_guard lock{adapter_mutex_};
         auto f = adapters_.find(id);
         if (f == adapters_.end()) {
@@ -96,6 +102,10 @@ struct locator::impl {
     add_replicated_adapter(core::object_prx adapter)
     {
         auto id = adapter->wire_identity();
+        #if DEBUG_OUTPUT >= 1
+        ::std::cout << "Locator add replicated adapter " << id
+                << " " << adapter->wire_get_reference()->data().endpoints << "\n";
+        #endif
         lock_guard lock{adapter_mutex_};
         auto f = adapters_.find(id);
         if (f == adapters_.end()) {
@@ -148,7 +158,7 @@ struct locator::impl {
 };
 
 locator::locator(core::locator_registry_prx registry)
-    : pimpl_{util::make_unique<impl>()}
+    : pimpl_{util::make_unique<impl>(registry)}
 {
 }
 
@@ -207,13 +217,13 @@ locator::add_adapter(core::object_prx adapter)
 void
 locator::add_replicated_adapter(core::object_prx adapter)
 {
-    pimpl_->add_adapter(adapter);
+    pimpl_->add_replicated_adapter(adapter);
 }
 
 void
 locator::remove_adapter(core::object_prx adapter)
 {
-    pimpl_->add_adapter(adapter);
+    pimpl_->remove_adapter(adapter);
 }
 
 //----------------------------------------------------------------------------

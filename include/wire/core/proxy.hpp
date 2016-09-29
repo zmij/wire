@@ -8,14 +8,14 @@
 #ifndef WIRE_CORE_PROXY_HPP_
 #define WIRE_CORE_PROXY_HPP_
 
+#include <wire/core/identity_fwd.hpp>
 #include <wire/core/proxy_fwd.hpp>
-#include <wire/core/reference.hpp>
 #include <wire/core/connection_fwd.hpp>
 #include <wire/core/connector_fwd.hpp>
+#include <wire/core/reference.hpp>
 
 #include <wire/core/context.hpp>
 #include <wire/core/functional.hpp>
-#include <wire/core/identity_fwd.hpp>
 
 #include <wire/encoding/wire_io.hpp>
 #include <wire/encoding/buffers.hpp>
@@ -240,15 +240,71 @@ unchecked_cast(::std::shared_ptr< SourcePrx > v)
 }
 
 template < typename TargetPrx, typename SourcePrx >
-::std::shared_ptr< TargetPrx >
-checked_cast(::std::shared_ptr< SourcePrx > v)
+void
+checked_cast_async(::std::shared_ptr<SourcePrx>                 v,
+        functional::callback< ::std::shared_ptr<TargetPrx> >    result,
+        functional::exception_callback                          exception   = nullptr,
+        functional::callback<bool>                              sent        = nullptr,
+        context_type const&                                     ctx         = no_context,
+        bool                                                    run_sync    = false)
 {
+    using result_prx = ::std::shared_ptr<TargetPrx>;
     static_assert(::std::is_base_of<object_proxy, SourcePrx>::value,
             "Can cast only from instances of object_proxy");
-    if (v && v->wire_is_a(TargetPrx::wire_static_type_id())) {
-        return v->template cast_to<TargetPrx>();
+    if (v) {
+        v->wire_is_a_async(
+            TargetPrx::wire_static_type_id(),
+            [v, result](bool is_a) {
+                result_prx res = is_a ? v->template cast_to< TargetPrx >() : result_prx{};
+                try {
+                    result(res);
+                } catch (...) {}
+            },
+            [exception](::std::exception_ptr ex) {
+                if (exception) {
+                    try {
+                        exception(ex);
+                    } catch (...) {}
+                }
+            }, sent, ctx, run_sync);
+    } else {
+        try {
+            result(result_prx{});
+        } catch (...) {}
     }
-    return ::std::shared_ptr< TargetPrx >{};
+}
+
+template < typename TargetPrx, typename SourcePrx,
+    template <typename> class _Promise = ::std::promise >
+auto
+checked_cast_async(::std::shared_ptr<SourcePrx>                 v,
+        context_type const& ctx = no_context, bool run_sync = false)
+    -> decltype(::std::declval<_Promise< ::std::shared_ptr<TargetPrx>>>().get_future())
+{
+    using result_prx = ::std::shared_ptr<TargetPrx>;
+    auto promise = ::std::make_shared<_Promise<result_prx>>();
+
+    checked_cast_async<TargetPrx>(
+        v,
+        [promise](result_prx res)
+        {
+            promise->set_value(res);
+        },
+        [promise](::std::exception_ptr ex)
+        {
+            promise->set_exception(::std::move(ex));
+        }, nullptr, ctx, run_sync
+    );
+
+    return promise->get_future();
+}
+
+template < typename TargetPrx, typename SourcePrx >
+::std::shared_ptr< TargetPrx >
+checked_cast(::std::shared_ptr< SourcePrx > v, context_type const& ctx = no_context)
+{
+    auto future = checked_cast_async<TargetPrx>(v, ctx, true);
+    return future.get();
 }
 
 }  // namespace core

@@ -11,6 +11,7 @@
 #include <sstream>
 
 #include <wire/core/connector.hpp>
+#include <wire/core/locator.hpp>
 
 namespace wire {
 namespace core {
@@ -57,11 +58,17 @@ reference::create_reference(connector_ptr cnctr, reference_data const& ref_data)
     if (!ref_data.endpoints.empty()) {
         // Find a connection or create a new one
         return
-            ::std::make_shared< fixed_reference >( cnctr, ref_data);
+            ::std::make_shared< fixed_reference >(cnctr, ref_data);
     } else if (ref_data.adapter.is_initialized()) {
-        throw errors::runtime_error("Adapter location is not implemented yet");
+        return ::std::make_shared< floating_reference >(cnctr, ref_data);
     }
-    throw errors::runtime_error{"Well-known objects are not implemented yet"};
+    auto lctr = cnctr->get_locator();
+    if (lctr) {
+        auto prx = lctr->find_object(ref_data.object_id);
+        return ::std::make_shared< fixed_reference >( cnctr,
+                    prx->wire_get_reference()->data());
+    }
+    throw errors::runtime_error{"wire.locator is not configured"};
 }
 
 bool
@@ -180,5 +187,47 @@ fixed_reference::get_connection_async( connection_callback on_get,
     }
 }
 
+//----------------------------------------------------------------------------
+//      Floating reference implementation
+//----------------------------------------------------------------------------
+
+floating_reference::floating_reference(connector_ptr cn, reference_data const& ref)
+    : reference{ cn, ref }
+{
+}
+
+floating_reference::floating_reference(floating_reference const& rhs)
+    : reference{rhs}
+{
+}
+
+floating_reference::floating_reference(floating_reference&& rhs)
+    : reference{ ::std::move(rhs) }
+{
+}
+
+void
+floating_reference::get_connection_async( connection_callback on_get,
+        functional::exception_callback on_error,
+        bool sync ) const
+{
+    try {
+        if (!prx_) {
+            auto cnctr = get_connector();
+            auto lctr = cnctr->get_locator();
+            if (!lctr)
+                throw errors::runtime_error{ "wire.locator is not configured" };
+            prx_ = lctr->find_adapter(ref_.adapter.get());
+            if (!prx_)
+                throw errors::runtime_error{ "Failed to locate adapter" }; // TODO more specific error
+        }
+        //prx_->wire_get_reference()->data();
+    } catch (...) {
+        if (on_error)
+            try {
+                on_error(::std::current_exception());
+            } catch (...) {}
+    }
+}
 }  // namespace core
 }  // namespace wire

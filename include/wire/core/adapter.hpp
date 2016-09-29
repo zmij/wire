@@ -56,7 +56,12 @@ public:
      * Start accepting connections
      */
     void
-    activate();
+    activate(bool postpone_reg = false);
+    /**
+     * Register adapter in the locator
+     */
+    void
+    register_adapter();
     /**
      * Stop accepting connections.
      * Send close to clients, close read ends.
@@ -94,6 +99,13 @@ public:
      */
     endpoint_list
     active_endpoints() const;
+
+    /**
+     * Get adapter published edpoints list
+     * @return
+     */
+    endpoint_list
+    published_endpoints() const;
 
     /**
      * Create a proxy with given identity and properties of adapter

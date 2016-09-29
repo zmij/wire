@@ -69,6 +69,7 @@ struct connector::impl {
 
     //@{
     /** @name Locator */
+    mutex_type                  locator_mtx_;
     locator_prx                 locator_;
     locator_registry_prx        locator_reg_;
     //@}
@@ -99,7 +100,7 @@ struct connector::impl {
     }
 
     void
-    hadnle_shutdown()
+    handle_shutdown()
     {
         ;
     }
@@ -215,18 +216,6 @@ struct connector::impl {
     void
     apply_options()
     {
-        if (!options_.locator_ref.object_id.empty()) {
-            object_prx prx = ::std::make_shared< object_proxy >(
-                    reference::create_reference(owner_.lock(), options_.locator_ref));
-            locator_ = checked_cast< locator_proxy >(prx);
-            if (!locator_)
-                throw errors::runtime_error("Failed to reach locator at ",
-                        options_.locator_ref);
-            locator_reg_ = locator_->get_registry();
-            if (!locator_reg_)
-                throw errors::runtime_error("Locator at ", options_.locator_ref,
-                        " doesn't provide a registry");
-        }
         if (!options_.admin_endpoints.empty()) {
             create_connector_admin();
         }
@@ -289,9 +278,17 @@ struct connector::impl {
         }
 
         adapter_general_opts.add_options()
-        ((name + ".endpoints").c_str(), ep_value, "Adapter endpoints")
+        ((name + ".endpoints").c_str(), ep_value,
+            "Adapter endpoints")
         ((name + ".timeout").c_str(),
-            po::value<::std::size_t>(&aopts.timeout)->default_value(0), "Request timeout")
+            po::value<::std::size_t>(&aopts.timeout)->default_value(0),
+            "Request timeout")
+        ((name + ".register").c_str(),
+            po::bool_switch(&aopts.registered)->default_value(true),
+            "Register adapter in locator, if any")
+        ((name + ".replicated").c_str(),
+            po::bool_switch(&aopts.replicated)->default_value(false),
+            "Replicated adapter, should register in locator")
         ;
 
         po::options_description adapter_ssl_opts(name + " Adapter SSL Options");
@@ -341,6 +338,114 @@ struct connector::impl {
         }
     }
 
+    void
+    set_locator(locator_prx loc)
+    {
+        lock_guard lock{locator_mtx_};
+        locator_ = loc;
+    }
+    void
+    get_locator_async(functional::callback< locator_prx >  result,
+            functional::exception_callback                  exception,
+            context_type const&                             ctx,
+            bool                                            run_sync)
+    {
+        locator_prx loc;
+        {
+            lock_guard lock{locator_mtx_};
+            loc = locator_;
+        }
+
+        if (!loc && !options_.locator_ref.object_id.empty()) {
+            #if DEBUG_OUTPUT >= 1
+            ::std::cerr << "Try to otain locator proxy "
+                    << options_.locator_ref << "\n";
+            #endif
+            try {
+                if (options_.locator_ref.endpoints.empty())
+                    throw errors::runtime_error{ "Locator reference must have endpoints" };
+                object_prx prx = make_proxy(options_.locator_ref);
+                checked_cast_async< locator_proxy >(
+                    prx,
+                    [this, result](locator_prx loc)
+                    {
+                        if (loc) {
+                            lock_guard lock{locator_mtx_};
+                            locator_ = loc;
+                        }
+                        try {
+                            result(locator_);
+                        } catch (...) {}
+                    },
+                    [exception](::std::exception_ptr ex)
+                    {
+                        if (exception) {
+                            try {
+                                exception(ex);
+                            } catch (...) {}
+                        }
+                    }, nullptr, ctx, run_sync
+                );
+            } catch (...) {
+                if (exception) {
+                    try {
+                        exception(::std::current_exception());
+                    } catch (...) {}
+                }
+            }
+        } else {
+            try {
+                result(loc);
+            } catch (...) {}
+        }
+    }
+
+    void
+    get_locator_registry_async(
+            functional::callback< locator_registry_prx >    result,
+            functional::exception_callback                  exception,
+            context_type const&                             ctx,
+            bool                                            run_sync)
+    {
+        locator_registry_prx reg;
+        {
+            lock_guard lock{locator_mtx_};
+            reg = locator_reg_;
+        }
+        if (!reg) {
+            get_locator_async(
+                [this, result, exception, ctx, run_sync](locator_prx loc)
+                {
+                    if (loc) {
+                        #if DEBUG_OUTPUT >= 1
+                        ::std::cerr << "Try to otain locator registry proxy from locator "
+                                << *loc << "\n";
+                        #endif
+                        loc->get_registry_async(
+                            [this, result](locator_registry_prx reg)
+                            {
+                                if (reg) {
+                                    lock_guard lock{locator_mtx_};
+                                    locator_reg_ = reg;
+                                }
+                                try {
+                                    result(locator_reg_);
+                                } catch (...) {}
+                            }, exception, nullptr, ctx, run_sync);
+                    } else {
+                        try {
+                            result(locator_reg_);
+                        } catch (...) {}
+                    }
+                },
+                exception, ctx, run_sync);
+        } else {
+            try {
+                result(reg);
+            } catch (...) {}
+        }
+    }
+
     adapter_ptr
     create_adapter(identity const& id, endpoint_list const& eps = endpoint_list{})
     {
@@ -364,7 +469,7 @@ struct connector::impl {
             if (!conn) {
                 throw errors::runtime_error("Connector already destroyed");
             }
-            detail::adapter_options opts{{}, 0, options_.client_ssl};
+            detail::adapter_options opts{{}, 0, false, false, options_.client_ssl};
             bidir_adapter_ = adapter::create_adapter(conn, identity::random("client"), opts);
         }
         return bidir_adapter_;
@@ -401,11 +506,15 @@ struct connector::impl {
             #endif
             online_adapters_.erase(f);
         }
+        endpoint_list eps;
+        ep.published_endpoints(eps);
         #ifdef DEBUG_OUTPUT
-        ::std::cerr << "Adapter " << adptr->id() << " is listening to " << ep << "\n";
+        ::std::cerr << "Adapter " << adptr->id() << " is listening to " << eps << "\n";
         #endif
-        online_adapters_.emplace(ep, adptr);
+        for (auto e : eps)
+            online_adapters_.emplace(e, adptr);
     }
+    // TODO Erase adapter on deactivation
 
     bool
     is_local(reference const& ref)
@@ -777,16 +886,44 @@ connector::get_outgoing_connection_async(endpoint const& ep,
     pimpl_->get_outgoing(ep, on_get, on_error, sync);
 }
 
-locator_prx
-connector::get_locator() const
+void
+connector::set_locator(locator_prx loc)
 {
-    return pimpl_->locator_;
+    pimpl_->set_locator(loc);
+}
+
+locator_prx
+connector::get_locator(context_type const& ctx) const
+{
+    auto future = get_locator_async(ctx, true);
+    return future.get();
+}
+
+void
+connector::get_locator_async(
+        functional::callback<locator_prx>   result,
+        functional::exception_callback      exception,
+        context_type const&                 ctx,
+        bool                                run_sync) const
+{
+    pimpl_->get_locator_async(result, exception, ctx, run_sync);
 }
 
 locator_registry_prx
-connector::get_locator_registry() const
+connector::get_locator_registry(context_type const& ctx) const
 {
-    return pimpl_->locator_reg_;
+    auto future = get_locator_registry_async(ctx, true);
+    return future.get();
+}
+
+void
+connector::get_locator_registry_async(
+        functional::callback<locator_registry_prx>  result,
+        functional::exception_callback              exception,
+        context_type const&                         ctx,
+        bool                                        run_sync) const
+{
+    pimpl_->get_locator_registry_async(result, exception, ctx, run_sync);
 }
 
 }  // namespace core

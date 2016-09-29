@@ -300,6 +300,28 @@ endpoint::published_endpoints(endpoint_list& eps) const
     boost::apply_visitor(detail::collect_published_endpoints{ eps }, endpoint_data_ );
 }
 
+endpoint
+endpoint::tcp(std::string const& host, uint16_t port)
+{
+    return endpoint{ detail::tcp_endpoint_data{ host, port } };
+}
+
+endpoint
+endpoint::ssl(std::string const& host, uint16_t port)
+{
+    return endpoint{ detail::ssl_endpoint_data{ host, port } };
+}
+endpoint
+endpoint::udp(std::string const& host, uint16_t port)
+{
+    return endpoint{ detail::udp_endpoint_data{ host, port } };
+}
+endpoint
+endpoint::socket(std::string const& path)
+{
+    return endpoint{ detail::socket_endpoint_data{ path } };
+}
+
 std::ostream&
 operator << (std::ostream& os, endpoint const& val)
 {
@@ -397,25 +419,14 @@ operator >> (::std::istream& is, endpoint_set& val)
 }
 
 endpoint
-endpoint::tcp(std::string const& host, uint16_t port)
+operator "" _wire_ep(char const* str, ::std::size_t sz)
 {
-    return endpoint{ detail::tcp_endpoint_data{ host, port } };
-}
-
-endpoint
-endpoint::ssl(std::string const& host, uint16_t port)
-{
-    return endpoint{ detail::ssl_endpoint_data{ host, port } };
-}
-endpoint
-endpoint::udp(std::string const& host, uint16_t port)
-{
-    return endpoint{ detail::udp_endpoint_data{ host, port } };
-}
-endpoint
-endpoint::socket(std::string const& path)
-{
-    return endpoint{ detail::socket_endpoint_data{ path } };
+    ::std::string literal{str, sz};
+    ::std::istringstream is{literal};
+    endpoint ep;
+    if (!(is >> ep))
+        throw ::std::runtime_error{"Invalid ::wire::core::endpoint literal " + literal};
+    return ep;
 }
 
 namespace detail {

@@ -16,6 +16,7 @@
 
 #include <unordered_map>
 #include <mutex>
+#include <iostream>
 
 namespace wire {
 namespace core {
@@ -58,7 +59,7 @@ struct adapter::impl {
     }
 
     void
-    activate()
+    activate(bool postpone_reg)
     {
         lock_guard lock{mtx_};
         auto adp = owner_.lock();
@@ -66,7 +67,7 @@ struct adapter::impl {
             auto cnctr = connector_.lock();
             if (!cnctr)
                 // FIXME Correct exception
-                throw ::std::runtime_error("Connector was already destroyed");
+                throw errors::connector_destroyed{"Connector was already destroyed"};
             if (options_.endpoints.empty()) {
                 options_.endpoints.push_back(endpoint::tcp("0.0.0.0", 0));
             }
@@ -75,13 +76,37 @@ struct adapter::impl {
                     std::make_shared<connection>(server_side{}, adp, ep ));
             }
             is_active_ = true;
-            auto reg = cnctr->get_locator_registry();
-            if (reg) {
-                reg->add_adapter(adapter_proxy());
-            }
+            if (!postpone_reg)
+                register_adapter();
         } else {
             // FIXME Correct exception
-            throw ::std::runtime_error("Adapter owning implementation was destroyed");
+            throw errors::adapter_destroyed{"Adapter owning implementation was destroyed"};
+        }
+    }
+
+    void
+    register_adapter()
+    {
+        auto cnctr = connector_.lock();
+        if (!cnctr)
+            // FIXME Correct exception
+            throw errors::connector_destroyed{"Connector was already destroyed"};
+        if (options_.registered || options_.replicated) {
+            auto reg = cnctr->get_locator_registry();
+            if (reg) {
+                auto prx = adapter_proxy();
+                #if DEBUG_OUTPUT >= 1
+                ::std::cerr << "Register adapter " << *prx << " at locator\n";
+                #endif
+                if (options_.replicated) {
+                    reg->add_replicated_adapter(prx);
+                } else {
+                    reg->add_adapter(prx);
+                }
+            } else if (options_.replicated) {
+                throw errors::runtime_error{
+                        "wire.locator not configured for a replicated adapter"};
+            }
         }
     }
 
@@ -112,10 +137,10 @@ struct adapter::impl {
     void
     listen_connection_online(endpoint const& ep)
     {
-        auto cr = connector_.lock();
-        if (!cr)
+        auto cnctr = connector_.lock();
+        if (!cnctr)
             throw errors::runtime_error{ "Connector is dead" };
-        cr->adapter_online(owner_.lock(), ep);
+        cnctr->adapter_online(owner_.lock(), ep);
     }
     void
     connection_offline(endpoint const& ep)
@@ -259,9 +284,15 @@ adapter::options() const
 }
 
 void
-adapter::activate()
+adapter::activate(bool postpone_reg)
 {
-    pimpl_->activate();
+    pimpl_->activate(postpone_reg);
+}
+
+void
+adapter::register_adapter()
+{
+    pimpl_->register_adapter();
 }
 
 void
@@ -298,6 +329,12 @@ endpoint_list
 adapter::active_endpoints() const
 {
     return pimpl_->active_endpoints();
+}
+
+endpoint_list
+adapter::published_endpoints() const
+{
+    return pimpl_->published_endpoints();
 }
 
 object_prx

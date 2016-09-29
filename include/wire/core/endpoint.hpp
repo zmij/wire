@@ -364,8 +364,14 @@ operator >> (::std::istream& is, endpoint_list& val);
 operator << (::std::ostream& os, endpoint_set const& val);
 ::std::istream&
 operator >> (::std::istream& is, endpoint_set& val);
+
+endpoint
+operator "" _wire_ep(char const*, ::std::size_t);
+
 }  // namespace core
 }  // namespace wire
+
+using ::wire::core::operator ""_wire_ep;
 
 namespace std {
 

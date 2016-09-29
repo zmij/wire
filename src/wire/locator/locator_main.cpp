@@ -58,8 +58,10 @@ try {
 
     util::service_runner srv{io_svc, [&](){ loc_svc.stop(); }};
 
+    #if DEBUG_OUTPUT >= 1
+    ::std::cerr << "Running locator service with " << thread_count << " threads\n";
+    #endif
     srv.run(thread_count);
-
     return 0;
 } catch (::std::exception const& e) {
     ::std::cerr << "Exception: " << e.what() << "\n";

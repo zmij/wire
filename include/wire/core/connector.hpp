@@ -25,6 +25,7 @@
 #include <wire/core/detail/configuration_options_fwd.hpp>
 
 #include <wire/core/functional.hpp>
+#include <wire/core/context.hpp>
 
 #include <future>
 
@@ -214,9 +215,71 @@ public:
     //@{
     /** @name Locator */
     locator_prx
-    get_locator() const;
+    get_locator(context_type const& = no_context) const;
+    void
+    get_locator_async(
+        functional::callback<locator_prx>   result,
+        functional::exception_callback      exception   = nullptr,
+        context_type const&                             = no_context,
+        bool                                run_sync    = false
+    ) const;
+    template < template <typename> class _Promise = ::std::promise >
+    auto
+    get_locator_async(
+        context_type const&                 ctx         = no_context,
+        bool                                run_sync    = false) const
+        -> decltype(::std::declval<_Promise<locator_prx>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<locator_prx> >();
+
+        get_locator_async(
+            [promise](locator_prx res)
+            {
+                promise->set_value(res);
+            },
+            [promise](::std::exception_ptr ex)
+            {
+                promise->set_exception(ex);
+            }, ctx, run_sync
+        );
+
+        return promise->get_future();
+    }
+    void
+    set_locator(locator_prx);
+
     locator_registry_prx
-    get_locator_registry() const;
+    get_locator_registry(context_type const& = no_context) const;
+    void
+    get_locator_registry_async(
+        functional::callback<locator_registry_prx> result,
+        functional::exception_callback      exception   = nullptr,
+        context_type const&                             = no_context,
+        bool                                run_sync    = false
+    ) const;
+    template < template <typename> class _Promise = ::std::promise >
+    auto
+    get_locator_registry_async(
+        context_type const&                 ctx         = no_context,
+        bool                                run_sync    = false) const
+        -> decltype(::std::declval<_Promise<locator_registry_prx>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<locator_registry_prx> >();
+
+        get_locator_registry_async(
+            [promise](locator_registry_prx res)
+            {
+                promise->set_value(res);
+            },
+            [promise](::std::exception_ptr ex)
+            {
+                promise->set_exception(ex);
+            }, ctx, run_sync
+        );
+
+        return promise->get_future();
+    }
+
     //@}
 private:
     connector(connector const&) = delete;

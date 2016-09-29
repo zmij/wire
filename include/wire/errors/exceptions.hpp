@@ -27,6 +27,18 @@ public:
         : ::std::runtime_error( util::concatenate(args ...) ) {}
 };
 
+class connector_destroyed : public runtime_error {
+public:
+    connector_destroyed(std::string const& msg) : runtime_error{msg} {}
+    connector_destroyed(char const* msg) : runtime_error{msg} {}
+};
+
+class adapter_destroyed : public runtime_error {
+public:
+    adapter_destroyed(std::string const& msg) : runtime_error{msg} {}
+    adapter_destroyed(char const* msg) : runtime_error{msg} {}
+};
+
 class connection_failed : public runtime_error {
 public:
     connection_failed(std::string const& message) : runtime_error(message) {}

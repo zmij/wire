@@ -57,14 +57,14 @@ struct locator_service::impl {
         po::variables_map vm;
         cnctr->configure_options(opts_desc, vm);
         locator_adapter_ = cnctr->create_adapter(opts.locator_adapter, opts.locator_endpoints);
-        locator_adapter_->activate();
+        locator_adapter_->activate(true);
         if (opts.registry_adapter != opts.locator_adapter) {
             if (opts.registry_endpoints.empty()) {
                 opts.registry_endpoints.push_back( core::endpoint::tcp("0.0.0.0", 0) );
             }
             // create a separate adapter for registry
             registry_adapter_ = cnctr->create_adapter(opts.registry_adapter, opts.registry_endpoints);
-            registry_adapter_->activate();
+            registry_adapter_->activate(true);
         } else {
             // use the same adapter
             registry_adapter_ = locator_adapter_;
@@ -75,8 +75,14 @@ struct locator_service::impl {
         auto loc = ::std::make_shared<locator>(reg_prx);
         auto reg = ::std::make_shared<locator_registry>(loc);
 
-        locator_adapter_->add_object(opts.locator_id, loc);
+        prx = locator_adapter_->add_object(opts.locator_id, loc);
         registry_adapter_->add_object(opts.registry_id, reg);
+        auto loc_prx = core::unchecked_cast<core::locator_proxy>(prx);
+
+        cnctr->set_locator(loc_prx);
+        locator_adapter_->register_adapter();
+        if (registry_adapter_ != locator_adapter_)
+            registry_adapter_->register_adapter();
     }
 
     void

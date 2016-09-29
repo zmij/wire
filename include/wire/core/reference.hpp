@@ -17,9 +17,12 @@
 #include <wire/core/connector_fwd.hpp>
 #include <wire/core/reference_fwd.hpp>
 #include <wire/core/object_fwd.hpp>
+#include <wire/core/proxy_fwd.hpp>
 #include <wire/core/functional.hpp>
 
 #include <wire/encoding/detail/optional_io.hpp>
+
+#include <wire/util/timed_cache.hpp>
 
 #include <future>
 
@@ -149,6 +152,8 @@ protected:
 
 /**
  * Fixed reference
+ *
+ * A reference with fixed endpoints.
  */
 class fixed_reference : public reference {
 public:
@@ -168,9 +173,32 @@ private:
     endpoint_list::const_iterator mutable   current_;
 };
 
-class routed_reference : public reference {
+/**
+ * Reference to an object with a named adapter. Adapter can be a replica group,
+ * therefore having multiple endpoints. The get_connection method will return
+ * next endpoint every time it is invoked.
+ */
+class floating_reference : public reference {
+public:
+    floating_reference(connector_ptr cn, reference_data const& ref);
+    floating_reference(floating_reference const& rhs);
+    floating_reference(floating_reference&& rhs);
+
+    void
+    get_connection_async( connection_callback on_get,
+            functional::exception_callback on_error,
+            bool sync = false) const override;
+private:
+    using mutex_type                        = ::std::mutex;
+    using lock_type                         = ::std::lock_guard<mutex_type>;
+    using object_cache = util::timed_cache<object_proxy>;
+
+    mutex_type mutable                      mutex_;
+    object_cache mutable                    prx_;
 };
 
+class routed_reference : public reference {
+};
 }  // namespace core
 }  // namespace wire
 

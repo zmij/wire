@@ -16,6 +16,9 @@ namespace wire {
 namespace core {
 
 interface locator_registry;
+exception object_not_found{
+    identity id;
+};
 
 interface locator {
     /**
@@ -25,7 +28,7 @@ interface locator {
      */
     object*
     find_object(identity id) const
-        throw(errors::no_object);
+        throw(object_not_found);
 
     /**
      * Find an adapter and return it's proxy (a dummy proxy
@@ -74,6 +77,7 @@ interface locator_registry {
      * Add replicated adapter to the registry. If there is already information
      * about such an adapter, endpoints are added.
      * @param adapter Direct proxy created by adapter object.
+     * TODO Think about replica group names, for the adapters to be unique
      */
     void
     add_replicated_adapter(object* adapter);
