@@ -345,6 +345,45 @@ wire_read(InputIterator& begin, InputIterator end, endpoint& v)
 ::std::size_t
 hash_value(endpoint const&);
 
+template < typename Endpoints >
+class endpoint_rotation;
+
+template < template < typename, typename... > class EndpointContainer >
+class endpoint_rotation< EndpointContainer<endpoint> > {
+public:
+    using container_type    = EndpointContainer<endpoint>;
+    using const_iterator    = typename container_type::const_iterator;
+public:
+    endpoint_rotation()
+        : endpoints_{}, current_{endpoints_.end()} {}
+    endpoint_rotation(container_type const& eps)
+        : endpoints_{eps}, current_{endpoints_.end()} {}
+    endpoint_rotation(container_type&& eps)
+        : endpoints_{eps}, current_{endpoints_.end()} {}
+
+    bool
+    empty() const
+    { return endpoints_.empty(); }
+
+    endpoint
+    next() const
+    {
+        if (endpoints_.empty())
+            throw errors::runtime_error{"Endpoint list is empty"};
+        if (current_ == endpoints_.end()) {
+            current_ = endpoints_.begin();
+        } else {
+            ++current_;
+            if (current_ == endpoints_.end())
+                current_ = endpoints_.begin();
+        }
+        return *current_;
+    }
+private:
+    container_type          endpoints_;
+    const_iterator mutable  current_;
+};
+
 //----------------------------------------------------------------------------
 ::std::ostream&
 operator << (::std::ostream& os, transport_type val);
@@ -387,5 +426,14 @@ struct hash< ::wire::core::endpoint > {
 };
 
 }  // namespace std
+
+namespace wire {
+namespace core {
+
+extern template class endpoint_rotation< endpoint_list >;
+extern template class endpoint_rotation< endpoint_set >;
+
+}  /* namespace core */
+}  /* namespace wire */
 
 #endif /* WIRE_CORE_ENDPOINT_HPP_ */

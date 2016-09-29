@@ -167,7 +167,7 @@ public:
             bool sync = false) const override;
 private:
     using mutex_type                        = ::std::mutex;
-    using lock_type                         = ::std::lock_guard<mutex_type>;
+    using lock_guard                        = ::std::lock_guard<mutex_type>;
     mutex_type mutable                      mutex_;
     connection_weak_ptr mutable             connection_;
     endpoint_list::const_iterator mutable   current_;
@@ -190,11 +190,19 @@ public:
             bool sync = false) const override;
 private:
     using mutex_type                        = ::std::mutex;
-    using lock_type                         = ::std::lock_guard<mutex_type>;
-    using object_cache = util::timed_cache<object_proxy>;
+    using lock_guard                        = ::std::lock_guard<mutex_type>;
+    using rotation_type                     = endpoint_rotation<endpoint_list>;
+    using rotation_type_ptr                 = ::std::shared_ptr<rotation_type>;
+    using endpoint_cache                    = util::timed_cache<rotation_type>;
+
+    void
+    next_connection(rotation_type_ptr rot,
+            connection_callback on_get,
+            functional::exception_callback on_error,
+            bool sync = false) const;
 
     mutex_type mutable                      mutex_;
-    object_cache mutable                    prx_;
+    endpoint_cache mutable                  cache_;
 };
 
 class routed_reference : public reference {

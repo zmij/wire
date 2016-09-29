@@ -446,5 +446,8 @@ hash_value(endpoint const& val)
     return ::boost::apply_visitor(detail::endpoint_hash_visitor{}, val.data());
 }
 
+template class endpoint_rotation< endpoint_list >;
+template class endpoint_rotation< endpoint_set >;
+
 }  // namespace core
 }  // namespace wire

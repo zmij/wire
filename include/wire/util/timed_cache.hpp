@@ -167,6 +167,13 @@ public:
 
     using base_type::stale;
 
+    operator ::std::shared_ptr<value_type>() const
+    {
+        if (stale())
+            return ::std::shared_ptr<value_type>{};
+        return value_;
+    }
+
     operator bool() const
     { return value_ && !stale(); }
 

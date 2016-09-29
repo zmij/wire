@@ -143,7 +143,7 @@ fixed_reference::get_connection_async( connection_callback on_get,
 {
     connection_ptr conn = connection_.lock();
     if (!conn) {
-        lock_type lock{mutex_};
+        lock_guard lock{mutex_};
         conn = connection_.lock();
         if (conn) {
             try {
@@ -208,26 +208,78 @@ floating_reference::floating_reference(floating_reference&& rhs)
 
 void
 floating_reference::get_connection_async( connection_callback on_get,
-        functional::exception_callback on_error,
+        functional::exception_callback exception,
         bool sync ) const
 {
-    try {
-        if (!prx_) {
-            auto cnctr = get_connector();
-            auto lctr = cnctr->get_locator();
-            if (!lctr)
-                throw errors::runtime_error{ "wire.locator is not configured" };
-            prx_ = lctr->find_adapter(ref_.adapter.get());
-            if (!prx_)
-                throw errors::runtime_error{ "Failed to locate adapter" }; // TODO more specific error
-        }
-        //prx_->wire_get_reference()->data();
-    } catch (...) {
-        if (on_error)
-            try {
-                on_error(::std::current_exception());
-            } catch (...) {}
+    rotation_type_ptr rot;
+    {
+        lock_guard lock{mutex_};
+        rot = cache_;
+    }
+    if (rot) {
+        next_connection(rot, on_get, exception, sync);
+    } else {
+        connector_ptr cnctr = get_connector();
+        auto _this = shared_this<floating_reference>();
+        cnctr->get_locator_async(
+            [_this, on_get, exception, sync](locator_prx loc)
+            {
+                if (!loc) {
+                    if (exception) {
+                        try {
+                            exception(::std::make_exception_ptr(errors::runtime_error{"Locator cannot be reached"}));
+                        } catch (...) {}
+                    }
+                } else {
+                    loc->find_adapter_async(_this->ref_.object_id,
+                        [_this, on_get, exception, sync](object_prx prx)
+                        {
+                            {
+                                lock_guard lock{_this->mutex_};
+                                _this->cache_ = ::std::make_shared<rotation_type>(prx->wire_get_reference()->data().endpoints);
+                            }
+                            _this->next_connection(_this->cache_, on_get, exception, sync);
+                        },
+                        [exception](::std::exception_ptr ex)
+                        {
+                            if (exception) {
+                                try {
+                                    exception(ex);
+                                } catch (...) {}
+                            }
+                        }, nullptr, no_context, sync);
+                }
+            },
+            [exception](::std::exception_ptr ex)
+            {
+                if (exception) {
+                    try {
+                        exception(ex);
+                    } catch (...) {}
+                }
+            },
+            no_context, sync);
     }
 }
+
+void
+floating_reference::next_connection(rotation_type_ptr rot,
+        connection_callback on_get,
+        functional::exception_callback on_error,
+        bool sync) const
+{
+    if (!rot || rot->empty()) {
+        if (on_error)
+            try {
+                on_error(::std::make_exception_ptr(errors::connection_failed{ "Failed to obtain endpoints" }));
+            } catch (...) {}
+    } else {
+        connector_ptr cnctr = get_connector();
+        auto _this = shared_this<floating_reference>();
+        cnctr->get_outgoing_connection_async(rot->next(), on_get, on_error, sync);
+    }
+}
+
+
 }  // namespace core
 }  // namespace wire
