@@ -44,7 +44,11 @@ set(BOOST_VERSION 1.58) # We want endian library.
 find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(TBB REQUIRED)
 find_package(Readline)
+
+message(STATUS "TBB include dir ${TBB_INCLUDE_DIR}")
+message(STATUS "TBB library ${TBB_LIBRARY}")
 
 if (Readline_INCLUDE_DIR)
     option(BUILD_CMD_UTILS "Build command line utils" ON)
@@ -68,6 +72,7 @@ include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}/src
     ${Boost_INCLUDE_DIRS}
     ${Readline_INCLUDE_DIR}
+    ${TBB_INCLUDE_DIR}
 )
 wire_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/idl

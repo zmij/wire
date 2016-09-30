@@ -73,6 +73,7 @@ target_link_libraries(
     ${Boost_PROGRAM_OPTIONS_LIBRARIES}
     ${Boost_SYSTEM_LIBRARIES}
     ${OPENSSL_LIBRARIES}
+    ${TBB_LIBRARY}
 )
 
 add_subdirectory(idl)

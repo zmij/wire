@@ -889,5 +889,12 @@ connection::local_endpoint() const
     return pimpl_->local_endpoint();
 }
 
+endpoint
+connection::remote_endpoint() const
+{
+    assert(pimpl_.get() && "Connection implementation is not set");
+    return pimpl_->remote_endpoint();
+}
+
 }  // namespace core
 }  // namespace wire

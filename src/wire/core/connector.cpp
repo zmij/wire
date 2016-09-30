@@ -23,6 +23,8 @@
 
 #include <boost/program_options.hpp>
 
+#include <tbb/concurrent_hash_map.h>
+
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -34,10 +36,17 @@ namespace core {
 namespace po = boost::program_options;
 
 struct connector::impl {
-    using connection_container  = ::std::unordered_map<endpoint, connection_ptr>;
     using mutex_type            = ::std::mutex;
     using lock_guard            = ::std::lock_guard<mutex_type>;
-    using adapter_map           = ::std::unordered_map<endpoint, adapter_ptr>;
+
+    using connection_container  = ::tbb::concurrent_hash_map<endpoint, connection_ptr>;
+    using connection_accessor   = connection_container::accessor;
+    using connection_const_accessor = connection_container::const_accessor;
+
+    using adapter_map           = ::tbb::concurrent_hash_map<endpoint, adapter_ptr>;
+    using adapter_accessor      = adapter_map::accessor;
+    using adapter_const_accessor = adapter_map::const_accessor;
+
     using adapter_list          = ::std::list<adapter_ptr>;
 
     connector_weak_ptr          owner_;
@@ -56,13 +65,15 @@ struct connector::impl {
 
     //@{
     /** @name Connections */
-    mutex_type                  mtx_;
     connection_container        outgoing_;
     //@}
 
     //@{
     /** @name Adapters */
+    //mutex_type                  mtx_;
+    ::std::once_flag            bidir_created_;
     adapter_ptr                 bidir_adapter_;
+
     adapter_list                listen_adapters_;
     adapter_map                 online_adapters_;
     //@}
@@ -461,17 +472,20 @@ struct connector::impl {
         return adptr;
     }
 
+    void create_bidir_adapter()
+    {
+        connector_ptr conn = owner_.lock();
+        if (!conn) {
+            throw errors::runtime_error("Connector already destroyed");
+        }
+        detail::adapter_options opts { {}, 0, false, false, options_.client_ssl};
+        bidir_adapter_ = adapter::create_adapter(conn, identity::random("client"), opts);
+    }
+
     adapter_ptr
     bidir_adapter()
     {
-        if (!bidir_adapter_) {
-            connector_ptr conn = owner_.lock();
-            if (!conn) {
-                throw errors::runtime_error("Connector already destroyed");
-            }
-            detail::adapter_options opts{{}, 0, false, false, options_.client_ssl};
-            bidir_adapter_ = adapter::create_adapter(conn, identity::random("client"), opts);
-        }
+        ::std::call_once(bidir_created_, [this](){ create_bidir_adapter(); });
         return bidir_adapter_;
     }
 
@@ -498,29 +512,34 @@ struct connector::impl {
     void
     adapter_online(adapter_ptr adptr, endpoint const& ep)
     {
-        lock_guard lock(mtx_);
-        auto f = online_adapters_.find(ep);
-        if ( f != online_adapters_.end() ) {
-            #ifdef DEBUG_OUTPUT
-            ::std::cerr << "Adapter " << f->second->id() << " was listening to " << ep << "\n";
-            #endif
-            online_adapters_.erase(f);
-        }
         endpoint_list eps;
         ep.published_endpoints(eps);
-        #ifdef DEBUG_OUTPUT
+        for (auto const& e : eps) {
+            online_adapters_.erase(e);
+        }
+        #if DEBUG_OUTPUT >= 1
         ::std::cerr << "Adapter " << adptr->id() << " is listening to " << eps << "\n";
         #endif
         for (auto e : eps)
             online_adapters_.emplace(e, adptr);
     }
     // TODO Erase adapter on deactivation
+    void
+    adapter_offline(adapter_ptr adptr, endpoint const& ep) {
+        endpoint_list eps;
+        ep.published_endpoints(eps);
+        #if DEBUG_OUTPUT >= 1
+        ::std::cerr << "Adapter " << adptr->id() << " listening to " << eps << " went offline\n";
+        #endif
+        for (auto const& e : eps) {
+            online_adapters_.erase(e);
+        }
+    }
 
     bool
     is_local(reference const& ref)
     {
         if (!ref.data().endpoints.empty()) {
-            lock_guard lock(mtx_);
             for (auto const& ep : ref.data().endpoints) {
                 if (online_adapters_.count(ep))
                     return true;
@@ -535,11 +554,10 @@ struct connector::impl {
     find_local_servant(reference const& ref)
     {
         if (!ref.data().endpoints.empty()) {
-            lock_guard lock(mtx_);
             for (auto const& ep : ref.data().endpoints) {
-                auto f = online_adapters_.find(ep);
-                if (f != online_adapters_.end()) {
-                    return f->second->find_object(ref.object_id());
+                adapter_const_accessor acc;
+                if (online_adapters_.find(acc, ep)) {
+                    return acc->second->find_object(ref.object_id());
                 }
             }
         } else {
@@ -574,14 +592,12 @@ struct connector::impl {
             functional::exception_callback on_error,
             bool sync)
     {
-        auto f = outgoing_.end();
         bool new_conn = false;
         connection_ptr conn;
         {
-            lock_guard lock{mtx_};
-            f = outgoing_.find(ep);
-            if (f != outgoing_.end() ) {
-                conn = f->second;
+            connection_const_accessor acc;
+            if (outgoing_.find(acc, ep)) {
+                conn = acc->second;
             } else {
                 conn = ::std::make_shared< connection >(
                         client_side{}, bidir_adapter(), ep.transport(),
@@ -594,7 +610,6 @@ struct connector::impl {
             }
         }
         if (new_conn) {
-            // TODO move connect outside the mutex
             auto res = ::std::make_shared< ::std::atomic<bool> >(false);
             conn->connect_async(ep,
                 [on_get, conn, res, ep]()
@@ -632,16 +647,11 @@ struct connector::impl {
     void
     erase_outgoing(connection const* conn)
     {
-        lock_guard lock{mtx_};
-        for (auto c = outgoing_.begin(); c != outgoing_.end(); ++c) {
-            if (c->second.get() == conn) {
-                #ifdef DEBUG_OUTPUT
-                ::std::cerr << "Outgoing connection to " << c->first << " closed\n";
-                #endif
-                outgoing_.erase(c);
-                break;
-            }
-        }
+        auto ep = conn->remote_endpoint();
+        #ifdef DEBUG_OUTPUT
+        ::std::cerr << "Outgoing connection to " << ep << " closed\n";
+        #endif
+        outgoing_.erase(ep);
     }
 };
 

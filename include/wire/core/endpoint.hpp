@@ -433,6 +433,11 @@ namespace core {
 extern template class endpoint_rotation< endpoint_list >;
 extern template class endpoint_rotation< endpoint_set >;
 
+inline size_t tbb_hasher(endpoint const& ep) {
+    return hash_value(ep);
+}
+
+
 }  /* namespace core */
 }  /* namespace wire */
 
