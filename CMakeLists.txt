@@ -47,9 +47,6 @@ find_package(OpenSSL REQUIRED)
 find_package(TBB REQUIRED)
 find_package(Readline)
 
-message(STATUS "TBB include dir ${TBB_INCLUDE_DIR}")
-message(STATUS "TBB library ${TBB_LIBRARY}")
-
 if (Readline_INCLUDE_DIR)
     option(BUILD_CMD_UTILS "Build command line utils" ON)
 endif()

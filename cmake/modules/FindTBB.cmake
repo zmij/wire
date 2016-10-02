@@ -52,7 +52,7 @@ endif (WIN32)
 if (UNIX)
     if (APPLE)
         # MAC
-        set(_TBB_DEFAULT_INSTALL_DIR "/Library/Frameworks/Intel_TBB.framework/Versions")
+        set(_TBB_DEFAULT_INSTALL_DIR "/Library/Frameworks/Intel_TBB.framework/Versions" "/usr/local" "/opt" "/opt/local")
         # libs: libtbb.dylib, libtbbmalloc.dylib, *_debug
         set(_TBB_LIB_NAME "tbb")
         set(_TBB_LIB_MALLOC_NAME "${_TBB_LIB_NAME}malloc")
@@ -159,16 +159,17 @@ mark_as_advanced(TBB_INCLUDE_DIR)
 
 #-- Look for libraries
 # GvdB: $ENV{TBB_ARCH_PLATFORM} is set by the build script tbbvars[.bat|.sh|.csh]
-if (NOT $ENV{TBB_ARCH_PLATFORM} STREQUAL "")
-    set (_TBB_LIBRARY_DIR
-         ${_TBB_INSTALL_DIR}/lib/$ENV{TBB_ARCH_PLATFORM}
-         ${_TBB_INSTALL_DIR}/$ENV{TBB_ARCH_PLATFORM}/lib
-        )
-else (NOT $ENV{TBB_ARCH_PLATFORM} STREQUAL "")
+#if (NOT $ENV{TBB_ARCH_PLATFORM} STREQUAL "")
+#    set (_TBB_LIBRARY_DIR
+#         ${_TBB_INSTALL_DIR}/lib/$ENV{TBB_ARCH_PLATFORM}
+#         ${_TBB_INSTALL_DIR}/$ENV{TBB_ARCH_PLATFORM}/lib
+#        )
+#else (NOT $ENV{TBB_ARCH_PLATFORM} STREQUAL "")
     # HH: deprecated
-    message(STATUS "[Warning] FindTBB.cmake: The use of TBB_ARCHITECTURE and TBB_COMPILER is deprecated and may not be supported in future versions. Please set $ENV{TBB_ARCH_PLATFORM} (using tbbvars.[bat|csh|sh]).")
-    set (_TBB_LIBRARY_DIR "${_TBB_INSTALL_DIR}/${_TBB_ARCHITECTURE}/${_TBB_COMPILER}/lib")
-endif (NOT $ENV{TBB_ARCH_PLATFORM} STREQUAL "")
+#    message(STATUS "[Warning] FindTBB.cmake: The use of TBB_ARCHITECTURE and TBB_COMPILER is deprecated and may not be supported in future versions. Please set $ENV{TBB_ARCH_PLATFORM} (using tbbvars.[bat|csh|sh]).")
+#    set (_TBB_LIBRARY_DIR "${_TBB_INSTALL_DIR}/${_TBB_ARCHITECTURE}/${_TBB_COMPILER}/lib")
+#endif (NOT $ENV{TBB_ARCH_PLATFORM} STREQUAL "")
+set(_TBB_LIBRARY_DIR "${_TBB_INSTALL_DIR}/lib")
 
 find_library(TBB_LIBRARY        ${_TBB_LIB_NAME}        ${_TBB_LIBRARY_DIR} NO_DEFAULT_PATH)
 find_library(TBB_MALLOC_LIBRARY ${_TBB_LIB_MALLOC_NAME} ${_TBB_LIBRARY_DIR} NO_DEFAULT_PATH)
