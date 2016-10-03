@@ -441,7 +441,7 @@ struct endpoint_hash_visitor : boost::static_visitor<::std::size_t> {
 }  // namespace detail
 
 ::std::size_t
-hash_value(endpoint const& val)
+hash(endpoint const& val)
 {
     return ::boost::apply_visitor(detail::endpoint_hash_visitor{}, val.data());
 }

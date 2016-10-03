@@ -94,13 +94,6 @@ public:
     configured_endpoints() const;
 
     /**
-     * Get adapter active endpoints list
-     * @return
-     */
-    endpoint_list
-    active_endpoints() const;
-
-    /**
      * Get adapter published edpoints list
      * @return
      */

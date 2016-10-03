@@ -11,30 +11,24 @@
 
 #include <iostream>
 #include <mutex>
-#include <unordered_map>
+#include <tbb/concurrent_hash_map.h>
 
 namespace wire {
 namespace svc {
 
 struct locator::impl {
-    using mutex_type        = ::std::mutex;
-    using lock_guard        = ::std::lock_guard<mutex_type>;
-    using proxy_map         = ::std::unordered_map< core::identity, core::object_prx >;
+    using proxy_map         = ::tbb::concurrent_hash_map< core::identity, core::object_prx >;
 
     core::locator_registry_prx  reg_;
 
-    mutex_type                  object_mutex_;
     proxy_map                   objects_;
-
-    mutex_type                  adapter_mutex_;
     proxy_map                   adapters_;
 
     core::object_prx
     find_object(core::identity const& id)
     {
-        lock_guard lock{object_mutex_};
-        auto f = objects_.find(id);
-        if (f != objects_.end()) {
+        proxy_map::const_accessor f;
+        if (objects_.find(f, id)) {
             return f->second;
         }
         throw core::object_not_found{id};
@@ -45,9 +39,8 @@ struct locator::impl {
     {
         if (obj) {
             auto id = obj->wire_identity();
-            lock_guard lock{object_mutex_};
-            auto f = objects_.find(id);
-            if (f == objects_.end()) {
+            proxy_map::accessor f;
+            if (!objects_.find(f, id)) {
                 objects_.emplace(id, obj);
             } else {
                 if (*f->second != *obj) {
@@ -73,9 +66,8 @@ struct locator::impl {
     core::object_prx
     find_adapter(core::identity const& id)
     {
-        lock_guard lock{adapter_mutex_};
-        auto f = adapters_.find(id);
-        if (f != adapters_.end()) {
+        proxy_map::const_accessor f;
+        if (adapters_.find(f, id)) {
             return f->second;
         }
         throw core::no_adapter{id};
@@ -90,9 +82,8 @@ struct locator::impl {
         ::std::cout << "Locator add adapter " << id
                 << " " << adapter->wire_get_reference()->data().endpoints << "\n";
         #endif
-        lock_guard lock{adapter_mutex_};
-        auto f = adapters_.find(id);
-        if (f == adapters_.end()) {
+        proxy_map::const_accessor f;
+        if (!adapters_.find(f, id)) {
             adapters_.emplace(id, adapter);
         } else {
             throw core::adapter_exists{id};
@@ -106,9 +97,8 @@ struct locator::impl {
         ::std::cout << "Locator add replicated adapter " << id
                 << " " << adapter->wire_get_reference()->data().endpoints << "\n";
         #endif
-        lock_guard lock{adapter_mutex_};
-        auto f = adapters_.find(id);
-        if (f == adapters_.end()) {
+        proxy_map::accessor f;
+        if (!adapters_.find(f, id)) {
             adapters_.emplace(id, adapter);
         } else {
             auto data = f->second->wire_get_reference()->data();
@@ -132,9 +122,8 @@ struct locator::impl {
     remove_adapter(core::object_prx adapter)
     {
         auto id = adapter->wire_identity();
-        lock_guard lock{adapter_mutex_};
-        auto f = adapters_.find(id);
-        if (f == adapters_.end()) {
+        proxy_map::accessor f;
+        if (!adapters_.find(f, id)) {
             throw core::no_adapter{id};
         } else {
             auto data = f->second->wire_get_reference()->data();

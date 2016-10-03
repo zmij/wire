@@ -14,7 +14,9 @@
 
 #include <wire/core/detail/configuration_options.hpp>
 
-#include <unordered_map>
+#include <tbb/concurrent_hash_map.h>
+#include <tbb/concurrent_unordered_set.h>
+
 #include <mutex>
 #include <iostream>
 
@@ -28,18 +30,21 @@ namespace {
 }  /* namespace  */
 
 struct adapter::impl {
-    using connections       = ::std::unordered_map< endpoint, connection_ptr >;
-    using active_objects    = ::std::unordered_map< identity, object_ptr >;
-    using default_servants  = ::std::unordered_map< ::std::string, object_ptr >;
-    using object_locators   = ::std::unordered_map< ::std::string, object_locator_ptr >;
-    using mutex_type        = ::std::mutex;
-    using lock_guard        = ::std::lock_guard<mutex_type>;
+    using connections           = ::tbb::concurrent_hash_map< endpoint, connection_ptr >;
+    using active_objects        = ::tbb::concurrent_hash_map< identity, object_ptr >;
+    using default_servants      = ::tbb::concurrent_hash_map< ::std::string, object_ptr >;
+    using object_locators       = ::tbb::concurrent_hash_map< ::std::string, object_locator_ptr >;
+    using concurrent_enpoints   = ::tbb::concurrent_unordered_set<endpoint>;
+
+    using mutex_type            = ::std::mutex;
+    using lock_guard            = ::std::lock_guard<mutex_type>;
 
     connector_weak_ptr          connector_;
     asio_config::io_service_ptr io_service_;
     identity                    id_;
 
     detail::adapter_options     options_;
+    concurrent_enpoints         published_endpoints_;
 
     bool                        is_active_;
 
@@ -113,7 +118,8 @@ struct adapter::impl {
     bool
     is_local_endpoint(endpoint const& ep)
     {
-        return connections_.count(ep);
+        connections::const_accessor acc;
+        return connections_.find(acc, ep);
     }
 
     void
@@ -124,6 +130,7 @@ struct adapter::impl {
             c.second->close();
         }
         connections_.clear();
+        published_endpoints_.clear();
         is_active_ = false;
     }
 
@@ -139,7 +146,10 @@ struct adapter::impl {
     {
         auto cnctr = connector_.lock();
         if (!cnctr)
-            throw errors::runtime_error{ "Connector is dead" };
+            throw errors::connector_destroyed{ "Connector was already destroyed" };
+        endpoint_list eps;
+        ep.published_endpoints(eps);
+        published_endpoints_.insert(eps.begin(), eps.end());
         cnctr->adapter_online(owner_.lock(), ep);
     }
     void
@@ -151,23 +161,12 @@ struct adapter::impl {
     }
 
     endpoint_list
-    active_endpoints()
-    {
-        endpoint_list endpoints;
-        for (auto const& cn : connections_) {
-            endpoints.push_back(cn.second->local_endpoint());
-        }
-        return endpoints;
-    }
-
-    endpoint_list
     published_endpoints()
     {
         endpoint_list endpoints;
-        if (!connections_.empty()) {
-            for (auto const& cn : connections_) {
-                cn.second->local_endpoint().published_endpoints(endpoints);
-            }
+        if (!published_endpoints_.empty()) {
+            endpoints = endpoint_list{ published_endpoints_.cbegin(),
+                published_endpoints_.cend() };
         } else {
             for (auto const& ep : options_.endpoints) {
                 ep.published_endpoints(endpoints);
@@ -194,52 +193,72 @@ struct adapter::impl {
     object_prx
     add_object(identity const& id, object_ptr disp)
     {
-        lock_guard lock{mtx_};
         active_objects_.insert(::std::make_pair(id, disp));
         return create_proxy(id, {});
+    }
+    void
+    remove_object(identity const& id)
+    {
+        active_objects::const_accessor o;
+        if (active_objects_.find(o, id))
+            active_objects_.erase(o);
     }
 
     void
     add_default_servant(::std::string const& category, object_ptr disp)
     {
-        lock_guard lock{mtx_};
         default_servants_.emplace(category, disp);
+    }
+    void
+    remove_default_servant(::std::string const& category)
+    {
+        default_servants::const_accessor o;
+        if (default_servants_.find(o, category))
+            default_servants_.erase(o);
     }
 
     void
     add_locator(::std::string const& category, object_locator_ptr loc)
     {
-        lock_guard lock{mtx_};
         locators_.emplace(category, loc);
+    }
+
+    void
+    remove_locator(::std::string const& category)
+    {
+        object_locators::const_accessor loc;
+        if (locators_.find(loc, category))
+            locators_.erase(loc);
     }
 
     object_ptr
     find_object(identity const& id, ::std::string const& facet)
     {
-        lock_guard lock{mtx_};
-        auto o = active_objects_.find(id);
-        if (o != active_objects_.end()) {
+        active_objects::const_accessor o;
+        if (active_objects_.find(o, id)) {
             return o->second;
         }
-        auto d = default_servants_.find(id.category);
-        if (d != default_servants_.end()) {
+
+        default_servants::const_accessor d;
+        if (default_servants_.find(d, id.category)) {
             return d->second;
         }
         if (!id.category.empty()) {
-            d = default_servants_.find(DEFAULT_CATEGORY);
-            if (d != default_servants_.end()) {
+            if (default_servants_.find(d, DEFAULT_CATEGORY)) {
                 return d->second;
             }
         }
-        auto loc = locators_.find(id.category);
-        if (loc != locators_.end()) {
+
+        object_locators::const_accessor loc;
+        if (locators_.find(loc, id.category)) {
+            // FIXME Do it async
             auto obj = loc->second->find_object(owner_.lock(), id, facet);
             if (obj)
                 return obj;
         }
         if (!id.category.empty()) {
-            loc = locators_.find(DEFAULT_CATEGORY);
-            if (loc != locators_.end()) {
+            if (locators_.find(loc, DEFAULT_CATEGORY)) {
+                // FIXME Do it async
                 return loc->second->find_object(owner_.lock(), id, facet);
             }
         }
@@ -323,12 +342,6 @@ endpoint_list const&
 adapter::configured_endpoints() const
 {
     return pimpl_->options_.endpoints;
-}
-
-endpoint_list
-adapter::active_endpoints() const
-{
-    return pimpl_->active_endpoints();
 }
 
 endpoint_list

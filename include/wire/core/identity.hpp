@@ -107,6 +107,11 @@ operator >> (::std::istream& is, identity& val);
 identity
 operator "" _wire_id(char const*, ::std::size_t);
 
+inline size_t tbb_hasher(identity const& id)
+{
+    return hash(id);
+}
+
 }  // namespace core
 }  // namespace wire
 

@@ -343,7 +343,7 @@ wire_read(InputIterator& begin, InputIterator end, endpoint& v)
 }
 
 ::std::size_t
-hash_value(endpoint const&);
+hash(endpoint const&);
 
 template < typename Endpoints >
 class endpoint_rotation;
@@ -421,7 +421,7 @@ struct hash< ::wire::core::endpoint > {
     result_type
     operator()(argument_type const& v) const
     {
-        return hash_value(v);
+        return ::wire::core::hash(v);
     }
 };
 
@@ -434,7 +434,7 @@ extern template class endpoint_rotation< endpoint_list >;
 extern template class endpoint_rotation< endpoint_set >;
 
 inline size_t tbb_hasher(endpoint const& ep) {
-    return hash_value(ep);
+    return hash(ep);
 }
 
 
