@@ -446,6 +446,18 @@ hash(endpoint const& val)
     return ::boost::apply_visitor(detail::endpoint_hash_visitor{}, val.data());
 }
 
+::std::size_t
+hash(endpoint_list const& eps)
+{
+    ::std::size_t h{0};
+
+    for (auto const& ep : eps) {
+        h = (h << 1) ^ hash(ep);
+    }
+
+    return h;
+}
+
 template class endpoint_rotation< endpoint_list >;
 template class endpoint_rotation< endpoint_set >;
 

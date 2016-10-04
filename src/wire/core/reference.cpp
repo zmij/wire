@@ -49,6 +49,17 @@ operator "" _wire_ref(char const* str, ::std::size_t sz)
     return ref;
 }
 
+::std::size_t
+hash(reference_data const& ref)
+{
+    auto h = hash(ref.object_id);
+    h = (h << 1) ^ hash(ref.facet);
+    if (ref.adapter.is_initialized())
+        h = (h << 1) ^ hash(ref.adapter.get());
+    h = (h << 1) ^ hash(ref.endpoints);
+    return h;
+}
+
 //----------------------------------------------------------------------------
 //      Base reference implementation
 //----------------------------------------------------------------------------

@@ -210,6 +210,37 @@ public:
             connection_callback             on_get,
             functional::exception_callback  on_error,
             bool sync = false);
+
+    connection_ptr
+    resolve_reference(reference_data const&) const;
+    void
+    resolve_reference_async(reference_data const& ref,
+        functional::callback<connection_ptr> result,
+        functional::exception_callback      exception   = nullptr,
+        bool                                run_sync    = false
+    ) const;
+    template < template <typename> class _Promise = ::std::promise >
+    auto
+    resolve_reference_async(reference_data const& ref,
+        bool                                run_sync    = false) const
+        -> decltype(::std::declval<_Promise<connection_ptr>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<connection_ptr> >();
+
+        resolve_reference_async(ref,
+            [promise](connection_ptr res)
+            {
+                promise->set_value(res);
+            },
+            [promise](::std::exception_ptr ex)
+            {
+                promise->set_exception(ex);
+            }, run_sync
+        );
+
+        return promise->get_future();
+    }
+
     //@}
 
     //@{

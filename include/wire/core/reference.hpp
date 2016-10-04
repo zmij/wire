@@ -65,6 +65,9 @@ operator >> (::std::istream& is, reference_data& val);
 reference_data
 operator "" _wire_ref(char const*, ::std::size_t);
 
+::std::size_t
+hash(reference_data const&);
+
 /**
  * Class for a reference.
  */
@@ -207,6 +210,13 @@ private:
 
 class routed_reference : public reference {
 };
+
+inline ::std::size_t
+tbb_hasher(reference_data const& ref)
+{
+    return hash(ref);
+}
+
 }  // namespace core
 }  // namespace wire
 

@@ -18,6 +18,7 @@
 
 #include <wire/core/detail/configuration_options.hpp>
 #include <wire/core/detail/io_service_monitor.hpp>
+#include <wire/core/detail/reference_resolver.hpp>
 
 #include <wire/util/io_service_wait.hpp>
 
@@ -80,9 +81,7 @@ struct connector::impl {
 
     //@{
     /** @name Locator */
-    mutex_type                  locator_mtx_;
-    locator_prx                 locator_;
-    locator_registry_prx        locator_reg_;
+    detail::reference_resolver  resolver_;
     //@}
 
     impl(asio_config::io_service_ptr svc)
@@ -101,6 +100,13 @@ struct connector::impl {
     {
         register_shutdown_observer();
         create_options_description();
+    }
+
+    void
+    set_owner(connector_ptr cnctr)
+    {
+        owner_ = cnctr;
+        resolver_.set_owner(cnctr);
     }
 
     void
@@ -352,8 +358,7 @@ struct connector::impl {
     void
     set_locator(locator_prx loc)
     {
-        lock_guard lock{locator_mtx_};
-        locator_ = loc;
+        resolver_.set_locator(loc);
     }
     void
     get_locator_async(functional::callback< locator_prx >  result,
@@ -361,54 +366,7 @@ struct connector::impl {
             context_type const&                             ctx,
             bool                                            run_sync)
     {
-        locator_prx loc;
-        {
-            lock_guard lock{locator_mtx_};
-            loc = locator_;
-        }
-
-        if (!loc && !options_.locator_ref.object_id.empty()) {
-            #if DEBUG_OUTPUT >= 1
-            ::std::cerr << "Try to otain locator proxy "
-                    << options_.locator_ref << "\n";
-            #endif
-            try {
-                if (options_.locator_ref.endpoints.empty())
-                    throw errors::runtime_error{ "Locator reference must have endpoints" };
-                object_prx prx = make_proxy(options_.locator_ref);
-                checked_cast_async< locator_proxy >(
-                    prx,
-                    [this, result](locator_prx loc)
-                    {
-                        if (loc) {
-                            lock_guard lock{locator_mtx_};
-                            locator_ = loc;
-                        }
-                        try {
-                            result(locator_);
-                        } catch (...) {}
-                    },
-                    [exception](::std::exception_ptr ex)
-                    {
-                        if (exception) {
-                            try {
-                                exception(ex);
-                            } catch (...) {}
-                        }
-                    }, nullptr, ctx, run_sync
-                );
-            } catch (...) {
-                if (exception) {
-                    try {
-                        exception(::std::current_exception());
-                    } catch (...) {}
-                }
-            }
-        } else {
-            try {
-                result(loc);
-            } catch (...) {}
-        }
+        resolver_.get_locator_async(result, exception, ctx, run_sync);
     }
 
     void
@@ -418,43 +376,16 @@ struct connector::impl {
             context_type const&                             ctx,
             bool                                            run_sync)
     {
-        locator_registry_prx reg;
-        {
-            lock_guard lock{locator_mtx_};
-            reg = locator_reg_;
-        }
-        if (!reg) {
-            get_locator_async(
-                [this, result, exception, ctx, run_sync](locator_prx loc)
-                {
-                    if (loc) {
-                        #if DEBUG_OUTPUT >= 1
-                        ::std::cerr << "Try to otain locator registry proxy from locator "
-                                << *loc << "\n";
-                        #endif
-                        loc->get_registry_async(
-                            [this, result](locator_registry_prx reg)
-                            {
-                                if (reg) {
-                                    lock_guard lock{locator_mtx_};
-                                    locator_reg_ = reg;
-                                }
-                                try {
-                                    result(locator_reg_);
-                                } catch (...) {}
-                            }, exception, nullptr, ctx, run_sync);
-                    } else {
-                        try {
-                            result(locator_reg_);
-                        } catch (...) {}
-                    }
-                },
-                exception, ctx, run_sync);
-        } else {
-            try {
-                result(reg);
-            } catch (...) {}
-        }
+        resolver_.get_locator_registry_async(result, exception, ctx, run_sync);
+    }
+
+    void
+    resolve_reference(reference_data const& ref,
+        functional::callback<connection_ptr> result,
+        functional::exception_callback      exception,
+        bool                                run_sync)
+    {
+        resolver_.resolve_reference_async(ref, result, exception, run_sync);
     }
 
     adapter_ptr
@@ -653,13 +584,14 @@ struct connector::impl {
         #endif
         outgoing_.erase(ep);
     }
+
 };
 
 connector_ptr
 connector::do_create_connector(asio_config::io_service_ptr svc)
 {
     connector_ptr c(new connector(svc));
-    c->pimpl_->owner_ = c;
+    c->pimpl_->set_owner(c);
     return c;
 }
 
@@ -667,7 +599,7 @@ connector_ptr
 connector::do_create_connector(asio_config::io_service_ptr svc, ::std::string const& name)
 {
     connector_ptr c(new connector(svc, name));
-    c->pimpl_->owner_ = c;
+    c->pimpl_->set_owner(c);
     return c;
 }
 
@@ -676,7 +608,7 @@ connector_ptr
 connector::do_create_connector(asio_config::io_service_ptr svc, T&& ... args)
 {
     connector_ptr c(new connector(svc));
-    c->pimpl_->owner_ = c;
+    c->pimpl_->set_owner(c);
     c->pimpl_->configure(::std::forward<T>(args) ...);
     return c;
 }
@@ -687,7 +619,7 @@ connector::do_create_connector(asio_config::io_service_ptr svc,
         ::std::string const& name, T&& ... args)
 {
     connector_ptr c(new connector(svc, name));
-    c->pimpl_->owner_ = c;
+    c->pimpl_->set_owner(c);
     c->pimpl_->configure(::std::forward<T>(args) ...);
     return c;
 }
@@ -894,6 +826,22 @@ connector::get_outgoing_connection_async(endpoint const& ep,
         bool sync)
 {
     pimpl_->get_outgoing(ep, on_get, on_error, sync);
+}
+
+connection_ptr
+connector::resolve_reference(reference_data const& ref) const
+{
+    auto future = resolve_reference_async(ref);
+    return future.get();
+}
+
+void
+connector::resolve_reference_async(reference_data const& ref,
+        functional::callback<connection_ptr> result,
+        functional::exception_callback      exception,
+        bool                                run_sync) const
+{
+    pimpl_->resolve_reference(ref, result, exception, run_sync);
 }
 
 void
