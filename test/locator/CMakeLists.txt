@@ -21,6 +21,7 @@ set(
     # Add your sources here
     locator_test_main.cpp
     locator_inproc_test.cpp
+    reference_resolve_test.cpp
 )
 add_executable(test-wire-locator ${test_locator_SRCS})
 target_link_libraries(

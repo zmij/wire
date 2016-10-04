@@ -70,7 +70,7 @@ struct locator_service::impl {
             registry_adapter_ = locator_adapter_;
         }
 
-        auto prx = registry_adapter_->create_proxy(opts.registry_id);
+        auto prx = registry_adapter_->create_direct_proxy(opts.registry_id);
         auto reg_prx = core::unchecked_cast< core::locator_registry_proxy >(prx);
         auto loc = ::std::make_shared<locator>(reg_prx);
         auto reg = ::std::make_shared<locator_registry>(loc);

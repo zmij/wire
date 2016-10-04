@@ -380,7 +380,7 @@ struct connector::impl {
     }
 
     void
-    resolve_reference(reference_data const& ref,
+    resolve_connection(reference_data const& ref,
         functional::callback<connection_ptr> result,
         functional::exception_callback      exception,
         bool                                run_sync)
@@ -829,19 +829,20 @@ connector::get_outgoing_connection_async(endpoint const& ep,
 }
 
 connection_ptr
-connector::resolve_reference(reference_data const& ref) const
+connector::resolve_connection(reference_data const& ref) const
 {
-    auto future = resolve_reference_async(ref);
+    auto future = resolve_connection_async(ref, true);
     return future.get();
 }
 
 void
-connector::resolve_reference_async(reference_data const& ref,
+connector::resolve_connection_async(reference_data const& ref,
         functional::callback<connection_ptr> result,
         functional::exception_callback      exception,
         bool                                run_sync) const
 {
-    pimpl_->resolve_reference(ref, result, exception, run_sync);
+    // TODO Lookup bidir connections by adapter
+    pimpl_->resolve_connection(ref, result, exception, run_sync);
 }
 
 void

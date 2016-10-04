@@ -102,11 +102,32 @@ public:
 
     /**
      * Create a proxy with given identity and properties of adapter
+     * If the adapter is registered with locator, will create an indirect
+     * proxy. Otherwise will create a direct proxy.
      * @param id
+     * @param facet
      * @return
      */
     object_prx
     create_proxy(identity const& id,
+            ::std::string const& facet = ::std::string{}) const;
+    /**
+     * Create a proxy containing endpoints of the adapter
+     * @param id
+     * @param facet
+     * @return
+     */
+    object_prx
+    create_direct_proxy(identity const& id,
+            ::std::string const& facet = ::std::string{}) const;
+    /**
+     * Create a proxy containing id of the adapter and no endpoints
+     * @param id
+     * @param facet
+     * @return
+     */
+    object_prx
+    create_indirect_proxy(identity const& id,
             ::std::string const& facet = ::std::string{}) const;
     /**
      * Add servant object with random UUID

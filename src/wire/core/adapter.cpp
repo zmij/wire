@@ -36,6 +36,8 @@ struct adapter::impl {
     using object_locators       = ::tbb::concurrent_hash_map< ::std::string, object_locator_ptr >;
     using concurrent_enpoints   = ::tbb::concurrent_unordered_set<endpoint>;
 
+    using atomic_bool           = ::std::atomic<bool>;
+
     using mutex_type            = ::std::mutex;
     using lock_guard            = ::std::lock_guard<mutex_type>;
 
@@ -47,6 +49,7 @@ struct adapter::impl {
     concurrent_enpoints         published_endpoints_;
 
     bool                        is_active_;
+    atomic_bool                 registered_;
 
     connections                 connections_;
     active_objects              active_objects_;
@@ -59,7 +62,7 @@ struct adapter::impl {
 
     impl(connector_ptr c, identity const& id, detail::adapter_options const& options)
         : connector_{c}, io_service_{c->io_service()},
-          id_{id}, options_{options}, is_active_{false}
+          id_{id}, options_{options}, is_active_{false}, registered_{false}
     {
     }
 
@@ -108,6 +111,7 @@ struct adapter::impl {
                 } else {
                     reg->add_adapter(prx);
                 }
+                registered_ = true;
             } else if (options_.replicated) {
                 throw errors::runtime_error{
                         "wire.locator not configured for a replicated adapter"};
@@ -126,6 +130,17 @@ struct adapter::impl {
     deactivate()
     {
         lock_guard lock{mtx_};
+        if (registered_) {
+            auto cnctr = connector_.lock();
+            if (cnctr) {
+                auto reg = cnctr->get_locator_registry();
+                if (reg) {
+                    auto prx = adapter_proxy();
+                    reg->remove_adapter(prx);
+                }
+            }
+            registered_ = false;
+        }
         for (auto& c : connections_) {
             c.second->close();
         }
@@ -186,9 +201,24 @@ struct adapter::impl {
     create_proxy(identity const& id, ::std::string const& facet)
     {
         // TODO Use configuration of adapter
+        if (registered_) {
+            return create_indirect_proxy(id, facet);
+        }
+        return create_direct_proxy(id, facet);
+    }
+    object_prx
+    create_direct_proxy(identity const& id, ::std::string const& facet)
+    {
         return ::std::make_shared< object_proxy >(
             reference::create_reference(
                 connector_.lock(), { id, facet, {}, published_endpoints() }));
+    }
+    object_prx
+    create_indirect_proxy(identity const& id, ::std::string const& facet)
+    {
+        return ::std::make_shared< object_proxy >(
+            reference::create_reference(
+                connector_.lock(), { id, facet, id_, }));
     }
     object_prx
     add_object(identity const& id, object_ptr disp)
@@ -355,6 +385,20 @@ adapter::create_proxy(identity const& id,
         ::std::string const& facet) const
 {
     return pimpl_->create_proxy(id, facet);
+}
+
+object_prx
+adapter::create_direct_proxy(identity const& id,
+        ::std::string const& facet) const
+{
+    return pimpl_->create_direct_proxy(id, facet);
+}
+
+object_prx
+adapter::create_indirect_proxy(identity const& id,
+        ::std::string const& facet) const
+{
+    return pimpl_->create_indirect_proxy(id, facet);
 }
 
 object_prx

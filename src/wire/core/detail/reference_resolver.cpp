@@ -86,7 +86,7 @@ struct reference_resolver::impl {
                             set_locator(loc);
                         }
                         try {
-                            result(locator_);
+                            result(loc);
                         } catch (...) {}
                     },
                     [exception](::std::exception_ptr ex)
@@ -263,6 +263,10 @@ struct reference_resolver::impl {
             get_locator_async(
             [this, ref, result, exception, run_sync](locator_prx loc)
             {
+                if (!loc) {
+                    exception( ::std::make_exception_ptr( errors::no_locator{} ) );
+                    return;
+                }
                 if (ref.adapter.is_initialized()) {
                     loc->find_adapter_async(ref.adapter.get(),
                     [this, ref, result, exception, run_sync](object_prx obj)

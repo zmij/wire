@@ -76,16 +76,8 @@ reference::create_reference(connector_ptr cnctr, reference_data const& ref_data)
         // Find a connection or create a new one
         return
             ::std::make_shared< fixed_reference >(cnctr, ref_data);
-    } else if (ref_data.adapter.is_initialized()) {
-        return ::std::make_shared< floating_reference >(cnctr, ref_data);
     }
-    auto lctr = cnctr->get_locator();
-    if (lctr) {
-        auto prx = lctr->find_object(ref_data.object_id);
-        return ::std::make_shared< fixed_reference >( cnctr,
-                    prx->wire_get_reference()->data());
-    }
-    throw errors::runtime_error{"wire.locator is not configured"};
+    return ::std::make_shared< floating_reference >(cnctr, ref_data);
 }
 
 bool
@@ -228,73 +220,8 @@ floating_reference::get_connection_async( connection_callback on_get,
         functional::exception_callback exception,
         bool sync ) const
 {
-    rotation_type_ptr rot;
-    {
-        lock_guard lock{mutex_};
-        rot = cache_;
-    }
-    if (rot) {
-        next_connection(rot, on_get, exception, sync);
-    } else {
-        connector_ptr cnctr = get_connector();
-        auto _this = shared_this<floating_reference>();
-        cnctr->get_locator_async(
-            [_this, on_get, exception, sync](locator_prx loc)
-            {
-                if (!loc) {
-                    if (exception) {
-                        try {
-                            exception(::std::make_exception_ptr(errors::runtime_error{"Locator cannot be reached"}));
-                        } catch (...) {}
-                    }
-                } else {
-                    loc->find_adapter_async(_this->ref_.object_id,
-                        [_this, on_get, exception, sync](object_prx prx)
-                        {
-                            {
-                                lock_guard lock{_this->mutex_};
-                                _this->cache_ = ::std::make_shared<rotation_type>(prx->wire_get_reference()->data().endpoints);
-                            }
-                            _this->next_connection(_this->cache_, on_get, exception, sync);
-                        },
-                        [exception](::std::exception_ptr ex)
-                        {
-                            if (exception) {
-                                try {
-                                    exception(ex);
-                                } catch (...) {}
-                            }
-                        }, nullptr, no_context, sync);
-                }
-            },
-            [exception](::std::exception_ptr ex)
-            {
-                if (exception) {
-                    try {
-                        exception(ex);
-                    } catch (...) {}
-                }
-            },
-            no_context, sync);
-    }
-}
-
-void
-floating_reference::next_connection(rotation_type_ptr rot,
-        connection_callback on_get,
-        functional::exception_callback on_error,
-        bool sync) const
-{
-    if (!rot || rot->empty()) {
-        if (on_error)
-            try {
-                on_error(::std::make_exception_ptr(errors::connection_failed{ "Failed to obtain endpoints" }));
-            } catch (...) {}
-    } else {
-        connector_ptr cnctr = get_connector();
-        auto _this = shared_this<floating_reference>();
-        cnctr->get_outgoing_connection_async(rot->next(), on_get, on_error, sync);
-    }
+    connector_ptr cnctr = get_connector();
+    cnctr->resolve_connection_async(ref_, on_get, exception, sync);
 }
 
 

@@ -39,6 +39,12 @@ public:
     adapter_destroyed(char const* msg) : runtime_error{msg} {}
 };
 
+class no_locator : public runtime_error {
+public:
+    no_locator() : runtime_error{"Locator is not configured"} {}
+};
+
+
 class connection_failed : public runtime_error {
 public:
     connection_failed(std::string const& message) : runtime_error(message) {}

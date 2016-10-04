@@ -29,11 +29,26 @@
 namespace wire {
 namespace core {
 
+/**
+ * Reference data structure.
+ *
+ * Stringified representation: object_id[facet]@adapter endpoints
+ */
 struct reference_data {
     identity                object_id;
     ::std::string           facet;
     optional_identity       adapter;
     endpoint_list           endpoints; // TODO Replace with endpoint_set
+
+    bool
+    valid() const
+    {
+        if (object_id.empty())
+            return false;
+        if (endpoints.empty() && !adapter.is_initialized())
+            return false;
+        return true;
+    }
 };
 
 template < typename OutputIterator >
@@ -193,21 +208,6 @@ public:
     get_connection_async( connection_callback on_get,
             functional::exception_callback on_error,
             bool sync = false) const override;
-private:
-    using mutex_type                        = ::std::mutex;
-    using lock_guard                        = ::std::lock_guard<mutex_type>;
-    using rotation_type                     = endpoint_rotation<endpoint_list>;
-    using rotation_type_ptr                 = ::std::shared_ptr<rotation_type>;
-    using endpoint_cache                    = util::timed_cache<rotation_type>;
-
-    void
-    next_connection(rotation_type_ptr rot,
-            connection_callback on_get,
-            functional::exception_callback on_error,
-            bool sync = false) const;
-
-    mutex_type mutable                      mutex_;
-    endpoint_cache mutable                  cache_;
 };
 
 class routed_reference : public reference {
