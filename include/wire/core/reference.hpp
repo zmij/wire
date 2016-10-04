@@ -66,6 +66,8 @@ reference_data
 operator "" _wire_ref(char const*, ::std::size_t);
 
 ::std::size_t
+id_facet_hash(reference_data const&);
+::std::size_t
 hash(reference_data const&);
 
 /**

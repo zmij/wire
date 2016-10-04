@@ -35,7 +35,7 @@ public:
     {
         using ::std::swap;
         swap(tm_, rhs.tm_);
-        swap(max_age_, rhs.age_);
+        swap(max_age_, rhs.max_age_);
     }
 
     timed_cache_base&
@@ -48,11 +48,9 @@ public:
     timed_cache_base&
     operator = (timed_cache_base&& rhs)
     {
-        timed_cache_base tmp{::std::move(rhs)};
-        swap(tmp);
+        swap(rhs);
         return *this;
     }
-
 
     bool
     stale() const
@@ -125,8 +123,7 @@ public:
     timed_cache&
     operator = (timed_cache&& rhs)
     {
-        timed_cache tmp{::std::move(rhs)};
-        swap(tmp);
+        swap(rhs);
         return *this;
     }
 
@@ -176,6 +173,10 @@ public:
 
     operator bool() const
     { return value_ && !stale(); }
+
+    bool
+    operator !() const
+    { return !value_ || stale(); }
 
     pointer
     get()

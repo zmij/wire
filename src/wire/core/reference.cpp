@@ -50,10 +50,16 @@ operator "" _wire_ref(char const* str, ::std::size_t sz)
 }
 
 ::std::size_t
-hash(reference_data const& ref)
+id_facet_hash(reference_data const& ref)
 {
     auto h = hash(ref.object_id);
-    h = (h << 1) ^ hash(ref.facet);
+    return (h << 1) ^ hash(ref.facet);
+}
+
+::std::size_t
+hash(reference_data const& ref)
+{
+    auto h = id_facet_hash(ref);
     if (ref.adapter.is_initialized())
         h = (h << 1) ^ hash(ref.adapter.get());
     h = (h << 1) ^ hash(ref.endpoints);

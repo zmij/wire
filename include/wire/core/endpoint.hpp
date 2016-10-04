@@ -382,10 +382,21 @@ public:
         }
         return *current_;
     }
+
+    container_type const&
+    endpoints() const
+    { return endpoints_; }
 private:
     container_type          endpoints_;
     const_iterator mutable  current_;
 };
+
+template < typename Endpoints >
+::std::size_t
+hash(endpoint_rotation<Endpoints> const& eps)
+{
+    return hash(eps.endpoints());
+}
 
 //----------------------------------------------------------------------------
 ::std::ostream&
