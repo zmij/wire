@@ -22,6 +22,7 @@ set(
     locator_test_main.cpp
     locator_inproc_test.cpp
     reference_resolve_test.cpp
+    locator_sparring_test.cpp
 )
 add_executable(test-wire-locator ${test_locator_SRCS})
 target_link_libraries(
@@ -31,6 +32,7 @@ target_link_libraries(
     # Add your libraries here
     ${Boost_PROGRAM_OPTIONS}
     ${WIRE_LOCATOR_LIB}
+    sparring-test
 )
 
 if (GTEST_XML_OUTPUT)
@@ -42,5 +44,5 @@ endif()
 
 add_test(
     NAME test-wire-locator
-    COMMAND test-wire-locator ${TEST_ARGS}
+    COMMAND test-wire-locator --sparring-partner $<TARGET_FILE:wire-locatord> ${TEST_ARGS}
 )

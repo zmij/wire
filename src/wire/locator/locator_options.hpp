@@ -20,11 +20,11 @@ struct locator_options {
     /**
      * Locator identity
      */
-    core::identity  locator_id          = "locator.locator"_wire_id;
+    core::identity      locator_id          = "locator.locator"_wire_id;
     /**
      * Adapter to use for locator object
      */
-    core::identity  locator_adapter     = "locator"_wire_id;
+    core::identity      locator_adapter     = "locator"_wire_id;
     /**
      * Endpoints for locator adapter object
      */
@@ -35,18 +35,19 @@ struct locator_options {
     /**
      * Locator registry identity
      */
-    core::identity  registry_id         = "locator.registry"_wire_id;
+    core::identity      registry_id         = "locator.registry"_wire_id;
     /**
      * Adapter to use for registry object. If the same as locator adapter,
      * no additional adapter will be created.
      */
-    core::identity  registry_adapter    = "locator"_wire_id;
+    core::identity      registry_adapter    = "locator"_wire_id;
     /**
      * Endpoints for registry object adapter. Will be ignored if registry adapter
      * is the same with locator adapter.
      */
     core::endpoint_list registry_endpoints;
     //@}
+    bool                print_proxy = false;
 };
 
 }  /* namespace svc */

@@ -79,7 +79,7 @@ struct locator::impl {
         auto id = adapter->wire_identity();
 
         #if DEBUG_OUTPUT >= 1
-        ::std::cout << "Locator add adapter " << id
+        ::std::cerr << "Locator add adapter " << id
                 << " " << adapter->wire_get_reference()->data().endpoints << "\n";
         #endif
         proxy_map::const_accessor f;
@@ -94,7 +94,7 @@ struct locator::impl {
     {
         auto id = adapter->wire_identity();
         #if DEBUG_OUTPUT >= 1
-        ::std::cout << "Locator add replicated adapter " << id
+        ::std::cerr << "Locator add replicated adapter " << id
                 << " " << adapter->wire_get_reference()->data().endpoints << "\n";
         #endif
         proxy_map::accessor f;

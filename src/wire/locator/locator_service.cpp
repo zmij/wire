@@ -52,6 +52,9 @@ struct locator_service::impl {
             ((name_ + ".registry.endpoints").c_str(),
                 po::value<core::endpoint_list>(&opts.registry_endpoints),
                 "Endpoints for locator registry object adapter")
+            ((name_ + ".print-proxy").c_str(),
+                po::bool_switch(&opts.print_proxy),
+                "Print locator proxy to ::std::cout")
         ;
 
         po::variables_map vm;
@@ -83,6 +86,9 @@ struct locator_service::impl {
         locator_adapter_->register_adapter();
         if (registry_adapter_ != locator_adapter_)
             registry_adapter_->register_adapter();
+
+        if (opts.print_proxy)
+            ::std::cout << *loc_prx << ::std::endl;
     }
 
     void
