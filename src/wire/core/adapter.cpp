@@ -10,11 +10,15 @@
 #include <wire/core/connector.hpp>
 #include <wire/core/proxy.hpp>
 #include <wire/core/object_locator.hpp>
+#include <wire/core/locator.hpp>
 
 #include <wire/core/detail/configuration_options.hpp>
 
-#include <unordered_map>
+#include <tbb/concurrent_hash_map.h>
+#include <tbb/concurrent_unordered_set.h>
+
 #include <mutex>
+#include <iostream>
 
 namespace wire {
 namespace core {
@@ -26,10 +30,14 @@ namespace {
 }  /* namespace  */
 
 struct adapter::impl {
-    using connections       = ::std::unordered_map< endpoint, connection_ptr >;
-    using active_objects    = ::std::unordered_map< identity, object_ptr >;
-    using default_servants  = ::std::unordered_map< ::std::string, object_ptr >;
-    using object_locators   = ::std::unordered_map< ::std::string, object_locator_ptr >;
+    using connections           = ::tbb::concurrent_hash_map< endpoint, connection_ptr >;
+    using active_objects        = ::tbb::concurrent_hash_map< identity, object_ptr >;
+    using default_servants      = ::tbb::concurrent_hash_map< ::std::string, object_ptr >;
+    using object_locators       = ::tbb::concurrent_hash_map< ::std::string, object_locator_ptr >;
+    using concurrent_enpoints   = ::tbb::concurrent_unordered_set<endpoint>;
+
+    using atomic_bool           = ::std::atomic<bool>;
+
     using mutex_type        = ::std::mutex;
     using lock_guard        = ::std::lock_guard<mutex_type>;
 
@@ -38,8 +46,10 @@ struct adapter::impl {
     identity                    id_;
 
     detail::adapter_options     options_;
+    concurrent_enpoints         published_endpoints_;
 
     bool                        is_active_;
+    atomic_bool                 registered_;
 
     connections                 connections_;
     active_objects              active_objects_;
@@ -52,16 +62,20 @@ struct adapter::impl {
 
     impl(connector_ptr c, identity const& id, detail::adapter_options const& options)
         : connector_{c}, io_service_{c->io_service()},
-          id_{id}, options_{options}, is_active_{false}
+          id_{id}, options_{options}, is_active_{false}, registered_{false}
     {
     }
 
     void
-    activate()
+    activate(bool postpone_reg)
     {
         lock_guard lock{mtx_};
-        adapter_ptr adp = owner_.lock();
+        auto adp = owner_.lock();
         if (adp) {
+            auto cnctr = connector_.lock();
+            if (!cnctr)
+                // FIXME Correct exception
+                throw errors::connector_destroyed{"Connector was already destroyed"};
             if (options_.endpoints.empty()) {
                 options_.endpoints.push_back(endpoint::tcp("0.0.0.0", 0));
             }
@@ -70,25 +84,68 @@ struct adapter::impl {
                     std::make_shared<connection>(server_side{}, adp, ep ));
             }
             is_active_ = true;
+            if (!postpone_reg)
+                register_adapter();
         } else {
-            throw ::std::runtime_error("Adapter owning implementation was destroyed");
+            // FIXME Correct exception
+            throw errors::adapter_destroyed{"Adapter owning implementation was destroyed"};
+        }
+    }
+
+    void
+    register_adapter()
+    {
+        auto cnctr = connector_.lock();
+        if (!cnctr)
+            // FIXME Correct exception
+            throw errors::connector_destroyed{"Connector was already destroyed"};
+        if (options_.registered || options_.replicated) {
+            auto reg = cnctr->get_locator_registry();
+            if (reg) {
+                auto prx = adapter_proxy();
+                #if DEBUG_OUTPUT >= 1
+                ::std::cerr << "Register adapter " << *prx << " at locator\n";
+                #endif
+                if (options_.replicated) {
+                    reg->add_replicated_adapter(prx);
+                } else {
+                    reg->add_adapter(prx);
+                }
+                registered_ = true;
+            } else if (options_.replicated) {
+                throw errors::runtime_error{
+                        "wire.locator not configured for a replicated adapter"};
+            }
         }
     }
 
     bool
     is_local_endpoint(endpoint const& ep)
     {
-        return connections_.count(ep);
+        connections::const_accessor acc;
+        return connections_.find(acc, ep);
     }
 
     void
     deactivate()
     {
         lock_guard lock{mtx_};
+        if (registered_) {
+            auto cnctr = connector_.lock();
+            if (cnctr) {
+                auto reg = cnctr->get_locator_registry();
+                if (reg) {
+                    auto prx = adapter_proxy();
+                    reg->remove_adapter(prx);
+                }
+            }
+            registered_ = false;
+        }
         for (auto& c : connections_) {
             c.second->close();
         }
         connections_.clear();
+        published_endpoints_.clear();
         is_active_ = false;
     }
 
@@ -102,10 +159,13 @@ struct adapter::impl {
     void
     listen_connection_online(endpoint const& ep)
     {
-        auto cr = connector_.lock();
-        if (!cr)
-            throw errors::runtime_error{ "Connector is dead" };
-        cr->adapter_online(owner_.lock(), ep);
+        auto cnctr = connector_.lock();
+        if (!cnctr)
+            throw errors::connector_destroyed{ "Connector was already destroyed" };
+        endpoint_list eps;
+        ep.published_endpoints(eps);
+        published_endpoints_.insert(eps.begin(), eps.end());
+        cnctr->adapter_online(owner_.lock(), ep);
     }
     void
     connection_offline(endpoint const& ep)
@@ -116,11 +176,16 @@ struct adapter::impl {
     }
 
     endpoint_list
-    active_endpoints()
+    published_endpoints()
     {
         endpoint_list endpoints;
-        for (auto const& cn : connections_) {
-            endpoints.push_back(cn.second->local_endpoint());
+        if (!published_endpoints_.empty()) {
+            endpoints = endpoint_list{ published_endpoints_.cbegin(),
+                published_endpoints_.cend() };
+        } else {
+            for (auto const& ep : options_.endpoints) {
+                ep.published_endpoints(endpoints);
+            }
         }
         return endpoints;
     }
@@ -130,65 +195,100 @@ struct adapter::impl {
     {
         return ::std::make_shared< object_proxy >(
             reference::create_reference(
-                connector_.lock(), { id_, {}, {}, active_endpoints() }));
+                connector_.lock(), { id_, {}, {}, published_endpoints() }));
     }
     object_prx
     create_proxy(identity const& id, ::std::string const& facet)
     {
         // TODO Use configuration of adapter
+        if (registered_) {
+            return create_indirect_proxy(id, facet);
+        }
+        return create_direct_proxy(id, facet);
+    }
+    object_prx
+    create_direct_proxy(identity const& id, ::std::string const& facet)
+    {
         return ::std::make_shared< object_proxy >(
             reference::create_reference(
-                connector_.lock(), { id, facet, {}, active_endpoints() }));
+                connector_.lock(), { id, facet, {}, published_endpoints() }));
+    }
+    object_prx
+    create_indirect_proxy(identity const& id, ::std::string const& facet)
+    {
+        return ::std::make_shared< object_proxy >(
+            reference::create_reference(
+                connector_.lock(), { id, facet, id_, }));
     }
     object_prx
     add_object(identity const& id, object_ptr disp)
     {
-        lock_guard lock{mtx_};
         active_objects_.insert(::std::make_pair(id, disp));
         return create_proxy(id, {});
+    }
+    void
+    remove_object(identity const& id)
+    {
+        active_objects::const_accessor o;
+        if (active_objects_.find(o, id))
+            active_objects_.erase(o);
     }
 
     void
     add_default_servant(::std::string const& category, object_ptr disp)
     {
-        lock_guard lock{mtx_};
         default_servants_.emplace(category, disp);
+    }
+    void
+    remove_default_servant(::std::string const& category)
+    {
+        default_servants::const_accessor o;
+        if (default_servants_.find(o, category))
+            default_servants_.erase(o);
     }
 
     void
     add_locator(::std::string const& category, object_locator_ptr loc)
     {
-        lock_guard lock{mtx_};
         locators_.emplace(category, loc);
+    }
+
+    void
+    remove_locator(::std::string const& category)
+    {
+        object_locators::const_accessor loc;
+        if (locators_.find(loc, category))
+            locators_.erase(loc);
     }
 
     object_ptr
     find_object(identity const& id, ::std::string const& facet)
     {
-        lock_guard lock{mtx_};
-        auto o = active_objects_.find(id);
-        if (o != active_objects_.end()) {
+        active_objects::const_accessor o;
+        if (active_objects_.find(o, id)) {
             return o->second;
         }
-        auto d = default_servants_.find(id.category);
-        if (d != default_servants_.end()) {
+
+        default_servants::const_accessor d;
+        if (default_servants_.find(d, id.category)) {
             return d->second;
         }
         if (!id.category.empty()) {
-            d = default_servants_.find(DEFAULT_CATEGORY);
-            if (d != default_servants_.end()) {
+            if (default_servants_.find(d, DEFAULT_CATEGORY)) {
                 return d->second;
             }
         }
-        auto loc = locators_.find(id.category);
-        if (loc != locators_.end()) {
+
+        object_locators::const_accessor loc;
+        if (locators_.find(loc, id.category)) {
+            // FIXME Do it async
             auto obj = loc->second->find_object(owner_.lock(), id, facet);
             if (obj)
                 return obj;
         }
         if (!id.category.empty()) {
-            loc = locators_.find(DEFAULT_CATEGORY);
-            if (loc != locators_.end()) {
+            if (locators_.find(loc, DEFAULT_CATEGORY)) {
+                // FIXME Do it async
                 return loc->second->find_object(owner_.lock(), id, facet);
             }
         }
@@ -233,9 +333,15 @@ adapter::options() const
 }
 
 void
-adapter::activate()
+adapter::activate(bool postpone_reg)
 {
-    pimpl_->activate();
+    pimpl_->activate(postpone_reg);
+}
+
+void
+adapter::register_adapter()
+{
+    pimpl_->register_adapter();
 }
 
 void
@@ -269,9 +375,9 @@ adapter::configured_endpoints() const
 }
 
 endpoint_list
-adapter::active_endpoints() const
+adapter::published_endpoints() const
 {
-    return pimpl_->active_endpoints();
+    return pimpl_->published_endpoints();
 }
 
 object_prx
@@ -279,6 +385,20 @@ adapter::create_proxy(identity const& id,
         ::std::string const& facet) const
 {
     return pimpl_->create_proxy(id, facet);
+}
+
+object_prx
+adapter::create_direct_proxy(identity const& id,
+        ::std::string const& facet) const
+{
+    return pimpl_->create_direct_proxy(id, facet);
+}
+
+object_prx
+adapter::create_indirect_proxy(identity const& id,
+        ::std::string const& facet) const
+{
+    return pimpl_->create_indirect_proxy(id, facet);
 }
 
 object_prx

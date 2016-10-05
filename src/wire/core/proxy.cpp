@@ -8,8 +8,8 @@
 #include <wire/core/proxy.hpp>
 #include <wire/core/reference.hpp>
 #include <wire/core/connection.hpp>
-#include <wire/core/invocation.hpp>
 #include <wire/core/object.hpp>
+#include <wire/core/invocation.hpp>
 
 namespace wire {
 namespace core {

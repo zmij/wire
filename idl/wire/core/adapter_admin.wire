@@ -18,7 +18,9 @@
 namespace wire {
 namespace core {
 
-exception no_adapter {};
+exception no_adapter {
+    identity id;
+};
 exception adapter_active {};
 exception adapter_inactive {};
 

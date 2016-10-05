@@ -17,20 +17,38 @@
 #include <wire/core/connector_fwd.hpp>
 #include <wire/core/reference_fwd.hpp>
 #include <wire/core/object_fwd.hpp>
+#include <wire/core/proxy_fwd.hpp>
 #include <wire/core/functional.hpp>
 
 #include <wire/encoding/detail/optional_io.hpp>
+
+#include <wire/util/timed_cache.hpp>
 
 #include <future>
 
 namespace wire {
 namespace core {
 
+/**
+ * Reference data structure.
+ *
+ * Stringified representation: object_id[facet]@adapter endpoints
+ */
 struct reference_data {
     identity                object_id;
     ::std::string           facet;
     optional_identity       adapter;
-    endpoint_list           endpoints;
+    endpoint_list           endpoints; // TODO Replace with endpoint_set
+
+    bool
+    valid() const
+    {
+        if (object_id.empty())
+            return false;
+        if (endpoints.empty() && !adapter.is_initialized())
+            return false;
+        return true;
+    }
 };
 
 template < typename OutputIterator >
@@ -58,6 +76,14 @@ operator < (reference_data const& lhs, reference_data const& rhs);
 operator << (::std::ostream& os, reference_data const& val);
 ::std::istream&
 operator >> (::std::istream& is, reference_data& val);
+
+reference_data
+operator "" _wire_ref(char const*, ::std::size_t);
+
+::std::size_t
+id_facet_hash(reference_data const&);
+::std::size_t
+hash(reference_data const&);
 
 /**
  * Class for a reference.
@@ -146,6 +172,8 @@ protected:
 
 /**
  * Fixed reference
+ *
+ * A reference with fixed endpoints.
  */
 class fixed_reference : public reference {
 public:
@@ -159,18 +187,41 @@ public:
             bool sync = false) const override;
 private:
     using mutex_type                        = ::std::mutex;
-    using lock_type                         = ::std::lock_guard<mutex_type>;
+    using lock_guard                        = ::std::lock_guard<mutex_type>;
     mutex_type mutable                      mutex_;
     connection_weak_ptr mutable             connection_;
     endpoint_list::const_iterator mutable   current_;
 };
 
+/**
+ * Reference to an object with a named adapter. Adapter can be a replica group,
+ * therefore having multiple endpoints. The get_connection method will return
+ * next endpoint every time it is invoked.
+ */
+class floating_reference : public reference {
+public:
+    floating_reference(connector_ptr cn, reference_data const& ref);
+    floating_reference(floating_reference const& rhs);
+    floating_reference(floating_reference&& rhs);
+
+    void
+    get_connection_async( connection_callback on_get,
+            functional::exception_callback on_error,
+            bool sync = false) const override;
+};
+
 class routed_reference : public reference {
 };
+
+inline ::std::size_t
+tbb_hasher(reference_data const& ref)
+{
+    return hash(ref);
+}
 
 }  // namespace core
 }  // namespace wire
 
-
+using ::wire::core::operator ""_wire_ref;
 
 #endif /* WIRE_CORE_REFERENCE_HPP_ */

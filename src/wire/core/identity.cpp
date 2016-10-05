@@ -13,7 +13,9 @@
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
+
 #include <iostream>
+#include <sstream>
 
 namespace wire {
 namespace core {
@@ -109,6 +111,17 @@ hash(identity const& v)
     detail::identity_hash_visitor hasher;
     ::std::size_t id_hash = ::boost::apply_visitor(hasher, v.id) ^ (v.id.which() << 1);
     return hasher(v.category) ^ (id_hash << 1);
+}
+
+identity
+operator "" _wire_id(char const* str, ::std::size_t sz)
+{
+    ::std::string literal{str, sz};
+    ::std::istringstream is{literal};
+    identity id;
+    if (!(is >> id))
+        throw ::std::runtime_error{"Invalid ::wire::core::identity literal " + literal};
+    return id;
 }
 
 }  // namespace core

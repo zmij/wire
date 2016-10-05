@@ -163,6 +163,8 @@ public:
 
     endpoint
     local_endpoint() const;
+    endpoint
+    remote_endpoint() const;
 private:
     connection(connection&&) = delete;
     connection(connection const&) = delete;
