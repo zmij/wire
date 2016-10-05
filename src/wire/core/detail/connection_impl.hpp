@@ -24,6 +24,9 @@
 
 #include <afsm/fsm.hpp>
 
+#include <tbb/concurrent_hash_map.h>
+#include <tbb/concurrent_priority_queue.h>
+
 #include <iostream>
 #include <atomic>
 #include <map>
@@ -455,13 +458,25 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     using clock_type            = ::std::chrono::system_clock;
     using time_point            = ::std::chrono::time_point< clock_type >;
     using expire_duration       = ::std::chrono::duration< ::std::int64_t, ::std::milli >;
+    using request_number        = ::std::uint32_t;
 
     struct pending_reply {
         encoding::reply_callback        reply;
         functional::exception_callback  error;
-        time_point                      expires;
     };
-    using pending_replies_type  = ::std::unordered_map< uint32_t, pending_reply >;
+    struct reply_expiration {
+        request_number                  number;
+        time_point                      expires;
+
+        bool
+        operator < (reply_expiration const& rhs) const
+        {
+            return expires < rhs.expires;
+        }
+    };
+
+    using pending_replies_type  = ::tbb::concurrent_hash_map<request_number, pending_reply>;
+    using pending_replies_expire_queue = ::tbb::concurrent_priority_queue<reply_expiration>;
 
     using incoming_buffer       = ::std::array< unsigned char, 1024 >;
     using incoming_buffer_ptr   = ::std::shared_ptr< incoming_buffer >;
@@ -541,6 +556,8 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     start_request_timer();
     void
     on_request_timeout(asio_config::error_code const& ec);
+    void
+    request_error(request_number r_no, ::std::exception_ptr ex);
 
     void
     connect_async(endpoint const&,
@@ -662,7 +679,7 @@ protected:
     ::std::atomic<::std::uint32_t>  request_no_;
     asio_config::system_timer       request_timer_;
     pending_replies_type            pending_replies_;
-    mutex_type                      reply_mutex_;
+    pending_replies_expire_queue    expiration_queue_;
 
     encoding::incoming_ptr          incoming_;
     ::std::atomic<::std::int32_t>   outstanding_responses_;

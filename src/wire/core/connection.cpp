@@ -158,32 +158,39 @@ connection_implementation::start_request_timer()
 }
 
 void
+connection_implementation::request_error(request_number r_no,
+        ::std::exception_ptr ex)
+{
+    pending_replies_type::const_accessor acc;
+    if (pending_replies_.find(acc, r_no)) {
+        #if DEBUG_OUTPUT >= 5
+        ::std::cerr << "Request timed out\n";
+        #endif
+        if (acc->second.error) {
+            auto err_handler = acc->second.error;
+            io_service_->post([err_handler, ex](){
+                try {
+                    err_handler(ex);
+                } catch(...) {}
+            });
+        }
+        pending_replies_.erase(acc);
+    }
+}
+
+void
 connection_implementation::on_request_timeout(asio_config::error_code const& ec)
 {
-    {
-        lock_guard lock{reply_mutex_};
-        auto now = clock_type::now();
-        ::std::vector<pending_replies_type::const_iterator> to_erase;
-        for (auto r = pending_replies_.begin(); r != pending_replies_.end(); ++r) {
-            if (r->second.expires < now) {
-                #if DEBUG_OUTPUT >= 5
-                ::std::cerr << "Request timed out\n";
-                #endif
-                if (r->second.error) {
-                    auto err_handler = r->second.error;
-                    io_service_->post([err_handler](){
-                        try {
-                            err_handler(::std::make_exception_ptr(
-                                errors::request_timed_out{ "Request timed out" }
-                            ));
-                        } catch(...) {}
-                    });
-                }
-                to_erase.push_back(r);
-            }
-        }
-        for (auto r : to_erase) {
-            pending_replies_.erase(r);
+    static errors::request_timed_out err{ "Request timed out" };
+
+    auto now = clock_type::now();
+    reply_expiration r_exp;
+    while (expiration_queue_.try_pop(r_exp)) {
+        if (r_exp.expires <= now) {
+            request_error(r_exp.number, ::std::make_exception_ptr(err));
+        } else {
+            expiration_queue_.push(r_exp);
+            break;
         }
     }
     start_request_timer();
@@ -264,23 +271,28 @@ connection_implementation::send_close_message()
 void
 connection_implementation::handle_close()
 {
+    static errors::connection_failed err{ "Conection closed" };
     #if DEBUG_OUTPUT >= 1
     ::std::cerr << "Handle close\n";
     #endif
     connection_timer_.cancel();
     request_timer_.cancel();
-    {
-        lock_guard lock{reply_mutex_};
-    if (!pending_replies_.empty()) {
-        auto ex = ::std::make_exception_ptr(errors::connection_failed{ "Conection closed" });
-        for (auto const& req : pending_replies_) {
-            try {
-                req.second.error(ex);
-            } catch (...) {}
-        }
-        pending_replies_.clear();
+
+    reply_expiration r_exp;
+    while (expiration_queue_.try_pop(r_exp)) {
+        request_error(r_exp.number, ::std::make_exception_ptr(err));
     }
-    }
+
+//    if (!pending_replies_.empty()) {
+//        auto ex = ::std::make_exception_ptr(errors::connection_failed{ "Conection closed" });
+//        for (auto const& req : pending_replies_) {
+//            try {
+//                req.second.error(ex);
+//            } catch (...) {}
+//        }
+//        pending_replies_.clear();
+//        expiration_queue_.clear();
+//    }
 
     if (on_close_)
         on_close_();
@@ -435,7 +447,8 @@ connection_implementation::dispatch_incoming(encoding::incoming_ptr incoming)
 }
 
 void
-connection_implementation::invoke(identity const& id, ::std::string const& op, context_type const& ctx,
+connection_implementation::invoke(identity const& id, ::std::string const& op,
+        context_type const& ctx,
         bool run_sync,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
@@ -457,17 +470,17 @@ connection_implementation::invoke(identity const& id, ::std::string const& op, c
     functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
     // TODO Pass timeout in invokation parameters
     time_point expires = clock_type::now() + expire_duration{5000};
-    {
-        lock_guard lock{reply_mutex_};
-        pending_replies_.insert(::std::make_pair( r.number, pending_reply{ reply, exception, expires } ));
-    }
+    pending_replies_.insert(::std::make_pair( r.number,
+            pending_reply{ reply, exception } ));
+    expiration_queue_.push(reply_expiration{ r.number, expires });
     process_event(events::send_request{ out, write_cb });
 
     if (run_sync) {
         auto _this = shared_from_this();
         auto r_no = r.number;
         util::run_while(io_service_, [_this, r_no](){
-            return _this->pending_replies_.count(r_no);
+            pending_replies_type::const_accessor acc;
+            return _this->pending_replies_.find(acc, r_no);
         });
     }
 }
@@ -484,13 +497,9 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
         incoming::const_iterator b = buffer->begin();
         incoming::const_iterator e = buffer->end();
         read(b, e, rep);
-        pending_replies_type::iterator f = pending_replies_.end();
-        {
-            lock_guard lock{reply_mutex_};
-            f = pending_replies_.find(rep.number);
-        }
-        if (f != pending_replies_.end()) {
-            auto p_rep = f->second;
+        pending_replies_type::const_accessor acc;
+        if (pending_replies_.find(acc, rep.number)) {
+            auto const& p_rep = acc->second;
             switch (rep.status) {
                 case reply::success:{
                     #if DEBUG_OUTPUT >= 3
@@ -598,10 +607,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                     }
                     break;
             }
-            {
-                lock_guard lock{reply_mutex_};
-                pending_replies_.erase(rep.number);
-            }
+            pending_replies_.erase(acc);
             #if DEBUG_OUTPUT >= 4
             ::std::cerr << "Pending replies: " << pending_replies_.size() << "\n";
             #endif
@@ -887,6 +893,13 @@ connection::local_endpoint() const
 {
     assert(pimpl_.get() && "Connection implementation is not set");
     return pimpl_->local_endpoint();
+}
+
+endpoint
+connection::remote_endpoint() const
+{
+    assert(pimpl_.get() && "Connection implementation is not set");
+    return pimpl_->remote_endpoint();
 }
 
 }  // namespace core

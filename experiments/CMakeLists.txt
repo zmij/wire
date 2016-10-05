@@ -1,7 +1,7 @@
-#	/tip-proto/experiments/CMakeLists.txt
-#	
-#	@author zmij
-#	@date Dec 10, 2015
+#    /tip-proto/experiments/CMakeLists.txt
+#
+#    @author zmij
+#    @date Dec 10, 2015
 
 cmake_minimum_required(VERSION 2.6)
 
@@ -40,4 +40,6 @@ add_executable(ssl-server ${server_SRCS})
 target_link_libraries(ssl-server ${server_LIBS})
 
 add_executable(bits-fun bits-fun.cpp)
+add_executable(enum-iface enumerate_ifaces.cpp)
+target_link_libraries(enum-iface ${client_LIBS})
 

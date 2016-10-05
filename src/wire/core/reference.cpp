@@ -11,6 +11,7 @@
 #include <sstream>
 
 #include <wire/core/connector.hpp>
+#include <wire/core/locator.hpp>
 
 namespace wire {
 namespace core {
@@ -37,6 +38,33 @@ operator < (reference_data const& lhs, reference_data const& rhs)
             lhs.endpoints < rhs.endpoints;
 }
 
+reference_data
+operator "" _wire_ref(char const* str, ::std::size_t sz)
+{
+    ::std::string literal{str, sz};
+    ::std::istringstream is{literal};
+    reference_data ref;
+    if (!(is >> ref))
+        throw ::std::runtime_error{"Invalid ::wire::core::reference_data literal " + literal};
+    return ref;
+}
+
+::std::size_t
+id_facet_hash(reference_data const& ref)
+{
+    auto h = hash(ref.object_id);
+    return (h << 1) ^ hash(ref.facet);
+}
+
+::std::size_t
+hash(reference_data const& ref)
+{
+    auto h = id_facet_hash(ref);
+    if (ref.adapter.is_initialized())
+        h = (h << 1) ^ hash(ref.adapter.get());
+    h = (h << 1) ^ hash(ref.endpoints);
+    return h;
+}
 
 //----------------------------------------------------------------------------
 //      Base reference implementation
@@ -47,11 +75,9 @@ reference::create_reference(connector_ptr cnctr, reference_data const& ref_data)
     if (!ref_data.endpoints.empty()) {
         // Find a connection or create a new one
         return
-            ::std::make_shared< fixed_reference >( cnctr, ref_data);
-    } else if (ref_data.adapter.is_initialized()) {
-        throw errors::runtime_error("Adapter location is not implemented yet");
+            ::std::make_shared< fixed_reference >(cnctr, ref_data);
     }
-    throw errors::runtime_error{"Well-known objects are not implemented yet"};
+    return ::std::make_shared< floating_reference >(cnctr, ref_data);
 }
 
 bool
@@ -126,7 +152,7 @@ fixed_reference::get_connection_async( connection_callback on_get,
 {
     connection_ptr conn = connection_.lock();
     if (!conn) {
-        lock_type lock{mutex_};
+        lock_guard lock{mutex_};
         conn = connection_.lock();
         if (conn) {
             try {
@@ -169,6 +195,35 @@ fixed_reference::get_connection_async( connection_callback on_get,
         } catch(...) {}
     }
 }
+
+//----------------------------------------------------------------------------
+//      Floating reference implementation
+//----------------------------------------------------------------------------
+
+floating_reference::floating_reference(connector_ptr cn, reference_data const& ref)
+    : reference{ cn, ref }
+{
+}
+
+floating_reference::floating_reference(floating_reference const& rhs)
+    : reference{rhs}
+{
+}
+
+floating_reference::floating_reference(floating_reference&& rhs)
+    : reference{ ::std::move(rhs) }
+{
+}
+
+void
+floating_reference::get_connection_async( connection_callback on_get,
+        functional::exception_callback exception,
+        bool sync ) const
+{
+    connector_ptr cnctr = get_connector();
+    cnctr->resolve_connection_async(ref_, on_get, exception, sync);
+}
+
 
 }  // namespace core
 }  // namespace wire

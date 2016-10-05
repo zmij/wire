@@ -1,7 +1,7 @@
 /*
- * connector_test_main.cpp
+ * locator_test_main.cpp
  *
- *  Created on: May 10, 2016
+ *  Created on: Sep 29, 2016
  *      Author: zmij
  */
 
@@ -10,7 +10,6 @@
 #include <gtest/gtest.h>
 
 #include "sparring/options.hpp"
-
 
 // Initialize the test suite
 int
@@ -25,10 +24,10 @@ try {
     options& opts = options::instance();
 
     desc.add_options()
-        ("help,h", "show options description")
-        ("sparring-partner,s",
-            po::value< std::string >(&opts.sparring_partner)->required(),
-            "Program to run for server counterpart")
+            ("help,h", "show options description")
+            ("sparring-partner,s",
+                po::value< std::string >(&opts.sparring_partner)->required(),
+                "Program to run for server counterpart (wire-locatord)")
     ;
 
     po::variables_map vm;
@@ -46,4 +45,3 @@ try {
     ::std::cerr << e.what() << "\n";
     return 1;
 }
-
