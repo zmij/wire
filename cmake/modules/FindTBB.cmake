@@ -169,7 +169,7 @@ mark_as_advanced(TBB_INCLUDE_DIR)
 #    message(STATUS "[Warning] FindTBB.cmake: The use of TBB_ARCHITECTURE and TBB_COMPILER is deprecated and may not be supported in future versions. Please set $ENV{TBB_ARCH_PLATFORM} (using tbbvars.[bat|csh|sh]).")
 #    set (_TBB_LIBRARY_DIR "${_TBB_INSTALL_DIR}/${_TBB_ARCHITECTURE}/${_TBB_COMPILER}/lib")
 #endif (NOT $ENV{TBB_ARCH_PLATFORM} STREQUAL "")
-set(_TBB_LIBRARY_DIR "${_TBB_INSTALL_DIR}/lib")
+set(_TBB_LIBRARY_DIR "${_TBB_INSTALL_DIR}/lib" "${_TBB_INSTALL_DIR}/lib/${CMAKE_LIBRARY_ARCHITECTURE}")
 
 find_library(TBB_LIBRARY        ${_TBB_LIB_NAME}        ${_TBB_LIBRARY_DIR} NO_DEFAULT_PATH)
 find_library(TBB_MALLOC_LIBRARY ${_TBB_LIB_MALLOC_NAME} ${_TBB_LIBRARY_DIR} NO_DEFAULT_PATH)
