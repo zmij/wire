@@ -6,6 +6,7 @@
  */
 
 #include <iostream>
+#include <fstream>
 #include <thread>
 
 #include <boost/program_options.hpp>
@@ -25,6 +26,7 @@ try {
     po::options_description desc("Program options");
     ::std::string   locator_name;
     ::std::size_t   thread_count{0};
+    ::std::string   pid_file;
 
     desc.add_options()
         ("help,h", "show options description")
@@ -34,6 +36,9 @@ try {
         ("thread-count,t",
                 po::value<::std::size_t>(&thread_count)->default_value(1),
                 "Count of worker theads for the registry")
+        ("pid-file",
+                po::value<::std::string>(&pid_file),
+                "Output pid to file")
     ;
 
     auto io_svc = ::std::make_shared< ::wire::asio_config::io_service >();
@@ -46,6 +51,13 @@ try {
         ::std::cout << desc << "\n"; // TODO connector options, locator options
         return 0;
     }
+
+    if (!pid_file.empty()) {
+        ::std::ofstream pfile(pid_file);
+        pfile << getpid() << "\n";
+    }
+
+    ::std::cerr << "Locator name " << locator_name << "\n";
     svc::locator_service loc_svc{locator_name};
     loc_svc.start(cnctr);
 

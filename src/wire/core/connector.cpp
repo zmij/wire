@@ -520,7 +520,7 @@ struct connector::impl {
     void
     get_outgoing(endpoint const& ep,
             connection_callback on_get,
-            functional::exception_callback on_error,
+            functional::exception_callback exception,
             bool sync)
     {
         bool new_conn = false;
@@ -541,7 +541,6 @@ struct connector::impl {
             }
         }
         if (new_conn) {
-            // TODO move connect outside the mutex
             auto res = ::std::make_shared< ::std::atomic<bool> >(false);
             conn->connect_async(ep,
                 [on_get, conn, res, ep]()
@@ -554,7 +553,7 @@ struct connector::impl {
                         on_get(conn);
                     } catch(...) {}
                 },
-                [this, on_error, conn, res, ep](::std::exception_ptr ex)
+                [this, exception, conn, res, ep](::std::exception_ptr ex)
                 {
                     #ifdef DEBUG_OUTPUT
                     ::std::cerr << "Failed to connect to " << ep << "\n";
@@ -562,7 +561,7 @@ struct connector::impl {
                     *res = true;
                     erase_outgoing(conn.get());
                     try {
-                        on_error(ex);
+                        exception(ex);
                     } catch (...) {}
                 });
 
@@ -580,11 +579,11 @@ struct connector::impl {
     erase_outgoing(connection const* conn)
     {
         auto ep = conn->remote_endpoint();
-                #ifdef DEBUG_OUTPUT
+        #if DEBUG_OUTPUT >= 1
         ::std::cerr << "Outgoing connection to " << ep << " closed\n";
-                #endif
+        #endif
         outgoing_.erase(ep);
-            }
+    }
 
 };
 

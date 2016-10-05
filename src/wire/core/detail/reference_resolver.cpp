@@ -71,7 +71,7 @@ struct reference_resolver::impl {
 
         if (!loc && !options.locator_ref.object_id.empty()) {
             #if DEBUG_OUTPUT >= 1
-            ::std::cerr << "Try to otain locator proxy "
+            ::std::cerr << "Connecting to locator "
                     << options.locator_ref << "\n";
             #endif
             try {
@@ -91,6 +91,9 @@ struct reference_resolver::impl {
                     },
                     [exception](::std::exception_ptr ex)
                     {
+                        #if DEBUG_OUTPUT >= 1
+                        ::std::cerr << "Exception in checked_cast<locator_proxy>\n";
+                        #endif
                         if (exception) {
                             try {
                                 exception(ex);
@@ -130,7 +133,7 @@ struct reference_resolver::impl {
                 {
                     if (loc) {
                         #if DEBUG_OUTPUT >= 1
-                        ::std::cerr << "Try to otain locator registry proxy from locator "
+                        ::std::cerr << "Try to obtain locator registry proxy from locator "
                                 << *loc << "\n";
                         #endif
                         loc->get_registry_async(
@@ -150,7 +153,16 @@ struct reference_resolver::impl {
                         } catch (...) {}
                     }
                 },
-                exception, ctx, run_sync);
+                #if DEBUG_OUTPUT >= 1
+                [exception](::std::exception_ptr ex)
+                {
+                    ::std::cerr << "Exception in get_locator_registry\n";
+                    exception(ex);
+                },
+                #else
+                exception,
+                #endif
+                ctx, run_sync);
         } else {
             try {
                 result(reg);

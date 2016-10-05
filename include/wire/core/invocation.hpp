@@ -387,8 +387,13 @@ struct remote_invocation< Handler,
     {
         auto reply = make_callback(data->response, data->exception, is_void{});
         if (run_sync) {
-            ref->get_connection()->invoke(data->id, data->op, data->ctx, true,
-                    ::std::move(data->out), reply, data->exception, data->sent);
+            try {
+                ref->get_connection()->invoke(data->id, data->op, data->ctx, true,
+                        ::std::move(data->out), reply, data->exception, data->sent);
+            } catch (...) {
+                if (data->exception)
+                    data->exception(::std::current_exception());
+            }
         } else {
             auto d = data;
             ref->get_connection_async(

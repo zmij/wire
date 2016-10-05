@@ -168,15 +168,17 @@ connection_implementation::request_error(request_number r_no,
                 #endif
         if (acc->second.error) {
             auto err_handler = acc->second.error;
-            io_service_->post([err_handler, ex](){
-                        try {
+            io_service_->post(
+            [err_handler, ex]()
+            {
+                try {
                     err_handler(ex);
-                        } catch(...) {}
-                    });
-                }
-        pending_replies_.erase(acc);
-            }
+                } catch(...) {}
+            });
         }
+        pending_replies_.erase(acc);
+    }
+}
 
 void
 connection_implementation::on_request_timeout(asio_config::error_code const& ec)
@@ -271,28 +273,23 @@ connection_implementation::send_close_message()
 void
 connection_implementation::handle_close()
 {
-    static errors::connection_failed err{ "Conection closed" };
     #if DEBUG_OUTPUT >= 1
     ::std::cerr << "Handle close\n";
     #endif
+
+    errors::connection_failed err{ "Conection closed" };
+    auto ex = ::std::make_exception_ptr(err);
+
     connection_timer_.cancel();
     request_timer_.cancel();
 
     reply_expiration r_exp;
     while (expiration_queue_.try_pop(r_exp)) {
-        request_error(r_exp.number, ::std::make_exception_ptr(err));
-        }
-
-//    if (!pending_replies_.empty()) {
-//        auto ex = ::std::make_exception_ptr(errors::connection_failed{ "Conection closed" });
-//        for (auto const& req : pending_replies_) {
-//            try {
-//                req.second.error(ex);
-//            } catch (...) {}
-//        }
-//        pending_replies_.clear();
-//        expiration_queue_.clear();
-//    }
+        #if DEBUG_OUTPUT >= 2
+        ::std::cerr << "Notify request " << r_exp.number << "\n";
+        #endif
+        request_error(r_exp.number, ex);
+    }
 
     if (on_close_)
         on_close_();
@@ -464,6 +461,10 @@ connection_implementation::invoke(identity const& id, ::std::string const& op,
         encoding::operation_specs{ id, "", op },
         request::normal
     };
+    #if DEBUG_OUTPUT >= 5
+    ::std::cerr << "Invoke request " << id << "::"
+            << op << " #" << r.number << "\n";
+    #endif
     write(::std::back_inserter(*out), r);
     params.close_all_encaps();
     out->insert_encapsulation(::std::move(params));

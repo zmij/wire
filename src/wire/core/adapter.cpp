@@ -100,12 +100,19 @@ struct adapter::impl {
             // FIXME Correct exception
             throw errors::connector_destroyed{"Connector was already destroyed"};
         if (options_.registered || options_.replicated) {
-            auto reg = cnctr->get_locator_registry();
-            if (reg) {
-                auto prx = adapter_proxy();
+            auto prx = adapter_proxy();
+            #if DEBUG_OUTPUT >= 2
+            ::std::cerr << "Try to register adapter " << *prx << " at locator\n";
+            #endif
+            locator_registry_prx reg;
+            try {
+                reg = cnctr->get_locator_registry();
+            } catch (...) {
                 #if DEBUG_OUTPUT >= 1
-                ::std::cerr << "Register adapter " << *prx << " at locator\n";
+                ::std::cerr << "Failed to get locator registry on exception\n";
                 #endif
+            }
+            if (reg) {
                 if (options_.replicated) {
                     reg->add_replicated_adapter(prx);
                 } else {
@@ -116,6 +123,7 @@ struct adapter::impl {
                 throw errors::runtime_error{
                         "wire.locator not configured for a replicated adapter"};
             }
+
         }
     }
 

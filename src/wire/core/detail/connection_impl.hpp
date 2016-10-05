@@ -746,7 +746,9 @@ struct connection_impl : connection_implementation {
     endpoint
     remote_endpoint() const override
     {
-        return transport_.remote_endpoint();
+        if (transport_.is_open())
+            return transport_.remote_endpoint();
+        return configured_endpoint_;
     }
 
     socket_type&
@@ -758,6 +760,7 @@ private:
     void
     do_connect_async_impl(endpoint const& ep, asio_config::asio_callback cb) override
     {
+        configured_endpoint_ = ep;
         transport_.connect_async(ep, cb);
     }
     void

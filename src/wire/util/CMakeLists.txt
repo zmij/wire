@@ -47,4 +47,17 @@ if(BUILD_CMD_UTILS)
         wire
         ${CONSOLE_LIB}
     )
+    install (
+        TARGETS ${CONSOLE_LIB} wire-cnctr-admin
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+    )
 endif()
+
+install (
+    TARGETS ${WIRE_UTIL_LIB}
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
