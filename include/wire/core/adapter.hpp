@@ -142,6 +142,16 @@ public:
     create_indirect_proxy(identity const& id,
             ::std::string const& facet = ::std::string{}) const;
     /**
+     * Create an indirect proxy containing replica id of the adapter
+     * and no endpoints
+     * @param id
+     * @param facet
+     * @return
+     */
+    object_prx
+    create_replicated_proxy(identity const& id,
+            ::std::string const& facet = ::std::string{}) const;
+    /**
      * Add servant object with random UUID
      * @param
      */

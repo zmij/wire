@@ -241,6 +241,14 @@ struct adapter::impl {
                 connector_.lock(), { id, facet, id_, }));
     }
     object_prx
+    create_replicated_proxy(identity const& id, ::std::string const& facet)
+    {
+        auto replica_id = identity::wildcard(id_.category);
+        return ::std::make_shared< object_proxy >(
+            reference::create_reference(
+                connector_.lock(), { id, facet, replica_id, }));
+    }
+    object_prx
     add_object(identity const& id, object_ptr disp)
     {
         active_objects_.insert(::std::make_pair(id, disp));
@@ -419,6 +427,13 @@ adapter::create_indirect_proxy(identity const& id,
         ::std::string const& facet) const
 {
     return pimpl_->create_indirect_proxy(id, facet);
+}
+
+object_prx
+adapter::create_replicated_proxy(identity const& id,
+        ::std::string const& facet) const
+{
+    return pimpl_->create_replicated_proxy(id, facet);
 }
 
 object_prx
