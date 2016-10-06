@@ -23,7 +23,7 @@ public:
     using timepoint = typename clock::time_point;
     using duration  = typename clock::duration;
 
-    timed_cache_base(duration const& cache_time = ::std::chrono::seconds{1})
+    timed_cache_base(duration const& cache_time)
         : tm_{ clock::now() }, max_age_{ cache_time } {}
     timed_cache_base(timed_cache_base const& rhs)
         : tm_{ rhs.tm_ }, max_age_{ rhs.max_age_ } {}
@@ -70,30 +70,35 @@ private:
 
 }  /* namespace detail */
 
-template < typename T, typename Clock = ::std::chrono::system_clock >
+template < typename T, int DefaultCount = 1,
+        typename Clock = ::std::chrono::system_clock,
+        typename DefaultDuration = ::std::chrono::seconds >
 class timed_cache : detail::timed_cache_base<Clock> {
 public:
+    static int constexpr default_unit_count = DefaultCount;
     using base_type         = detail::timed_cache_base<Clock>;
     using duration          = typename base_type::duration;
+    using default_duration  = DefaultDuration;
     using value_type        = T;
     using pointer           = T*;
     using const_pointer     = T const*;
     using reference         = T&;
     using const_reference   = T const&;
 public:
-    timed_cache(duration const& max_age = ::std::chrono::seconds{1})
+    explicit
+    timed_cache(duration const& max_age = default_duration{default_unit_count})
         : base_type{max_age}, value_{} {}
     explicit
     timed_cache(pointer v,
-            duration const& max_age = ::std::chrono::seconds{1})
+            duration const& max_age = default_duration{default_unit_count})
         : base_type{max_age}, value_{v} {}
     explicit
     timed_cache(const_reference v,
-            duration const& max_age = ::std::chrono::seconds{1})
+            duration const& max_age = default_duration{default_unit_count})
         : base_type{max_age}, value_{ ::std::make_shared<value_type>(v) } {}
     explicit
     timed_cache(::std::shared_ptr<value_type> v,
-            duration const& max_age = ::std::chrono::seconds{1})
+            duration const& max_age = default_duration{default_unit_count})
         : base_type{max_age}, value_{v} {}
 
     timed_cache(timed_cache const& rhs)
@@ -204,6 +209,9 @@ private:
     using storage_type  = ::std::shared_ptr<T>;
     storage_type    value_;
 };
+
+template < typename T, int Count, typename Clock, typename Duration >
+int constexpr timed_cache<T, Count, Clock, Duration>::default_unit_count;
 
 template < typename T, typename ... Args >
 timed_cache<T>

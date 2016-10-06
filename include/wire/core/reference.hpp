@@ -22,8 +22,6 @@
 
 #include <wire/encoding/detail/optional_io.hpp>
 
-#include <wire/util/timed_cache.hpp>
-
 #include <future>
 
 namespace wire {

@@ -30,7 +30,7 @@ struct reference_resolver::impl {
     using lock_guard                = ::std::lock_guard<mutex_type>;
     using endpoint_rotation_type    = endpoint_rotation< endpoint_list >;
     using endpoint_rotation_ptr     = ::std::shared_ptr< endpoint_rotation_type >;
-    using endpoint_cache_item       = util::timed_cache< endpoint_rotation_type >;
+    using endpoint_cache_item       = util::timed_cache< endpoint_rotation_type, 10 >;
     using hash_value_type           = ::std::size_t;
     using endpoint_cache            = ::tbb::concurrent_hash_map<hash_value_type, endpoint_cache_item>;
     using endpoint_accessor         = endpoint_cache::accessor;
