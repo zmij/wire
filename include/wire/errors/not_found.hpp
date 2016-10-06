@@ -45,6 +45,9 @@ public:
     static ::std::string
     format_message(subject s, core::identity const& obj_id,
             ::std::string const& facet, ::std::string const& operation);
+protected:
+    void
+    stream_message(::std::ostream& os) const override;
 private:
     subject         subj_;
     core::identity  object_id_;

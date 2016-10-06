@@ -1190,7 +1190,7 @@ generator::generate_exception(ast::exception_ptr exc)
                 << members_init << " {}";
         //@}
 
-        header_ << off << "/* templated constructor to format a ::std::runtime_error message */"
+        header_ << off << "/* templated constructor to format a ::wire::errors::runtime_error message */"
                 << off << "template < typename ... T >"
                 << off << cpp_name(exc) << "(T const& ... args) : "
                 << parent_name << "(args ...)"
@@ -1246,6 +1246,20 @@ generator::generate_exception(ast::exception_ptr exc)
             header_ << off     << "::std::exception_ptr"
                     << off     << "make_exception_ptr() override"
                     << off     << "{ return ::std::make_exception_ptr(*this); }";
+        }
+        if (!data_members.empty()) {
+            header_ << off(-1)  << "protected:"
+                    << off      << "void"
+                    << off      << "stream_message(::std::ostream& os) const override;";
+            source_ << off      << "void"
+                    << off      << cpp_name(exc) << "::stream_message(::std::ostream& os) const"
+                    << off      << "{"
+                    << mod(+1)  <<      "os << " << cpp_name(exc) << "::wire_static_type_id() << \":\"";
+            for (auto dm : data_members) {
+                source_ << " << \" \" << " << cpp_name(dm);
+            }
+            source_ << ";";
+            source_ << mod(-1)  << "}";
         }
 
         header_ << mod(-1) << "};\n";

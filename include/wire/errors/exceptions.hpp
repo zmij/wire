@@ -10,6 +10,7 @@
 
 #include <stdexcept>
 #include <wire/util/concatenate.hpp>
+#include <iosfwd>
 
 namespace wire {
 namespace errors {
@@ -19,12 +20,21 @@ namespace errors {
  */
 class runtime_error : public ::std::runtime_error {
 public:
-    runtime_error(std::string const& msg ) : ::std::runtime_error(msg) {}
-    runtime_error(char const* msg) : ::std::runtime_error{msg} {}
+    runtime_error(std::string const& msg ) :
+        ::std::runtime_error{""}, message_{msg} {}
+    runtime_error(char const* msg)
+        : ::std::runtime_error{""}, message_{msg} {}
 
     template < typename ... T >
     runtime_error(T const& ... args)
-        : ::std::runtime_error( util::concatenate(args ...) ) {}
+        : ::std::runtime_error{""}, message_{ util::concatenate(args ...) } {}
+    char const*
+    what() const noexcept override;
+protected:
+    virtual void
+    stream_message(::std::ostream& os) const {}
+private:
+    ::std::string mutable message_;
 };
 
 class connector_destroyed : public runtime_error {
