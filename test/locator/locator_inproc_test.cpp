@@ -53,8 +53,14 @@ TEST(LocatorInProc, ReplicatedAdapter)
     auto reg = cnctr->get_locator_registry();
     ASSERT_TRUE(reg.get()) << "Locator registry object in connector";
 
-    core::reference_data ref1{ "test_replicated"_wire_id, {}, {}, { "tcp://10.10.10.10:8888"_wire_ep } };
-    core::reference_data ref2{ "test_replicated"_wire_id, {}, {}, { "tcp://11.11.11.11:8888"_wire_ep } };
+    core::reference_data ref1{
+        "test_replicated/a"_wire_id, {}, {},
+        { "tcp://10.10.10.10:8888"_wire_ep } };
+    core::reference_data ref2{
+        "test_replicated/b"_wire_id, {}, {},
+        { "tcp://11.11.11.11:8888"_wire_ep } };
+
+    core::identity replica_id = core::identity::wildcard("test_replicated");
     auto prx1 = cnctr->make_proxy(ref1);
     EXPECT_TRUE(prx1.get()) << "Created proxy is not empty";
     auto prx2 = cnctr->make_proxy(ref2);
@@ -65,27 +71,28 @@ TEST(LocatorInProc, ReplicatedAdapter)
     EXPECT_NO_THROW(reg->add_replicated_adapter(prx2))
             << "Register adapter 2";
 
-    auto prx = loc->find_adapter(ref1.object_id);
-    EXPECT_TRUE(prx.get())
+    auto prx = loc->find_adapter(replica_id);
+    ASSERT_TRUE(prx.get())
             << "Added adapter is found";
-    EXPECT_EQ(ref1.object_id, prx->wire_identity())
+    EXPECT_EQ(replica_id, prx->wire_identity())
             << "Returned proxy identity";
     EXPECT_EQ(2, prx->wire_get_reference()->data().endpoints.size())
             << "Returned proxy contains both endpoints";
 
     EXPECT_NO_THROW(reg->remove_adapter(prx2))
             << "Adapter proxy is correctly removed";
-    prx = loc->find_adapter(ref1.object_id);
-    EXPECT_TRUE(prx.get())
+
+    prx = loc->find_adapter(replica_id);
+    ASSERT_TRUE(prx.get())
             << "Added adapter is found";
-    EXPECT_EQ(ref1.object_id, prx->wire_identity())
+    EXPECT_EQ(replica_id, prx->wire_identity())
             << "Returned proxy identity";
     EXPECT_EQ(1, prx->wire_get_reference()->data().endpoints.size())
             << "Returned proxy contains single endpoint";
     EXPECT_EQ(ref1.endpoints, prx->wire_get_reference()->data().endpoints)
             << "Returned endpoint is one of the first reference";
-    EXPECT_NO_THROW(reg->remove_adapter(prx2))
-            << "Adapter proxy is correctly removed";
+    EXPECT_THROW(reg->remove_adapter(prx2), core::no_adapter)
+            << "Adapter proxy is already removed";
     EXPECT_NO_THROW(reg->remove_adapter(prx1))
             << "Adapter proxy is correctly removed";
     EXPECT_THROW(reg->remove_adapter(prx1), core::no_adapter)

@@ -463,6 +463,14 @@ tbb_hasher(endpoint const& ep) {
     return hash(ep);
 }
 
+template< typename ContainerA, typename ContainerB >
+endpoint_set
+merge_endpoints(ContainerA const& a, ContainerB const& b )
+{
+    endpoint_set eps{ a.begin(), a.end() };
+    ::std::copy(b.begin(), b.end(), ::std::inserter(eps, eps.begin()));
+    return eps;
+}
 
 }  /* namespace core */
 }  /* namespace wire */

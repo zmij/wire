@@ -32,6 +32,11 @@ struct identity_empty_visitor : ::boost::static_visitor< bool > {
     {
         return u.is_nil();
     }
+    bool
+    operator()(wildcard const& u) const
+    {
+        return false;
+    }
 };
 
 struct identity_hash_visitor : ::boost::static_visitor< ::std::size_t > {
@@ -45,6 +50,11 @@ struct identity_hash_visitor : ::boost::static_visitor< ::std::size_t > {
     operator()(::boost::uuids::uuid const& u) const
     {
         return hash_value(u);
+    }
+    ::std::size_t
+    operator()(wildcard const& u) const
+    {
+        return hash(u);
     }
 };
 
@@ -62,6 +72,12 @@ struct identity_out_visitor : ::boost::static_visitor<> {
     operator()(::boost::uuids::uuid const& u) const
     {
         os << u;
+    }
+
+    void
+    operator()(wildcard const& w) const
+    {
+        os << wildcard::symbol;
     }
 };
 

@@ -212,6 +212,11 @@ public:
 
         return promise->get_future();
     }
+
+    object_prx
+    wire_with_identity(identity const& id) const;
+    object_prx
+    wire_with_endpoints(endpoint_list const& eps) const;
 protected:
     object_proxy() {}
 private:

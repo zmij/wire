@@ -79,43 +79,51 @@ struct locator::impl {
         auto id = adapter->wire_identity();
 
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Locator add adapter " << id
-                << " " << adapter->wire_get_reference()->data().endpoints << "\n";
+        ::std::cerr << "Locator add adapter " << *adapter << "\n";
         #endif
-        proxy_map::const_accessor f;
+        proxy_map::accessor f;
+        // TODO Devise some sort of policies to throw on adapter exists
         if (!adapters_.find(f, id)) {
             adapters_.emplace(id, adapter);
         } else {
-            throw core::adapter_exists{id};
+            f->second = adapter;
         }
     }
     void
     add_replicated_adapter(core::object_prx adapter)
     {
         auto id = adapter->wire_identity();
+        if (id.category.empty()) {
+            throw core::no_category_for_replica{};
+        }
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Locator add replicated adapter " << id
-                << " " << adapter->wire_get_reference()->data().endpoints << "\n";
+        ::std::cerr << "Locator add replicated adapter " << *adapter << "\n";
         #endif
-        proxy_map::accessor f;
-        if (!adapters_.find(f, id)) {
-            adapters_.emplace(id, adapter);
+
+        if (id.is_wildcard()) {
+            proxy_map::accessor f;
+            if (!adapters_.find(f, id)) {
+                adapters_.emplace(id, adapter);
+            } else {
+                auto data = f->second->wire_get_reference()->data();
+                auto const& new_data = adapter->wire_get_reference()->data();
+
+                auto eps = core::merge_endpoints(data.endpoints, new_data.endpoints);
+
+                data.endpoints.clear();
+                data.endpoints.reserve(eps.size());
+                ::std::copy(eps.begin(), eps.end(), ::std::back_inserter(data.endpoints));
+
+                auto ref = core::reference::create_reference(reg_->wire_get_connector(), data);
+                f->second = ::std::make_shared< core::object_proxy >( ref );
+            }
         } else {
-            auto data = f->second->wire_get_reference()->data();
-            auto const& new_data = adapter->wire_get_reference()->data();
-            core::endpoint_set eps{data.endpoints.begin(), data.endpoints.end()};
-
-            ::std::copy(
-                new_data.endpoints.begin(), new_data.endpoints.end(),
-                ::std::inserter(eps, eps.begin())
-            );
-
-            data.endpoints.clear();
-            data.endpoints.reserve(eps.size());
-            ::std::copy(eps.begin(), eps.end(), ::std::back_inserter(data.endpoints));
-
-            auto ref = core::reference::create_reference(reg_->wire_get_connector(), data);
-            f->second = ::std::make_shared< core::object_proxy >( ref );
+            // Register normal adapter
+            add_adapter(adapter);
+            // Add/merge endpoints to replica
+            core::identity replica_id = core::identity::wildcard(id.category);
+            auto replica_prx = adapter->wire_with_identity(replica_id);
+            add_replicated_adapter(replica_prx);
         }
     }
     void
@@ -126,21 +134,33 @@ struct locator::impl {
         if (!adapters_.find(f, id)) {
             throw core::no_adapter{id};
         } else {
-            auto data = f->second->wire_get_reference()->data();
-            auto const& new_data = adapter->wire_get_reference()->data();
-            core::endpoint_set old_eps{data.endpoints.begin(), data.endpoints.end()};
-            core::endpoint_set remove_eps{new_data.endpoints.begin(), new_data.endpoints.end()};
+            #if DEBUG_OUTPUT >= 1
+            ::std::cerr << "Locator remove adapter " << *adapter << "\n";
+            #endif
+            if (id.is_wildcard()) {
+                auto data = f->second->wire_get_reference()->data();
+                auto const& new_data = adapter->wire_get_reference()->data();
+                core::endpoint_set old_eps{data.endpoints.begin(), data.endpoints.end()};
+                core::endpoint_set remove_eps{new_data.endpoints.begin(), new_data.endpoints.end()};
 
-            data.endpoints.clear();
-            ::std::set_difference(
-                old_eps.begin(), old_eps.end(),
-                remove_eps.begin(), remove_eps.end(),
-                ::std::back_inserter(data.endpoints));
-            if (data.endpoints.empty()) {
-                adapters_.erase(f);
+                data.endpoints.clear();
+                ::std::set_difference(
+                    old_eps.begin(), old_eps.end(),
+                    remove_eps.begin(), remove_eps.end(),
+                    ::std::back_inserter(data.endpoints));
+                if (data.endpoints.empty()) {
+                    adapters_.erase(f);
+                } else {
+                    auto ref = core::reference::create_reference(reg_->wire_get_connector(), data);
+                    f->second = ::std::make_shared< core::object_proxy >( ref );
+                }
             } else {
-                auto ref = core::reference::create_reference(reg_->wire_get_connector(), data);
-                f->second = ::std::make_shared< core::object_proxy >( ref );
+                adapters_.erase(f);
+                if (!id.category.empty()) {
+                    core::identity replica_id = core::identity::wildcard(id.category);
+                    auto replica_prx = adapter->wire_with_identity(replica_id);
+                    remove_adapter(replica_prx);
+                }
             }
         }
     }

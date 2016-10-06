@@ -28,6 +28,18 @@ namespace detail {
 struct adapter_options;
 }  // namespace detail
 
+/**
+ * Object adapter. An entity that listens endpoints and dispatches requests
+ * to objects registered with the adapter.
+ *
+ * Adapter identification.
+ * In an application that doesn't use locator the adapter ids don't matter as
+ * all communication involves direct proxies containing endpoints.
+ * When a locator is used an adapter must have an unique id and register it with
+ * the locator. If the adapter id contains a category, the category names the
+ * adapter's replica group. To find all replica's endpoints the locator should
+ * be queried with a wildcard id (replica_name / *).
+ */
 class adapter {
 public:
     /**

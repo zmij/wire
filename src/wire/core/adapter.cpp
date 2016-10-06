@@ -141,10 +141,22 @@ struct adapter::impl {
         if (registered_) {
             auto cnctr = connector_.lock();
             if (cnctr) {
-                auto reg = cnctr->get_locator_registry();
-                if (reg) {
-                    auto prx = adapter_proxy();
-                    reg->remove_adapter(prx);
+                try {
+                    auto reg = cnctr->get_locator_registry();
+                    if (reg) {
+                        auto prx = adapter_proxy();
+                        reg->remove_adapter(prx);
+                    }
+                } catch ( ::std::exception const& e) {
+                    #if DEBUG_OUTPUT >= 1
+                    ::std::cerr << "Error wnen unregistering adapter " << id_<< ": "
+                            << e.what() << "\n";
+                    #endif
+                } catch (...) {
+                    #if DEBUG_OUTPUT >= 1
+                    ::std::cerr << "Unexpected error when unregistering adapter "
+                            << id_ << "\n";
+                    #endif
                 }
             }
             registered_ = false;

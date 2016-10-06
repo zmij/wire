@@ -37,11 +37,14 @@ GRAMMAR_TEST(grammar::parse::identity_grammar, Identity,
         "a8c834c8-b834-4f41-8f89-3f5fb9e7df00",
         "test/ba454543-29b8-4661-aee2-3727263e7575",
         "foo:bar-foo",
-        "foo:bar-foo/00.00"
+        "foo:bar-foo/00.00",
+        "foo/*"
     ),
     ::testing::Values(
         ":adfas",
-        ".bla"
+        ".bla",
+        "foo/*sd",
+        "foo/bar*"
     )
 );
 

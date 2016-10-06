@@ -32,7 +32,9 @@ interface locator {
 
     /**
      * Find an adapter and return it's proxy (a dummy proxy
-     * containing adapter's endpoints)
+     * containing adapter's endpoints).
+     * To get endpoints for a replica, id in form replica_name / * should be used.
+     * (without spaces).
      * @param id
      * @return
      */
@@ -52,6 +54,7 @@ exception well_known_object_exists {};
 exception adapter_exists {
     identity id;
 };
+exception no_category_for_replica {};
 
 interface locator_registry {
     /**
