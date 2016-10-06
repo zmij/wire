@@ -37,7 +37,7 @@ struct reference_grammar : parser_value_grammar< InputIterator, reference_data >
             >> -('['
                     >> facet                    [ phx::bind(&reference_data::facet, _val) = _1 ]
             >> ']')
-            >> (('@' >> id)                     [ phx::bind(&reference_data::adapter, _val) = _1 ]
+            >> -(('@' >> id)                     [ phx::bind(&reference_data::adapter, _val) = _1 ]
              | ( (+space | ':') >> endpoints )  [ phx::bind(&reference_data::endpoints, _val) = _2 ])
         ;
 

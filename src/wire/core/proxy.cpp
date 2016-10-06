@@ -157,6 +157,15 @@ object_proxy::wire_types_async(
 }
 
 object_prx
+object_proxy::wire_well_known_proxy() const
+{
+    auto const& ref = ref_->data();
+    return ::std::make_shared< object_proxy >(
+            reference::create_reference(wire_get_connector(),
+                    { ref.object_id, ref.facet }));
+}
+
+object_prx
 object_proxy::wire_with_identity(identity const& id) const
 {
     auto const& ref = ref_->data();

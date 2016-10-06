@@ -51,6 +51,7 @@ interface locator {
 };
 
 exception well_known_object_exists {};
+exception not_enough_data{};
 exception adapter_exists {
     identity id;
 };
@@ -65,7 +66,7 @@ interface locator_registry {
      */
     void
     add_well_known_object(object* obj)
-        throw(well_known_object_exists);
+        throw(well_known_object_exists, not_enough_data);
 
     /**
      * Add adapter direct proxy, as created by the adapter itself.
@@ -75,7 +76,7 @@ interface locator_registry {
      */
     void
     add_adapter(object* adapter)
-        throw(adapter_exists);
+        throw(adapter_exists, not_enough_data);
     /**
      * Add replicated adapter to the registry. If there is already information
      * about such an adapter, endpoints are added.
@@ -83,7 +84,8 @@ interface locator_registry {
      * TODO Think about replica group names, for the adapters to be unique
      */
     void
-    add_replicated_adapter(object* adapter);
+    add_replicated_adapter(object* adapter)
+        throw(not_enough_data);
     /**
      * Remove adapter info. If the adapter is replicated, only specified endpoints
      * are erased. If all enpoints are erased, adapter object is removed.

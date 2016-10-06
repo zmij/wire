@@ -1247,20 +1247,22 @@ generator::generate_exception(ast::exception_ptr exc)
                     << off     << "make_exception_ptr() override"
                     << off     << "{ return ::std::make_exception_ptr(*this); }";
         }
+        header_ << off(-1)  << "protected:"
+                << off      << "void"
+                << off      << "stream_message(::std::ostream& os) const override;";
+        source_ << off      << "void"
+                << off      << cpp_name(exc) << "::stream_message(::std::ostream& os) const"
+                << off      << "{"
+                << mod(+1)  << cpp_name(parent_name) << "::stream_message(os);"
+                << off      <<      "os << " << cpp_name(exc) << "::wire_static_type_id()";
         if (!data_members.empty()) {
-            header_ << off(-1)  << "protected:"
-                    << off      << "void"
-                    << off      << "stream_message(::std::ostream& os) const override;";
-            source_ << off      << "void"
-                    << off      << cpp_name(exc) << "::stream_message(::std::ostream& os) const"
-                    << off      << "{"
-                    << mod(+1)  <<      "os << " << cpp_name(exc) << "::wire_static_type_id() << \":\"";
+            source_ << " << \":\"";
             for (auto dm : data_members) {
                 source_ << " << \" \" << " << cpp_name(dm);
             }
-            source_ << ";";
-            source_ << mod(-1)  << "}";
         }
+        source_ << ";";
+        source_ << mod(-1)  << "}";
 
         header_ << mod(-1) << "};\n";
         header_.pop_scope();

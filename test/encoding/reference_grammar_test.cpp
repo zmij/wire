@@ -19,14 +19,16 @@ GRAMMAR_TEST(grammar::parse::reference_grammar, Reference,
         "foo tcp://localhost:5432",
         "foo@bar",
         "test/ba454543-29b8-4661-aee2-3727263e7575[v1] socket:///tmp/.wire",
-        "test/ba454543-29b8-4661-aee2-3727263e7575[v1]@adapters/ba454543-29b84661-aee2-3727263e7575"
+        "test/ba454543-29b8-4661-aee2-3727263e7575[v1]@adapters/ba454543-29b84661-aee2-3727263e7575",
+        "test/ba454543-29b8-4661-aee2-3727263e7575[v1]@adapters/*",
+        "foo",
+        "a8c834c8-b834-4f41-8f89-3f5fb9e7df00",
+        "test/ba454543-29b8-4661-aee2-3727263e7575[v1]"
     ),
     ::testing::Values(
         "tcp://localhost:5432",
-        "foo",
-        "",
-        "a8c834c8-b834-4f41-8f89-3f5fb9e7df00",
-        "test/ba454543-29b8-4661-aee2-3727263e7575[v1]"
+        "test/ba454543-29b8-4661-aee2-3727263e7575[v1]@adapters/* tcp://localhost:5432",
+        ""
     )
 );
 

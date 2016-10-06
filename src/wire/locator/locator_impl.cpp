@@ -37,27 +37,30 @@ struct locator::impl {
     void
     add_well_known_object(core::object_prx obj)
     {
-        if (obj) {
-            auto id = obj->wire_identity();
-            proxy_map::accessor f;
-            if (!objects_.find(f, id)) {
-                objects_.emplace(id, obj);
-            } else {
-                if (*f->second != *obj) {
-                    bool alive = true;
-                    try {
-                        f->second->wire_ping();
-                        // Object is alive, throw exception
-                    } catch (...) {
-                        // Object is dead, safe to replace
-                        alive = false;
-                    }
-                    if (alive) {
-                        // TODO Throw an exception
-                        throw core::well_known_object_exists{};
-                    } else {
-                        f->second = obj;
-                    }
+        if (!obj)
+            throw core::not_enough_data{};
+        auto const& ref = obj->wire_get_reference()->data();
+        if (!ref.adapter.is_initialized() || ref.endpoints.empty())
+            throw core::not_enough_data{};
+        auto id = ref.object_id;
+        proxy_map::accessor f;
+        if (!objects_.find(f, id)) {
+            objects_.emplace(id, obj);
+        } else {
+            if (*f->second != *obj) {
+                bool alive = true;
+                try {
+                    f->second->wire_ping();
+                    // Object is alive, throw exception
+                } catch (...) {
+                    // Object is dead, safe to replace
+                    alive = false;
+                }
+                if (alive) {
+                    // TODO Throw an exception
+                    throw core::well_known_object_exists{};
+                } else {
+                    f->second = obj;
                 }
             }
         }
@@ -76,7 +79,12 @@ struct locator::impl {
     void
     add_adapter(core::object_prx adapter)
     {
-        auto id = adapter->wire_identity();
+        if (!adapter)
+            throw core::not_enough_data{};
+        auto const& ref = adapter->wire_get_reference()->data();
+        if (ref.endpoints.empty())
+            throw core::not_enough_data{};
+        auto id = ref.object_id;
 
         #if DEBUG_OUTPUT >= 1
         ::std::cerr << "Locator add adapter " << *adapter << "\n";
@@ -92,7 +100,12 @@ struct locator::impl {
     void
     add_replicated_adapter(core::object_prx adapter)
     {
-        auto id = adapter->wire_identity();
+        if (!adapter)
+            throw core::not_enough_data{};
+        auto const& ref = adapter->wire_get_reference()->data();
+        if (ref.endpoints.empty())
+            throw core::not_enough_data{};
+        auto id = ref.object_id;
         if (id.category.empty()) {
             throw core::no_category_for_replica{};
         }
