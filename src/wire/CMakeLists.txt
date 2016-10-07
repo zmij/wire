@@ -79,6 +79,7 @@ target_link_libraries(
 
 add_subdirectory(idl)
 add_subdirectory(wire2cpp)
+add_subdirectory(bus)
 add_subdirectory(locator)
 
 install (
