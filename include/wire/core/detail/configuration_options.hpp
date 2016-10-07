@@ -29,7 +29,7 @@ struct connector_options {
     /**
      * Locator reference
      */
-    reference_data  locator_ref;
+    reference_data  locator_ref         = reference_data{};
     /**
      * Endpoints for admin interface
      */

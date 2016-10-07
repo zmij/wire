@@ -40,8 +40,12 @@ struct locator::impl {
         if (!obj)
             throw core::not_enough_data{};
         auto const& ref = obj->wire_get_reference()->data();
-        if (!ref.adapter.is_initialized() || ref.endpoints.empty())
+        if (!ref.adapter.is_initialized() && ref.endpoints.empty()) {
+            #if DEBUG_OUTPUT >= 1
+            ::std::cerr << "Locator cannot add well-known object " << *obj << "\n";
+            #endif
             throw core::not_enough_data{};
+        }
         auto id = ref.object_id;
         proxy_map::accessor f;
         if (!objects_.find(f, id)) {

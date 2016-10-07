@@ -100,10 +100,6 @@ struct adapter::impl {
             // FIXME Correct exception
             throw errors::connector_destroyed{"Connector was already destroyed"};
         if (options_.registered || options_.replicated) {
-            auto prx = adapter_proxy();
-            #if DEBUG_OUTPUT >= 2
-            ::std::cerr << "Try to register adapter " << *prx << " at locator\n";
-            #endif
             locator_registry_prx reg;
             try {
                 reg = cnctr->get_locator_registry();
@@ -113,6 +109,10 @@ struct adapter::impl {
                 #endif
             }
             if (reg) {
+                auto prx = adapter_proxy();
+                #if DEBUG_OUTPUT >= 2
+                ::std::cerr << "Try to register adapter " << *prx << " at locator\n";
+                #endif
                 if (options_.replicated) {
                     reg->add_replicated_adapter(prx);
                 } else {
