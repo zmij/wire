@@ -135,5 +135,37 @@ TEST(LocatorInProc, WellKnownObject)
             << "Well-known object has correct id";
 }
 
+TEST(LocatorInProc, ConfigWellKnownObjects)
+{
+    core::connector::args_type args {
+        "--wire.locator.endpoints=tcp://0.0.0.0:0",
+        "--wire.locator.well-known-object=objecta@locator",
+        "--wire.locator.well-known-object=objectb tcp://10.10.10.10:8888"
+    };
+
+    auto io_svc = ::std::make_shared< asio_config::io_service >();
+    auto cnctr = core::connector::create_connector(io_svc, args);
+
+    svc::locator_service loc_svc{};
+    EXPECT_NO_THROW(loc_svc.start(cnctr));
+
+    auto loc = cnctr->get_locator();
+    ASSERT_TRUE(loc.get()) << "Locator object in connector";
+
+    auto id_a = "objecta"_wire_id;
+    auto id_b = "objectb"_wire_id;
+
+    core::object_prx prx;
+    EXPECT_NO_THROW(prx = loc->find_object(id_a))
+        << "Find preconfigured object a";
+    EXPECT_TRUE(prx.get())
+        << "Object a proxy is set";
+
+    EXPECT_NO_THROW(prx = loc->find_object(id_b))
+        << "Find preconfigured object b";
+    EXPECT_TRUE(prx.get())
+        << "Object b proxy is set";
+}
+
 }  /* namespace test */
 }  /* namespace wire */
