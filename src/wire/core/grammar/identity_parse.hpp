@@ -46,17 +46,20 @@ struct identity_grammar : parser_value_grammar< InputIterator, identity > {
         namespace phx = ::boost::phoenix;
         using qi::char_;
         using qi::_val;
+        using qi::lit;
         using qi::_1;
         using qi::_2;
 
         identifier %= char_("a-zA-Z0-9_") >> *char_("a-zA-Z0-9._:-");
-        id = (identifier >> "/" >> (uuid | identifier)) [ _val = create_id(_1, _2) ]
-             | (uuid | identifier)[ _val = create_id(_1) ];
+        wildcard = lit('*')[ _val = phx::construct< detail::wildcard >()];
+        id = (identifier >> "/" >> (uuid | identifier | wildcard)) [ _val = create_id(_1, _2) ]
+             | (uuid | identifier | wildcard)[ _val = create_id(_1) ];
     }
 
-    parser_value_rule< InputIterator, identity >        id;
-    parser_value_rule< InputIterator, ::std::string >   identifier;
-    uuid_grammar< InputIterator >                       uuid;
+    parser_value_rule< InputIterator, identity >            id;
+    parser_value_rule< InputIterator, ::std::string >       identifier;
+    parser_value_rule< InputIterator, detail::wildcard >    wildcard;
+    uuid_grammar< InputIterator >                           uuid;
 };
 
 }  /* namespace parse */

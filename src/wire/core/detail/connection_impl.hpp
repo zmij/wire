@@ -20,21 +20,24 @@
 #include <wire/errors/user_exception.hpp>
 #include <wire/errors/unexpected.hpp>
 
-#include <boost/msm/back/state_machine.hpp>
-#include <boost/msm/front/state_machine_def.hpp>
-#include <boost/msm/front/functor_row.hpp>
-#include <boost/msm/front/euml/operator.hpp>
+#include <wire/util/io_service_wait.hpp>
+
+#include <afsm/fsm.hpp>
+
+#include <tbb/concurrent_hash_map.h>
+#include <tbb/concurrent_priority_queue.h>
 
 #include <iostream>
 #include <atomic>
 #include <map>
+#include <mutex>
 
 namespace wire {
 namespace core {
 namespace detail {
 
-struct connection_impl_base;
-using connection_impl_ptr = ::std::shared_ptr< connection_impl_base >;
+struct connection_implementation;
+using connection_impl_ptr = ::std::shared_ptr< connection_implementation >;
 
 namespace events {
 
@@ -64,25 +67,43 @@ struct send_request{
     encoding::outgoing_ptr            outgoing;
     functional::void_callback         sent;
 };
-struct send_reply{};
+struct send_reply{
+    encoding::outgoing_ptr            outgoing;
+};
 
 }  // namespace events
 
-template < typename Concrete >
-struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_< Concrete > > {
+template < typename Mutex, typename Concrete >
+struct connection_fsm_def :
+        ::afsm::def::state_machine<
+             connection_fsm_def< Mutex, Concrete > > {
+    using concrete_type = Concrete;
+    using mutex_type    = Mutex;
+
+    using this_type     = connection_fsm_def< mutex_type, concrete_type >;
+    typedef ::afsm::state_machine< this_type, mutex_type > fsm_type;
     //@{
-    /** @name Typedefs for MSM types */
+    /** @name Typedefs for AFSM types */
+    template < typename StateDef, typename ... Tags >
+    using state = ::afsm::def::state<StateDef, Tags...>;
+    template < typename MachineDef, typename ... Tags >
+    using state_machine = ::afsm::def::state_machine<MachineDef, Tags...>;
     template < typename ... T >
-    using Row = boost::msm::front::Row< T ... >;
+    using transition_table = ::afsm::def::transition_table<T...>;
+    template < typename Predicate >
+    using not_ = ::psst::meta::not_<Predicate>;
+
+    using none = ::afsm::none;
+
+    template < typename Event, typename Action = none, typename Guard = none >
+    using in = ::afsm::def::internal_transition< Event, Action, Guard>;
+    template <typename SourceState, typename Event, typename TargetState,
+            typename Action = none, typename Guard = none>
+    using tr = ::afsm::def::transition<SourceState, Event, TargetState, Action, Guard>;
     template < typename ... T >
-    using Internal = boost::msm::front::Internal< T ... >;
-    using none = boost::msm::front::none;
-    template < typename T >
-    using Not = boost::msm::front::euml::Not_< T >;
+    using type_tuple = ::psst::meta::type_tuple<T...>;
     //@}
     //@{
-    typedef ::boost::msm::back::state_machine< connection_fsm_ > fsm_type;
-    using concrete_type = Concrete;
     enum connection_mode {
         client,
         server,
@@ -93,7 +114,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
     /** @name State forwards */
     struct connecting;
     struct wait_validate;
-    struct connected;
+    struct online;
 
     //@}
     //@{
@@ -103,7 +124,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         operator()(events::connect const& evt, fsm_type& fsm, SourceState&, TargetState&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connect action\n";
             #endif
             // Do connect async
@@ -120,7 +141,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         }
         void
         operator()(events::receive_validate const& evt, fsm_type& fsm,
-                wait_validate& from, connected& to)
+                wait_validate& from, online& to)
         {
         }
     };
@@ -130,7 +151,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         operator()(events::connection_failure const& evt, fsm_type& fsm,
                 SourceState&, TargetState&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 3
             ::std::cerr << "Disconnected on error\n";
             #endif
             fsm->handle_close();
@@ -140,7 +161,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         operator()(events::close const& evt, fsm_type& fsm,
                 SourceState&, TargetState&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 3
             ::std::cerr << "Disconnected gracefully\n";
             #endif
             fsm->handle_close();
@@ -151,7 +172,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         operator()(Event const&, fsm_type& fsm, SourceState&, TargetState&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "send validate action\n";
             #endif
             fsm->send_validate_message();
@@ -173,15 +194,23 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
             fsm->write_async(req.outgoing, req.sent);
         }
     };
+    struct send_reply {
+        template < typename SourceState, typename TargetState >
+        void
+        operator()(events::send_reply const& rep, fsm_type& fsm, SourceState&, TargetState&)
+        {
+            fsm->write_async(rep.outgoing);
+        }
+    };
     struct dispatch_request {
         template < typename SourceState, typename TargetState >
         void
         operator()(events::receive_request const& req, fsm_type& fsm, SourceState&, TargetState&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "Dispatch request\n";
             #endif
-            fsm->dispatch_incoming_request(req.incoming);
+            fsm->post(&concrete_type::dispatch_incoming_request, req.incoming);
         }
     };
     struct dispatch_reply {
@@ -189,28 +218,28 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         operator()(events::receive_reply const& rep, fsm_type& fsm, SourceState&, TargetState&)
         {
-            fsm->dispatch_reply(rep.incoming);
+            fsm->post(&concrete_type::dispatch_reply, rep.incoming);
         }
     };
     //@}
 
     //@{
     /** @name States */
-    struct unplugged : ::boost::msm::front::state<> {
-        typedef ::boost::mpl::vector<
+    struct unplugged : state< unplugged > {
+        using deferred_events = type_tuple<
             events::send_request
-        > deferred_events;
+        >;
     };
 
-    struct connecting : ::boost::msm::front::state<> {
-        typedef ::boost::mpl::vector<
+    struct connecting : state< connecting > {
+        using deferred_events = type_tuple<
             events::send_request
-        > deferred_events;
+        >;
 
         void
-        on_entry(events::connect const& evt, fsm_type& fsm)
+        on_enter(events::connect const& evt, fsm_type& fsm)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connecting enter\n";
             #endif
             success = evt.success;
@@ -220,7 +249,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         on_exit(Event const&, fsm_type&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connecting exit (unexpected event)\n";
             #endif
             clear_callbacks();
@@ -228,14 +257,14 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         on_exit( events::connected const&, fsm_type& )
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connecting exit (success)\n";
             #endif
         }
         void
         on_exit(events::connection_failure const& err, fsm_type&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connecting exit (fail)\n";
             #endif
             if (fail) {
@@ -257,10 +286,10 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         functional::exception_callback  fail;
     };
 
-    struct wait_validate : ::boost::msm::front::state<> {
-        typedef ::boost::mpl::vector<
+    struct wait_validate : state< wait_validate > {
+        using deferred_events = type_tuple<
             events::send_request
-        > deferred_events;
+        >;
 
         wait_validate()
             : success{nullptr}, fail{nullptr}
@@ -269,9 +298,9 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 
         template < typename Event >
         void
-        on_entry(Event const&, fsm_type& fsm)
+        on_enter(Event const&, fsm_type& fsm)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "wait_validate enter\n";
             #endif
             fsm->start_read();
@@ -280,7 +309,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         on_exit(Event const&, fsm_type&)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "wait_validate exit\n";
             #endif
             clear_callbacks();
@@ -288,7 +317,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         on_exit( events::receive_validate const&, fsm_type& )
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "wait_validate exit (success)\n";
             #endif
             if (success) {
@@ -299,7 +328,7 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         on_exit( events::connection_failure const& evt, fsm_type& )
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "wait_validate (fail)\n";
             #endif
             if (fail) {
@@ -318,20 +347,20 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         functional::exception_callback  fail;
     };
 
-    struct connected : ::boost::msm::front::state<> {
-        struct internal_transition_table : ::boost::mpl::vector<
-            /*           Event                      Action              Guard    */
-            Internal<    events::send_request,      send_request,       none    >,
-            Internal<    events::receive_request,   dispatch_request,   none    >,
-            Internal<    events::receive_reply,     dispatch_reply,     none    >,
-            Internal<    events::receive_validate,  none,               none    >,
-            Internal<    events::connected,         none,               none    >
-        > {};
+    struct online : state< online > {
+        using internal_transitions = transition_table<
+            in< events::send_request,       send_request,       none    >,
+            in< events::send_reply,         send_reply,         none    >,
+            in< events::receive_request,    dispatch_request,   none    >,
+            in< events::receive_reply,      dispatch_reply,     none    >,
+            in< events::receive_validate,   none,               none    >,
+            in< events::connected,          none,               none    >
+        >;
         template < typename Event >
         void
-        on_entry(Event const&, fsm_type& fsm)
+        on_enter(Event const&, fsm_type& fsm)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connected enter\n";
             #endif
         }
@@ -339,18 +368,18 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
         void
         on_exit(Event const&, fsm_type& fsm)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "connected exit\n";
             #endif
         }
     };
 
-    struct terminated : ::boost::msm::front::terminate_state<> {
+    struct terminated : ::afsm::def::terminal_state< terminated > {
         template < typename Event >
         void
-        on_entry(Event const&, fsm_type& fsm)
+        on_enter(Event const&, fsm_type& fsm)
         {
-            #ifdef DEBUG_OUTPUT
+            #if DEBUG_OUTPUT >= 4
             ::std::cerr << "terminated enter\n";
             #endif
             fsm->do_close();
@@ -363,17 +392,17 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
     //@{
     /** @name Guards */
     struct is_server {
-        template < typename Event, typename SourceState, typename TargetState >
+        template < typename State >
         bool
-        operator()(Event const&, fsm_type& fsm, SourceState&, TargetState&)
+        operator()(fsm_type const& fsm, State const&)
         {
             return fsm.mode_ >= server;
         }
     };
     struct is_stream_oriented {
-        template < typename Event, typename SourceState, typename TargetState >
+        template < typename State >
         bool
-        operator()(Event const&, fsm_type& fsm, SourceState&, TargetState&)
+        operator()(fsm_type const& fsm, State const&)
         {
             return fsm->is_stream_oriented();
         }
@@ -382,29 +411,29 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
 
     //@{
     /** @name Transition table */
-    struct transition_table : ::boost::mpl::vector<
-            /*    Start            Event                        Next                Action            Guard            */
+    using transitions = transition_table<
+        /*  Start           Event                       Next                Action          Guard                       */
         /* Start client connection */
-        Row<    unplugged,        events::connect,              connecting,           connect,         none                    >,
-        Row<    connecting,       events::connected,            wait_validate,        on_connected,    is_stream_oriented      >,
-        Row<    connecting,       events::connected,            connected,            none,            Not<is_stream_oriented> >,
+        tr< unplugged,      events::connect,            connecting,         connect,        none                        >,
+        tr< connecting,     events::connected,          wait_validate,      on_connected,   is_stream_oriented          >,
+        tr< connecting,     events::connected,          online,             none,           not_<is_stream_oriented>    >,
         /* Start server connection */
-        Row<    unplugged,        events::start,                wait_validate,        send_validate,    none                   >,
-        Row<    unplugged,        events::start,                connected,            none,            Not<is_stream_oriented> >,
+        tr< unplugged,      events::start,              wait_validate,      send_validate,  none                        >,
+        tr< unplugged,      events::start,              online,             none,           not_<is_stream_oriented>    >,
         /* Validate connection */
-        Row<    wait_validate,    events::receive_validate,     connected,            on_connected,    is_server               >,
-        Row<    wait_validate,    events::receive_validate,     connected,            send_validate,   Not<is_server>          >,
+        tr< wait_validate,  events::receive_validate,   online,             on_connected,   is_server                   >,
+        tr< wait_validate,  events::receive_validate,   online,             send_validate,  not_<is_server>             >,
         /* Close connection */
-        Row<    unplugged,        events::close,                terminated,           none,            none                    >,
-        Row<    connecting,       events::close,                terminated,           none,            none                    >,
-        Row<    wait_validate,    events::close,                terminated,           none,            none                    >,
-        Row<    connected,        events::close,                terminated,           send_close,      none                    >,
-        Row<    connected,        events::receive_close,        terminated,           none,            none                    >,
+        tr< unplugged,      events::close,              terminated,         none,           none                        >,
+        tr< connecting,     events::close,              terminated,         none,           none                        >,
+        tr< wait_validate,  events::close,              terminated,         none,           none                        >,
+        tr< online,         events::close,              terminated,         send_close,     none                        >,
+        tr< online,         events::receive_close,      terminated,         none,           none                        >,
         /* Connection failure */
-        Row<    connecting,       events::connection_failure,   terminated,           none,            none                    >,
-        Row<    wait_validate,    events::connection_failure,   terminated,           none,            none                    >,
-        Row<    connected,        events::connection_failure,   terminated,           none,            none                    >
-    > {};
+        tr< connecting,     events::connection_failure, terminated,         none,           none                        >,
+        tr< wait_validate,  events::connection_failure, terminated,         none,           none                        >,
+        tr< online,         events::connection_failure, terminated,         none,           none                        >
+    >;
     //@}
 
     concrete_type*
@@ -417,21 +446,42 @@ struct connection_fsm_ : ::boost::msm::front::state_machine_def< connection_fsm_
     {
         return static_cast<concrete_type const*>(this);
     }
+
     connection_mode mode_;
 };
 
-typedef ::boost::msm::back::state_machine< connection_fsm_< connection_impl_base > > connection_fsm;
+using connection_fsm = ::afsm::state_machine<
+        connection_fsm_def<::std::mutex, connection_implementation>, ::std::mutex >;
 
-struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_base>,
+struct connection_implementation : ::std::enable_shared_from_this<connection_implementation>,
         connection_fsm {
+    using clock_type            = ::std::chrono::system_clock;
+    using time_point            = ::std::chrono::time_point< clock_type >;
+    using expire_duration       = ::std::chrono::duration< ::std::int64_t, ::std::milli >;
+    using request_number        = ::std::uint32_t;
+
     struct pending_reply {
         encoding::reply_callback        reply;
         functional::exception_callback  error;
     };
-    using pending_replies_type    = ::std::map< uint32_t, pending_reply >;
+    struct reply_expiration {
+        request_number                  number;
+        time_point                      expires;
 
-    using incoming_buffer        = ::std::array< unsigned char, 1024 >;
-    using incoming_buffer_ptr    = ::std::shared_ptr< incoming_buffer >;
+        bool
+        operator < (reply_expiration const& rhs) const
+        {
+            return expires < rhs.expires;
+        }
+    };
+
+    using pending_replies_type  = ::tbb::concurrent_hash_map<request_number, pending_reply>;
+    using pending_replies_expire_queue = ::tbb::concurrent_priority_queue<reply_expiration>;
+
+    using incoming_buffer       = ::std::array< unsigned char, 1024 >;
+    using incoming_buffer_ptr   = ::std::shared_ptr< incoming_buffer >;
+    using mutex_type            = ::std::mutex;
+    using lock_guard            = ::std::lock_guard<mutex_type>;
 
     static connection_impl_ptr
     create_connection( adapter_ptr adptr, transport_type _type,
@@ -440,34 +490,44 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     create_listen_connection( adapter_ptr adptr, transport_type _type,
             functional::void_callback on_close );
 
-    connection_impl_base( client_side const&, adapter_ptr adptr,
+    connection_implementation( client_side const&, adapter_ptr adptr,
             functional::void_callback on_close)
         : adapter_{adptr},
           connector_{adptr->get_connector()},
           io_service_{adptr->io_service()},
-          timer_{*io_service_},
+          connection_timer_{*io_service_},
           request_no_{0},
+          request_timer_{*io_service_},
           outstanding_responses_{0},
           on_close_{ on_close }
     {
+        #if DEBUG_OUTPUT >= 1
+        ::std::cerr << "Create client connection instance\n";
+        #endif
         mode_ = client;
     }
-    connection_impl_base( server_side const&, adapter_ptr adptr,
+    connection_implementation( server_side const&, adapter_ptr adptr,
             functional::void_callback on_close)
         : adapter_{adptr},
           connector_{adptr->get_connector()},
           io_service_{adptr->io_service()},
-          timer_{*io_service_},
+          connection_timer_{*io_service_},
           request_no_{0},
+          request_timer_{*io_service_},
           outstanding_responses_{0},
           on_close_{ on_close }
     {
+        #if DEBUG_OUTPUT >= 1
+        ::std::cerr << "Create server connection instance\n";
+        #endif
         mode_ = server;
     }
 
-    virtual ~connection_impl_base()
+    virtual ~connection_implementation()
     {
-        #ifdef DEBUG_OUTPUT
+        connection_timer_.cancel();
+        request_timer_.cancel();
+        #if DEBUG_OUTPUT >= 1
         ::std::cerr << "Destroy connection instance\n";
         #endif
     }
@@ -479,12 +539,25 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     virtual bool
     is_stream_oriented() const = 0;
 
-    void
-    set_timer();
-    void
-    on_timeout(asio_config::error_code const& ec);
     bool
-    can_drop() const;
+    is_terminated() const
+    {
+        return connection_fsm::is_in_state< connection_fsm_def::terminated >();
+    }
+
+    void
+    set_connection_timer();
+    void
+    on_connection_timeout(asio_config::error_code const& ec);
+    bool
+    can_drop_connection() const;
+
+    void
+    start_request_timer();
+    void
+    on_request_timeout(asio_config::error_code const& ec);
+    void
+    request_error(request_number r_no, ::std::exception_ptr ex);
 
     void
     connect_async(endpoint const&,
@@ -549,22 +622,23 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
             functional::exception_callback exception,
             functional::callback< bool > sent);
 
-    template < typename Pred >
+    template < typename Handler >
     void
-    wait_for( Pred pred ) const
+    post( Handler&& handler )
     {
-        while(!pred()) {
-            io_service_->poll();
-        }
+        io_service_->post(::std::forward<Handler>(handler));
     }
-    template < typename Pred >
+
+    template < typename ... Args >
     void
-    wait_until( Pred pred ) const
+    post( void (connection_implementation::* method)(Args ...), Args ... args)
     {
-        while(pred()) {
-            io_service_->poll();
-        }
+        auto shared_this = shared_from_this();
+        io_service_->post([shared_this, method, args...]() mutable {
+            (shared_this.get()->*method)(args...);
+        });
     }
+
     virtual endpoint
     local_endpoint() const = 0;
     virtual endpoint
@@ -574,7 +648,7 @@ struct connection_impl_base : ::std::enable_shared_from_this<connection_impl_bas
     do_connect_async(endpoint const& ep)
     {
         do_connect_async_impl(ep,
-            ::std::bind(&connection_impl_base::handle_connected, shared_from_this(),
+            ::std::bind(&connection_implementation::handle_connected, shared_from_this(),
                     ::std::placeholders::_1));
     }
 
@@ -600,10 +674,14 @@ public:
 protected:
     connector_weak_ptr              connector_;
     asio_config::io_service_ptr     io_service_;
-    asio_config::system_timer       timer_;
-    ::std::atomic<uint32_t>         request_no_;
-    encoding::incoming_ptr          incoming_;
+    asio_config::system_timer       connection_timer_;
+
+    ::std::atomic<::std::uint32_t>  request_no_;
+    asio_config::system_timer       request_timer_;
     pending_replies_type            pending_replies_;
+    pending_replies_expire_queue    expiration_queue_;
+
+    encoding::incoming_ptr          incoming_;
     ::std::atomic<::std::int32_t>   outstanding_responses_;
     functional::void_callback       on_close_;
 };
@@ -614,7 +692,7 @@ template <>
 struct is_secure< ssl_transport > : ::std::true_type {};
 
 template < transport_type _type >
-struct connection_impl : connection_impl_base {
+struct connection_impl : connection_implementation {
     using transport_traits    = transport_type_traits< _type >;
     using transport_type    = typename transport_traits::type;
     using socket_type        = typename transport_traits::listen_socket_type;
@@ -623,14 +701,14 @@ struct connection_impl : connection_impl_base {
     connection_impl(client_side const& c, adapter_ptr adptr,
             functional::void_callback on_close,
             typename ::std::enable_if< !is_secure< T >::value, void >::type* = nullptr)
-        : connection_impl_base{c, adptr, on_close}, transport_{ io_service_ }
+        : connection_implementation{c, adptr, on_close}, transport_{ io_service_ }
     {
     }
     template < typename T = transport_type >
     connection_impl(server_side const& s, adapter_ptr adptr,
             functional::void_callback on_close,
             typename ::std::enable_if< !is_secure< T >::value, void >::type* = nullptr)
-        : connection_impl_base{s, adptr, on_close}, transport_{ io_service_ }
+        : connection_implementation{s, adptr, on_close}, transport_{ io_service_ }
     {
     }
     template < typename T = transport_type >
@@ -638,7 +716,7 @@ struct connection_impl : connection_impl_base {
             functional::void_callback on_close,
             detail::adapter_options const& opts = {},
             typename ::std::enable_if< is_secure< T >::value, void >::type* = nullptr)
-        : connection_impl_base{c, adptr, on_close},
+        : connection_implementation{c, adptr, on_close},
           transport_{ io_service_, adptr->options().adapter_ssl }
     {
     }
@@ -647,7 +725,7 @@ struct connection_impl : connection_impl_base {
             functional::void_callback on_close,
             detail::adapter_options const& opts = {},
             typename ::std::enable_if< is_secure< T >::value, void >::type* = nullptr)
-        : connection_impl_base{s, adptr, on_close},
+        : connection_implementation{s, adptr, on_close},
           transport_{ io_service_, adptr->options().adapter_ssl }
     {
     }
@@ -668,7 +746,9 @@ struct connection_impl : connection_impl_base {
     endpoint
     remote_endpoint() const override
     {
-        return transport_.remote_endpoint();
+        if (transport_.is_open())
+            return transport_.remote_endpoint();
+        return configured_endpoint_;
     }
 
     socket_type&
@@ -680,6 +760,7 @@ private:
     void
     do_connect_async_impl(endpoint const& ep, asio_config::asio_callback cb) override
     {
+        configured_endpoint_ = ep;
         transport_.connect_async(ep, cb);
     }
     void
@@ -703,7 +784,7 @@ private:
 };
 
 template < transport_type _type >
-struct listen_connection_impl : connection_impl_base {
+struct listen_connection_impl : connection_implementation {
     using session_type         = connection_impl< _type >;
     using listener_type        = transport_listener< session_type, _type >;
     using session_factory    = typename listener_type::session_factory;
@@ -711,7 +792,7 @@ struct listen_connection_impl : connection_impl_base {
 
     listen_connection_impl(adapter_ptr adptr, session_factory factory,
             functional::void_callback on_close)
-        : connection_impl_base{server_side{}, adptr, on_close},
+        : connection_implementation{server_side{}, adptr, on_close},
           listener_(adptr->io_service(), factory)
     {
     }
@@ -722,7 +803,7 @@ struct listen_connection_impl : connection_impl_base {
     endpoint
     local_endpoint() const override
     {
-        wait_for([&](){ return listener_.ready(); });
+        util::run_until(io_service_, [&](){ return listener_.ready(); });
         return listener_.local_endpoint();
     }
     endpoint
@@ -734,7 +815,7 @@ private:
     void
     do_listen(endpoint const& ep, bool reuse_port) override
     {
-        #ifdef DEBUG_OUTPUT
+        #if DEBUG_OUTPUT >= 1
         ::std::cerr << "Open endpoint " << ep << "\n";
         #endif
         listener_.open(ep, reuse_port);

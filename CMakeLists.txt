@@ -44,6 +44,7 @@ set(BOOST_VERSION 1.58) # We want endian library.
 find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(TBB REQUIRED)
 find_package(Readline)
 
 if (Readline_INCLUDE_DIR)
@@ -54,12 +55,21 @@ if (NOT TIP_IRI_INCLUDE_DIRS)
     set(_TIP_IRI_SUBTREE ON)
 endif()
 
+if (NOT METAPUSHKIN_INCLUDE_DIR)
+    set(_METAPUSHKIN_SUBTREE ON)
+endif()
+
+if (NOT AFSM_INCLUDE_DIR)
+    set(_AFSM_SUBTREE ON)
+endif()
+
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_BINARY_DIR}/src
     ${Boost_INCLUDE_DIRS}
     ${Readline_INCLUDE_DIR}
+    ${TBB_INCLUDE_DIR}
 )
 wire_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/idl
@@ -84,18 +94,32 @@ add_definitions(
 )
 endif()
 if(DEBUG_OUTPUT)
-add_definitions(-DDEBUG_OUTPUT)
+if(NOT WIRE_DEBUG_LEVEL)
+    set(WIRE_DEBUG_LEVEL 1)
+endif()
+add_definitions(-DDEBUG_OUTPUT=${WIRE_DEBUG_LEVEL})
 endif()
 
 set(${LIB_NAME}_LIB ${lib_name})
 set(${LIB_NAME}_UTIL_LIB ${lib_name}-util)
 set(${LIB_NAME}_IDL_LIB ${lib_name}-idl)
+set(${LIB_NAME}_LOCATOR_LIB ${lib_name}-locator)
+set(${LIB_NAME}_LOCATOR_BIN ${lib_name}-locatord)
+
 if (BUILD_CMD_UTILS)
 set(${LIB_NAME}_CONSOLE_LIB ${lib_name}-console)
 endif()
 
 if(_TIP_IRI_SUBTREE)
     add_subdirectory(lib/iri)
+endif()
+
+if(_METAPUSHKIN_SUBTREE)
+    add_subdirectory(lib/meta)
+endif()
+
+if (_AFSM_SUBTREE)
+    add_subdirectory(lib/afsm)
 endif()
 
 if (NOT BOOST_PROCESS_INCLUDE_DIRS)
@@ -108,9 +132,13 @@ if (NOT BOOST_PROCESS_INCLUDE_DIRS)
 endif()
 message(STATUS "Boost process includes ${BOOST_PROCESS_INCLUDE_DIRS}")
 
-include_directories(${BOOST_PROCESS_INCLUDE_DIRS})
-include_directories(${CMAKE_BINARY_DIR}/include)
-include_directories(${TIP_IRI_INCLUDE_DIRS})
+include_directories(
+    ${CMAKE_BINARY_DIR}/include
+    ${BOOST_PROCESS_INCLUDE_DIRS}
+    ${TIP_IRI_INCLUDE_DIRS}
+    ${METAPUSHKIN_INCLUDE_DIR}
+    ${AFSM_INCLUDE_DIR}
+)
 
 # Add subdirectories here
 add_subdirectory(experiments)

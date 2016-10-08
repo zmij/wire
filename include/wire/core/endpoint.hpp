@@ -93,6 +93,9 @@ struct inet_endpoint_data {
     check() const;
     void
     check(transport_type expected) const;
+
+    bool
+    is_meta_address() const;
 };
 
 ::std::ostream&
@@ -206,6 +209,10 @@ struct endpoint_data_traits< socket_endpoint_data >
 
 }  // namespace detail
 
+class endpoint;
+using endpoint_list = ::std::vector<endpoint>;
+using endpoint_set = ::std::unordered_set<endpoint>;
+
 class endpoint {
 public:
     using endpoint_data
@@ -293,6 +300,9 @@ public:
     void
     check(transport_type expected) const;
 
+    void
+    published_endpoints(endpoint_list&) const;
+
     template < typename OutputIterator >
     void
     write( OutputIterator o ) const
@@ -318,9 +328,6 @@ private:
     endpoint_data    endpoint_data_;
 };
 
-using endpoint_list = ::std::vector<endpoint>;
-using endpoint_set = ::std::unordered_set<endpoint>;
-
 template < typename OutputIterator >
 void
 wire_write(OutputIterator o, endpoint const& v)
@@ -336,7 +343,60 @@ wire_read(InputIterator& begin, InputIterator end, endpoint& v)
 }
 
 ::std::size_t
-hash_value(endpoint const&);
+hash(endpoint const&);
+
+::std::size_t
+hash(endpoint_list const&);
+
+template < typename Endpoints >
+class endpoint_rotation;
+
+template < template < typename, typename... > class EndpointContainer >
+class endpoint_rotation< EndpointContainer<endpoint> > {
+public:
+    using container_type    = EndpointContainer<endpoint>;
+    using const_iterator    = typename container_type::const_iterator;
+public:
+    endpoint_rotation()
+        : endpoints_{}, current_{endpoints_.end()} {}
+    endpoint_rotation(container_type const& eps)
+        : endpoints_{eps}, current_{endpoints_.end()} {}
+    endpoint_rotation(container_type&& eps)
+        : endpoints_{eps}, current_{endpoints_.end()} {}
+
+    bool
+    empty() const
+    { return endpoints_.empty(); }
+
+    endpoint
+    next() const
+    {
+        if (endpoints_.empty())
+            throw errors::runtime_error{"Endpoint list is empty"};
+        if (current_ == endpoints_.end()) {
+            current_ = endpoints_.begin();
+        } else {
+            ++current_;
+            if (current_ == endpoints_.end())
+                current_ = endpoints_.begin();
+        }
+        return *current_;
+    }
+
+    container_type const&
+    endpoints() const
+    { return endpoints_; }
+private:
+    container_type          endpoints_;
+    const_iterator mutable  current_;
+};
+
+template < typename Endpoints >
+::std::size_t
+hash(endpoint_rotation<Endpoints> const& eps)
+{
+    return hash(eps.endpoints());
+}
 
 //----------------------------------------------------------------------------
 ::std::ostream&
@@ -357,8 +417,14 @@ operator >> (::std::istream& is, endpoint_list& val);
 operator << (::std::ostream& os, endpoint_set const& val);
 ::std::istream&
 operator >> (::std::istream& is, endpoint_set& val);
+
+endpoint
+operator "" _wire_ep(char const*, ::std::size_t);
+
 }  // namespace core
 }  // namespace wire
+
+using ::wire::core::operator ""_wire_ep;
 
 namespace std {
 
@@ -369,10 +435,44 @@ struct hash< ::wire::core::endpoint > {
     result_type
     operator()(argument_type const& v) const
     {
-        return hash_value(v);
+        return ::wire::core::hash(v);
+    }
+};
+
+template <>
+struct hash< ::wire::core::endpoint_list > {
+    using argument_type = ::wire::core::endpoint_list;
+    using result_type   = ::std::size_t;
+    result_type
+    operator()(argument_type const& v) const
+    {
+        return ::wire::core::hash(v);
     }
 };
 
 }  // namespace std
+
+namespace wire {
+namespace core {
+
+extern template class endpoint_rotation< endpoint_list >;
+extern template class endpoint_rotation< endpoint_set >;
+
+inline size_t
+tbb_hasher(endpoint const& ep) {
+    return hash(ep);
+}
+
+template< typename ContainerA, typename ContainerB >
+endpoint_set
+merge_endpoints(ContainerA const& a, ContainerB const& b )
+{
+    endpoint_set eps{ a.begin(), a.end() };
+    ::std::copy(b.begin(), b.end(), ::std::inserter(eps, eps.begin()));
+    return eps;
+}
+
+}  /* namespace core */
+}  /* namespace wire */
 
 #endif /* WIRE_CORE_ENDPOINT_HPP_ */

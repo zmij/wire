@@ -16,8 +16,9 @@ namespace core {
 struct reference_data;
 
 class reference;
-using reference_ptr = ::std::shared_ptr< reference >;
-using reference_weak_ptr = ::std::weak_ptr< reference >;
+using reference_ptr         = ::std::shared_ptr< reference >;
+using reference_const_ptr   = ::std::shared_ptr< reference const >;
+using reference_weak_ptr    = ::std::weak_ptr< reference >;
 
 
 }  // namespace core

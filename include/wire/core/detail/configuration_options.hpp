@@ -21,7 +21,7 @@ struct connector_options {
     /**
      * Connector name
      */
-    ::std::string   name        = "wire.connector";
+    ::std::string   name                = "wire.connector";
     /**
      * Configuration file
      */
@@ -29,13 +29,13 @@ struct connector_options {
     /**
      * Locator reference
      */
-    reference_data  locator_ref;
+    reference_data  locator_ref         = reference_data{};
     /**
      * Endpoints for admin interface
      */
     endpoint_list   admin_endpoints;
-    identity        admin_adapter           = "admin";
-    identity        admin_connector         = "connector";
+    identity        admin_adapter       = "admin";
+    identity        admin_connector     = "connector";
 
     /**
      * Server-side ssl options
@@ -51,9 +51,14 @@ struct connector_options {
 };
 
 struct adapter_options {
-    endpoint_list    endpoints;
-    ::std::size_t    timeout;
-    ssl_options        adapter_ssl;
+    /**
+     * Adapter listen endpoints
+     */
+    endpoint_list   endpoints;
+    ::std::size_t   timeout;
+    bool            registered;
+    bool            replicated;
+    ssl_options     adapter_ssl;
 };
 
 }  // namespace detail

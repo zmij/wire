@@ -58,9 +58,11 @@ buffer_sequence::buffer_sequence(buffer_sequence const& rhs)
 }
 
 buffer_sequence::buffer_sequence(buffer_sequence&& rhs)
-    : buffers_{std::move(rhs.buffers_)}, connector_{rhs.connector_}
+    : connector_{rhs.connector_}
 {
     // TODO Close all out encaps
+    rhs.close_out_encapsulations();
+    buffers_ = ::std::move(rhs.buffers_);
     ::std::transform(
         rhs.out_encaps_stack_.begin(), rhs.out_encaps_stack_.end(),
         ::std::back_inserter(out_encaps_stack_),
@@ -73,6 +75,7 @@ buffer_sequence::buffer_sequence(buffer_sequence&& rhs)
             }
             return res;
         });
+    rhs.out_encaps_stack_.clear();
     // TODO Copy input encaps
 }
 
@@ -391,8 +394,11 @@ buffer_sequence::begin_out_encaps()
 void
 buffer_sequence::end_out_encaps(out_encaps_iterator iter)
 {
-    if (out_encaps_stack_.end() == ++iter) {
-        out_encaps_stack_.pop_back();
+    if (!out_encaps_stack_.empty()) {
+        auto pre_end = --out_encaps_stack_.end();
+        if (pre_end == iter) {
+            out_encaps_stack_.pop_back();
+        }
     }
     start_buffer();
 }

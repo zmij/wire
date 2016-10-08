@@ -65,7 +65,7 @@ try {
     auto prx = adptr->add_object({"ping_pong"}, pp_server);
     adptr->add_default_servant(pp_server);
     ::std::cout << *prx << ::std::endl;
-    if (prx->wire_get_reference().is_local()) {
+    if (prx->wire_get_reference()->is_local()) {
         ::std::cerr << "Reference classified to be local\n";
     } else {
         ::std::cerr << "Reference classified to be remote\n";

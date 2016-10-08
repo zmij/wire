@@ -321,6 +321,7 @@ struct enum_grammar : parser_value_grammar< InputIterator, enum_decl, Lexer > {
         using qi::_2;
         using qi::_a;
         using qi::eps;
+        using qi::lit;
 
         enum_ = eps                     [ _a = false ]
             >> tok.enum_
@@ -331,7 +332,7 @@ struct enum_grammar : parser_value_grammar< InputIterator, enum_decl, Lexer > {
             >> '}'
             >> ';';
 
-        enumerator_list %= -(enumerator >> *(',' >> enumerator));
+        enumerator_list %= -(enumerator >> *(',' >> enumerator) >> *lit(','));
 
         enumerator = tok.identifier         [ phx::bind(&enumerator_decl::name, _val) = to_string(_1) ]
             >> -('=' >> enumerator_init     [ phx::bind(&enumerator_decl::init, _val) = _1 ])

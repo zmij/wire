@@ -589,6 +589,95 @@ generator::generate_enum(ast::enumeration_ptr enum_)
         header_ << ",";
     }
     header_ << mod(-1) << "};\n";
+
+    auto ann = find(enum_->get_annotations(), annotations::GENERATE_IO);
+    if (ann != enum_->get_annotations().end()) {
+        header_.at_namespace_scope(
+        [this, enum_](source_stream& ss)
+        {
+            ss  << off << "::std::ostream&"
+                << off << "operator << (::std::ostream&, " << cpp_name(enum_) << " );"
+                << off << "::std::istream&"
+                << off << "operator >> ( ::std::istream&, " << cpp_name(enum_) << "& );"
+                << off << "::std::string"
+                << off << "to_string( " << cpp_name(enum_) << " );\n";
+        });
+
+        auto pfx = constant_prefix(qname(enum_));
+        source_ << "// data for " << enum_->name() << " enumeration IO"
+                << off << "namespace {";
+
+        source_ << mod(+1) << "std::map < " << cpp_name(enum_) << ", ::std::string > const "
+                    << pfx << "TO_STRING {";
+        source_.modify_offset(+1);
+        ::std::string enum_pfx = "";
+        if (enum_->constrained()) {
+            ::std::ostringstream os;
+            os << cpp_name(enum_) << "::";
+            enum_pfx = os.str();
+        }
+        for (auto e : enum_->get_enumerators()) {
+            source_ << off << "{ " << enum_pfx << e.first << ", \"" << e.first << "\" },";
+        }
+        source_ << mod(-1) << "};";
+
+        source_ << off << "std::map < ::std::string, " << cpp_name(enum_) << " > const "
+                    << pfx << "FROM_STRING {";
+        source_.modify_offset(+1);
+        for (auto e : enum_->get_enumerators()) {
+            source_ << off << "{ \"" << e.first << "\", " << enum_pfx << e.first << " },";
+        }
+        source_ << mod(-1) << "};";
+
+        source_ << mod(-1) << "} // namespace\n";
+
+        source_ << off  << "::std::ostream&"
+                << off  << "operator << ( ::std::ostream& os, "
+                           << cpp_name(enum_) << " val )"
+                << off      << "{"
+                << mod(+1)  <<  "::std::ostream::sentry s{os};"
+                << off      <<  "if (s) {"
+                << mod(+1)  <<      "auto f = " << pfx << "TO_STRING.find(val);"
+                << off      <<      "if (f != "<< pfx << "TO_STRING.end()) {"
+                << off(+1)  <<          "os << f->second;"
+                << off      <<      "} else {"
+                << off(+1)  <<          "os << \"Unknown " << enum_->name() << " value \" << (int)val;"
+                << off      <<      "}"
+                << mod(-1)  <<  "}"
+                << off      << "return os;"
+                << mod(-1)  << "}\n";
+
+        source_ << off  << "::std::istream&"
+                << off  << "operator >> ( ::std::istream& is, "
+                                << cpp_name(enum_) << "& val )"
+                << off  << "{"
+                << mod(+1)  <<  "::std::istream::sentry s{is};"
+                << off      <<  "if (s) {"
+                << mod(+1)  <<      "::std::string name;"
+                << off      <<      "if (is >> name) {"
+                << mod(+1)  <<          "auto f = " << pfx << "FROM_STRING.find(name);"
+                << off      <<          "if (f != " << pfx << "FROM_STRING.end()) {"
+                << off(+1)  <<              "val = f->second;"
+                << off      <<          "} else {"
+                << off(+1)  <<              "is.setstate(::std::ios_base::failbit);"
+                << off      <<          "}"
+                << mod(-1)  <<      "}"
+                << mod(-1)  <<  "}"
+                << off      <<  "return is;"
+                << mod(-1)  << "}\n";
+
+        source_ << off      << "::std::string"
+                << off      << "to_string( " << cpp_name(enum_) << " val )"
+                << off      << "{"
+                << mod(+1)  <<      "auto f = " << pfx << "TO_STRING.find(val);"
+                << off      <<      "if (f == "<< pfx << "TO_STRING.end()) {"
+                << off(+1)  <<          "::std::ostringstream os;"
+                << off(+1)  <<          "os << \"Unknown " << enum_->name() << " value \" << (int)val;"
+                << off(+1)  <<          "throw ::std::runtime_error(os.str());"
+                << off      <<      "}"
+                << off      <<      "return f->second;"
+                << mod(-1)  << "}\n";
+    }
 }
 
 void
@@ -1101,7 +1190,7 @@ generator::generate_exception(ast::exception_ptr exc)
                 << members_init << " {}";
         //@}
 
-        header_ << off << "/* templated constructor to format a ::std::runtime_error message */"
+        header_ << off << "/* templated constructor to format a ::wire::errors::runtime_error message */"
                 << off << "template < typename ... T >"
                 << off << cpp_name(exc) << "(T const& ... args) : "
                 << parent_name << "(args ...)"
@@ -1158,6 +1247,22 @@ generator::generate_exception(ast::exception_ptr exc)
                     << off     << "make_exception_ptr() override"
                     << off     << "{ return ::std::make_exception_ptr(*this); }";
         }
+        header_ << off(-1)  << "protected:"
+                << off      << "void"
+                << off      << "stream_message(::std::ostream& os) const override;";
+        source_ << off      << "void"
+                << off      << cpp_name(exc) << "::stream_message(::std::ostream& os) const"
+                << off      << "{"
+                << mod(+1)  << cpp_name(parent_name) << "::stream_message(os);"
+                << off      <<      "os << " << cpp_name(exc) << "::wire_static_type_id()";
+        if (!data_members.empty()) {
+            source_ << " << \":\"";
+            for (auto dm : data_members) {
+                source_ << " << \" \" << " << cpp_name(dm);
+            }
+        }
+        source_ << ";";
+        source_ << mod(-1)  << "}";
 
         header_ << mod(-1) << "};\n";
         header_.pop_scope();

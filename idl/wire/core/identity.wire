@@ -13,6 +13,8 @@
 namespace wire {
 namespace core {
 
+struct wildcard;
+
 /**
  * Structure describing an identity of an object or an object adapter
  */

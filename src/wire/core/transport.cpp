@@ -168,8 +168,10 @@ tcp_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
 void
 tcp_transport::close()
 {
-    if (socket_.is_open())
+    if (socket_.is_open()) {
+        socket_.cancel();
         socket_.close();
+    }
 }
 
 void

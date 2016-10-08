@@ -21,7 +21,7 @@
 #include <wire/core/adapter_fwd.hpp>
 #include <wire/core/functional.hpp>
 
-#include <wire/util/function_traits.hpp>
+#include <pushkin/meta/function_traits.hpp>
 
 #include <wire/encoding/buffers.hpp>
 
@@ -33,6 +33,12 @@ namespace core {
 struct server_side {};
 struct client_side {};
 
+namespace detail {
+
+struct connection_implementation;
+using connection_impl_ptr = ::std::shared_ptr<connection_implementation>;
+}  /* namespace detail */
+
 class connection {
 public:
     using close_callback = functional::callback<connection const*>;
@@ -40,9 +46,12 @@ public:
     /**
      * Create connection with no endpoint.
      */
-    connection(client_side const&, adapter_ptr);
+    connection(client_side const&, adapter_ptr, transport_type, close_callback);
     /**
      * Create connection and start asynchronous connect.
+     * @param endpoint
+     * @param cb Connected callback
+     * @param ecb Exception callback
      * @param
      */
     connection(client_side const&, adapter_ptr, endpoint const&,
@@ -60,10 +69,6 @@ public:
 
     ~connection();
 
-    connection(connection&&);
-    connection&
-    operator = (connection&&);
-
     connector_ptr
     get_connector() const;
     /**
@@ -75,8 +80,7 @@ public:
     void
     connect_async(endpoint const&,
             functional::void_callback       on_connect  = nullptr,
-            functional::exception_callback  on_error    = nullptr,
-            close_callback                  on_close    = nullptr);
+            functional::exception_callback  on_error    = nullptr);
 
 
     void
@@ -86,8 +90,8 @@ public:
     set_adapter(adapter_ptr);
 
     template < typename Handler, typename ... Args >
-    typename ::std::enable_if< (util::is_callable<Handler>::value &&
-            util::function_traits< Handler >::arity > 0), void >::type
+    typename ::std::enable_if< (::psst::meta::is_callable_object<Handler>::value &&
+            ::psst::meta::function_traits< Handler >::arity > 0), void >::type
     invoke(identity const& id, ::std::string const& op, context_type const& ctx,
             bool run_sync,
             Handler response,
@@ -95,7 +99,7 @@ public:
             functional::callback< bool > sent,
             Args const& ... args)
     {
-        using handler_traits = util::function_traits<Handler>;
+        using handler_traits = ::psst::meta::function_traits<Handler>;
         using args_tuple = typename handler_traits::decayed_args_tuple_type;
 
         using encoding::incoming;
@@ -108,7 +112,7 @@ public:
                     args_tuple args;
                     encoding::read(begin, end, args);
                     encaps.read_indirection_table(begin);
-                    util::invoke(response, args);
+                    ::psst::meta::invoke(response, args);
                 } catch(...) {
                     if (exception) {
                         try {
@@ -159,14 +163,22 @@ public:
 
     endpoint
     local_endpoint() const;
+    endpoint
+    remote_endpoint() const;
 private:
+    connection(connection&&) = delete;
     connection(connection const&) = delete;
     connection&
+    operator = (connection&&) = delete;
+    connection&
     operator = (connection const&) = delete;
+
+    void
+    create_client_connection(adapter_ptr, transport_type, close_callback);
 private:
-    struct impl;
-    using pimpl = ::std::shared_ptr<impl>;
-    pimpl pimpl_;
+//    struct impl;
+//    using pimpl = ::std::unique_ptr<impl>;
+    detail::connection_impl_ptr pimpl_;
 };
 
 }  // namespace core

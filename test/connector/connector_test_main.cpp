@@ -44,5 +44,6 @@ try {
     return RUN_ALL_TESTS();
 } catch (::std::exception const& e) {
     ::std::cerr << e.what() << "\n";
+    return 1;
 }
 

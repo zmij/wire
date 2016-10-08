@@ -34,8 +34,9 @@ struct transport_type_traits;
 
 template<>
 struct transport_type_traits<transport_type::tcp> {
-    static constexpr transport_type value = transport_type::tcp;
-    static constexpr bool stream_oriented = true;
+    static constexpr transport_type value   = transport_type::tcp;
+    static constexpr bool stream_oriented   = true;
+    static constexpr bool is_ip             = true;
 
     using type = tcp_transport;
     using endpoint_data         = detail::tcp_endpoint_data;
@@ -62,8 +63,9 @@ struct transport_type_traits<transport_type::tcp> {
 
 template<>
 struct transport_type_traits<transport_type::ssl> {
-    static constexpr transport_type value = transport_type::ssl;
-    static constexpr bool stream_oriented = true;
+    static constexpr transport_type value   = transport_type::ssl;
+    static constexpr bool stream_oriented   = true;
+    static constexpr bool is_ip             = true;
 
     using type                  = ssl_transport;
     using endpoint_data         = detail::ssl_endpoint_data;
@@ -90,8 +92,9 @@ struct transport_type_traits<transport_type::ssl> {
 
 template<>
 struct transport_type_traits<transport_type::udp> {
-    static constexpr transport_type value = transport_type::udp;
-    static constexpr bool stream_oriented = false;
+    static constexpr transport_type value   = transport_type::udp;
+    static constexpr bool stream_oriented   = false;
+    static constexpr bool is_ip             = true;
 
     using type                  = udp_transport;
     using endpoint_data         = detail::udp_endpoint_data;
@@ -110,8 +113,9 @@ struct transport_type_traits<transport_type::udp> {
 
 template<>
 struct transport_type_traits<transport_type::socket> {
-    static constexpr transport_type value = transport_type::socket;
-    static constexpr bool stream_oriented = true;
+    static constexpr transport_type value   = transport_type::socket;
+    static constexpr bool stream_oriented   = true;
+    static constexpr bool is_ip             = false;
 
     using type                  = socket_transport;
     using endpoint_data         = detail::socket_endpoint_data;
@@ -148,33 +152,32 @@ struct tcp_transport {
     void
     close();
 
+    bool
+    is_open() const
+    {
+        return socket_.is_open();
+    }
+
     template<typename BufferType, typename HandlerType>
     void async_write(BufferType const& buffer, HandlerType const& handler)
     {
-        ASIO_NS::async_write(socket_, buffer, strand_.wrap(handler));
-    }
-
-    template < typename BufferType >
-    std::future< std::size_t >
-    async_write(BufferType const& buffer)
-    {
-        return ASIO_NS::async_write(socket_, buffer, asio_config::use_future);
+        if (socket_.is_open()) {
+            ASIO_NS::async_write(socket_, buffer, strand_.wrap(handler));
+        } else {
+            handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
+        }
     }
 
     template < typename BufferType, typename HandlerType >
     void
     async_read(BufferType&& buffer, HandlerType handler)
     {
-        ASIO_NS::async_read(socket_, std::forward< BufferType&& >(buffer),
-                ASIO_NS::transfer_at_least(1), strand_.wrap(handler));
-    }
-
-    template < typename BufferType >
-    std::future< std::size_t >
-    async_read(BufferType&& buffer)
-    {
-        return ASIO_NS::async_read(socket_, std::forward< BufferType&& >(buffer),
-                ASIO_NS::transfer_at_least(1), asio_config::use_future);
+        if (socket_.is_open()) {
+            ASIO_NS::async_read(socket_, std::forward< BufferType&& >(buffer),
+                    ASIO_NS::transfer_at_least(1), strand_.wrap(handler));
+        } else {
+            handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
+        }
     }
 
     listen_socket_type&
@@ -251,18 +254,32 @@ struct ssl_transport {
     void
     close();
 
+    bool
+    is_open() const
+    {
+        return socket_.lowest_layer().is_open();
+    }
+
     template<typename BufferType, typename HandlerType>
     void async_write(BufferType const& buffer, HandlerType handler)
     {
-        ASIO_NS::async_write(socket_, buffer, handler);
+        if (socket_.lowest_layer().is_open()) {
+            ASIO_NS::async_write(socket_, buffer, handler);
+        } else {
+            handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
+        }
     }
 
     template < typename BufferType, typename HandlerType >
     void
     async_read(BufferType&& buffer, HandlerType handler)
     {
-        ASIO_NS::async_read(socket_, buffer,
-                ASIO_NS::transfer_at_least(1), handler);
+        if (socket_.lowest_layer().is_open()) {
+            ASIO_NS::async_read(socket_, buffer,
+                    ASIO_NS::transfer_at_least(1), handler);
+        } else {
+            handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
+        }
     }
 
     listen_socket_type&
@@ -325,15 +342,29 @@ struct udp_transport {
     void
     close();
 
+    bool
+    is_open() const
+    {
+        return socket_.is_open();
+    }
+
     template<typename BufferType, typename HandlerType>
     void async_write(BufferType const& buffer, HandlerType handler)
     {
-        socket_.async_send(buffer, handler);
+        if (socket_.is_open()) {
+            socket_.async_send(buffer, handler);
+        } else {
+            handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
+        }
     }
     template<typename BufferType, typename HandlerType>
     void async_read(BufferType& buffer, HandlerType handler)
     {
-        socket_.async_receive(buffer, handler);
+        if (socket_.is_open()) {
+            socket_.async_receive(buffer, handler);
+        } else {
+            handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
+        }
     }
 
     endpoint
@@ -381,18 +412,32 @@ struct socket_transport {
     void
     close();
 
+    bool
+    is_open() const
+    {
+        return socket_.is_open();
+    }
+
     template<typename BufferType, typename HandlerType>
     void async_write(BufferType const& buffer, HandlerType handler)
     {
-        ASIO_NS::async_write(socket_, buffer, handler);
+        if (socket_.is_open()) {
+            ASIO_NS::async_write(socket_, buffer, handler);
+        } else {
+            handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
+        }
     }
 
     template < typename BufferType, typename HandlerType >
     void
     async_read(BufferType&& buffer, HandlerType handler)
     {
-        ASIO_NS::async_read(socket_, ::std::forward< BufferType >(buffer),
-                ASIO_NS::transfer_at_least(1), handler);
+        if (socket_.is_open()) {
+            ASIO_NS::async_read(socket_, ::std::forward< BufferType >(buffer),
+                    ASIO_NS::transfer_at_least(1), handler);
+        } else {
+            handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
+        }
     }
 
     template < typename BufferType >

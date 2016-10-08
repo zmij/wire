@@ -9,9 +9,28 @@
 #include <wire/errors/not_found.hpp>
 
 #include <iostream>
+#include <sstream>
 
 namespace wire {
 namespace errors {
+
+char const*
+runtime_error::what() const noexcept
+{
+    if (message_.empty()) {
+        // call stream message
+        ::std::ostringstream os;
+        stream_message(os);
+        message_ = os.str();
+    }
+    return message_.c_str();
+}
+
+void
+not_found::stream_message(::std::ostream& os) const
+{
+    os << format_message(subj_, object_id_, facet_, operation_);
+}
 
 ::std::string
 not_found::format_message(subject s, core::identity const& obj_id,

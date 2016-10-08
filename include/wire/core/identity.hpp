@@ -18,13 +18,14 @@
 #include <wire/encoding/detail/uuid_io.hpp>
 #include <wire/encoding/detail/variant_io.hpp>
 #include <wire/encoding/wire_io.hpp>
+#include <wire/core/detail/wildcard.hpp>
 
 namespace wire {
 namespace core {
 
 struct identity {
     using uuid_type = ::boost::uuids::uuid;
-    using id_type   = ::boost::variant< ::std::string, uuid_type >;
+    using id_type   = ::boost::variant< ::std::string, uuid_type, detail::wildcard >;
 
     ::std::string  category;
     id_type        id;
@@ -61,6 +62,10 @@ struct identity {
     bool
     empty() const;
 
+    bool
+    is_wildcard() const
+    { return id.which() == 2; }
+
     static ::boost::uuids::random_generator&
     uuid_gen()
     {
@@ -76,6 +81,11 @@ struct identity {
     random(::std::string const& category)
     {
         return identity{ category, uuid_gen()() };
+    }
+    static identity
+    wildcard(::std::string const& category)
+    {
+        return identity{ category, detail::wildcard{} };
     }
 };
 
@@ -104,8 +114,18 @@ operator << (::std::ostream& os, identity const& val);
 ::std::istream&
 operator >> (::std::istream& is, identity& val);
 
+identity
+operator "" _wire_id(char const*, ::std::size_t);
+
+inline size_t tbb_hasher(identity const& id)
+{
+    return hash(id);
+}
+
 }  // namespace core
 }  // namespace wire
+
+using ::wire::core::operator ""_wire_id;
 
 namespace std {
 

@@ -8,8 +8,8 @@
 #include <wire/core/proxy.hpp>
 #include <wire/core/reference.hpp>
 #include <wire/core/connection.hpp>
-#include <wire/core/invocation.hpp>
 #include <wire/core/object.hpp>
+#include <wire/core/invocation.hpp>
 
 namespace wire {
 namespace core {
@@ -53,19 +53,19 @@ object_proxy::wire_static_type_id()
 identity const&
 object_proxy::wire_identity() const
 {
-    return wire_get_reference().object_id();
+    return wire_get_reference()->object_id();
 }
 
 connection_ptr
 object_proxy::wire_get_connection() const
 {
-    return wire_get_reference().get_connection();
+    return wire_get_reference()->get_connection();
 }
 
 connector_ptr
 object_proxy::wire_get_connector() const
 {
-    return wire_get_reference().get_connector();
+    return wire_get_reference()->get_connector();
 }
 
 bool
@@ -156,12 +156,39 @@ object_proxy::wire_types_async(
             response, exception, sent)(run_sync);
 }
 
+object_prx
+object_proxy::wire_well_known_proxy() const
+{
+    auto const& ref = ref_->data();
+    return ::std::make_shared< object_proxy >(
+            reference::create_reference(wire_get_connector(),
+                    { ref.object_id, ref.facet }));
+}
+
+object_prx
+object_proxy::wire_with_identity(identity const& id) const
+{
+    auto const& ref = ref_->data();
+    return ::std::make_shared< object_proxy >(
+            reference::create_reference(wire_get_connector(),
+                    { id, ref.facet, ref.adapter, ref.endpoints}));
+}
+
+object_prx
+object_proxy::wire_with_endpoints(endpoint_list const& eps) const
+{
+    auto const& ref = ref_->data();
+    return ::std::make_shared< object_proxy >(
+            reference::create_reference(wire_get_connector(),
+                    { ref.object_id, ref.facet, ref.adapter, eps}));
+}
+
 ::std::ostream&
 operator << (::std::ostream& os, object_proxy const& val)
 {
     ::std::ostream::sentry s (os);
     if (s) {
-        os << val.wire_get_reference().data();
+        os << val.wire_get_reference()->data();
     }
     return os;
 }

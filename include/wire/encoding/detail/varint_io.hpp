@@ -49,6 +49,7 @@
 
 #include <wire/encoding/detail/helpers.hpp>
 #include <wire/errors/exceptions.hpp>
+#include <wire/util/demangle.hpp>
 #include <boost/endian/arithmetic.hpp>
 
 namespace wire {
@@ -323,7 +324,8 @@ struct varint_reader< T, true > {
             v = static_cast<type>(tmp >> 1) ^
                     (static_cast<type>(tmp) << shift_bits >> shift_bits);
         } catch (errors::unmarshal_error const&) {
-            throw errors::unmarshal_error("Failed to read signed value");
+            throw errors::unmarshal_error("Failed to read signed value of "
+                    + util::demangle<T>());
         }
     }
 };
@@ -364,7 +366,8 @@ struct varint_enum_reader< T, true > {
             reader_type::input(begin, end, iv);
             v = static_cast<base_type>(iv);
         } catch (errors::unmarshal_error const&) {
-            throw errors::unmarshal_error("Failed to read enumeration value");
+            throw errors::unmarshal_error("Failed to read enumeration "
+                    + util::demangle<T>() + " value");
         }
     }
 };
@@ -408,7 +411,8 @@ struct varint_enum_reader< T, false > {
             more = curr_byte & eighth_bit;
         }
         if (more) {
-            throw errors::unmarshal_error("Failed to read unsigned integral value");
+            throw errors::unmarshal_error("Failed to read unsigned integral value of "
+                    + util::demangle<T>());
         }
         v = boost::endian::little_to_native(tmp);
     }

@@ -10,12 +10,24 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 set(wire_util_SRCS
     bits.cpp
     murmur_hash.cpp
+    service_runner.cpp
+    enumerate_interfaces.cpp
 )
 
 add_library(${WIRE_UTIL_LIB} SHARED ${wire_util_SRCS})
+target_link_libraries(
+    ${WIRE_UTIL_LIB}
+    ${Boost_SYSTEM_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+)
 
 add_executable(murmur_hash murmur_hash_utility.cpp murmur_hash.cpp)
-
+add_executable(wire-enum-ifaces enum_ifaces_util.cpp)
+target_link_libraries(
+    wire-enum-ifaces
+    ${WIRE_UTIL_LIB}
+    ${Boost_PROGRAM_OPTIONS_LIBRARIES}
+)
 
 if(BUILD_CMD_UTILS)
     set(CONSOLE_LIB ${${LIB_NAME}_CONSOLE_LIB})
@@ -35,4 +47,17 @@ if(BUILD_CMD_UTILS)
         wire
         ${CONSOLE_LIB}
     )
+    install (
+        TARGETS ${CONSOLE_LIB} wire-cnctr-admin
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+    )
 endif()
+
+install (
+    TARGETS ${WIRE_UTIL_LIB}
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
