@@ -220,6 +220,21 @@ tbb_hasher(reference_data const& ref)
 }  // namespace core
 }  // namespace wire
 
+namespace std {
+
+template <>
+struct hash<::wire::core::reference_data> {
+    using argument_type = ::wire::core::reference_data;
+    using result_type   = ::std::size_t;
+    result_type
+    operator()(argument_type const& v) const
+    {
+        return ::wire::core::hash(v);
+    }
+};
+
+}  /* namespace std */
+
 using ::wire::core::operator ""_wire_ref;
 
 #endif /* WIRE_CORE_REFERENCE_HPP_ */

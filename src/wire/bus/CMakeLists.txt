@@ -34,7 +34,10 @@ set_target_properties(
     SOVERSION 1
     LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
 )
-target_link_libraries(wire-bus ${WIRE_LIB} wire-bus-api)
+target_link_libraries(wire-bus
+    ${Boost_THREAD_LIBRARIES}
+    ${WIRE_LIB}
+    wire-bus-api)
 
 install(
     TARGETS wire-bus-api wire-bus
