@@ -466,6 +466,7 @@ connection_implementation::invoke(identity const& id, ::std::string const& op,
             << op << " #" << r.number << "\n";
     #endif
     write(::std::back_inserter(*out), r);
+    write(::std::back_inserter(*out), ctx);
     params.close_all_encaps();
     out->insert_encapsulation(::std::move(params));
     functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
@@ -723,7 +724,13 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
 
             auto disp = adp->find_object(req.operation.identity);
             if (disp) {
-                // TODO Read context
+                current curr {
+                    req.operation,
+                    {},
+                    remote_endpoint()
+                };
+                read(b, e, curr.context);
+
                 incoming::encaps_guard encaps{ buffer->begin_encapsulation(b) };
                 auto const& en = encaps.encaps();
                 auto _this = shared_from_this();
@@ -768,11 +775,6 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                         }
                         fpg->responded();
                     }
-                };
-                current curr {
-                    req.operation,
-                    /* FIXME add context */
-                    /* FIXME add endpoint */
                 };
                 disp->__dispatch(r, curr);
                 return;
