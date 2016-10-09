@@ -456,17 +456,23 @@ connection_implementation::invoke(identity const& id, ::std::string const& op,
     encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(
             get_connector(),
             encoding::message::request);
+    // TODO Send facet
     request r{
         ++request_no_,
         encoding::operation_specs{ id, "", op },
         request::normal
     };
+    if (ctx.empty())
+        r.mode = static_cast<request::request_mode>(r.mode | request::no_context);
+
     #if DEBUG_OUTPUT >= 5
     ::std::cerr << "Invoke request " << id << "::"
             << op << " #" << r.number << "\n";
     #endif
+
     write(::std::back_inserter(*out), r);
-    write(::std::back_inserter(*out), ctx);
+    if (!ctx.empty())
+        write(::std::back_inserter(*out), ctx);
     params.close_all_encaps();
     out->insert_encapsulation(::std::move(params));
     functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
@@ -729,7 +735,9 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                     {},
                     remote_endpoint()
                 };
-                read(b, e, curr.context);
+                if (!(req.mode && request::no_context)) {
+                    read(b, e, curr.context);
+                }
 
                 incoming::encaps_guard encaps{ buffer->begin_encapsulation(b) };
                 auto const& en = encaps.encaps();
