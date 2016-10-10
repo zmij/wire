@@ -10,11 +10,14 @@
 
 #include <string>
 #include <map>
+#include <memory>
 
 namespace wire {
 namespace core {
 
-typedef ::std::map< ::std::string, ::std::string > context_type;
+using context_type      = ::std::map< ::std::string, ::std::string >;
+using context_ptr       = ::std::shared_ptr< context_type >;
+using context_const_ptr = ::std::shared_ptr< context_type const >;
 
 extern const context_type no_context;
 

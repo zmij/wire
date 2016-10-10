@@ -194,29 +194,71 @@ read(InputIterator& begin, InputIterator end, message& v)
     v.swap(tmp);
 }
 
+struct invocation_target {
+    core::identity  identity;
+    ::std::string   facet;
+
+    void
+    swap(invocation_target& rhs)
+    {
+        using ::std::swap;
+        swap(identity, rhs.identity);
+        swap(facet, rhs.facet);
+    }
+
+    bool
+    operator == (invocation_target const& rhs) const
+    {
+        return identity == rhs.identity && facet == rhs.facet;
+    }
+    bool
+    operator != (invocation_target const& rhs) const
+    {
+        return !(*this == rhs);
+    }
+};
+
+template < typename OutputIterator >
+void
+wire_write(OutputIterator o, invocation_target const& v)
+{
+    write(o,
+        v.identity, v.facet
+    );
+}
+
+template < typename InputIterator >
+void
+wire_read(InputIterator& begin, InputIterator end, invocation_target& v)
+{
+    invocation_target tmp;
+    read(begin, end, tmp.identity, tmp.facet);
+    v.swap(tmp);
+}
+
+using multiple_targets = ::std::set<invocation_target>;
+
 struct operation_specs {
     enum operation_type {
         name_hash,
         name_string
     };
     using operation_id = boost::variant< int32_t, ::std::string >;
-    core::identity  identity;
-    ::std::string   facet;
-    operation_id    operation;
+    invocation_target   target;
+    operation_id        operation;
 
     void
     swap(operation_specs& rhs)
     {
         using ::std::swap;
-        swap(identity, rhs.identity);
-        swap(facet, rhs.facet);
+        swap(target, rhs.target);
         swap(operation, rhs.operation);
     }
 
     bool
     operator == (operation_specs const& rhs) const
     {
-        return identity == rhs.identity && facet == rhs.facet && operation == rhs.operation;
+        return target == rhs.target && operation == rhs.operation;
     }
 
     bool
@@ -243,7 +285,7 @@ void
 wire_write(OutputIterator o, operation_specs const& v)
 {
     write(o,
-        v.identity, v.facet, v.operation
+        v.target, v.operation
     );
 }
 
@@ -252,7 +294,7 @@ void
 wire_read(InputIterator& begin, InputIterator end, operation_specs& v)
 {
     operation_specs tmp;
-    read(begin, end, tmp.identity, tmp.facet, tmp.operation);
+    read(begin, end, tmp.target, tmp.operation);
     v.swap(tmp);
 }
 
@@ -260,11 +302,11 @@ wire_read(InputIterator& begin, InputIterator end, operation_specs& v)
 struct request {
     using request_number    = ::std::uint64_t;
     enum request_mode {
-        normal      = 1,
-        one_way     = 2,
-        no_context  = 0x10,
-        no_body     = 0x20
-        // TODO Multiple recipients
+        normal          = 0x01,
+        one_way         = 0x02,
+        multi_target    = 0x04,
+        no_context      = 0x10,
+        no_body         = 0x20,
     };
     request_number      number;
     operation_specs     operation;

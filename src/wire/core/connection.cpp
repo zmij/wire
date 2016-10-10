@@ -444,7 +444,7 @@ connection_implementation::dispatch_incoming(encoding::incoming_ptr incoming)
 }
 
 void
-connection_implementation::invoke(identity const& id, ::std::string const& op,
+connection_implementation::invoke(encoding::invocation_target const& target, ::std::string const& op,
         context_type const& ctx,
         bool run_sync,
         encoding::outgoing&& params,
@@ -459,14 +459,14 @@ connection_implementation::invoke(identity const& id, ::std::string const& op,
     // TODO Send facet
     request r{
         ++request_no_,
-        encoding::operation_specs{ id, "", op },
+        encoding::operation_specs{ target, op },
         request::normal
     };
     if (ctx.empty())
         r.mode = static_cast<request::request_mode>(r.mode | request::no_context);
 
     #if DEBUG_OUTPUT >= 5
-    ::std::cerr << "Invoke request " << id << "::"
+    ::std::cerr << "Invoke request " << target.identity << "::"
             << op << " #" << r.number << "\n";
     #endif
 
@@ -566,8 +566,8 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                                     errors::not_found{
                                         static_cast< errors::not_found::subject >(
                                                 rep.status - reply::no_object ),
-                                        op.identity,
-                                        op.facet,
+                                        op.target.identity,
+                                        op.target.facet,
                                         op.name()
                                     } )
                             );
@@ -728,7 +728,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                     << " to " << req.operation.identity << "\n";
             #endif
 
-            auto disp = adp->find_object(req.operation.identity);
+            auto disp = adp->find_object(req.operation.target.identity);
             if (disp) {
                 current curr {
                     req.operation,
@@ -736,7 +736,9 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                     remote_endpoint()
                 };
                 if (!(req.mode && request::no_context)) {
-                    read(b, e, curr.context);
+                    auto ctx_ptr = ::std::make_shared<context_type>();
+                    read(b, e, *ctx_ptr);
+                    curr.context = ctx_ptr;
                 }
 
                 incoming::encaps_guard encaps{ buffer->begin_encapsulation(b) };
@@ -887,7 +889,7 @@ connection::close()
 }
 
 void
-connection::invoke(identity const& id, ::std::string const& op,
+connection::invoke(encoding::invocation_target const& target, ::std::string const& op,
         context_type const& ctx,
         bool run_sync,
         encoding::outgoing&& params,
@@ -896,7 +898,7 @@ connection::invoke(identity const& id, ::std::string const& op,
         functional::callback< bool > sent)
 {
     assert(pimpl_.get() && "Connection implementation is not set");
-    pimpl_->invoke(id, op, ctx, run_sync, ::std::move(params), reply, exception, sent);
+    pimpl_->invoke(target, op, ctx, run_sync, ::std::move(params), reply, exception, sent);
 }
 
 endpoint

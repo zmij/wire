@@ -1132,11 +1132,11 @@ generator::generate_wire_functions(ast::interface_ptr iface)
 
     source_ << off      <<      "if (!res && throw_not_found)"
             << mod(+1)  <<          "throw ::wire::errors::no_operation{"
-            << mod(+1)  <<              "wire_static_type_id(), \"::\", c.operation.name()};"
+            << mod(+1)  <<              "c.operation.target.identity, c.operation.target.facet, c.operation.name()};"
             << mod(-2)  <<      "return res;"
             << mod(-1)  <<  "} else {"
             << mod(+1)  <<      "throw ::wire::errors::no_operation{"
-            << mod(+1)  <<          "wire_static_type_id(), \"::\", c.operation.name()};"
+            << mod(+1)  <<          "c.operation.target.identity, c.operation.target.facet, c.operation.name()};"
             << mod(-2)  <<  "}"
             << mod(-1) << "}\n";
 }
