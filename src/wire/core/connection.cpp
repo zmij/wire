@@ -164,8 +164,8 @@ connection_implementation::request_error(request_number r_no,
     pending_replies_type::const_accessor acc;
     if (pending_replies_.find(acc, r_no)) {
         #if DEBUG_OUTPUT >= 5
-                ::std::cerr << "Request timed out\n";
-                #endif
+        ::std::cerr << "Request timed out\n";
+        #endif
         if (acc->second.error) {
             auto err_handler = acc->second.error;
             io_service_->post(
@@ -328,9 +328,9 @@ void
 connection_implementation::start_read()
 {
     if (!is_terminated()) {
-    incoming_buffer_ptr buffer = ::std::make_shared< incoming_buffer >();
-    read_async(buffer);
-}
+        incoming_buffer_ptr buffer = ::std::make_shared< incoming_buffer >();
+        read_async(buffer);
+    }
 }
 
 void
@@ -456,16 +456,23 @@ connection_implementation::invoke(identity const& id, ::std::string const& op,
     encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(
             get_connector(),
             encoding::message::request);
+    // TODO Send facet
     request r{
         ++request_no_,
         encoding::operation_specs{ id, "", op },
         request::normal
     };
+    if (ctx.empty())
+        r.mode = static_cast<request::request_mode>(r.mode | request::no_context);
+
     #if DEBUG_OUTPUT >= 5
     ::std::cerr << "Invoke request " << id << "::"
             << op << " #" << r.number << "\n";
     #endif
+
     write(::std::back_inserter(*out), r);
+    if (!ctx.empty())
+        write(::std::back_inserter(*out), ctx);
     params.close_all_encaps();
     out->insert_encapsulation(::std::move(params));
     functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
@@ -723,7 +730,15 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
 
             auto disp = adp->find_object(req.operation.identity);
             if (disp) {
-                // TODO Read context
+                current curr {
+                    req.operation,
+                    {},
+                    remote_endpoint()
+                };
+                if (!(req.mode && request::no_context)) {
+                    read(b, e, curr.context);
+                }
+
                 incoming::encaps_guard encaps{ buffer->begin_encapsulation(b) };
                 auto const& en = encaps.encaps();
                 auto _this = shared_from_this();
@@ -769,11 +784,6 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                         fpg->responded();
                     }
                 };
-                current curr {
-                    req.operation,
-                    /* FIXME add context */
-                    /* FIXME add endpoint */
-                };
                 disp->__dispatch(r, curr);
                 return;
             } else {
@@ -797,41 +807,41 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
 connection::connection(client_side const&, adapter_ptr adp, transport_type tt,
         close_callback on_close)
     : pimpl_{}
-    {
+{
     create_client_connection(adp, tt, on_close);
-    }
+}
 
 connection::connection(client_side const&, adapter_ptr adp, endpoint const& ep,
-            functional::void_callback       on_connect,
-            functional::exception_callback  on_error,
-            close_callback                  on_close)
+        functional::void_callback on_connect,
+        functional::exception_callback on_error,
+        close_callback on_close)
     : pimpl_{}
-    {
+{
     create_client_connection(adp, ep.transport(), on_close);
     connect_async(ep, on_connect, on_error);
-        }
+}
 
 connection::connection(server_side const&, adapter_ptr adp, endpoint const& ep)
     : pimpl_{}
-    {
+{
     pimpl_ = detail::connection_implementation::create_listen_connection(
         adp, ep.transport(),
-            [](){
+        [](){
             #if DEBUG_OUTPUT >= 1
-                ::std::cerr << "Server connection on close\n";
-                #endif
-            });
+            ::std::cerr << "Server connection on close\n";
+            #endif
+        });
     pimpl_->listen(ep);
-    }
+}
 
 connection::~connection()
-    {
+{
     #if DEBUG_OUTPUT >= 1
     ::std::cerr << "Destroy connection façade\n";
     #endif
-    }
+}
 
-    void
+void
 connection::create_client_connection(adapter_ptr adp, transport_type tt,
         close_callback on_close)
 {
@@ -840,7 +850,7 @@ connection::create_client_connection(adapter_ptr adp, transport_type tt,
             [this, on_close](){
                 #if DEBUG_OUTPUT >= 1
                 ::std::cerr << "Client connection on close\n";
-    #endif
+                #endif
                 if (on_close)
                     on_close(this);
             });

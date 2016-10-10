@@ -52,6 +52,9 @@ struct locator_service::impl {
             ((name_ + ".registry.endpoints").c_str(),
                 po::value<core::endpoint_list>(&opts.registry_endpoints),
                 "Endpoints for locator registry object adapter")
+            ((name_ + ".well-known-object").c_str(),
+                po::value<locator_options::reference_list>(&opts.well_known_objects),
+                "Predefined well-known objects")
             ((name_ + ".print-proxy").c_str(),
                 po::bool_switch(&opts.print_proxy),
                 "Print locator proxy to ::std::cout")
@@ -77,6 +80,11 @@ struct locator_service::impl {
         auto reg_prx = core::unchecked_cast< core::locator_registry_proxy >(prx);
         auto loc = ::std::make_shared<locator>(reg_prx);
         auto reg = ::std::make_shared<locator_registry>(loc);
+
+        for (auto const& ref : opts.well_known_objects) {
+            prx = cnctr->make_proxy(ref);
+            loc->add_well_known_object(prx);
+        }
 
         prx = locator_adapter_->add_object(opts.locator_id, loc);
         registry_adapter_->add_object(opts.registry_id, reg);

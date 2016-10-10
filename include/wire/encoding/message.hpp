@@ -258,11 +258,16 @@ wire_read(InputIterator& begin, InputIterator end, operation_specs& v)
 
 
 struct request {
+    using request_number    = ::std::uint64_t;
     enum request_mode {
-        normal
+        normal      = 1,
+        one_way     = 2,
+        no_context  = 0x10,
+        no_body     = 0x20
+        // TODO Multiple recipients
     };
-    uint32_t            number;
-    operation_specs        operation;
+    request_number      number;
+    operation_specs     operation;
     request_mode        mode;
 
     void
@@ -304,6 +309,7 @@ wire_read(InputIterator& begin, InputIterator end, request& v)
 }
 
 struct reply {
+    using request_number    = request::request_number;
     enum reply_status {
         success,
         success_no_body,
@@ -315,7 +321,7 @@ struct reply {
         unknown_user_exception,
         unknown_exception
     };
-    uint32_t        number;
+    request_number  number;
     reply_status    status;
 
     void

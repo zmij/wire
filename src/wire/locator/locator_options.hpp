@@ -15,6 +15,7 @@ namespace wire {
 namespace svc {
 
 struct locator_options {
+    using reference_list                = ::std::vector<core::reference_data>;
     //@{
     /** @name Locator object options */
     /**
@@ -46,6 +47,10 @@ struct locator_options {
      * is the same with locator adapter.
      */
     core::endpoint_list registry_endpoints;
+    //@}
+    //{@
+    /** @name Well-known objects */
+    reference_list      well_known_objects;
     //@}
     bool                print_proxy = false;
 };
