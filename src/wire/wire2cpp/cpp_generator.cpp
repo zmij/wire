@@ -41,6 +41,7 @@ wire_type_map const wire_to_cpp = {
     { "double",     { "double",                 {}                                          } },
     { "string",     { "::std::string",          {"<string>"}                                } },
     { "uuid",       { "::boost::uuids::uuid",   {"<boost/uuid/uuid.hpp>",
+                                                "<boost/uuid/uuid_io.hpp>",
                                                 "<wire/encoding/detail/uuid_io.hpp>"}       } },
 
     { "variant",    { "::boost::variant",       {"<boost/variant.hpp>",
@@ -1230,6 +1231,7 @@ generator::generate_exception(ast::exception_ptr exc)
                 header_.modify_offset(-1);
             }
         }
+        header_ << off  << "virtual ~" << cpp_name(exc) << "() = default;";
 
         if (!data_members.empty()) {
             header_ << off(-1) << "public:";
@@ -1345,6 +1347,7 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
 
         header_ << " {}\n";
         header_.modify_offset(-1);
+        header_ << off  << "virtual ~" << cpp_name(iface) << "() = default;";
     }
 
     auto qn_str = generate_type_id_funcs(iface);
@@ -1405,6 +1408,7 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
                     << " _ref)"
                 << off(+2) << ": " << base_proxy << "{_ref} {}";
         ;
+        header_ << off  << "virtual ~" << cpp_name(iface) << "_proxy() = default;";
     }
     {
         offset_guard hdr{header_};
@@ -1561,7 +1565,7 @@ generator::generate_class(ast::class_ptr class_)
         }
         {
             // Destuctor
-            header_ << off    << "virtual ~" << cpp_name(class_) << "() {}";
+            header_ << off    << "virtual ~" << cpp_name(class_) << "() = default;";
         }
         qn_str = generate_type_id_funcs(class_);
         {

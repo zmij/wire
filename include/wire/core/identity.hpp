@@ -27,6 +27,12 @@ struct identity {
     using uuid_type = ::boost::uuids::uuid;
     using id_type   = ::boost::variant< ::std::string, uuid_type, detail::wildcard >;
 
+    enum class types {
+        string,
+        uuid,
+        wildcard
+    };
+
     ::std::string  category;
     id_type        id;
 
@@ -64,7 +70,13 @@ struct identity {
 
     bool
     is_wildcard() const
-    { return id.which() == 2; }
+    { return which() == types::wildcard; }
+
+    types
+    which() const
+    {
+        return static_cast<types>(id.which());
+    }
 
     static ::boost::uuids::random_generator&
     uuid_gen()
