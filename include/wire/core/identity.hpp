@@ -78,6 +78,13 @@ struct identity {
         return static_cast<types>(id.which());
     }
 
+    template < typename T >
+    T
+    get_id() const
+    {
+        return ::boost::get<T>(id);
+    }
+
     static ::boost::uuids::random_generator&
     uuid_gen()
     {

@@ -27,10 +27,14 @@ struct locator::impl {
     core::object_prx
     find_object(core::identity const& id)
     {
+        #if DEBUG_OUTPUT >= 1
+        ::std::cerr << "Locator lookup well-known object " << id << "\n";
+        #endif
         proxy_map::const_accessor f;
         if (objects_.find(f, id)) {
             return f->second;
         }
+        ::std::cerr << "Locator well-known object " << id << " not found\n";
         throw core::object_not_found{id};
     }
 
@@ -46,6 +50,9 @@ struct locator::impl {
             #endif
             throw core::not_enough_data{};
         }
+        #if DEBUG_OUTPUT >= 1
+        ::std::cerr << "Locator add well-known object " << *obj << "\n";
+        #endif
         auto id = ref.object_id;
         proxy_map::accessor f;
         if (!objects_.find(f, id)) {

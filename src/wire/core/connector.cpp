@@ -280,7 +280,12 @@ struct connector::impl {
     detail::adapter_options
     configure_adapter(identity const& id, endpoint_list const& eps = endpoint_list{})
     {
-        auto name = ::boost::lexical_cast< ::std::string >( id );
+        ::std::string name;
+        if (id.category.empty()) {
+            name = ::boost::lexical_cast< ::std::string >( id );
+        } else {
+            name = id.category;
+        }
         detail::adapter_options aopts;
 
         po::options_description adapter_opts(name + " Adapter Options");
