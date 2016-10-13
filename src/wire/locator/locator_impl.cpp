@@ -77,6 +77,21 @@ struct locator::impl {
         }
     }
 
+    void
+    remove_well_known_object(core::object_prx obj)
+    {
+        if (obj) {
+            auto const& id = obj->wire_identity();
+            #if DEBUG_OUTPUT >= 1
+            ::std::cerr << "Locator remove well-known object " << id << "\n";
+            #endif
+            proxy_map::accessor f;
+            if (objects_.find(f, id)) {
+                objects_.erase(f);
+            }
+        }
+    }
+
     core::object_prx
     find_adapter(core::identity const& id)
     {
@@ -242,6 +257,12 @@ locator::add_well_known_object(core::object_prx obj)
 }
 
 void
+locator::remove_well_known_object(core::object_prx obj)
+{
+    pimpl_->remove_well_known_object(obj);
+}
+
+void
 locator::add_adapter(core::object_prx adapter)
 {
     pimpl_->add_adapter(adapter);
@@ -275,6 +296,20 @@ locator_registry::add_well_known_object(::wire::core::object_prx obj,
 {
     try {
         loc_->add_well_known_object(obj);
+        __resp();
+    } catch (...) {
+        __exception(::std::current_exception());
+    }
+}
+
+void
+locator_registry::remove_well_known_object(::wire::core::object_prx obj,
+        ::wire::core::functional::void_callback __resp,
+        ::wire::core::functional::exception_callback __exception,
+        ::wire::core::current const&)
+{
+    try {
+        loc_->remove_well_known_object(obj);
         __resp();
     } catch (...) {
         __exception(::std::current_exception());
