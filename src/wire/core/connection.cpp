@@ -703,7 +703,7 @@ connection_implementation::send_unknown_exception(uint32_t req_num)
 
     {
         outgoing::encaps_guard guard{ out->begin_encapsulation() };
-        errors::unexpected ue {};
+        errors::unexpected ue {"Unknown type", "Unexpected exception not deriving from std::exception"};
         ue.__wire_write(o);
     }
     process_event(events::send_reply{out});
