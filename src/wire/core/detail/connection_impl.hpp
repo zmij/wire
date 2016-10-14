@@ -471,7 +471,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         bool
         operator < (reply_expiration const& rhs) const
         {
-            return expires < rhs.expires;
+            return expires > rhs.expires;
         }
     };
 
