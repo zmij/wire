@@ -78,6 +78,12 @@ struct invocation_options {
         return any(flags & invocation_flags::sync);
     }
 
+    bool
+    is_one_way() const
+    {
+        return any(flags & invocation_flags::one_way);
+    }
+
     invocation_options
     with_timeout(timeout_type t) const
     {

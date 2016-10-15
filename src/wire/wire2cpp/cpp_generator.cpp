@@ -59,8 +59,9 @@ wire_type_map const wire_to_cpp = {
 
 namespace {
 
-ast::qname const root_interface         {"::wire::core::object"};
-ast::qname const root_exception         {"::wire::errors::user_exception"};
+ast::qname const root_interface         { "::wire::core::object" };
+ast::qname const root_exception         { "::wire::errors::user_exception" };
+ast::qname const connection_failed      { "::wire::errors::connection_failed" };
 
 ast::qname const hash_value_type_name   { "::wire::hash_value_type" };
 ast::qname const input_iterator_name    { "::wire::encoding::incoming::const_iterator" };
@@ -81,8 +82,8 @@ ast::qname const wire_current           { "::wire::core::current" };
 ast::qname const wire_no_current        { "::wire::core::no_current" };
 ast::qname const wire_context           { "::wire::core::context_type" };
 ast::qname const wire_no_context        { "::wire::core::no_context" };
-ast::qname const invocation_opts        {"::wire::core::invocation_options"};
-ast::qname const invocation_flags       {"::wire::core::invocation_flags"};
+ast::qname const invocation_opts        { "::wire::core::invocation_options" };
+ast::qname const invocation_flags       { "::wire::core::invocation_flags" };
 
 ast::qname const wire_seg_head          { "::wire::encoding::segment_header" };
 ast::qname const wire_seg_head_no_flags { "::wire::encoding::segment_header::none" };
@@ -468,8 +469,33 @@ generator::generate_invocation_function_member(ast::function_ptr func)
             <<                      " > >().get_future() )"
             << off      << "{"
             << mod(+1)  <<      "auto promise = ::std::make_shared< _Promise <"
-                    << mapped_type{func->get_return_type(), func->get_annotations()} << "> >();\n"
-            << off      <<      cpp_name(func) << "_async(";
+                    << mapped_type{func->get_return_type(), func->get_annotations()} << "> >();\n";
+
+    if (func->is_void()) {
+        // Allow one-way invocation
+        header_ << off      << "if (_opts.is_one_way()) {"
+                << mod(+1)  <<    cpp_name(func) << "_async(";
+        header_.modify_offset(+1);
+        for (auto const& p : params) {
+            header_ << off <<           p.second << ",";
+        }
+        header_ << off      <<           "nullptr,"
+                << off      <<           "[promise]( ::std::exception_ptr ex )"
+                << off      <<           "{ promise->set_exception(::std::move(ex)); },"
+                << off      <<           "[promise](bool sent)"
+                << off      <<            "{"
+                << mod(+1)  <<                "if(sent) {"
+                << off(+1)  <<                    "promise->set_value();"
+                << off      <<                "} else {"
+                << off(+1)  <<                    "promise->set_exception("
+                << off(+2)  <<                         "::std::make_exception_ptr(" << connection_failed << "{}));"
+                << off      <<                "}"
+                << mod(-1)  <<            "}, _ctx, _opts);";
+
+        header_ << mod(-2)  << "} else {";
+        header_.modify_offset(+1);
+    }
+    header_ << off      <<      cpp_name(func) << "_async(";
 
     header_.modify_offset(+1);
     for (auto const& p : params) {
@@ -485,8 +511,13 @@ generator::generate_invocation_function_member(ast::function_ptr func)
     header_ << off     <<           "[promise]( ::std::exception_ptr ex )"
             << off     <<           "{ promise->set_exception(::std::move(ex)); },"
             << off     <<           "nullptr, _ctx, _opts"
-            << mod(-1) <<       ");\n"
-            << off     <<       "return promise->get_future();"
+            << mod(-1) <<       ");\n";
+
+    if (func->is_void()) {
+        header_ << mod(-1) << "}\n";
+    }
+
+    header_ << off     <<       "return promise->get_future();"
             << mod(-1) << "}\n";
 
     {
@@ -1386,7 +1417,7 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
             << off      << " *    Proxy interface for " << abs_name << qname(iface)
             << off      << " */"
             << off      << "class " << cpp_name(iface) << "_proxy : "
-            << off(+1)  <<      "public virtual ::wire::core::proxy< " << cpp_name(iface);
+            << off(+1)  <<      "public virtual ::wire::core::proxy< " << cpp_name(iface) << "_proxy";
 
 
     auto const& ancestors = iface->get_ancestors();

@@ -171,7 +171,7 @@ object_proxy::wire_well_known_proxy() const
     auto const& ref = ref_->data();
     return ::std::make_shared< object_proxy >(
             reference::create_reference(wire_get_connector(),
-                    { ref.object_id, ref.facet }));
+                    { ref.object_id, ref.facet }), opts_);
 }
 
 object_prx
@@ -180,7 +180,7 @@ object_proxy::wire_with_identity(identity const& id) const
     auto const& ref = ref_->data();
     return ::std::make_shared< object_proxy >(
             reference::create_reference(wire_get_connector(),
-                    { id, ref.facet, ref.adapter, ref.endpoints}));
+                    { id, ref.facet, ref.adapter, ref.endpoints}), opts_);
 }
 
 object_prx
@@ -189,7 +189,20 @@ object_proxy::wire_with_endpoints(endpoint_list const& eps) const
     auto const& ref = ref_->data();
     return ::std::make_shared< object_proxy >(
             reference::create_reference(wire_get_connector(),
-                    { ref.object_id, ref.facet, ref.adapter, eps}));
+                    { ref.object_id, ref.facet, ref.adapter, eps}), opts_);
+}
+
+object_prx
+object_proxy::wire_one_way() const
+{
+    return ::std::make_shared< object_proxy >(ref_,
+            opts_ | invocation_flags::one_way);
+}
+
+object_prx
+object_proxy::wire_timeout(invocation_options::timeout_type t) const
+{
+    return ::std::make_shared< object_proxy >( ref_, opts_.with_timeout(t));
 }
 
 ::std::ostream&

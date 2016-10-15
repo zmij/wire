@@ -138,17 +138,37 @@ public:
     {
         auto promise = ::std::make_shared< _Promise<void> >();
 
-        wire_ping_async(
-            [promise]()
-            {
-                promise->set_value();
-            },
-            [promise](::std::exception_ptr ex)
-            {
-                promise->set_exception(::std::move(ex));
-            },
-            nullptr, ctx, opts
-        );
+        if (opts.is_one_way()) {
+            wire_ping_async(
+                nullptr,
+                [promise](::std::exception_ptr ex)
+                {
+                    promise->set_exception(::std::move(ex));
+                },
+                [promise](bool sent)
+                {
+                    if (sent) {
+                        promise->set_value();
+                    } else {
+                        promise->set_exception(
+                            ::std::make_exception_ptr(errors::connection_failed{}));
+                    }
+                },
+                ctx, opts
+            );
+        } else {
+            wire_ping_async(
+                [promise]()
+                {
+                    promise->set_value();
+                },
+                [promise](::std::exception_ptr ex)
+                {
+                    promise->set_exception(::std::move(ex));
+                },
+                nullptr, ctx, opts
+            );
+        }
 
         return promise->get_future();
     }
@@ -229,8 +249,16 @@ public:
     wire_with_identity(identity const& id) const;
     object_prx
     wire_with_endpoints(endpoint_list const& eps) const;
+    object_prx
+    wire_one_way() const;
+    object_prx
+    wire_timeout(invocation_options::timeout_type t) const;
 protected:
     object_proxy() {}
+
+    reference_ptr
+    _internal_reference() const
+    { return ref_; }
 private:
     reference_ptr       ref_;
     invocation_options  opts_;
@@ -248,10 +276,37 @@ public:
     using proxy_ptr_type    = ::std::shared_ptr<proxy_type>;
 public:
     proxy_ptr_type
+    wire_well_known_proxy() const
+    {
+        auto const& ref = this->wire_get_reference()->data();
+        return ::std::make_shared< proxy_type >(
+            reference::create_reference(this->wire_get_connector(),
+                    { ref.object_id, ref.facet }),
+                    this->wire_invocation_options());
+    }
+    proxy_ptr_type
+    wire_with_identity(identity const& id) const
+    {
+        auto const& ref = this->wire_get_reference()->data();
+        return ::std::make_shared< proxy_type >(
+            reference::create_reference(this->wire_get_connector(),
+                    { id, ref.facet, ref.adapter, ref.endpoints }),
+                    this->wire_invocation_options());
+    }
+    proxy_ptr_type
+    wire_with_endpoints(endpoint_list const& eps) const
+    {
+        auto const& ref = this->wire_get_reference()->data();
+        return ::std::make_shared< proxy_type >(
+            reference::create_reference(this->wire_get_connector(),
+                    { ref.object_id, ref.facet, ref.adapter, eps}),
+                    this->wire_invocation_options());
+    }
+    proxy_ptr_type
     wire_one_way() const
     {
         return ::std::make_shared< proxy_type >(
-            this->wire_get_reference(),
+            this->_internal_reference(),
             this->wire_invocation_options() | invocation_flags::one_way);
     }
 
@@ -259,7 +314,7 @@ public:
     wire_timeout(invocation_options::timeout_type t) const
     {
         return ::std::make_shared< proxy_type >(
-            this->wire_get_reference(),
+            this->_internal_reference(),
             this->wire_invocation_options().with_timeout(t));
     }
 };

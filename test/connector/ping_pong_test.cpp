@@ -110,6 +110,21 @@ TEST_F(PingPong, WireFunctions)
     EXPECT_EQ(2, wire_types.size());
 }
 
+TEST_F(PingPong, OneWayPing)
+{
+    ASSERT_NE(0, child_.pid);
+    ASSERT_TRUE(connector_.get());
+    ASSERT_TRUE(prx_.get());
+
+    auto pp_prx = core::checked_cast< ::test::ping_pong_proxy >(prx_);
+    ASSERT_TRUE(pp_prx.get());
+
+    auto one_way_prx = pp_prx->wire_one_way();
+    EXPECT_TRUE(one_way_prx.get());
+    EXPECT_NO_THROW(one_way_prx->wire_ping());
+    EXPECT_THROW(one_way_prx->wire_type(), errors::invalid_one_way_invocation);
+}
+
 TEST_F(PingPong, SyncRoundtrip)
 {
     ASSERT_NE(0, child_.pid);

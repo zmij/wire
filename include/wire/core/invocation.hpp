@@ -331,12 +331,18 @@ struct remote_invocation< Handler,
     typename ::std::enable_if< (::psst::meta::function_traits< ReplyHandler >::arity > 0),
         encoding::reply_callback >::type
     make_callback(ReplyHandler response, exception_handler exception,
-            ::std::false_type const&) const
+            invocation_options const& opts, ::std::false_type const&) const
     {
         using encoding::incoming;
         using reply_traits = ::psst::meta::function_traits<ReplyHandler>;
         using reply_tuple  = typename reply_traits::decayed_args_tuple_type;
-        if (response)
+        if (response) {
+            if (opts.is_one_way()) {
+                ::std::ostringstream os;
+                os << "Cannot invoke a non-void function "
+                    << data->op << " on a one-way proxy";
+                throw errors::invalid_one_way_invocation{os.str()};
+            }
             return [response, exception](incoming::const_iterator begin, incoming::const_iterator end) {
                 try {
                     auto encaps = begin.incoming_encapsulation();
@@ -352,6 +358,7 @@ struct remote_invocation< Handler,
                     }
                 }
             };
+        }
         return [](incoming::const_iterator, incoming::const_iterator) {};
     }
 
@@ -364,10 +371,10 @@ struct remote_invocation< Handler,
      */
     encoding::reply_callback
     make_callback(response_hanlder response, exception_handler exception,
-            ::std::true_type const&) const
+            invocation_options const& opts, ::std::true_type const&) const
     {
         using encoding::incoming;
-        if (response)
+        if (response && !opts.is_one_way())
             return [response, exception](incoming::const_iterator, incoming::const_iterator) {
                 try {
                     response();
@@ -385,10 +392,9 @@ struct remote_invocation< Handler,
     void
     operator()(invocation_options const& opts) const
     {
-        auto reply = make_callback(data->response, data->exception, is_void{});
+        auto reply = make_callback(data->response, data->exception, opts, is_void{});
         if (opts.is_sync()) {
             try {
-                // TODO Invocation options
                 ref->get_connection()->invoke(data->target, data->op, data->ctx, opts,
                         ::std::move(data->out), reply, data->exception, data->sent);
             } catch (...) {
