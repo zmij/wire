@@ -16,9 +16,9 @@ namespace wire {
 namespace core {
 
 struct current {
-	encoding::operation_specs	operation;
-	context_type				context;
-	endpoint					peer_endpoint;
+    encoding::operation_specs   operation;
+    context_const_ptr           context;
+    endpoint                    peer_endpoint;
 };
 
 extern const current no_current;

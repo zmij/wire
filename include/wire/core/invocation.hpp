@@ -143,8 +143,8 @@ struct local_invocation< Handler, Member,
             return;
         }
         servant_ptr srv = ::std::dynamic_pointer_cast< interface_type >(obj);
-
-        current curr{{ref->object_id(), ref->facet(), op}, ctx};
+        auto ctx_ptr = ::std::make_shared<context_type>(ctx);
+        current curr{{{ref->object_id(), ref->facet()}, op}, ctx_ptr};
         if (!srv) {
             dispatch(obj, curr, run_sync);
         } else {
@@ -299,21 +299,21 @@ struct remote_invocation< Handler,
     using sent_handler      = functional::callback< bool >;
 
     struct invocation_data {
-        identity            id;
-        ::std::string       op;
-        context_type        ctx;
-        encoding::outgoing  out;
+        encoding::invocation_target target;
+        ::std::string               op;
+        context_type                ctx;
+        encoding::outgoing          out;
 
-        response_hanlder    response;
-        exception_handler   exception;
-        sent_handler        sent;
+        response_hanlder            response;
+        exception_handler           exception;
+        sent_handler                sent;
     };
 
     remote_invocation( reference_const_ptr r, ::std::string const& o,
             context_type const& c, invocation_args&& args,
             response_hanlder resp, exception_handler exc, sent_handler snt)
         : ref(r),
-          data{ new invocation_data{ ref->object_id(), o, c,
+          data{ new invocation_data{ {ref->object_id(), ref->facet()}, o, c,
               encoding::outgoing{ ref->get_connector() }, resp, exc, snt } }
     {
         encoding::write(::std::back_inserter(data->out),
@@ -388,7 +388,7 @@ struct remote_invocation< Handler,
         auto reply = make_callback(data->response, data->exception, is_void{});
         if (run_sync) {
             try {
-                ref->get_connection()->invoke(data->id, data->op, data->ctx, true,
+                ref->get_connection()->invoke(data->target, data->op, data->ctx, true,
                         ::std::move(data->out), reply, data->exception, data->sent);
             } catch (...) {
                 if (data->exception)
@@ -398,7 +398,7 @@ struct remote_invocation< Handler,
             auto d = data;
             ref->get_connection_async(
             [d, reply](connection_ptr conn) {
-                conn->invoke(d->id, d->op, d->ctx, false,
+                conn->invoke(d->target, d->op, d->ctx, false,
                     ::std::move(d->out), reply, d->exception, d->sent);
             },
             [d](::std::exception_ptr ex) {

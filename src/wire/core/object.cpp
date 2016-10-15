@@ -110,11 +110,11 @@ object::__wire_dispatch(detail::dispatch_request const& req, current const& c,
         }
         if (throw_not_found)
             throw errors::no_operation(
-                    c.operation.identity, c.operation.facet, c.operation.name());
+                    c.operation.target.identity, c.operation.target.facet, c.operation.name());
         return false;
     } else {
         throw errors::no_operation(
-                c.operation.identity, c.operation.facet, c.operation.name());
+                c.operation.target.identity, c.operation.target.facet, c.operation.name());
     }
 }
 

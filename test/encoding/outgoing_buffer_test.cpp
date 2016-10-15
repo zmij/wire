@@ -198,7 +198,7 @@ TEST(OutgoingBuffer, NestedEncapsulation)
 TEST(OutgoingBuffer, MessageHeaders)
 {
     outgoing out{ core::connector_ptr{}, message::request};
-    request req{ 0, operation_specs{  core::identity::random(), "", "pewpew" },
+    request req{ 0, operation_specs{ {core::identity::random(), ""}, "pewpew" },
             request::normal };
     EXPECT_NO_THROW(write(std::back_inserter(out), req));
     EXPECT_LT(0, out.size());

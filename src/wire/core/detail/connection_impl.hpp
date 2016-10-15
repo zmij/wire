@@ -458,7 +458,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     using clock_type            = ::std::chrono::system_clock;
     using time_point            = ::std::chrono::time_point< clock_type >;
     using expire_duration       = ::std::chrono::duration< ::std::int64_t, ::std::milli >;
-    using request_number        = ::std::uint32_t;
+    using request_number        = encoding::request::request_number;
 
     struct pending_reply {
         encoding::reply_callback        reply;
@@ -471,7 +471,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         bool
         operator < (reply_expiration const& rhs) const
         {
-            return expires < rhs.expires;
+            return expires > rhs.expires;
         }
     };
 
@@ -615,7 +615,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     send_unknown_exception(uint32_t req_num);
 
     void
-    invoke(identity const&, ::std::string const& op, context_type const& ctx,
+    invoke(encoding::invocation_target const&, ::std::string const& op, context_type const& ctx,
             bool run_sync,
             encoding::outgoing&&,
             encoding::reply_callback reply,
@@ -676,7 +676,7 @@ protected:
     asio_config::io_service_ptr     io_service_;
     asio_config::system_timer       connection_timer_;
 
-    ::std::atomic<::std::uint32_t>  request_no_;
+    ::std::atomic<request_number>   request_no_;
     asio_config::system_timer       request_timer_;
     pending_replies_type            pending_replies_;
     pending_replies_expire_queue    expiration_queue_;

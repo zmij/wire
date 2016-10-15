@@ -20,15 +20,15 @@ adapter_admin_impl::adapter_admin_impl(connector_ptr conn)
 identity
 adapter_admin_impl::get_id(current const& curr) const
 {
-    if (get_adapter(curr.operation.identity))
-        return curr.operation.identity;
+    if (get_adapter(curr.operation.target.identity))
+        return curr.operation.target.identity;
     throw no_adapter{};
 }
 
 object_prx
 adapter_admin_impl::get_adapter_proxy(current const& curr) const
 {
-    if (auto ada = get_adapter(curr.operation.identity))
+    if (auto ada = get_adapter(curr.operation.target.identity))
         return ada->adapter_proxy();
     throw no_adapter{};
 }
@@ -36,7 +36,7 @@ adapter_admin_impl::get_adapter_proxy(current const& curr) const
 adapter_state
 adapter_admin_impl::get_state(current const& curr) const
 {
-    if (auto ada = get_adapter(curr.operation.identity))
+    if (auto ada = get_adapter(curr.operation.target.identity))
         return ada->is_active() ? adapter_state::active : adapter_state::inactive;
     throw no_adapter{};
 }
@@ -46,7 +46,7 @@ adapter_admin_impl::activate(functional::void_callback __resp,
         functional::exception_callback __exception,
         current const& curr)
 {
-    if (auto ada = get_adapter(curr.operation.identity)) {
+    if (auto ada = get_adapter(curr.operation.target.identity)) {
         if (!ada->is_active()) {
             try {
                 ada->activate();
@@ -67,7 +67,7 @@ adapter_admin_impl::deactivate(functional::void_callback __resp,
         functional::exception_callback __exception,
         current const& curr)
 {
-    if (auto ada = get_adapter(curr.operation.identity)) {
+    if (auto ada = get_adapter(curr.operation.target.identity)) {
         if (ada->is_active()) {
             try {
                 ada->deactivate();

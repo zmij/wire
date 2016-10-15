@@ -41,6 +41,8 @@ public:
     void
     add_well_known_object(::wire::core::object_prx object);
     void
+    remove_well_known_object(::wire::core::object_prx object);
+    void
     add_adapter(::wire::core::object_prx adapter);
     void
     add_replicated_adapter(::wire::core::object_prx adapter);
@@ -63,6 +65,12 @@ public:
     /** @name Wire interface implementation */
     void
     add_well_known_object(::wire::core::object_prx obj,
+            ::wire::core::functional::void_callback __resp,
+            ::wire::core::functional::exception_callback __exception,
+            ::wire::core::current const& = ::wire::core::no_current) override;
+
+    void
+    remove_well_known_object(::wire::core::object_prx obj,
             ::wire::core::functional::void_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) override;

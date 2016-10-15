@@ -234,7 +234,7 @@ TEST_F(Client, DISABLED_TCPSendRequest)
     c.connect_async(endpoint_,
     [&](){
         tests[0] = true;
-        c.invoke(identity::random("test"), std::string("ping_pong"), context_type{},
+        c.invoke({identity::random("test"), ""}, std::string("ping_pong"), context_type{},
         false,
         [&](std::string const& str, bool flag, uint32_t i) {
             std::cerr << "Response received\n";
