@@ -84,11 +84,11 @@ struct publisher::impl {
     {
         // Search for publisher id
         bus_subscribers::const_accessor f;
-        if (!subscribers_.find(f, curr.operation.identity)) {
+        if (!subscribers_.find(f, curr.operation.target.identity)) {
             // If none - throw no_object
             throw errors::no_object{
-                curr.operation.identity,
-                curr.operation.facet,
+                curr.operation.target.identity,
+                curr.operation.target.facet,
                 "wire_ping"
             };
         }
@@ -99,7 +99,7 @@ struct publisher::impl {
         core::current const& curr) const
     {
         bus_subscribers::const_accessor f;
-        if (subscribers_.find(f, curr.operation.identity)) {
+        if (subscribers_.find(f, curr.operation.target.identity)) {
             // Send response to invoker
             disp.result(encoding::outgoing{disp.buffer->get_connector()});
             f->second->dispatch(disp, curr);
@@ -108,8 +108,8 @@ struct publisher::impl {
             os << curr.operation.operation;
             disp.exception( ::std::make_exception_ptr(
                 errors::no_object{
-                    curr.operation.identity,
-                    curr.operation.facet,
+                    curr.operation.target.identity,
+                    curr.operation.target.facet,
                     os.str()
                 }));
         }
@@ -151,8 +151,8 @@ struct publisher::impl {
             f->second->add_subscriber(obj);
         } else {
             throw errors::no_object{
-                curr.operation.identity,
-                curr.operation.facet,
+                curr.operation.target.identity,
+                curr.operation.target.facet,
                 "subscribe"
             };
         }
@@ -167,8 +167,8 @@ struct publisher::impl {
             f->second->remove_subscriber(obj);
         } else {
             throw errors::no_object{
-                curr.operation.identity,
-                curr.operation.facet,
+                curr.operation.target.identity,
+                curr.operation.target.facet,
                 "unsubscribe"
             };
         }
@@ -188,8 +188,8 @@ bool
 publisher::wire_is_a(std::string const&, core::current const& curr) const
 {
     throw errors::no_operation{
-        curr.operation.identity,
-        curr.operation.facet,
+        curr.operation.target.identity,
+        curr.operation.target.facet,
         "wire_is_a"
     };
 }
@@ -204,8 +204,8 @@ publisher::wire_ping(core::current const& curr) const
 publisher::wire_type(core::current const& curr) const
 {
     throw errors::no_operation{
-        curr.operation.identity,
-        curr.operation.facet,
+        curr.operation.target.identity,
+        curr.operation.target.facet,
         "wire_type"
     };
 }
@@ -214,8 +214,8 @@ core::object::type_list const&
 publisher::wire_types(core::current const& curr) const
 {
     throw errors::no_operation{
-        curr.operation.identity,
-        curr.operation.facet,
+        curr.operation.target.identity,
+        curr.operation.target.facet,
         "wire_type"
     };
 }

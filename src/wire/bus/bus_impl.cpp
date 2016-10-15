@@ -21,10 +21,10 @@ bus_impl::bus_impl(core::adapter_ptr adapter, publisher_ptr pub)
 bool
 bus_impl::wire_is_a(std::string const& type, core::current const& curr) const
 {
-    if (!publisher_->bus_exists(curr.operation.identity))
+    if (!publisher_->bus_exists(curr.operation.target.identity))
         throw errors::no_object{
-            curr.operation.identity,
-            curr.operation.facet,
+            curr.operation.target.identity,
+            curr.operation.target.facet,
             "wire_is_a"
         };
     return bus::wire_is_a(type, curr);
@@ -33,10 +33,10 @@ bus_impl::wire_is_a(std::string const& type, core::current const& curr) const
 void
 bus_impl::wire_ping(core::current const& curr) const
 {
-    if (!publisher_->bus_exists(curr.operation.identity))
+    if (!publisher_->bus_exists(curr.operation.target.identity))
         throw errors::no_object{
-            curr.operation.identity,
-            curr.operation.facet,
+            curr.operation.target.identity,
+            curr.operation.target.facet,
             "wire_ping"
         };
 }
@@ -44,10 +44,10 @@ bus_impl::wire_ping(core::current const& curr) const
 ::std::string const&
  bus_impl::wire_type(core::current const& curr) const
 {
-    if (!publisher_->bus_exists(curr.operation.identity))
+    if (!publisher_->bus_exists(curr.operation.target.identity))
         throw errors::no_object{
-            curr.operation.identity,
-            curr.operation.facet,
+            curr.operation.target.identity,
+            curr.operation.target.facet,
             "wire_type"
         };
     return bus::wire_type(curr);
@@ -56,10 +56,10 @@ bus_impl::wire_ping(core::current const& curr) const
 core::object::type_list const&
 bus_impl::wire_types(core::current const& curr) const
 {
-    if (!publisher_->bus_exists(curr.operation.identity))
+    if (!publisher_->bus_exists(curr.operation.target.identity))
         throw errors::no_object{
-            curr.operation.identity,
-            curr.operation.facet,
+            curr.operation.target.identity,
+            curr.operation.target.facet,
             "wire_type"
         };
     return bus::wire_types(curr);
@@ -71,13 +71,13 @@ bus_impl::get_publisher(get_publisher_return_callback __resp,
         ::wire::core::current const& curr)
 {
     try {
-        if (publisher_->bus_exists(curr.operation.identity)) {
+        if (publisher_->bus_exists(curr.operation.target.identity)) {
             auto adapter = get_adapter();
-            __resp(adapter->create_direct_proxy(curr.operation.identity));
+            __resp(adapter->create_direct_proxy(curr.operation.target.identity));
         } else {
             throw errors::no_object{
-                curr.operation.identity,
-                curr.operation.facet,
+                curr.operation.target.identity,
+                curr.operation.target.facet,
                 "get_publisher"
             };
         }
@@ -93,7 +93,7 @@ bus_impl::subscribe(::wire::core::object_prx subscriber,
         ::wire::core::current const& curr)
 {
     try {
-        publisher_->add_subscriber( curr.operation.identity, subscriber, curr );
+        publisher_->add_subscriber( curr.operation.target.identity, subscriber, curr );
         __resp();
     } catch (...) {
         __exception(::std::current_exception());
@@ -107,7 +107,7 @@ bus_impl::unsubscribe(::wire::core::object_prx subscriber,
         ::wire::core::current const& curr)
 {
     try {
-        publisher_->remove_subscriber( curr.operation.identity, subscriber, curr );
+        publisher_->remove_subscriber( curr.operation.target.identity, subscriber, curr );
         __resp();
     } catch (...) {
         __exception(::std::current_exception());
