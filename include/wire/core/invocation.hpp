@@ -129,7 +129,7 @@ struct local_invocation< Handler, Member,
     sent_handler            sent;
 
     void
-    operator()(bool run_sync) const
+    operator()(invocation_options const& opts) const
     {
         invocation_sent();
         object_ptr obj = ref->get_local_object();
@@ -146,14 +146,14 @@ struct local_invocation< Handler, Member,
         auto ctx_ptr = ::std::make_shared<context_type>(ctx);
         current curr{{{ref->object_id(), ref->facet()}, op}, ctx_ptr};
         if (!srv) {
-            dispatch(obj, curr, run_sync);
+            dispatch(obj, curr, opts);
         } else {
-            invoke(srv, curr, run_sync, invokation_selector< is_void, is_sync >{});
+            invoke(srv, curr, opts, invokation_selector< is_void, is_sync >{});
         }
     }
 
     void
-    invoke( servant_ptr srv, current const& curr, bool run_sync,
+    invoke( servant_ptr srv, current const& curr, invocation_options const&,
             invocation_mode< invokation_type::void_sync > const& ) const
     {
         try {
@@ -165,7 +165,7 @@ struct local_invocation< Handler, Member,
     }
 
     void
-    invoke( servant_ptr srv, current const& curr, bool run_sync,
+    invoke( servant_ptr srv, current const& curr, invocation_options const&,
             invocation_mode< invokation_type::nonvoid_sync > const& ) const
     {
         try {
@@ -176,7 +176,7 @@ struct local_invocation< Handler, Member,
     }
 
     void
-    invoke( servant_ptr srv, current const& curr, bool run_sync,
+    invoke( servant_ptr srv, current const& curr, invocation_options const&,
             invocation_mode< invokation_type::void_async > const&) const
     {
         try {
@@ -264,7 +264,7 @@ struct local_invocation< Handler, Member,
         };
     }
     void
-    dispatch(object_ptr obj, current const& curr,  bool run_sync) const
+    dispatch(object_ptr obj, current const& curr,  invocation_options const&) const
     {
         using namespace encoding;
         outgoing out{ ref->get_connector() };
@@ -321,7 +321,7 @@ struct remote_invocation< Handler,
     }
 
     /**
-     * Make a connection response callback for a non-void function invokation
+     * Make a connection response callback for a non-void function invocation
      * @param response
      * @param exception
      * @param
@@ -356,7 +356,7 @@ struct remote_invocation< Handler,
     }
 
     /**
-     * Make a connection response callback for a void function invokation
+     * Make a connection response callback for a void function invocation
      * @param response
      * @param exception
      * @param
@@ -383,12 +383,13 @@ struct remote_invocation< Handler,
     }
 
     void
-    operator()(bool run_sync) const
+    operator()(invocation_options const& opts) const
     {
         auto reply = make_callback(data->response, data->exception, is_void{});
-        if (run_sync) {
+        if (opts.is_sync()) {
             try {
-                ref->get_connection()->invoke(data->target, data->op, data->ctx, true,
+                // TODO Invocation options
+                ref->get_connection()->invoke(data->target, data->op, data->ctx, opts,
                         ::std::move(data->out), reply, data->exception, data->sent);
             } catch (...) {
                 if (data->exception)
@@ -397,8 +398,8 @@ struct remote_invocation< Handler,
         } else {
             auto d = data;
             ref->get_connection_async(
-            [d, reply](connection_ptr conn) {
-                conn->invoke(d->target, d->op, d->ctx, false,
+            [d, reply, opts](connection_ptr conn) {
+                conn->invoke(d->target, d->op, d->ctx, opts,
                     ::std::move(d->out), reply, d->exception, d->sent);
             },
             [d](::std::exception_ptr ex) {

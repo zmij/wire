@@ -20,6 +20,9 @@
 namespace wire {
 namespace core {
 
+constexpr invocation_options::timeout_type invocation_options::default_timout;
+const invocation_options invocation_options::unspecified{ invocation_flags::unspecified };
+
 namespace detail {
 
 using tcp_connection_impl           = connection_impl< transport_type::tcp >;
@@ -446,7 +449,7 @@ connection_implementation::dispatch_incoming(encoding::incoming_ptr incoming)
 void
 connection_implementation::invoke(encoding::invocation_target const& target, ::std::string const& op,
         context_type const& ctx,
-        bool run_sync,
+        invocation_options const& opts,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
         functional::exception_callback exception,
@@ -456,7 +459,6 @@ connection_implementation::invoke(encoding::invocation_target const& target, ::s
     encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(
             get_connector(),
             encoding::message::request);
-    // TODO Send facet
     request r{
         ++request_no_,
         encoding::operation_specs{ target, op },
@@ -476,14 +478,14 @@ connection_implementation::invoke(encoding::invocation_target const& target, ::s
     params.close_all_encaps();
     out->insert_encapsulation(::std::move(params));
     functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
-    // TODO Pass timeout in invokation parameters
-    time_point expires = clock_type::now() + expire_duration{5000};
+    // TODO Don't insert pending reply in case of one-way invocation
+    time_point expires = clock_type::now() + expire_duration{opts.timeout};
     pending_replies_.insert(::std::make_pair( r.number,
             pending_reply{ reply, exception } ));
     expiration_queue_.push(reply_expiration{ r.number, expires });
     process_event(events::send_request{ out, write_cb });
 
-    if (run_sync) {
+    if (opts.is_sync()) {
         auto _this = shared_from_this();
         auto r_no = r.number;
         util::run_while(io_service_, [_this, r_no](){
@@ -891,14 +893,14 @@ connection::close()
 void
 connection::invoke(encoding::invocation_target const& target, ::std::string const& op,
         context_type const& ctx,
-        bool run_sync,
+        invocation_options const& opts,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
         functional::exception_callback exception,
         functional::callback< bool > sent)
 {
     assert(pimpl_.get() && "Connection implementation is not set");
-    pimpl_->invoke(target, op, ctx, run_sync, ::std::move(params), reply, exception, sent);
+    pimpl_->invoke(target, op, ctx, opts, ::std::move(params), reply, exception, sent);
 }
 
 endpoint

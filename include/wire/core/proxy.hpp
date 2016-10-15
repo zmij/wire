@@ -30,7 +30,8 @@ namespace core {
 
 class object_proxy : public ::std::enable_shared_from_this< object_proxy > {
 public:
-    object_proxy(reference_ptr ref);
+    explicit
+    object_proxy(reference_ptr ref, invocation_options const& ops = invocation_options{});
 
     virtual ~object_proxy() = default;
 
@@ -56,6 +57,10 @@ public:
     wire_get_reference() const
     { return ref_; }
 
+    invocation_options const&
+    wire_invocation_options() const
+    { return opts_; }
+
     connection_ptr
     wire_get_connection() const;
     connector_ptr
@@ -67,7 +72,7 @@ public:
     {
         static_assert(::std::is_base_of< object_proxy, T >::value,
                 "Can cast only to descendants of object_proxy type");
-        return ::std::make_shared<T>(ref_);
+        return ::std::make_shared<T>(ref_, opts_);
     }
 
     static ::std::string const&
@@ -84,13 +89,14 @@ public:
             functional::exception_callback  exception   = nullptr,
             functional::callback< bool >    sent        = nullptr,
             context_type const&                         = no_context,
-            bool                            run_sync    = false
+            invocation_options              opts        = invocation_options::unspecified
     );
 
     template < template< typename > class _Promise = ::std::promise >
     auto
-    wire_is_a_async(::std::string const& type_id,
-            context_type const& ctx = no_context, bool run_sync = false)
+    wire_is_a_async(::std::string const&    type_id,
+            context_type const&             ctx     = no_context,
+            invocation_options const&       opts    = invocation_options::unspecified  )
         -> decltype(::std::declval<_Promise<bool>>().get_future())
     {
         auto promise = ::std::make_shared< _Promise<bool> >();
@@ -105,7 +111,7 @@ public:
             {
                 promise->set_exception(::std::move(ex));
             },
-            nullptr, ctx, run_sync
+            nullptr, ctx, opts
         );
 
         return promise->get_future();
@@ -120,12 +126,14 @@ public:
             functional::exception_callback  exception   = nullptr,
             functional::callback< bool >    sent        = nullptr,
             context_type const&                         = no_context,
-            bool                            run_sync    = false
+            invocation_options              opts        = invocation_options::unspecified
     );
 
     template< template< typename > class _Promise = ::std::promise >
     auto
-    wire_ping_async(context_type const& ctx = no_context, bool run_sync = false)
+    wire_ping_async(context_type const&     ctx     = no_context,
+            invocation_options const&       opts    = invocation_options::unspecified  )
+
         -> decltype(::std::declval<_Promise<void>>().get_future())
     {
         auto promise = ::std::make_shared< _Promise<void> >();
@@ -139,7 +147,7 @@ public:
             {
                 promise->set_exception(::std::move(ex));
             },
-            nullptr, ctx, run_sync
+            nullptr, ctx, opts
         );
 
         return promise->get_future();
@@ -154,12 +162,13 @@ public:
         functional::exception_callback              exception   = nullptr,
         functional::callback< bool >                sent        = nullptr,
         context_type const&                                     = no_context,
-        bool                                        run_sync    = false
+        invocation_options                          opts        = invocation_options::unspecified
     );
 
     template < template< typename > class _Promise = ::std::promise >
     auto
-    wire_type_async(context_type const& ctx = no_context, bool run_sync = false)
+    wire_type_async(context_type const& ctx = no_context,
+            invocation_options const&       opts    = invocation_options::unspecified  )
         -> decltype(::std::declval<_Promise<::std::string>>().get_future())
     {
         auto promise = ::std::make_shared<_Promise<::std::string>>();
@@ -173,7 +182,7 @@ public:
             {
                 promise->set_exception(::std::move(ex));
             },
-            nullptr, ctx, run_sync
+            nullptr, ctx, opts
         );
 
         return promise->get_future();
@@ -188,12 +197,13 @@ public:
         functional::exception_callback                  exception   = nullptr,
         functional::callback<bool>                      sent        = nullptr,
         context_type const&                                         = no_context,
-        bool                                            run_sync    = false
+        invocation_options                              opts        = invocation_options::unspecified
     );
 
     template < template< typename > class _Promise = ::std::promise >
     auto
-    wire_types_async(context_type const& ctx = no_context, bool run_sync = false)
+    wire_types_async(context_type const&     ctx     = no_context,
+            invocation_options const&        opts    = invocation_options::unspecified  )
         -> decltype(::std::declval<_Promise<::std::vector< ::std::string >>>().get_future())
     {
         auto promise = ::std::make_shared<_Promise<::std::vector< ::std::string >>>();
@@ -207,7 +217,7 @@ public:
             {
                 promise->set_exception(::std::move(ex));
             },
-            nullptr, ctx, run_sync
+            nullptr, ctx, opts
         );
 
         return promise->get_future();
@@ -222,7 +232,8 @@ public:
 protected:
     object_proxy() {}
 private:
-    reference_ptr   ref_;
+    reference_ptr       ref_;
+    invocation_options  opts_;
 };
 
 using object_seq = ::std::vector< object_prx >;
@@ -232,7 +243,25 @@ operator << (::std::ostream& os, object_proxy const& val);
 
 template < typename Prx, typename ... Bases >
 class proxy : public virtual Bases ... {
+public:
+    using proxy_type        = Prx;
+    using proxy_ptr_type    = ::std::shared_ptr<proxy_type>;
+public:
+    proxy_ptr_type
+    wire_one_way() const
+    {
+        return ::std::make_shared< proxy_type >(
+            this->wire_get_reference(),
+            this->wire_invocation_options() | invocation_flags::one_way);
+    }
 
+    proxy_ptr_type
+    wire_timeout(invocation_options::timeout_type t) const
+    {
+        return ::std::make_shared< proxy_type >(
+            this->wire_get_reference(),
+            this->wire_invocation_options().with_timeout(t));
+    }
 };
 
 template < typename TargetPrx, typename SourcePrx>
@@ -253,7 +282,7 @@ checked_cast_async(::std::shared_ptr<SourcePrx>                 v,
         functional::exception_callback                          exception   = nullptr,
         functional::callback<bool>                              sent        = nullptr,
         context_type const&                                     ctx         = no_context,
-        bool                                                    run_sync    = false)
+        invocation_options const&                               opts        = invocation_options::unspecified)
 {
     using result_prx = ::std::shared_ptr<TargetPrx>;
     static_assert(::std::is_base_of<object_proxy, SourcePrx>::value,
@@ -273,7 +302,7 @@ checked_cast_async(::std::shared_ptr<SourcePrx>                 v,
                         exception(ex);
                     } catch (...) {}
                 }
-            }, sent, ctx, run_sync);
+            }, sent, ctx, opts);
     } else {
         try {
             result(result_prx{});
@@ -285,7 +314,8 @@ template < typename TargetPrx, typename SourcePrx,
     template <typename> class _Promise = ::std::promise >
 auto
 checked_cast_async(::std::shared_ptr<SourcePrx>                 v,
-        context_type const& ctx = no_context, bool run_sync = false)
+        context_type const& ctx           = no_context,
+        invocation_options const& opts    = invocation_options::unspecified)
     -> decltype(::std::declval<_Promise< ::std::shared_ptr<TargetPrx>>>().get_future())
 {
     using result_prx = ::std::shared_ptr<TargetPrx>;
@@ -300,7 +330,7 @@ checked_cast_async(::std::shared_ptr<SourcePrx>                 v,
         [promise](::std::exception_ptr ex)
         {
             promise->set_exception(::std::move(ex));
-        }, nullptr, ctx, run_sync
+        }, nullptr, ctx, opts
     );
 
     return promise->get_future();
@@ -310,7 +340,8 @@ template < typename TargetPrx, typename SourcePrx >
 ::std::shared_ptr< TargetPrx >
 checked_cast(::std::shared_ptr< SourcePrx > v, context_type const& ctx = no_context)
 {
-    auto future = checked_cast_async<TargetPrx>(v, ctx, true);
+    auto future = checked_cast_async<TargetPrx>(v, ctx,
+            v->wire_invocation_options() | invocation_flags::sync);
     return future.get();
 }
 
