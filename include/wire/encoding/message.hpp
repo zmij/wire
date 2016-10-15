@@ -334,6 +334,20 @@ struct request {
     }
 };
 
+inline request::request_mode
+operator | (request::request_mode lhs, request::request_mode rhs)
+{
+    using integral_type = ::std::underlying_type<request::request_mode>::type;
+    return static_cast<request::request_mode>(
+            static_cast<integral_type>(lhs) | static_cast<integral_type>(rhs) );
+}
+
+inline request::request_mode&
+operator |= (request::request_mode& lhs, request::request_mode rhs)
+{
+    return lhs = lhs | rhs;
+}
+
 template < typename OutputIterator >
 void
 wire_write(OutputIterator o, request const& v)

@@ -23,8 +23,8 @@ namespace {
 
 }  /* namespace  */
 
-object_proxy::object_proxy(reference_ptr ref)
-    : ref_(ref)
+object_proxy::object_proxy(reference_ptr ref, invocation_options const& opts)
+    : ref_(ref), opts_(opts)
 {
     if (!ref_)
         throw errors::runtime_error{ "Reference pointer is empty" };
@@ -71,7 +71,8 @@ object_proxy::wire_get_connector() const
 bool
 object_proxy::wire_is_a(::std::string const& type_id, context_type const& ctx)
 {
-    auto future = wire_is_a_async(type_id, ctx, true);
+    auto future = wire_is_a_async(type_id, ctx,
+            wire_invocation_options() | invocation_flags::sync);
     return future.get();
 }
 
@@ -81,41 +82,46 @@ object_proxy::wire_is_a_async(::std::string const&  type_id,
         functional::exception_callback              exception,
         functional::callback< bool >                sent,
         context_type const&                         ctx,
-        bool                                        run_sync)
+        invocation_options                          opts)
 {
+    if (opts == invocation_options::unspecified)
+        opts = wire_invocation_options();
     make_invocation(wire_get_reference(),
             WIRE_CORE_OBJECT_wire_is_a, ctx,
             &object::wire_is_a,
             response, exception, sent,
-            type_id)(run_sync);
+            type_id)(opts);
 }
 
 void
 object_proxy::wire_ping(context_type const& ctx)
 {
-    auto future = wire_ping_async(ctx, true);
+    auto future = wire_ping_async(ctx,
+            wire_invocation_options() | invocation_flags::sync);
     future.get();
 }
 
 void
 object_proxy::wire_ping_async(
-        functional::void_callback        response,
-        functional::exception_callback   exception,
-        functional::callback< bool >     sent,
-        context_type const&             ctx,
-        bool                            run_sync
-)
+        functional::void_callback         response,
+        functional::exception_callback    exception,
+        functional::callback< bool >      sent,
+        context_type const&               ctx,
+        invocation_options                opts)
 {
+    if (opts == invocation_options::unspecified)
+        opts = wire_invocation_options();
     make_invocation(wire_get_reference(),
             WIRE_CORE_OBJECT_wire_ping, ctx,
             &object::wire_ping,
-            response, exception, sent)(run_sync);
+            response, exception, sent)(opts);
 }
 
 ::std::string
 object_proxy::wire_type(context_type const& ctx)
 {
-    auto future = wire_type_async(ctx, true);
+    auto future = wire_type_async(ctx,
+            wire_invocation_options() | invocation_flags::sync);
     return future.get();
 }
 
@@ -125,19 +131,21 @@ object_proxy::wire_type_async(
         functional::exception_callback              exception,
         functional::callback< bool >                sent,
         context_type const&                         ctx,
-        bool                                        run_sync
-)
+        invocation_options                          opts)
 {
+    if (opts == invocation_options::unspecified)
+        opts = wire_invocation_options();
     make_invocation(wire_get_reference(),
             WIRE_CORE_OBJECT_wire_type, ctx,
             &object::wire_type,
-            response, exception, sent)(run_sync);
+            response, exception, sent)(opts);
 }
 
 ::std::vector< ::std::string >
 object_proxy::wire_types(context_type const& ctx)
 {
-    auto future = wire_types_async(ctx, true);
+    auto future = wire_types_async(ctx,
+            wire_invocation_options() | invocation_flags::sync);
     return future.get();
 }
 
@@ -147,13 +155,14 @@ object_proxy::wire_types_async(
         functional::exception_callback                                  exception,
         functional::callback<bool>                                      sent,
         context_type const&                                             ctx,
-        bool                                                            run_sync
-)
+        invocation_options                                              opts)
 {
+    if (opts == invocation_options::unspecified)
+        opts = wire_invocation_options();
     make_invocation(wire_get_reference(),
             WIRE_CORE_OBJECT_wire_types, ctx,
             &object::wire_types,
-            response, exception, sent)(run_sync);
+            response, exception, sent)(opts);
 }
 
 object_prx
@@ -162,7 +171,7 @@ object_proxy::wire_well_known_proxy() const
     auto const& ref = ref_->data();
     return ::std::make_shared< object_proxy >(
             reference::create_reference(wire_get_connector(),
-                    { ref.object_id, ref.facet }));
+                    { ref.object_id, ref.facet }), opts_);
 }
 
 object_prx
@@ -171,7 +180,7 @@ object_proxy::wire_with_identity(identity const& id) const
     auto const& ref = ref_->data();
     return ::std::make_shared< object_proxy >(
             reference::create_reference(wire_get_connector(),
-                    { id, ref.facet, ref.adapter, ref.endpoints}));
+                    { id, ref.facet, ref.adapter, ref.endpoints}), opts_);
 }
 
 object_prx
@@ -180,7 +189,20 @@ object_proxy::wire_with_endpoints(endpoint_list const& eps) const
     auto const& ref = ref_->data();
     return ::std::make_shared< object_proxy >(
             reference::create_reference(wire_get_connector(),
-                    { ref.object_id, ref.facet, ref.adapter, eps}));
+                    { ref.object_id, ref.facet, ref.adapter, eps}), opts_);
+}
+
+object_prx
+object_proxy::wire_one_way() const
+{
+    return ::std::make_shared< object_proxy >(ref_,
+            opts_ | invocation_flags::one_way);
+}
+
+object_prx
+object_proxy::wire_timeout(invocation_options::timeout_type t) const
+{
+    return ::std::make_shared< object_proxy >( ref_, opts_.with_timeout(t));
 }
 
 ::std::ostream&

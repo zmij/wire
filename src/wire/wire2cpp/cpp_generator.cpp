@@ -59,8 +59,9 @@ wire_type_map const wire_to_cpp = {
 
 namespace {
 
-ast::qname const root_interface         {"::wire::core::object"};
-ast::qname const root_exception         {"::wire::errors::user_exception"};
+ast::qname const root_interface         { "::wire::core::object" };
+ast::qname const root_exception         { "::wire::errors::user_exception" };
+ast::qname const connection_failed      { "::wire::errors::connection_failed" };
 
 ast::qname const hash_value_type_name   { "::wire::hash_value_type" };
 ast::qname const input_iterator_name    { "::wire::encoding::incoming::const_iterator" };
@@ -81,6 +82,8 @@ ast::qname const wire_current           { "::wire::core::current" };
 ast::qname const wire_no_current        { "::wire::core::no_current" };
 ast::qname const wire_context           { "::wire::core::context_type" };
 ast::qname const wire_no_context        { "::wire::core::no_context" };
+ast::qname const invocation_opts        { "::wire::core::invocation_options" };
+ast::qname const invocation_flags       { "::wire::core::invocation_flags" };
 
 ast::qname const wire_seg_head          { "::wire::encoding::segment_header" };
 ast::qname const wire_seg_head_no_flags { "::wire::encoding::segment_header::none" };
@@ -452,22 +455,47 @@ generator::generate_invocation_function_member(ast::function_ptr func)
             <<                      result_callback << " _response,"
             << mod(+2)  <<          wire_exception_callback << " _exception = nullptr,"
             << off      <<          wire_callback << "< bool > _sent        = nullptr,"
-            << off      <<          wire_context << " const&                       = " << wire_no_context << ","
-            << off      <<          "bool                                      run_sync      = false);";
+            << off      <<          wire_context    << " const&                       = " << wire_no_context << ","
+            << off      <<          invocation_opts << " _opts                 = " << invocation_opts << "::unspecified);";
     header_.modify_offset(-2);
 
     header_ << off      << "template < template< typename > class _Promise = ::std::promise >"
             << off      << "auto"
             << off      << cpp_name(func) << "_async(" << call_params << " "
             << off      <<          wire_context << " const& _ctx                  = " << wire_no_context << ","
-            << off(+2)  <<          "bool _run_async = false)"
+            << off(+2)  <<          invocation_opts << " const _opts = " << invocation_opts << "::unspecified)"
             << off(+2)  <<      "-> decltype( ::std::declval< _Promise< "
             <<                      mapped_type{func->get_return_type(), func->get_annotations()}
             <<                      " > >().get_future() )"
             << off      << "{"
             << mod(+1)  <<      "auto promise = ::std::make_shared< _Promise <"
-                    << mapped_type{func->get_return_type(), func->get_annotations()} << "> >();\n"
-            << off      <<      cpp_name(func) << "_async(";
+                    << mapped_type{func->get_return_type(), func->get_annotations()} << "> >();\n";
+
+    if (func->is_void()) {
+        // Allow one-way invocation
+        header_ << off      << "if (_opts.is_one_way()) {"
+                << mod(+1)  <<    cpp_name(func) << "_async(";
+        header_.modify_offset(+1);
+        for (auto const& p : params) {
+            header_ << off <<           p.second << ",";
+        }
+        header_ << off      <<           "nullptr,"
+                << off      <<           "[promise]( ::std::exception_ptr ex )"
+                << off      <<           "{ promise->set_exception(::std::move(ex)); },"
+                << off      <<           "[promise](bool sent)"
+                << off      <<            "{"
+                << mod(+1)  <<                "if(sent) {"
+                << off(+1)  <<                    "promise->set_value();"
+                << off      <<                "} else {"
+                << off(+1)  <<                    "promise->set_exception("
+                << off(+2)  <<                         "::std::make_exception_ptr(" << connection_failed << "{}));"
+                << off      <<                "}"
+                << mod(-1)  <<            "}, _ctx, _opts);";
+
+        header_ << mod(-2)  << "} else {";
+        header_.modify_offset(+1);
+    }
+    header_ << off      <<      cpp_name(func) << "_async(";
 
     header_.modify_offset(+1);
     for (auto const& p : params) {
@@ -482,9 +510,14 @@ generator::generate_invocation_function_member(ast::function_ptr func)
     }
     header_ << off     <<           "[promise]( ::std::exception_ptr ex )"
             << off     <<           "{ promise->set_exception(::std::move(ex)); },"
-            << off     <<           "nullptr, _ctx, _run_async"
-            << mod(-1) <<       ");\n"
-            << off     <<       "return promise->get_future();"
+            << off     <<           "nullptr, _ctx, _opts"
+            << mod(-1) <<       ");\n";
+
+    if (func->is_void()) {
+        header_ << mod(-1) << "}\n";
+    }
+
+    header_ << off     <<       "return promise->get_future();"
             << mod(-1) << "}\n";
 
     {
@@ -501,7 +534,9 @@ generator::generate_invocation_function_member(ast::function_ptr func)
             for (auto const& p : params) {
                 source_ << p.second << ", ";
             }
-            source_ << "__ctx, true);"
+            source_ << "__ctx, "
+                    << off(+2)    << "wire_invocation_options() | "
+                        << invocation_flags << "::sync);"
                     << off << "return future.get();"
                     << mod(-1) << "}\n";
         }
@@ -515,10 +550,12 @@ generator::generate_invocation_function_member(ast::function_ptr func)
                     << off << wire_exception_callback << " _exception,"
                     << off << wire_callback << "< bool > _sent,"
                     << off << wire_context << " const& _ctx,"
-                    << off << "bool _run_sync)"
+                    << off << invocation_opts << " _opts)"
                     << mod(-3) << "{";
 
-            source_ << mod(+1) << "make_invocation(wire_get_reference(),"
+            source_ << mod(+1) << "if (_opts == " << invocation_opts << "::unspecified)"
+                    << off(+1) << "_opts = wire_invocation_options();";
+            source_ << off     << "make_invocation(wire_get_reference(),"
                     << mod(+2) << pfx << cpp_name(func) << ", _ctx,"
                     << off << "&" << qname(func->owner()) << "::" << cpp_name(func) << ","
                     << off << "_response, _exception, _sent";
@@ -528,7 +565,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
                     source_ << ", " << p.second;
                 }
             }
-            source_ << ")(_run_sync);";
+            source_ << ")(_opts);";
 
             source_ << mod(-3) << "}\n";
         }
@@ -1369,8 +1406,8 @@ void
 generator::generate_proxy_interface(ast::interface_ptr iface)
 {
     offset_guard hdr{header_};
-    static const ast::qname base_proxy {"::wire::core::object_proxy"};
-    static const ast::qname ref_ptr    {"::wire::core::reference_ptr"};
+    static const ast::qname base_proxy      {"::wire::core::object_proxy"};
+    static const ast::qname ref_ptr         {"::wire::core::reference_ptr"};
 
     source_ << off      << "//" << ::std::setw(77) << ::std::setfill('-') << "-"
             << off      << "//    Proxy interface for " << abs_name << qname(iface)
@@ -1380,7 +1417,7 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
             << off      << " *    Proxy interface for " << abs_name << qname(iface)
             << off      << " */"
             << off      << "class " << cpp_name(iface) << "_proxy : "
-            << off(+1)  <<      "public virtual ::wire::core::proxy< " << cpp_name(iface);
+            << off(+1)  <<      "public virtual ::wire::core::proxy< " << cpp_name(iface) << "_proxy";
 
 
     auto const& ancestors = iface->get_ancestors();
@@ -1404,9 +1441,10 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
         // TODO Constructors
         header_ << off     << cpp_name(iface) << "_proxy ()"
                 << off(+2) << ": " << base_proxy << "{} {}"
-                << off     << cpp_name(iface) << "_proxy (" << ref_ptr
-                    << " _ref)"
-                << off(+2) << ": " << base_proxy << "{_ref} {}";
+                << off     << "explicit"
+                << off     << cpp_name(iface) << "_proxy (" << ref_ptr << " _ref, "
+                << invocation_opts << " const& _opts = " << invocation_opts <<  "{})"
+                << off(+2) << ": " << base_proxy << "{_ref, _opts} {}";
         ;
         header_ << off  << "virtual ~" << cpp_name(iface) << "_proxy() = default;";
     }

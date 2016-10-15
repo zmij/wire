@@ -616,7 +616,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
 
     void
     invoke(encoding::invocation_target const&, ::std::string const& op, context_type const& ctx,
-            bool run_sync,
+            invocation_options const& opts,
             encoding::outgoing&&,
             encoding::reply_callback reply,
             functional::exception_callback exception,

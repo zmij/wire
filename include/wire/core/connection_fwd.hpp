@@ -9,6 +9,7 @@
 #define WIRE_CORE_CONNECTION_FWD_HPP_
 
 #include <memory>
+#include <wire/core/invocation_options.hpp>
 
 namespace wire {
 namespace core {
