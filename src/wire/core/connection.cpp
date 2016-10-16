@@ -452,7 +452,8 @@ connection_implementation::dispatch_incoming(encoding::incoming_ptr incoming)
 }
 
 void
-connection_implementation::invoke(encoding::invocation_target const& target, ::std::string const& op,
+connection_implementation::invoke(encoding::invocation_target const& target,
+        ::std::string const& op,
         context_type const& ctx,
         invocation_options const& opts,
         encoding::outgoing&& params,
@@ -514,6 +515,63 @@ connection_implementation::invoke(encoding::invocation_target const& target, ::s
             return _this->pending_replies_.find(acc, r_no);
         });
     }
+}
+
+void
+connection_implementation::send(encoding::multiple_targets targets,
+        ::std::string const& op,
+        context_type const& ctx,
+        invocation_options const& opts,
+        encoding::outgoing&& params,
+        functional::exception_callback exception,
+        functional::callback< bool > sent)
+{
+    if (targets.empty()) {
+        throw errors::runtime_error{"Empty target list"};
+    } else if (targets.size() == 1) {
+        #if DEBUG_OUTPUT >= 1
+        ::std::cerr << "Send single invocation via invoke\n";
+        #endif
+        invoke(*targets.begin(), op, ctx,
+                opts | invocation_flags::one_way,
+                ::std::move(params), nullptr, exception, sent);
+    } else {
+        using encoding::request;
+        encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(
+                get_connector(),
+                encoding::message::request);
+        request r{
+            ++request_no_,
+            encoding::operation_specs{ encoding::invocation_target{}, op },
+            request::multi_target | request::one_way
+        };
+        if (ctx.empty())
+            r.mode |= request::no_context;
+
+        write(::std::back_inserter(*out), r);
+        if (!ctx.empty())
+            write(::std::back_inserter(*out), ctx);
+        write(::std::back_inserter(*out), targets);
+
+        params.close_all_encaps();
+        out->insert_encapsulation(::std::move(params));
+
+        functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
+        process_event(events::send_request{ out, write_cb });
+    }
+}
+
+void
+connection_implementation::forward(encoding::multiple_targets targets,
+        ::std::string const& op,
+        context_type const& ctx,
+        invocation_options const& opts,
+        detail::dispatch_request const& req,
+        encoding::reply_callback reply,
+        functional::exception_callback exception,
+        functional::callback< bool > sent)
+{
+    ;
 }
 
 void
@@ -781,12 +839,10 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
             if (req.mode & request::multi_target) {
                 targets = ::std::make_shared< encoding::multiple_targets >();
                 read(b, e, *targets);
-                targets->insert( curr.operation.target );
             }
 
             incoming::encaps_guard encaps{ buffer->begin_encapsulation(b) };
             auto const& en = encaps.encaps();
-            auto _this = shared_from_this();
             detail::dispatch_request r;
             if (req.mode & request::one_way) {
                 r = detail::dispatch_request{
@@ -795,6 +851,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                     detail::dispatch_request::ignore_exception
                 };
             } else {
+                auto _this = shared_from_this();
                 auto fpg = ::std::make_shared< invocation_foolproof_guard >(
                     [_this, req]() mutable {
                         #if DEBUG_OUTPUT >= 3
@@ -944,6 +1001,18 @@ connection::invoke(encoding::invocation_target const& target, ::std::string cons
 {
     assert(pimpl_.get() && "Connection implementation is not set");
     pimpl_->invoke(target, op, ctx, opts, ::std::move(params), reply, exception, sent);
+}
+
+void
+connection::send(encoding::multiple_targets const& targets,
+            ::std::string const& op, context_type const& ctx,
+            invocation_options const& opts,
+            encoding::outgoing&& params,
+            functional::exception_callback exception,
+            functional::callback< bool > sent)
+{
+    assert(pimpl_.get() && "Connection implementation is not set");
+    pimpl_->send(targets, op, ctx, opts, ::std::move(params), exception, sent);
 }
 
 endpoint

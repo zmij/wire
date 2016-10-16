@@ -219,7 +219,8 @@ struct invocation_target {
     bool
     operator < (invocation_target const& rhs) const
     {
-        return identity < rhs.identity && facet < rhs.facet;
+        return identity < rhs.identity ||
+                (identity == rhs.identity && facet < rhs.facet);
     }
 };
 

@@ -65,6 +65,11 @@ interface ping_pong {
     stop();
 };
 
+interface notify {
+    void
+    send_int(int32 val);
+};
+
 }  /* namespace test */
 
 
