@@ -605,14 +605,17 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     dispatch_incoming_request(encoding::incoming_ptr);
 
     void
-    send_not_found(uint32_t req_num, errors::not_found::subject,
+    send_not_found(request_number req_num, errors::not_found::subject,
             encoding::operation_specs const&);
     void
-    send_exception(uint32_t req_num, errors::user_exception const&);
+    send_exception(request_number req_num, ::std::exception_ptr ex,
+            encoding::operation_specs const&);
     void
-    send_exception(uint32_t req_num, ::std::exception const&);
+    send_exception(request_number req_num, errors::user_exception const&);
     void
-    send_unknown_exception(uint32_t req_num);
+    send_exception(request_number req_num, ::std::exception const&);
+    void
+    send_unknown_exception(request_number req_num);
 
     void
     invoke(encoding::invocation_target const&, ::std::string const& op, context_type const& ctx,

@@ -663,7 +663,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
 
 void
 connection_implementation::send_not_found(
-        uint32_t req_num, errors::not_found::subject subj,
+        request_number req_num, errors::not_found::subject subj,
         encoding::operation_specs const& op)
 {
     using namespace encoding;
@@ -681,7 +681,24 @@ connection_implementation::send_not_found(
 }
 
 void
-connection_implementation::send_exception(uint32_t req_num, errors::user_exception const& e)
+connection_implementation::send_exception(request_number req_num, ::std::exception_ptr ex,
+        encoding::operation_specs const& op)
+{
+    try {
+        ::std::rethrow_exception(ex);
+    } catch (errors::not_found const& e) {
+        send_not_found(req_num, e.subj(), op);
+    } catch (errors::user_exception const& e) {
+        send_exception(req_num, e);
+    } catch (::std::exception const& e) {
+        send_exception(req_num, e);
+    } catch(...) {
+        send_unknown_exception(req_num);
+    }
+}
+
+void
+connection_implementation::send_exception(request_number req_num, errors::user_exception const& e)
 {
     using namespace encoding;
     outgoing_ptr out =
@@ -697,7 +714,7 @@ connection_implementation::send_exception(uint32_t req_num, errors::user_excepti
 }
 
 void
-connection_implementation::send_exception(uint32_t req_num, ::std::exception const& e)
+connection_implementation::send_exception(request_number req_num, ::std::exception const& e)
 {
     using namespace encoding;
     outgoing_ptr out =
@@ -715,7 +732,7 @@ connection_implementation::send_exception(uint32_t req_num, ::std::exception con
 }
 
 void
-connection_implementation::send_unknown_exception(uint32_t req_num)
+connection_implementation::send_unknown_exception(request_number req_num)
 {
     using namespace encoding;
     outgoing_ptr out =
@@ -744,8 +761,6 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
         //Find invocation by req.operation.identity
         adapter_ptr adp = adapter_.lock();
         if (adp) {
-            // TODO Refactor upcall invocation to the adapter
-            // TODO Use facet
             #if DEBUG_OUTPUT >= 3
             ::std::cerr << "Dispatch request " << req.operation.name()
                     << " to " << req.operation.identity << "\n";
@@ -756,73 +771,72 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                 {},
                 remote_endpoint()
             };
-            if (!(req.mode && request::no_context)) {
+            if (!(req.mode & request::no_context)) {
                 auto ctx_ptr = ::std::make_shared<context_type>();
                 read(b, e, *ctx_ptr);
                 curr.context = ctx_ptr;
             }
-            auto disp = adp->find_object(req.operation.target.identity);
-            if (disp) {
-                incoming::encaps_guard encaps{ buffer->begin_encapsulation(b) };
-                auto const& en = encaps.encaps();
-                auto _this = shared_from_this();
-                if (req.mode & request::one_way) {
-                    detail::dispatch_request r {
-                        buffer, en.begin(), en.end(), en.size(),
-                        detail::dispatch_request::ignore_result,
-                        detail::dispatch_request::ignore_exception
-                    };
-                    disp->__dispatch(r, curr);
-                } else {
-                    auto fpg = ::std::make_shared< invocation_foolproof_guard >(
-                        [_this, req]() mutable {
-                            #if DEBUG_OUTPUT >= 3
-                            ::std::cerr << "Invocation to " << req.operation.identity
-                                    << " operation " << req.operation.operation
-                                    << " failed to respond";
-                            #endif
-                            _this->send_not_found(req.number, errors::not_found::object,
-                                    req.operation);
-                        });
-                    detail::dispatch_request r{
-                        buffer, en.begin(), en.end(), en.size(),
-                        [_this, req, fpg](outgoing&& res) mutable {
-                            outgoing_ptr out =
-                                    ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
-                            reply rep {
-                                req.number,
-                                res.empty() ? reply::success_no_body : reply::success
-                            };
-                            write(::std::back_inserter(*out), rep);
-                            if (!res.empty()) {
-                                res.close_all_encaps();
-                                out->insert_encapsulation(::std::move(res));
-                            }
-                            _this->process_event(events::send_reply{out});
-                            fpg->responded();
-                        },
-                        [_this, req, fpg](::std::exception_ptr ex) mutable {
-                            try {
-                                ::std::rethrow_exception(ex);
-                            } catch (errors::not_found const& e) {
-                                _this->send_not_found(req.number, e.subj(), req.operation);
-                            } catch (errors::user_exception const& e) {
-                                _this->send_exception(req.number, e);
-                            } catch (::std::exception const& e) {
-                                _this->send_exception(req.number, e);
-                            } catch (...) {
-                                _this->send_unknown_exception(req.number);
-                            }
-                            fpg->responded();
+
+            ::std::shared_ptr<encoding::multiple_targets> targets;
+            if (req.mode & request::multi_target) {
+                targets = ::std::make_shared< encoding::multiple_targets >();
+                read(b, e, *targets);
+                targets->insert( curr.operation.target );
+            }
+
+            incoming::encaps_guard encaps{ buffer->begin_encapsulation(b) };
+            auto const& en = encaps.encaps();
+            auto _this = shared_from_this();
+            detail::dispatch_request r;
+            if (req.mode & request::one_way) {
+                r = detail::dispatch_request{
+                    buffer, en.begin(), en.end(), en.size(),
+                    detail::dispatch_request::ignore_result,
+                    detail::dispatch_request::ignore_exception
+                };
+            } else {
+                auto fpg = ::std::make_shared< invocation_foolproof_guard >(
+                    [_this, req]() mutable {
+                        #if DEBUG_OUTPUT >= 3
+                        ::std::cerr << "Invocation to " << req.operation.identity
+                                << " operation " << req.operation.operation
+                                << " failed to respond";
+                        #endif
+                        _this->send_not_found(req.number, errors::not_found::object,
+                                req.operation);
+                    });
+                r = detail::dispatch_request{
+                    buffer, en.begin(), en.end(), en.size(),
+                    [_this, req, fpg](outgoing&& res) mutable {
+                        outgoing_ptr out =
+                                ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
+                        reply rep {
+                            req.number,
+                            res.empty() ? reply::success_no_body : reply::success
+                        };
+                        write(::std::back_inserter(*out), rep);
+                        if (!res.empty()) {
+                            res.close_all_encaps();
+                            out->insert_encapsulation(::std::move(res));
                         }
-                    };
-                    disp->__dispatch(r, curr);
+                        _this->process_event(events::send_reply{out});
+                        fpg->responded();
+                    },
+                    [_this, req, fpg](::std::exception_ptr ex) mutable {
+                        _this->send_exception(req.number, ex, req.operation);
+                        fpg->responded();
+                    }
+                };
+            }
+            if (targets) {
+                for (auto const& tgt : *targets) {
+                    curr.operation.target = tgt;
+                    adp->dispatch(r, curr);
                 }
                 return;
             } else {
-                #if DEBUG_OUTPUT >= 3
-                ::std::cerr << "No object\n";
-                #endif
+                if (adp->dispatch(r, curr))
+                    return;
             }
         } else {
             #if DEBUG_OUTPUT >= 3

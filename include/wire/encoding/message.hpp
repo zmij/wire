@@ -216,6 +216,11 @@ struct invocation_target {
     {
         return !(*this == rhs);
     }
+    bool
+    operator < (invocation_target const& rhs) const
+    {
+        return identity < rhs.identity && facet < rhs.facet;
+    }
 };
 
 template < typename OutputIterator >
