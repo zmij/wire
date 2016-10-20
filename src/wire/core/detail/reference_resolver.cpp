@@ -78,6 +78,9 @@ struct reference_resolver::impl {
                 if (options.locator_ref.endpoints.empty())
                     throw errors::runtime_error{ "Locator reference must have endpoints" };
                 object_prx prx = cnctr->make_proxy(options.locator_ref);
+                auto opts = prx->wire_invocation_options();
+                if (run_sync)
+                    opts.flags |= invocation_flags::sync;
                 checked_cast_async< locator_proxy >(
                     prx,
                     [this, result](locator_prx loc)
@@ -99,7 +102,7 @@ struct reference_resolver::impl {
                                 exception(ex);
                             } catch (...) {}
                         }
-                    }, nullptr, ctx, run_sync
+                    }, nullptr, ctx, opts
                 );
             } catch (...) {
                 if (exception) {
@@ -136,6 +139,9 @@ struct reference_resolver::impl {
                         ::std::cerr << "Try to obtain locator registry proxy from locator "
                                 << *loc << "\n";
                         #endif
+                        auto opts = loc->wire_invocation_options();
+                        if (run_sync)
+                            opts.flags |= invocation_flags::sync;
                         loc->get_registry_async(
                             [this, result](locator_registry_prx reg)
                             {
@@ -146,7 +152,7 @@ struct reference_resolver::impl {
                                 try {
                                     result(locator_reg_);
                                 } catch (...) {}
-                            }, exception, nullptr, ctx, run_sync);
+                            }, exception, nullptr, ctx, opts);
                     } else {
                         try {
                             result(locator_reg_);
@@ -279,6 +285,9 @@ struct reference_resolver::impl {
                     exception( ::std::make_exception_ptr( errors::no_locator{} ) );
                     return;
                 }
+                auto opts = loc->wire_invocation_options();
+                if (run_sync)
+                    opts.flags |= invocation_flags::sync;
                 if (ref.adapter.is_initialized()) {
                     loc->find_adapter_async(ref.adapter.get(),
                     [this, ref, result, exception, run_sync](object_prx obj)
@@ -288,7 +297,7 @@ struct reference_resolver::impl {
                         cache_store(ref, eps);
                         get_connection(eps, result, exception, run_sync);
                     },
-                    exception, nullptr, no_context, run_sync);
+                    exception, nullptr, no_context, opts);
                 } else {
                     // Lookup by object id
                     loc->find_object_async(ref.object_id,
@@ -311,7 +320,7 @@ struct reference_resolver::impl {
                             cache_store(ref, eps);
                             get_connection(eps, result, exception, run_sync);
                         }
-                    }, exception, nullptr, no_context, run_sync);
+                    }, exception, nullptr, no_context, opts);
                 }
             }, exception, no_context, run_sync);
         }

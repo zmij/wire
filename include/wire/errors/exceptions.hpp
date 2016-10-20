@@ -20,8 +20,10 @@ namespace errors {
  */
 class runtime_error : public ::std::runtime_error {
 public:
-    runtime_error(std::string const& msg ) :
-        ::std::runtime_error{""}, message_{msg} {}
+    runtime_error()
+        : ::std::runtime_error{""}, message_{} {}
+    runtime_error(std::string const& msg )
+        : ::std::runtime_error{""}, message_{msg} {}
     runtime_error(char const* msg)
         : ::std::runtime_error{""}, message_{msg} {}
 
@@ -69,6 +71,12 @@ public:
     request_timed_out(T const& ... args) : runtime_error(args ...) {}
 };
 
+class invalid_one_way_invocation : public runtime_error {
+public:
+    invalid_one_way_invocation(std::string const& msg) : runtime_error{msg} {}
+    template < typename ... T >
+    invalid_one_way_invocation(T const& ... args) : runtime_error(args ...) {}
+};
 
 class invalid_magic_number : public runtime_error {
 public:

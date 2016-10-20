@@ -20,6 +20,9 @@
 namespace wire {
 namespace core {
 
+constexpr invocation_options::timeout_type invocation_options::default_timout;
+const invocation_options invocation_options::unspecified{ invocation_flags::unspecified };
+
 namespace detail {
 
 using tcp_connection_impl           = connection_impl< transport_type::tcp >;
@@ -29,6 +32,11 @@ using socket_connection_impl        = connection_impl< transport_type::socket >;
 using tcp_listen_connection_impl    = listen_connection_impl< transport_type::tcp >;
 using ssl_listen_connection_impl    = listen_connection_impl< transport_type::ssl >;
 using socket_listen_connection_impl = listen_connection_impl< transport_type::socket >;
+
+const encoding::request_result_callback dispatch_request::ignore_result
+    = [](encoding::outgoing&&){};
+const functional::exception_callback dispatch_request::ignore_exception
+    = [](::std::exception_ptr){};
 
 class invocation_foolproof_guard {
     functional::void_callback       destroy_;
@@ -446,7 +454,7 @@ connection_implementation::dispatch_incoming(encoding::incoming_ptr incoming)
 void
 connection_implementation::invoke(encoding::invocation_target const& target, ::std::string const& op,
         context_type const& ctx,
-        bool run_sync,
+        invocation_options const& opts,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
         functional::exception_callback exception,
@@ -456,14 +464,15 @@ connection_implementation::invoke(encoding::invocation_target const& target, ::s
     encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(
             get_connector(),
             encoding::message::request);
-    // TODO Send facet
     request r{
         ++request_no_,
         encoding::operation_specs{ target, op },
         request::normal
     };
     if (ctx.empty())
-        r.mode = static_cast<request::request_mode>(r.mode | request::no_context);
+        r.mode |= request::no_context;
+    if (opts.is_one_way())
+        r.mode |= request::one_way;
 
     #if DEBUG_OUTPUT >= 5
     ::std::cerr << "Invoke request " << target.identity << "::"
@@ -475,17 +484,31 @@ connection_implementation::invoke(encoding::invocation_target const& target, ::s
         write(::std::back_inserter(*out), ctx);
     params.close_all_encaps();
     out->insert_encapsulation(::std::move(params));
-    functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
-    // TODO Pass timeout in invokation parameters
-    time_point expires = clock_type::now() + expire_duration{5000};
+    time_point expires = clock_type::now() + expire_duration{opts.timeout};
     pending_replies_.insert(::std::make_pair( r.number,
             pending_reply{ reply, exception } ));
     expiration_queue_.push(reply_expiration{ r.number, expires });
+    auto _this = shared_from_this();
+    auto r_no = r.number;
+    functional::void_callback write_cb = functional::void_callback{};
+    if (opts.is_one_way()) {
+        write_cb = sent ?
+            functional::void_callback{[_this, sent, r_no]()
+            {
+                sent(true);
+                _this->pending_replies_.erase(r_no);
+            }} :
+            functional::void_callback{[_this, r_no]()
+            {
+                _this->pending_replies_.erase(r_no);
+            }};
+    } else {
+        write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
+    }
     process_event(events::send_request{ out, write_cb });
 
-    if (run_sync) {
-        auto _this = shared_from_this();
-        auto r_no = r.number;
+    if (opts.is_sync()) {
+        // TODO Decide what to do in case of one way invocation
         util::run_while(io_service_, [_this, r_no](){
             pending_replies_type::const_accessor acc;
             return _this->pending_replies_.find(acc, r_no);
@@ -728,65 +751,73 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                     << " to " << req.operation.identity << "\n";
             #endif
 
+            current curr {
+                req.operation,
+                {},
+                remote_endpoint()
+            };
+            if (!(req.mode && request::no_context)) {
+                auto ctx_ptr = ::std::make_shared<context_type>();
+                read(b, e, *ctx_ptr);
+                curr.context = ctx_ptr;
+            }
             auto disp = adp->find_object(req.operation.target.identity);
             if (disp) {
-                current curr {
-                    req.operation,
-                    {},
-                    remote_endpoint()
-                };
-                if (!(req.mode && request::no_context)) {
-                    auto ctx_ptr = ::std::make_shared<context_type>();
-                    read(b, e, *ctx_ptr);
-                    curr.context = ctx_ptr;
-                }
-
                 incoming::encaps_guard encaps{ buffer->begin_encapsulation(b) };
                 auto const& en = encaps.encaps();
                 auto _this = shared_from_this();
-                auto fpg = ::std::make_shared< invocation_foolproof_guard >(
-                    [_this, req]() mutable {
-                        #if DEBUG_OUTPUT >= 3
-                        ::std::cerr << "Invocation to " << req.operation.identity
-                                << " operation " << req.operation.operation
-                                << " failed to respond";
-                        #endif
-                        _this->send_not_found(req.number, errors::not_found::object,
-                                req.operation);
-                    });
-                detail::dispatch_request r{
-                    buffer, en.begin(), en.end(), en.size(),
-                    [_this, req, fpg](outgoing&& res) mutable {
-                        outgoing_ptr out =
-                                ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
-                        reply rep {
-                            req.number,
-                            res.empty() ? reply::success_no_body : reply::success
-                        };
-                        write(::std::back_inserter(*out), rep);
-                        if (!res.empty()) {
-                            res.close_all_encaps();
-                            out->insert_encapsulation(::std::move(res));
+                if (req.mode & request::one_way) {
+                    detail::dispatch_request r {
+                        buffer, en.begin(), en.end(), en.size(),
+                        detail::dispatch_request::ignore_result,
+                        detail::dispatch_request::ignore_exception
+                    };
+                    disp->__dispatch(r, curr);
+                } else {
+                    auto fpg = ::std::make_shared< invocation_foolproof_guard >(
+                        [_this, req]() mutable {
+                            #if DEBUG_OUTPUT >= 3
+                            ::std::cerr << "Invocation to " << req.operation.identity
+                                    << " operation " << req.operation.operation
+                                    << " failed to respond";
+                            #endif
+                            _this->send_not_found(req.number, errors::not_found::object,
+                                    req.operation);
+                        });
+                    detail::dispatch_request r{
+                        buffer, en.begin(), en.end(), en.size(),
+                        [_this, req, fpg](outgoing&& res) mutable {
+                            outgoing_ptr out =
+                                    ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
+                            reply rep {
+                                req.number,
+                                res.empty() ? reply::success_no_body : reply::success
+                            };
+                            write(::std::back_inserter(*out), rep);
+                            if (!res.empty()) {
+                                res.close_all_encaps();
+                                out->insert_encapsulation(::std::move(res));
+                            }
+                            _this->process_event(events::send_reply{out});
+                            fpg->responded();
+                        },
+                        [_this, req, fpg](::std::exception_ptr ex) mutable {
+                            try {
+                                ::std::rethrow_exception(ex);
+                            } catch (errors::not_found const& e) {
+                                _this->send_not_found(req.number, e.subj(), req.operation);
+                            } catch (errors::user_exception const& e) {
+                                _this->send_exception(req.number, e);
+                            } catch (::std::exception const& e) {
+                                _this->send_exception(req.number, e);
+                            } catch (...) {
+                                _this->send_unknown_exception(req.number);
+                            }
+                            fpg->responded();
                         }
-                        _this->process_event(events::send_reply{out});
-                        fpg->responded();
-                    },
-                    [_this, req, fpg](::std::exception_ptr ex) mutable {
-                        try {
-                            ::std::rethrow_exception(ex);
-                        } catch (errors::not_found const& e) {
-                            _this->send_not_found(req.number, e.subj(), req.operation);
-                        } catch (errors::user_exception const& e) {
-                            _this->send_exception(req.number, e);
-                        } catch (::std::exception const& e) {
-                            _this->send_exception(req.number, e);
-                        } catch (...) {
-                            _this->send_unknown_exception(req.number);
-                        }
-                        fpg->responded();
-                    }
-                };
-                disp->__dispatch(r, curr);
+                    };
+                    disp->__dispatch(r, curr);
+                }
                 return;
             } else {
                 #if DEBUG_OUTPUT >= 3
@@ -891,14 +922,14 @@ connection::close()
 void
 connection::invoke(encoding::invocation_target const& target, ::std::string const& op,
         context_type const& ctx,
-        bool run_sync,
+        invocation_options const& opts,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
         functional::exception_callback exception,
         functional::callback< bool > sent)
 {
     assert(pimpl_.get() && "Connection implementation is not set");
-    pimpl_->invoke(target, op, ctx, run_sync, ::std::move(params), reply, exception, sent);
+    pimpl_->invoke(target, op, ctx, opts, ::std::move(params), reply, exception, sent);
 }
 
 endpoint

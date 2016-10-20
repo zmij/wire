@@ -231,11 +231,13 @@ TEST_F(Client, DISABLED_TCPSendRequest)
     bool test_flag = false;
     uint32_t test_int = 0;
 
+    invocation_options opts{};
+
     c.connect_async(endpoint_,
     [&](){
         tests[0] = true;
         c.invoke({identity::random("test"), ""}, std::string("ping_pong"), context_type{},
-        false,
+        opts,
         [&](std::string const& str, bool flag, uint32_t i) {
             std::cerr << "Response received\n";
 
