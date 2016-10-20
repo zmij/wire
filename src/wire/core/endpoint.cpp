@@ -148,6 +148,59 @@ operator << (std::ostream& os, empty_endpoint const& val)
     return os;
 }
 
+::std::string
+inet_interface::resolve_address() const
+{
+    util::get_interface_options opts = util::get_interface_options::none;
+    switch (version) {
+        case version_type::v4:
+            opts = util::get_interface_options::ip4;
+            break;
+        case version_type::v6:
+            opts = util::get_interface_options::ip6;
+            break;
+        default:
+            break;
+    }
+    auto addresses = util::get_local_addresses(opts, name);
+    if (addresses.empty())
+        return "";
+    return addresses.front().to_string();
+}
+
+::std::ostream&
+operator << (::std::ostream& os, inet_interface const& val)
+{
+    ::std::ostream::sentry s(os);
+    if (s) {
+        os  << val.name << '['
+            << (val.version == inet_interface::version_type::v4 ? "v4" : "v6")
+            << ']';
+    }
+    return os;
+}
+
+::std::istream&
+operator >> (::std::istream& is, inet_interface& val)
+{
+    using istreambuf_iterator = std::istreambuf_iterator<char>;
+    using stream_iterator = boost::spirit::multi_pass< istreambuf_iterator >;
+    using interface_grammar = grammar::parse::inet_interface_grammar< stream_iterator >;
+    static interface_grammar iface_name_parser;
+
+    std::istream::sentry s(is);
+    if (s) {
+        stream_iterator in = stream_iterator(istreambuf_iterator(is));
+        stream_iterator eos = stream_iterator(istreambuf_iterator());
+        inet_interface tmp;
+        if (boost::spirit::qi::parse(in, eos, iface_name_parser, tmp)) {
+            tmp.swap(val);
+        } else {
+            is.setstate(std::ios_base::failbit);
+        }
+    }
+    return is;
+}
 
 std::ostream&
 operator << (std::ostream& os, inet_endpoint_data const& val)
@@ -157,6 +210,29 @@ operator << (std::ostream& os, inet_endpoint_data const& val)
         os << val.host << ':' << val.port;
     }
     return os;
+}
+
+::std::istream&
+operator >> (::std::istream& is, inet_endpoint_data& val)
+{
+    using istreambuf_iterator = std::istreambuf_iterator<char>;
+    using stream_iterator = boost::spirit::multi_pass< istreambuf_iterator >;
+    using interface_grammar = grammar::parse::ip_endpoint_data_grammar<
+            stream_iterator, inet_endpoint_data >;
+    static interface_grammar inet_endpoint_parser;
+
+    std::istream::sentry s(is);
+    if (s) {
+        stream_iterator in = stream_iterator(istreambuf_iterator(is));
+        stream_iterator eos = stream_iterator(istreambuf_iterator());
+        inet_endpoint_data tmp;
+        if (boost::spirit::qi::parse(in, eos, inet_endpoint_parser, tmp)) {
+            tmp.swap(val);
+        } else {
+            is.setstate(std::ios_base::failbit);
+        }
+    }
+    return is;
 }
 
 std::ostream&

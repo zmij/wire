@@ -13,6 +13,15 @@ namespace wire {
 namespace core {
 namespace test {
 
+GRAMMAR_TEST(grammar::parse::inet_interface_grammar, InetInterface,
+        ::testing::Values(
+            "eth0[v4]", "lo[V6]"
+        ),
+        ::testing::Values(
+            "eth1", "tun0[v5]", "lo["
+        )
+);
+
 template < typename InputIterator >
 using tcp_data_grammar =
         grammar::parse::ip_endpoint_data_grammar<
@@ -29,7 +38,9 @@ GRAMMAR_TEST(tcp_data_grammar, TCPEndpoint,
             "0.0.0.0:0",
             "[::8]:5678",
             "127.0.0.1:786",
-            "[ffaa:1234::aadd:255.255.255.0]:567"
+            "[ffaa:1234::aadd:255.255.255.0]:567",
+            "eth0[v4]:0",
+            "lo[v6]:0"
         ),
         ::testing::Values(
             "255.255.2.1:456789",
@@ -75,6 +86,7 @@ GRAMMAR_TEST(endpoint_list_grammar, EndpointList,
         "udp://127.0.0.1:5432,tcp://localhost:5432,socket:///tmp/.socket",
         "socket:///blabla/.123123/adfa/socket"
         "socket:///tmp/.wire.ping_pong,tcp://127.0.0.1:0"
+        "tcp://eth0[v6]:0"
     ),
     ::testing::Values(
         "socket:///tmp/.socket, tcp://localhost:5432, udp://127.0.0.1:5432",
