@@ -16,6 +16,7 @@ try {
     using namespace ::wire::util;
     namespace po = ::boost::program_options;
     bool no_v4{false}, no_v6{false}, no_loopback{false}, loopback_only{false};
+    ::std::string iface_name;
 
     po::options_description desc("Program options");
     desc.add_options()
@@ -26,6 +27,8 @@ try {
                 "Don't output loopback addresses")
         ("loopback-only,l", po::bool_switch(&loopback_only),
                 "Output only loopback addresses")
+        ("interface,i", po::value<::std::string>(&iface_name),
+                "Filter by interface name")
     ;
 
     po::variables_map vm;
@@ -42,12 +45,14 @@ try {
         opts = opts ^ get_interface_options::ip4;
     if (no_v6)
         opts = opts ^ get_interface_options::ip6;
-    if (no_loopback)
-        opts = opts ^ get_interface_options::loopback;
-    if (loopback_only)
-        opts = opts ^ get_interface_options::regular;
+    if (iface_name.empty()) {
+        if (no_loopback)
+            opts = opts ^ get_interface_options::loopback;
+        if (loopback_only)
+            opts = opts ^ get_interface_options::regular;
+    }
 
-    auto local_ifaces = get_local_interfaces(opts);
+    auto local_ifaces = get_local_interfaces(opts, iface_name);
 
     for (auto const& addr : local_ifaces) {
         ::std::cout << addr << "\n";

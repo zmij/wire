@@ -9,6 +9,7 @@
 #define WIRE_UTIL_ENUMERATE_INTERFACES_HPP_
 
 #include <wire/asio_config.hpp>
+#include <string>
 #include <type_traits>
 
 namespace wire {
@@ -50,7 +51,8 @@ operator ^ (get_interface_options a, get_interface_options b)
 }
 
 ::std::vector< asio_config::address >
-get_local_interfaces(get_interface_options = get_interface_options::all);
+get_local_interfaces(get_interface_options = get_interface_options::all,
+        ::std::string const& iface_name = ::std::string{});
 
 }  /* namespace util */
 }  /* namespace wire */

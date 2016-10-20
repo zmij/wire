@@ -13,11 +13,13 @@
 #include <cerrno>
 #include <cstring>
 
+#include <iostream>
+
 namespace wire {
 namespace util {
 
 ::std::vector< asio_config::address >
-get_local_interfaces(get_interface_options opts)
+get_local_interfaces(get_interface_options opts, ::std::string const& iface_name)
 {
     ::std::vector< asio_config::address > result;
     if (opts == get_interface_options::none)
@@ -45,6 +47,11 @@ get_local_interfaces(get_interface_options opts)
         if (family != AF_INET && family != AF_INET6)
             continue;
 
+        if (!iface_name.empty()) {
+            // compare interface name
+            if (::strcasecmp(iface_name.c_str(), iface->ifa_name) != 0)
+                continue;
+        }
         if (opts != get_interface_options::all) {
             if (family == AF_INET &&
                     ((opts & get_interface_options::ip4) == get_interface_options::none))
@@ -52,12 +59,15 @@ get_local_interfaces(get_interface_options opts)
             if (family == AF_INET6 &&
                     ((opts & get_interface_options::ip6) == get_interface_options::none))
                 continue;
-            if (iface->ifa_flags & IFF_LOOPBACK) {
-                if ((opts & get_interface_options::loopback) == get_interface_options::none)
+            if (iface_name.empty()) {
+                if (iface->ifa_flags & IFF_LOOPBACK) {
+                    if ((opts & get_interface_options::loopback) == get_interface_options::none)
+                        continue;
+                } else if ((opts & get_interface_options::regular) == get_interface_options::none)
                     continue;
-            } else if ((opts & get_interface_options::regular) == get_interface_options::none)
-                continue;
+            }
         }
+
         auto rc = getnameinfo(iface->ifa_addr,
             (family == AF_INET) ? sizeof(sockaddr_in) : sizeof(sockaddr_in6),
             host, NI_MAXHOST, nullptr, 0, NI_NUMERICHOST);
