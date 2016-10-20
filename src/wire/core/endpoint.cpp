@@ -494,6 +494,19 @@ operator >> (::std::istream& is, endpoint_set& val)
     return parse_endpoints(is, val);
 }
 
+namespace literal {
+
+detail::inet_endpoint_data
+operator "" _wire_iep(char const* str, ::std::size_t sz)
+{
+    ::std::string literal{str, sz};
+    ::std::istringstream is{literal};
+    detail::inet_endpoint_data data;
+    if (!(is >> data))
+        throw ::std::runtime_error{"Invalid ::wire::core::detail::inet_endpoint_data literal " + literal};
+    return data;
+}
+
 endpoint
 operator "" _wire_ep(char const* str, ::std::size_t sz)
 {
@@ -505,6 +518,7 @@ operator "" _wire_ep(char const* str, ::std::size_t sz)
     return ep;
 }
 
+}  /* namespace literal */
 namespace detail {
 struct endpoint_hash_visitor : boost::static_visitor<::std::size_t> {
     template < typename E >

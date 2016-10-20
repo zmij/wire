@@ -449,13 +449,18 @@ operator << (::std::ostream& os, endpoint_set const& val);
 ::std::istream&
 operator >> (::std::istream& is, endpoint_set& val);
 
+namespace literal {
+detail::inet_endpoint_data
+operator "" _wire_iep(char const*, ::std::size_t);
+
 endpoint
 operator "" _wire_ep(char const*, ::std::size_t);
+}  /* namespace literal */
 
 }  // namespace core
 }  // namespace wire
 
-using ::wire::core::operator ""_wire_ep;
+using ::wire::core::literal::operator ""_wire_ep;
 
 namespace std {
 
