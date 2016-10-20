@@ -251,7 +251,7 @@ struct collect_published_endpoints : boost::static_visitor<> {
             } else {
                 opts = opts | util::get_interface_options::ip6;
             }
-            auto addresses = util::get_local_interfaces(opts);
+            auto addresses = util::get_local_addresses(opts);
             for (auto const& addr : addresses) {
                 endpoints.emplace_back( func( addr.to_string(), data.port ) );
             }

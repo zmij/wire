@@ -19,7 +19,7 @@ namespace wire {
 namespace util {
 
 ::std::vector< asio_config::address >
-get_local_interfaces(get_interface_options opts, ::std::string const& iface_name)
+get_local_addresses(get_interface_options opts, ::std::string const& iface_name)
 {
     ::std::vector< asio_config::address > result;
     if (opts == get_interface_options::none)

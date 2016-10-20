@@ -52,7 +52,7 @@ try {
             opts = opts ^ get_interface_options::regular;
     }
 
-    auto local_ifaces = get_local_interfaces(opts, iface_name);
+    auto local_ifaces = get_local_addresses(opts, iface_name);
 
     for (auto const& addr : local_ifaces) {
         ::std::cout << addr << "\n";
