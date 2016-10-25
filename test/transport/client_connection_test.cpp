@@ -175,6 +175,7 @@ TEST_F(Client, TCPConnectInvalidValidate)
 {
     typedef transport_type_traits< transport_type::tcp > used_transport;
     current_transport = used_transport::value;
+    // TODO Test with small or no greeting
     add_args.insert(add_args.end(), {"--greet-message", "hello"});
     StartPartner();
 

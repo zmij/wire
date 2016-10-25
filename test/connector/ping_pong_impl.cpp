@@ -36,7 +36,7 @@ ping_pong_server::test_string(::std::string const& val,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&)
 {
-    ::std::cerr << __FUNCTION__ << " " << val << "\n";
+    ::std::cerr << __FUNCTION__ << "\n";
     __resp(val);
 }
 

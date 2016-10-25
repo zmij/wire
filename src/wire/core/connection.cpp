@@ -171,8 +171,8 @@ connection_implementation::request_error(request_number r_no,
 {
     pending_replies_type::const_accessor acc;
     if (pending_replies_.find(acc, r_no)) {
-        #if DEBUG_OUTPUT >= 5
-        ::std::cerr << "Request timed out\n";
+        #if DEBUG_OUTPUT >= 3
+        ::std::cerr << "Request " << r_no << " connection error\n";
         #endif
         if (acc->second.error) {
             auto err_handler = acc->second.error;
@@ -293,9 +293,6 @@ connection_implementation::handle_close()
 
     reply_expiration r_exp;
     while (expiration_queue_.try_pop(r_exp)) {
-        #if DEBUG_OUTPUT >= 2
-        ::std::cerr << "Notify request " << r_exp.number << "\n";
-        #endif
         request_error(r_exp.number, ex);
     }
 
@@ -308,7 +305,7 @@ connection_implementation::write_async(encoding::outgoing_ptr out,
         functional::void_callback cb)
 {
     #if DEBUG_OUTPUT >= 3
-    ::std::cerr << "Send message " << out->type() << " size " << out->size() << "\n";
+    ::std::cerr << "Send " << out->type() << " size " << out->size() << "\n";
     #endif
     do_write_async( out,
         ::std::bind(&connection_implementation::handle_write, shared_from_this(),
@@ -354,8 +351,8 @@ connection_implementation::handle_read(asio_config::error_code const& ec, ::std:
         incoming_buffer_ptr buffer)
 {
     if (!ec) {
-        read_incoming_message(buffer, bytes);
         start_read();
+        process_event(events::receive_data{buffer, bytes});
         set_connection_timer();
     } else {
         #if DEBUG_OUTPUT >= 2
@@ -368,6 +365,54 @@ connection_implementation::handle_read(asio_config::error_code const& ec, ::std:
 }
 
 void
+connection_implementation::process_message(encoding::message m,
+            incoming_buffer::iterator& b, incoming_buffer::iterator e)
+{
+    using encoding::message;
+    switch(m.type()) {
+        case message::validate: {
+            if (m.size > 0) {
+                throw errors::connection_failed("Invalid validate message");
+            }
+            process_event(events::receive_validate{});
+            break;
+        }
+        case message::close : {
+            if (m.size > 0) {
+                throw errors::connection_failed("Invalid close message");
+            }
+            process_event(events::receive_close{});
+            break;
+        }
+        default: {
+            if (m.size == 0) {
+                throw errors::connection_failed(
+                        "Zero sized ", m.type(), " message");
+            }
+            #if DEBUG_OUTPUT >= 3
+            ::std::cerr << "Receive " << m.type()
+                    << " size " << m.size << " buffer remains: "
+                    << (e - b) << "\n";
+            #endif
+
+            encoding::incoming_ptr incoming =
+                ::std::make_shared< encoding::incoming >( get_connector(), m, b, e );
+            if (!incoming->complete()) {
+                #if DEBUG_OUTPUT >= 3
+                ::std::cerr << "Wait for more data from peer\n";
+                #endif
+                incoming_ = incoming;
+            } else {
+                #if DEBUG_OUTPUT >= 3
+                ::std::cerr << "Dispatch message\n";
+                #endif
+                dispatch_incoming(incoming);
+            }
+        }
+    }
+}
+
+void
 connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::std::size_t bytes)
 {
     using encoding::message;
@@ -375,53 +420,59 @@ connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::s
     auto e = b + bytes;
     try {
         while (b != e) {
-            if (incoming_) {
+            if (!carry_.empty()) {
+                #if DEBUG_OUTPUT >= 3
+                ::std::cerr << "Read message with carry. Carry size " << carry_.size() << "\n";
+                #endif
+                auto need_bytes = message::max_header_size - carry_.size();
+                for (auto i = 0U; i < need_bytes && b != e; ++i) {
+                    carry_.push_back(*b++);
+                }
+                auto cb = carry_.begin();
+                auto ce = carry_.end();
+                message m;
+                if (try_read(cb, ce, m)) {
+                    // Rewind b
+                    b -= ce - cb;
+                    carry_.clear();
+
+                    bytes -= b - buffer->begin();
+                    process_message(m, b, e);
+                }
+                // If we fail to read the message with carry
+                // it means we exhausted the buffer and moved it to the carry.
+                // b == e, carry is filled with needed bytes
+            } else if (incoming_) {
+                #if DEBUG_OUTPUT >= 3
+                ::std::cerr << "Incomplete message is pending\n";
+                #endif
                 incoming_->insert_back(b, e);
                 if (incoming_->complete()) {
                     dispatch_incoming(incoming_);
                     incoming_.reset();
                 }
             } else {
+                #if DEBUG_OUTPUT >= 3
+                ::std::cerr << "Read message. Buffer size " << e - b << "\n";
+                #endif
                 message m;
-                read(b, e, m);
-                bytes -= b - buffer->begin();
 
-                switch(m.type()) {
-                    case message::validate: {
-                        if (m.size > 0) {
-                            throw errors::connection_failed("Invalid validate message");
-                        }
-                        process_event(events::receive_validate{});
-                        break;
-                    }
-                    case message::close : {
-                        if (m.size > 0) {
-                            throw errors::connection_failed("Invalid close message");
-                        }
-                        process_event(events::receive_close{});
-                        break;
-                    }
-                    default: {
-                        if (m.size == 0) {
-                            throw errors::connection_failed(
-                                    "Zero sized ", m.type(), " message");
-                        }
-                        #if DEBUG_OUTPUT >= 3
-                        ::std::cerr << "Receive message " << m.type()
-                                << " size " << m.size << "\n";
-                        #endif
-
-                        encoding::incoming_ptr incoming =
-                            ::std::make_shared< encoding::incoming >( get_connector(), m, b, e );
-                        if (!incoming->complete()) {
-                            incoming_ = incoming;
-                        } else {
-                            dispatch_incoming(incoming);
-                        }
-                    }
+                if (try_read(b, e, m)) {
+                    bytes -= b - buffer->begin();
+                    process_message(m, b, e);
+                } else {
+                    // The buffer was not enough to read the message size.
+                    // b != e, need to carry this.
+                    break;
                 }
             }
         }
+        #if DEBUG_OUTPUT >= 3
+        if (b != e) {
+            ::std::cerr << "Add " << e - b << " bytes to the carry\n";
+        }
+        #endif
+        carry_.insert(carry_.end(), b, e);
     } catch (::std::exception const& e) {
         /** TODO Make it a protocol error? Can we handle it? */
         #if DEBUG_OUTPUT >= 2
