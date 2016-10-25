@@ -175,6 +175,15 @@ struct connector::impl {
                 po::value<::std::string>(&options_.client_ssl.verify_file),
                 "SSL verify file (CA root). If missing, default system certificates are used")
         ;
+        po::options_description connection_mgmt_opts("Connection management options");
+        connection_mgmt_opts.add_options()
+        ((name + ".cm.enable").c_str(),
+                po::bool_switch(&options_.enable_connection_timeouts)->default_value(false),
+                "Enable connection management")
+        ((name + ".cm.timeout").c_str(),
+                po::value<int32_t>(&options_.connection_timeout)->default_value(30000),
+                "Connection timeout, in milliseconds")
+        ;
 
         cmd_line_options_.add(cfg_opts)
                 .add(connector_options)

@@ -9,9 +9,9 @@
 #include <wire/core/adapter.hpp>
 #include <wire/core/detail/connection_impl.hpp>
 #include <wire/core/detail/dispatch_request.hpp>
+#include <wire/core/detail/configuration_options.hpp>
 #include <wire/core/current.hpp>
 #include <wire/core/object.hpp>
-
 #include <wire/encoding/message.hpp>
 #include <wire/errors/user_exception.hpp>
 
@@ -120,20 +120,23 @@ void
 connection_implementation::set_connection_timer()
 {
     if (can_drop_connection()) {
-        // FIXME Configurable timeout
-        if (connection_timer_.expires_from_now(::std::chrono::seconds{10}) > 0) {
-            #if DEBUG_OUTPUT >= 5
+        auto const& opts = get_connector()->options();
+        #if DEBUG_OUTPUT >= 5
+        auto cancelled_events =
+        #endif
+        connection_timer_.expires_from_now(::std::chrono::milliseconds{opts.connection_timeout});
+        #if DEBUG_OUTPUT >= 5
+        if (cancelled_events)
             ::std::cerr << "Reset timer\n";
-            #endif
-            connection_timer_.async_wait(::std::bind(&connection_implementation::on_connection_timeout,
-                    shared_from_this(), ::std::placeholders::_1));
-        } else {
-            #if DEBUG_OUTPUT >= 5
+        else
             ::std::cerr << "Set timer\n";
-            #endif
-            connection_timer_.async_wait(::std::bind(&connection_implementation::on_connection_timeout,
-                    shared_from_this(), ::std::placeholders::_1));
-        }
+        #endif
+        auto _this = shared_from_this();
+        connection_timer_.async_wait(
+                [_this](asio_config::error_code const& ec)
+                {
+                    _this->on_connection_timeout(ec);
+                });
     }
 }
 
@@ -152,9 +155,11 @@ connection_implementation::on_connection_timeout(asio_config::error_code const& 
 bool
 connection_implementation::can_drop_connection() const
 {
+    if (get_connector()->options().enable_connection_timeouts) {
+        // TODO Check if peer endpoint has a routable bidir adapter
+        return pending_replies_.empty() && outstanding_responses_ <= 0;
+    }
     return false; // Turn off connection timeout
-    // TODO Check if peer endpoint has a routable bidir adapter
-    //return pending_replies_.empty() && outstanding_responses_ <= 0;
 }
 
 void
