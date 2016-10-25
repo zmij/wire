@@ -748,7 +748,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
             // TODO Use facet
             #if DEBUG_OUTPUT >= 3
             ::std::cerr << "Dispatch request " << req.operation.name()
-                    << " to " << req.operation.identity << "\n";
+                    << " to " << req.operation.target.identity << "\n";
             #endif
 
             current curr {
@@ -777,7 +777,8 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                     auto fpg = ::std::make_shared< invocation_foolproof_guard >(
                         [_this, req]() mutable {
                             #if DEBUG_OUTPUT >= 3
-                            ::std::cerr << "Invocation to " << req.operation.identity
+                            ::std::cerr << "Invocation to "
+                                    << req.operation.target.identity
                                     << " operation " << req.operation.operation
                                     << " failed to respond";
                             #endif

@@ -214,8 +214,8 @@ TEST(OutgoingBuffer, MessageHeaders)
     char* in = data;
     std::size_t header_size(0);
     for (auto const& buff : buffers) {
-        char const* bdata = reinterpret_cast<char const*>(ASIO_NS::detail::buffer_cast_helper(buff));
-        std::size_t sz = ASIO_NS::detail::buffer_size_helper(buff);
+        char const* bdata = reinterpret_cast<char const*>(asio_ns::detail::buffer_cast_helper(buff));
+        std::size_t sz = asio_ns::detail::buffer_size_helper(buff);
         if (!header_size) {
             header_size = sz;
         }

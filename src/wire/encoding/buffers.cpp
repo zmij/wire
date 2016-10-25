@@ -64,10 +64,10 @@ struct outgoing::impl : detail::buffer_sequence {
             write(std::back_inserter(message_header_buffer()), m);
         }
         asio_buffers buffs;
-        buffs.push_back(ASIO_NS::buffer(message_header_buffer()));
+        buffs.push_back(asio_ns::buffer(message_header_buffer()));
         for (auto const& b : buffers_) {
             if (!b.empty()) {
-                buffs.push_back(ASIO_NS::buffer(b));
+                buffs.push_back(asio_ns::buffer(b));
             }
         }
         return buffs;

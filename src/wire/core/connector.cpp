@@ -112,7 +112,7 @@ struct connector::impl {
     void
     register_shutdown_observer()
     {
-        auto& mon = ASIO_NS::use_service< detail::io_service_monitor >(*io_service_);
+        auto& mon = asio_ns::use_service< detail::io_service_monitor >(*io_service_);
         mon.add_observer([](){});
     }
 

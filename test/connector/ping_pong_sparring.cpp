@@ -46,7 +46,7 @@ try {
     ::wire::asio_config::io_service_ptr io_service =
             ::std::make_shared< ::wire::asio_config::io_service >();
 
-    ASIO_NS::signal_set signals(*io_service);
+    asio_ns::signal_set signals(*io_service);
     signals.add(SIGINT);
     signals.add(SIGTERM);
     signals.add(SIGQUIT);

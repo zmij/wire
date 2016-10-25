@@ -776,7 +776,7 @@ private:
     void
     do_read_async(incoming_buffer_ptr buffer, asio_config::asio_rw_callback cb) override
     {
-        transport_.async_read( ASIO_NS::buffer(*buffer), cb );
+        transport_.async_read( asio_ns::buffer(*buffer), cb );
     }
 
     endpoint        configured_endpoint_;
