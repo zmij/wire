@@ -244,5 +244,16 @@ TEST_F(PingPong, MTConnectionUsage)
     EXPECT_EQ(requests, responses + errors) << "Total count";
 }
 
+TEST_F(PingPong, ConnectFailException)
+{
+    ASSERT_NE(0, child_.pid);
+    ASSERT_TRUE(connector_.get());
+    ASSERT_TRUE(prx_.get());
+
+    StopPartner();
+
+    EXPECT_ANY_THROW(prx_->wire_ping()) << "Expect the unreachable object throws an exception";
+}
+
 } // namespace test
 }  /* namespace wire */
