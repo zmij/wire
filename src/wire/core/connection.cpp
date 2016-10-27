@@ -39,22 +39,23 @@ const functional::exception_callback dispatch_request::ignore_exception
     = [](::std::exception_ptr){};
 
 class invocation_foolproof_guard {
+    using atomic_flag               = ::std::atomic_flag;
     functional::void_callback       destroy_;
-    bool                            responded_ = false;
+    atomic_flag                     responded_{false};
 public:
     invocation_foolproof_guard(functional::void_callback on_destroy)
         : destroy_{on_destroy}
     {}
     ~invocation_foolproof_guard()
     {
-        if (!responded_ && destroy_) {
+        if (respond() && destroy_) {
             destroy_();
         }
     }
-    void
-    responded()
+    bool
+    respond()
     {
-        responded_ = true;
+        return !responded_.test_and_set();
     }
 };
 
@@ -844,33 +845,35 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                     detail::dispatch_request r{
                         buffer, en.begin(), en.end(), en.size(),
                         [_this, req, fpg](outgoing&& res) mutable {
-                            outgoing_ptr out =
-                                    ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
-                            reply rep {
-                                req.number,
-                                res.empty() ? reply::success_no_body : reply::success
-                            };
-                            write(::std::back_inserter(*out), rep);
-                            if (!res.empty()) {
-                                res.close_all_encaps();
-                                out->insert_encapsulation(::std::move(res));
+                            if (fpg->respond()) {
+                                outgoing_ptr out =
+                                        ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
+                                reply rep {
+                                    req.number,
+                                    res.empty() ? reply::success_no_body : reply::success
+                                };
+                                write(::std::back_inserter(*out), rep);
+                                if (!res.empty()) {
+                                    res.close_all_encaps();
+                                    out->insert_encapsulation(::std::move(res));
+                                }
+                                _this->process_event(events::send_reply{out});
                             }
-                            _this->process_event(events::send_reply{out});
-                            fpg->responded();
                         },
                         [_this, req, fpg](::std::exception_ptr ex) mutable {
-                            try {
-                                ::std::rethrow_exception(ex);
-                            } catch (errors::not_found const& e) {
-                                _this->send_not_found(req.number, e.subj(), req.operation);
-                            } catch (errors::user_exception const& e) {
-                                _this->send_exception(req.number, e);
-                            } catch (::std::exception const& e) {
-                                _this->send_exception(req.number, e);
-                            } catch (...) {
-                                _this->send_unknown_exception(req.number);
+                            if (fpg->respond()) {
+                                try {
+                                    ::std::rethrow_exception(ex);
+                                } catch (errors::not_found const& e) {
+                                    _this->send_not_found(req.number, e.subj(), req.operation);
+                                } catch (errors::user_exception const& e) {
+                                    _this->send_exception(req.number, e);
+                                } catch (::std::exception const& e) {
+                                    _this->send_exception(req.number, e);
+                                } catch (...) {
+                                    _this->send_unknown_exception(req.number);
+                                }
                             }
-                            fpg->responded();
                         }
                     };
                     disp->__dispatch(r, curr);
