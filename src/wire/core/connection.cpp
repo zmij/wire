@@ -585,7 +585,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
         incoming::const_iterator b = buffer->begin();
         incoming::const_iterator e = buffer->end();
         read(b, e, rep);
-        pending_replies_type::const_accessor acc;
+        pending_replies_type::accessor acc;
         if (pending_replies_.find(acc, rep.number)) {
             auto const& p_rep = acc->second;
             switch (rep.status) {
