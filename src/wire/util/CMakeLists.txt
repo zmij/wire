@@ -43,6 +43,12 @@ target_link_libraries(
     ${Boost_PROGRAM_OPTIONS_LIBRARIES}
 )
 
+add_executable(wire-ping wire_ping.cpp)
+target_link_libraries(
+    wire-ping
+    ${WIRE_LIB}
+)
+
 if(BUILD_CMD_UTILS)
     set(CONSOLE_LIB ${${LIB_NAME}_CONSOLE_LIB})
     add_library(${CONSOLE_LIB} console.cpp)
