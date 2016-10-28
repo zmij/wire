@@ -811,7 +811,8 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
             current curr {
                 req.operation,
                 {},
-                remote_endpoint()
+                remote_endpoint(),
+                adp
             };
             if (!(req.mode && request::no_context)) {
                 auto ctx_ptr = ::std::make_shared<context_type>();

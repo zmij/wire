@@ -11,6 +11,7 @@
 #include <wire/encoding/message.hpp>
 #include <wire/core/context.hpp>
 #include <wire/core/endpoint.hpp>
+#include <wire/core/adapter_fwd.hpp>
 
 namespace wire {
 namespace core {
@@ -19,6 +20,7 @@ struct current {
     encoding::operation_specs   operation;
     context_const_ptr           context;
     endpoint                    peer_endpoint;
+    adapter_ptr                 adapter;
 };
 
 extern const current no_current;
