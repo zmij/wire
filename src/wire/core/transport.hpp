@@ -162,7 +162,7 @@ struct tcp_transport {
     void async_write(BufferType const& buffer, HandlerType const& handler)
     {
         if (socket_.is_open()) {
-            asio_ns::async_write(socket_, buffer, strand_.wrap(handler));
+            asio_ns::async_write(socket_, buffer, handler);
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
@@ -174,7 +174,7 @@ struct tcp_transport {
     {
         if (socket_.is_open()) {
             asio_ns::async_read(socket_, std::forward< BufferType&& >(buffer),
-                    asio_ns::transfer_at_least(1), strand_.wrap(handler));
+                    asio_ns::transfer_at_least(1), handler);
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
@@ -212,8 +212,6 @@ private:
 private:
     resolver_type   resolver_;
     socket_type     socket_;
-
-    strand_type     strand_;
     // TODO timeout settings
 };
 

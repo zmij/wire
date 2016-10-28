@@ -524,7 +524,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
           on_close_{ on_close }
     {
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Create client connection instance\n";
+        ::std::cerr << this << " Create client connection instance\n";
         #endif
         mode_ = client;
         carry_.reserve(encoding::message::max_header_size);
@@ -541,7 +541,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
           on_close_{ on_close }
     {
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Create server connection instance\n";
+        ::std::cerr << this << " Create server connection instance\n";
         #endif
         mode_ = server;
         carry_.reserve(encoding::message::max_header_size);
@@ -552,7 +552,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         connection_timer_.cancel();
         request_timer_.cancel();
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Destroy connection instance\n";
+        ::std::cerr << this << " Destroy connection instance\n";
         #endif
     }
 
@@ -674,9 +674,15 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     void
     do_connect_async(endpoint const& ep)
     {
+        #if DEBUG_OUTPUT >= 3
+        ::std::cerr << this << " Starting async connection operation\n";
+        #endif
+        auto _this = shared_from_this();
         do_connect_async_impl(ep,
-            ::std::bind(&connection_implementation::handle_connected, shared_from_this(),
-                    ::std::placeholders::_1));
+            [_this](asio_config::error_code const& ec)
+            {
+                _this->handle_connected(ec);
+            });
     }
 
     virtual void

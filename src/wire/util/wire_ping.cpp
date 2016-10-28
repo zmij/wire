@@ -47,6 +47,7 @@ try {
     desc.add_options()
         ("help,h", "show options description")
         ("proxy,p", po::value<reference_data>(&ref), "Proxy to ping")
+        ("count,n", po::value<int>(&repeats)->default_value(4), "Number of repeats")
         ("indefinite,t", po::bool_switch(&indefinite), "Ping until interrupted")
     ;
 

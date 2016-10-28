@@ -567,13 +567,13 @@ struct connector::impl {
                         on_get(conn);
                     } catch(...) {}
                 },
-                [this, exception, conn, res, ep](::std::exception_ptr ex)
+                [this, exception, res, ep](::std::exception_ptr ex)
                 {
-                    #ifdef DEBUG_OUTPUT
-                    ::std::cerr << "Failed to connect to " << ep << "\n";
+                    #if DEBUG_OUTPUT >= 2
+                        ::std::cerr << "Failed to connect to " << ep << "\n";
                     #endif
                     *res = true;
-                    erase_outgoing(conn.get());
+                    erase_outgoing(ep);
                     try {
                         exception(ex);
                     } catch (...) {}
@@ -593,12 +593,23 @@ struct connector::impl {
     erase_outgoing(connection const* conn)
     {
         auto ep = conn->remote_endpoint();
+        erase_outgoing(ep);
+    }
+
+    void
+    erase_outgoing(endpoint ep)
+    {
         #if DEBUG_OUTPUT >= 1
         ::std::cerr << "Outgoing connection to " << ep << " closed\n";
         #endif
-        outgoing_.erase(ep);
+        connection_accessor acc;
+        if (outgoing_.find(acc, ep)) {
+            #if DEBUG_OUTPUT >= 1
+            ::std::cerr << "Erase connection to " << ep << "\n";
+            #endif
+            outgoing_.erase(acc);
+        }
     }
-
 };
 
 connector_ptr
