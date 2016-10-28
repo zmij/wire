@@ -51,7 +51,7 @@ struct connector_options {
     /**
      * Connection inactivity timeout, in milliseconds
      */
-    int32_t         connection_timeout{30000};
+    int32_t         connection_idle_timeout{30000};
     /**
      * Enable connection timing out
      */

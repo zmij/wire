@@ -181,7 +181,7 @@ struct connector::impl {
                 po::bool_switch(&options_.enable_connection_timeouts)->default_value(false),
                 "Enable connection management")
         ((name + ".cm.timeout").c_str(),
-                po::value<int32_t>(&options_.connection_timeout)->default_value(30000),
+                po::value<int32_t>(&options_.connection_idle_timeout)->default_value(30000),
                 "Connection timeout, in milliseconds")
         ;
 

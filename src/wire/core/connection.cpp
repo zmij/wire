@@ -118,14 +118,36 @@ connection_implementation::create_listen_connection(adapter_ptr adptr, transport
 }
 
 void
-connection_implementation::set_connection_timer()
+connection_implementation::set_connect_timer()
+{
+    auto _this = shared_from_this();
+    connection_timer_.expires_from_now(::std::chrono::seconds{1});
+    connection_timer_.async_wait(
+        [_this](asio_config::error_code const& ec)
+        {
+            _this->on_connect_timeout(ec);
+        });
+}
+
+void
+connection_implementation::on_connect_timeout(asio_config::error_code const& ec)
+{
+    if (!ec) {
+        process_event(events::connection_failure{
+            ::std::make_exception_ptr(errors::connection_failed("Connection timed out"))
+        });
+    }
+}
+
+void
+connection_implementation::set_idle_timer()
 {
     if (can_drop_connection()) {
         auto const& opts = get_connector()->options();
         #if DEBUG_OUTPUT >= 5
         auto cancelled_events =
         #endif
-        connection_timer_.expires_from_now(::std::chrono::milliseconds{opts.connection_timeout});
+        connection_timer_.expires_from_now(::std::chrono::milliseconds{opts.connection_idle_timeout});
         #if DEBUG_OUTPUT >= 5
         if (cancelled_events)
             ::std::cerr << "Reset timer\n";
@@ -136,13 +158,13 @@ connection_implementation::set_connection_timer()
         connection_timer_.async_wait(
                 [_this](asio_config::error_code const& ec)
                 {
-                    _this->on_connection_timeout(ec);
+                    _this->on_idle_timeout(ec);
                 });
     }
 }
 
 void
-connection_implementation::on_connection_timeout(asio_config::error_code const& ec)
+connection_implementation::on_idle_timeout(asio_config::error_code const& ec)
 {
     if (!ec) {
         #if DEBUG_OUTPUT >= 5
@@ -244,6 +266,7 @@ connection_implementation::handle_connected(asio_config::error_code const& ec)
     ::std::cerr << "Handle connected\n";
     #endif
     if (!ec) {
+        connection_timer_.cancel();
         process_event(events::connected{});
         auto adp = adapter_.lock();
         if (adp) {
@@ -324,7 +347,7 @@ connection_implementation::handle_write(asio_config::error_code const& ec, ::std
 {
     if (!ec) {
         if (cb) cb();
-        set_connection_timer();
+        set_idle_timer();
     } else {
         #if DEBUG_OUTPUT >= 2
         ::std::cerr << "Write failed " << ec.message() << "\n";
@@ -359,7 +382,7 @@ connection_implementation::handle_read(asio_config::error_code const& ec, ::std:
     if (!ec) {
         start_read();
         process_event(events::receive_data{buffer, bytes});
-        set_connection_timer();
+        set_idle_timer();
     } else {
         #if DEBUG_OUTPUT >= 2
         ::std::cerr << "Read failed " << ec.message() << "\n";

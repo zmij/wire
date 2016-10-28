@@ -570,9 +570,14 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     }
 
     void
-    set_connection_timer();
+    set_connect_timer();
     void
-    on_connection_timeout(asio_config::error_code const& ec);
+    on_connect_timeout(asio_config::error_code const& ec);
+
+    void
+    set_idle_timer();
+    void
+    on_idle_timeout(asio_config::error_code const& ec);
     bool
     can_drop_connection() const;
 
@@ -676,7 +681,10 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     {
         #if DEBUG_OUTPUT >= 3
         ::std::cerr << this << " Starting async connection operation\n";
+        ::std::cerr << this << "IO service is "
+                << (io_service_->stopped() ? "stopped" : "running") << "\n";
         #endif
+        set_connect_timer();
         auto _this = shared_from_this();
         do_connect_async_impl(ep,
             [_this](asio_config::error_code const& ec)
