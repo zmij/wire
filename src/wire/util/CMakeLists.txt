@@ -47,6 +47,7 @@ add_executable(wire-ping wire_ping.cpp)
 target_link_libraries(
     wire-ping
     ${WIRE_LIB}
+    ${CMAKE_THREAD_LIBS_INIT}
 )
 
 if(BUILD_CMD_UTILS)
