@@ -70,6 +70,12 @@ public:
             ::wire::core::current const& = ::wire::core::no_current) override;
 
     void
+    add_well_known_objects(::wire::core::object_seq const& objs,
+            ::wire::core::functional::void_callback __resp,
+            ::wire::core::functional::exception_callback __exception,
+            ::wire::core::current const& = ::wire::core::no_current) override;
+
+    void
     remove_well_known_object(::wire::core::object_prx obj,
             ::wire::core::functional::void_callback __resp,
             ::wire::core::functional::exception_callback __exception,
