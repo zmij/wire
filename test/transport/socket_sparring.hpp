@@ -16,64 +16,64 @@ namespace socket {
 
 class session {
 public:
-	typedef asio_config::local_socket::socket socket_type;
-	enum {
-		max_length = 1024
-	};
+    typedef asio_config::local_socket::socket socket_type;
+    enum {
+        max_length = 1024
+    };
 public:
-	session(asio_config::io_service& svc, std::size_t requests)
-		: socket_(svc), requests_(requests), limit_requests_(requests_ > 0)
-	{
-	}
-	~session()
-	{
-		socket_.close();
-	}
+    session(asio_config::io_service& svc, std::size_t requests)
+        : socket_(svc), requests_(requests), limit_requests_(requests_ > 0)
+    {
+    }
+    ~session()
+    {
+        socket_.close();
+    }
 
-	socket_type&
-	socket()
-	{
-		return socket_;
-	}
+    socket_type&
+    socket()
+    {
+        return socket_;
+    }
 
-	void
-	start();
+    void
+    start();
 private:
-	void
-	handle_read(asio_config::error_code const& ec, size_t bytes_transferred);
-	void
-	handle_write(asio_config::error_code const& ec, size_t bytes_transferred);
+    void
+    handle_read(asio_config::error_code const& ec, size_t bytes_transferred);
+    void
+    handle_write(asio_config::error_code const& ec, size_t bytes_transferred);
 private:
-	socket_type	socket_;
-	char data_[ max_length ];
-	std::size_t	requests_;
-	bool limit_requests_;
+    socket_type    socket_;
+    char data_[ max_length ];
+    std::size_t    requests_;
+    bool limit_requests_;
 };
 
 class server {
 public:
-	typedef asio_config::local_socket	protocol;
-	typedef protocol::endpoint			endpoint_type;
-	typedef protocol::acceptor			acceptor;
+    typedef asio_config::local_socket    protocol;
+    typedef protocol::endpoint            endpoint_type;
+    typedef protocol::acceptor            acceptor;
 public:
-	server(asio_config::io_service_ptr svc);
-	~server();
+    server(asio_config::io_service_ptr svc);
+    ~server();
 private:
-	void
-	start_accept();
-	void
-	handle_accept(session*, asio_config::error_code const&);
+    void
+    start_accept();
+    void
+    handle_accept(session*, asio_config::error_code const&);
 
-	void
-	handle_stop();
+    void
+    handle_stop();
 private:
-	asio_config::io_service_ptr	io_service_;
-	acceptor					acceptor_;
-	ASIO_NS::signal_set			signals_;
+    asio_config::io_service_ptr    io_service_;
+    acceptor                    acceptor_;
+    asio_ns::signal_set            signals_;
 
-	std::size_t					connections_;
-	bool						limit_connections_;
-	std::size_t					requests_;
+    std::size_t                    connections_;
+    bool                        limit_connections_;
+    std::size_t                    requests_;
 };
 
 }  // namespace socket

@@ -370,6 +370,19 @@ struct varint_enum_reader< T, true > {
                     + util::demangle<T>() + " value");
         }
     }
+    template < typename InputIterator >
+    static bool
+    try_input(InputIterator& begin, InputIterator end, out_type v)
+    {
+        using input_iterator_check = octet_input_iterator_concept< InputIterator >;
+
+        integral_type iv;
+        if (reader_type::try_input(begin, end, iv)) {
+            v = static_cast<base_type>(iv);
+            return true;
+        }
+        return false;
+    }
 };
 
 /**
@@ -388,6 +401,7 @@ struct varint_enum_reader< T, false > {
     /** @name Bit masks */
     static constexpr base_type eighth_bit = lsb_mask_type::value;    // 0b10000000
     static constexpr base_type seven_bits = ~lsb_mask_type::value;    // 0b01111111
+    static constexpr uint32_t  bit_count  = sizeof(T) * 8;
     //@}
 
     /**
@@ -405,7 +419,7 @@ struct varint_enum_reader< T, false > {
 
         base_type tmp = 0;
         bool more = true;
-        for (uint32_t n = 0; more && begin != end; ++n) {
+        for (uint32_t n = 0; more && begin != end && (7 * n) <= bit_count; ++n) {
             base_type curr_byte = (byte)*begin++;
             tmp |= (curr_byte & seven_bits) << (7 * n);
             more = curr_byte & eighth_bit;
@@ -415,6 +429,33 @@ struct varint_enum_reader< T, false > {
                     + util::demangle<T>());
         }
         v = boost::endian::little_to_native(tmp);
+    }
+
+    template < typename InputIterator >
+    static bool
+    try_input(InputIterator& start, InputIterator end, out_type v)
+    {
+        using input_iterator_check = octet_input_iterator_concept< InputIterator >;
+        auto begin = start;
+        base_type tmp = 0;
+        bool more = true;
+        for (uint32_t n = 0; more && begin != end && (7 * n) <= bit_count; ++n) {
+            base_type curr_byte = (byte)*begin++;
+            tmp |= (curr_byte & seven_bits) << (7 * n);
+            more = curr_byte & eighth_bit;
+        }
+        if (more) {
+            if (begin == end) {
+                return false;
+            } else {
+                throw errors::unmarshal_error("Failed to read unsigned integral value of "
+                        + util::demangle<T>());
+            }
+        } else {
+            v = boost::endian::little_to_native(tmp);
+            start = begin;
+            return true;
+        }
     }
 };
 

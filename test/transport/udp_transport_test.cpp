@@ -72,13 +72,13 @@ TEST_F(UDP, ReadWrite)
     const std::string test_str("TestString");
     std::string input_str;
     char data[256];
-    auto in_buffer = ASIO_NS::buffer(data);
+    auto in_buffer = asio_ns::buffer(data);
 
     udp.connect_async(endpoint_,
     [&]( asio_config::error_code const& ec ) {
         if (!ec) {
             connected = true;
-            udp.async_write( ASIO_NS::buffer(test_str),
+            udp.async_write( asio_ns::buffer(test_str),
             [&](asio_config::error_code const& ec, std::size_t bytes_transferred){
                 if (!ec) {
                     udp.async_read(in_buffer,

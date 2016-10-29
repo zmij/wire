@@ -303,6 +303,28 @@ locator_registry::add_well_known_object(::wire::core::object_prx obj,
 }
 
 void
+locator_registry::add_well_known_objects(::wire::core::object_seq const& objs,
+        ::wire::core::functional::void_callback __resp,
+        ::wire::core::functional::exception_callback __exception,
+        ::wire::core::current const&)
+{
+    ::std::exception_ptr ex;
+    for (auto obj : objs) {
+        try {
+            loc_->add_well_known_object(obj);
+        } catch (...) {
+            if (!ex)
+                ex = ::std::current_exception();
+        }
+    }
+    if (ex) {
+        __exception(ex);
+    } else {
+        __resp();
+    }
+}
+
+void
 locator_registry::remove_well_known_object(::wire::core::object_prx obj,
         ::wire::core::functional::void_callback __resp,
         ::wire::core::functional::exception_callback __exception,

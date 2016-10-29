@@ -17,10 +17,10 @@ namespace wire {
 namespace core {
 namespace detail {
 
-class io_service_monitor : public ASIO_NS::io_service::service {
+class io_service_monitor : public asio_ns::io_service::service {
 public:
-    static ASIO_NS::io_service::id id;
-    io_service_monitor(ASIO_NS::io_service& owner);
+    static asio_ns::io_service::id id;
+    io_service_monitor(asio_ns::io_service& owner);
     virtual ~io_service_monitor();
 
     void

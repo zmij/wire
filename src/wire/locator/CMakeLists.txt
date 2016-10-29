@@ -38,8 +38,14 @@ target_link_libraries(
     ${WIRE_UTIL_LIB}
 )
 
+add_executable(wire-locator-probe locator_probe.cpp)
+target_link_libraries(
+    wire-locator-probe
+    ${WIRE_LIB}
+)
+
 install(
-    TARGETS ${WIRE_LOCATOR_LIB} ${WIRE_LOCATOR_BIN}
+    TARGETS ${WIRE_LOCATOR_LIB} ${WIRE_LOCATOR_BIN} wire-locator-probe
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib

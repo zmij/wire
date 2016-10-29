@@ -27,7 +27,7 @@ session::start()
     if (!opts.greet_message.empty()) {
         if (limit_requests_)
             ++requests_;
-        ASIO_NS::async_write(socket_, ASIO_NS::buffer(opts.greet_message),
+        asio_ns::async_write(socket_, asio_ns::buffer(opts.greet_message),
                 std::bind(&session::handle_write, this,
                     std::placeholders::_1, std::placeholders::_2));
     } else if (opts.validate_message) {
@@ -38,7 +38,7 @@ session::start()
         encoding::write(std::back_inserter(b),
                 encoding::message{ encoding::message::validate, 0 });
         std::copy(b.begin(), b.end(), data_);
-        ASIO_NS::async_write(socket_, ASIO_NS::buffer(data_, b.size()),
+        asio_ns::async_write(socket_, asio_ns::buffer(data_, b.size()),
                 std::bind(&session::handle_write, this,
                     std::placeholders::_1, std::placeholders::_2));
     } else {
@@ -50,7 +50,7 @@ void
 session::start_read()
 {
     socket_.async_read_some(
-        ASIO_NS::buffer(data_, max_length),
+        asio_ns::buffer(data_, max_length),
         std::bind(&session::handle_read, this,
                 std::placeholders::_1, std::placeholders::_2));
 }
@@ -93,12 +93,12 @@ session::handle_read(asio_config::error_code const& ec, size_t bytes_transferred
                 auto buffers = out.to_buffers();
                 auto o = data_;
                 for (auto const& buff : buffers) {
-                    char const* bdata = reinterpret_cast<char const*>(ASIO_NS::detail::buffer_cast_helper(buff));
-                    std::size_t sz = ASIO_NS::detail::buffer_size_helper(buff);
+                    char const* bdata = reinterpret_cast<char const*>(asio_ns::detail::buffer_cast_helper(buff));
+                    std::size_t sz = asio_ns::detail::buffer_size_helper(buff);
                     o = std::copy(bdata, bdata + sz, o);
                 }
                 bytes_transferred = o - data_;
-                ASIO_NS::async_write(socket_, ASIO_NS::buffer(data_, bytes_transferred),
+                asio_ns::async_write(socket_, asio_ns::buffer(data_, bytes_transferred),
                         std::bind(&session::handle_write, this,
                             std::placeholders::_1, std::placeholders::_2));
             } catch (std::runtime_error const& e) {
@@ -107,7 +107,7 @@ session::handle_read(asio_config::error_code const& ec, size_t bytes_transferred
                 std::cerr << "[SPARRING] Error\n";
             }
         } else {
-            ASIO_NS::async_write(socket_, ASIO_NS::buffer(data_, bytes_transferred),
+            asio_ns::async_write(socket_, asio_ns::buffer(data_, bytes_transferred),
                     std::bind(&session::handle_write, this,
                         std::placeholders::_1, std::placeholders::_2));
         }

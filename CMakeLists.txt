@@ -102,6 +102,7 @@ endif()
 
 set(${LIB_NAME}_LIB ${lib_name})
 set(${LIB_NAME}_UTIL_LIB ${lib_name}-util)
+set(${LIB_NAME}_IFACES_LIB ${lib_name}-ifaces)
 set(${LIB_NAME}_IDL_LIB ${lib_name}-idl)
 set(${LIB_NAME}_LOCATOR_LIB ${lib_name}-locator)
 set(${LIB_NAME}_LOCATOR_BIN ${lib_name}-locatord)

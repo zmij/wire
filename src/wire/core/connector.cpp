@@ -112,7 +112,7 @@ struct connector::impl {
     void
     register_shutdown_observer()
     {
-        auto& mon = ASIO_NS::use_service< detail::io_service_monitor >(*io_service_);
+        auto& mon = asio_ns::use_service< detail::io_service_monitor >(*io_service_);
         mon.add_observer([](){});
     }
 
@@ -174,6 +174,15 @@ struct connector::impl {
         ((name + ".ssl.client.verify_file").c_str(),
                 po::value<::std::string>(&options_.client_ssl.verify_file),
                 "SSL verify file (CA root). If missing, default system certificates are used")
+        ;
+        po::options_description connection_mgmt_opts("Connection management options");
+        connection_mgmt_opts.add_options()
+        ((name + ".cm.enable").c_str(),
+                po::bool_switch(&options_.enable_connection_timeouts)->default_value(false),
+                "Enable connection management")
+        ((name + ".cm.timeout").c_str(),
+                po::value<int32_t>(&options_.connection_idle_timeout)->default_value(30000),
+                "Connection timeout, in milliseconds")
         ;
 
         cmd_line_options_.add(cfg_opts)
@@ -558,13 +567,13 @@ struct connector::impl {
                         on_get(conn);
                     } catch(...) {}
                 },
-                [this, exception, conn, res, ep](::std::exception_ptr ex)
+                [this, exception, res, ep](::std::exception_ptr ex)
                 {
-                    #ifdef DEBUG_OUTPUT
-                    ::std::cerr << "Failed to connect to " << ep << "\n";
+                    #if DEBUG_OUTPUT >= 2
+                        ::std::cerr << "Failed to connect to " << ep << "\n";
                     #endif
                     *res = true;
-                    erase_outgoing(conn.get());
+                    erase_outgoing(ep);
                     try {
                         exception(ex);
                     } catch (...) {}
@@ -584,12 +593,23 @@ struct connector::impl {
     erase_outgoing(connection const* conn)
     {
         auto ep = conn->remote_endpoint();
+        erase_outgoing(ep);
+    }
+
+    void
+    erase_outgoing(endpoint ep)
+    {
         #if DEBUG_OUTPUT >= 1
         ::std::cerr << "Outgoing connection to " << ep << " closed\n";
         #endif
-        outgoing_.erase(ep);
+        connection_accessor acc;
+        if (outgoing_.find(acc, ep)) {
+            #if DEBUG_OUTPUT >= 1
+            ::std::cerr << "Erase connection to " << ep << "\n";
+            #endif
+            outgoing_.erase(acc);
+        }
     }
-
 };
 
 connector_ptr

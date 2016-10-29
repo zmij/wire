@@ -106,14 +106,14 @@ TEST_F(TCP, ReadWriteAsync)
     bool connected = false;
     size_t errors = 0;
     const std::string test_str("TestString");
-    ASIO_NS::streambuf in_buffer;
+    asio_ns::streambuf in_buffer;
     std::string input_str;
 
     tcp.connect_async(endpoint_,
     [&]( asio_config::error_code const& ec ) {
         if (!ec) {
             connected = true;
-            tcp.async_write( ASIO_NS::buffer(test_str),
+            tcp.async_write( asio_ns::buffer(test_str),
             [&](asio_config::error_code const& ec, std::size_t bytes_transferred){
                 if (!ec) {
                     tcp.async_read(in_buffer,
@@ -150,8 +150,8 @@ TEST_F(TCP, ReadWrite)
     tcp_transport tcp(io_svc);
     ASSERT_NO_THROW(tcp.connect(endpoint_));
     const std::string test_str("TestFutureString");
-    ASIO_NS::streambuf in_buffer;
-    std::future< std::size_t > write_f = tcp.async_write(ASIO_NS::buffer(test_str));
+    asio_ns::streambuf in_buffer;
+    std::future< std::size_t > write_f = tcp.async_write(asio_ns::buffer(test_str));
     std::future< std::size_t > read_f = tcp.async_read(in_buffer);
     io_svc->run();
     EXPECT_EQ(test_str.size(), write_f.get());

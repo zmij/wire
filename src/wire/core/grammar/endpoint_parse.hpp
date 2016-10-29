@@ -24,6 +24,56 @@ namespace core {
 namespace grammar {
 namespace parse {
 
+struct inet_interface_version_grammar
+        : boost::spirit::qi::symbols< char, detail::inet_interface::version_type > {
+    inet_interface_version_grammar()
+    {
+        add
+            ("v4",      detail::inet_interface::version_type::v4)
+            ("v6",      detail::inet_interface::version_type::v6)
+        ;
+    }
+};
+
+template < typename InputIterator >
+struct inet_interface_grammar :
+        parser_value_grammar< InputIterator, detail::inet_interface > {
+    using value_type = detail::inet_interface;
+    inet_interface_grammar() : inet_interface_grammar::base_type(main_rule)
+    {
+        namespace qi = boost::spirit::qi;
+        namespace phx = boost::phoenix;
+        using qi::char_;
+        using qi::_val;
+        using qi::no_case;
+        using qi::_1;
+        using qi::_2;
+
+        name %= qi::char_("a-zA-Z") >> *qi::char_("a-zA-Z0-9");
+        main_rule = name [ phx::bind(&value_type::name, _val) = _1 ]
+                >> '['
+                >> no_case[ version ][ phx::bind(&value_type::version, _val) = _1 ]
+                >> ']';
+    }
+
+    parser_value_rule< InputIterator, value_type >      main_rule;
+    parser_value_rule< InputIterator, ::std::string >   name;
+    inet_interface_version_grammar                      version;
+};
+
+struct get_iface_addr_func {
+    using result = ::std::string;
+
+    result
+    operator()(detail::inet_interface const& iface) const
+    {
+        return iface.resolve_address();
+    }
+};
+
+::boost::phoenix::function< get_iface_addr_func > const get_iface_addr
+         = get_iface_addr_func{};
+
 struct transport_type_grammar :
         boost::spirit::qi::symbols< char, transport_type > {
     transport_type_grammar()
@@ -53,11 +103,13 @@ struct ip_endpoint_data_grammar :
         using qi::_2;
 
         port = boost::spirit::qi::uint_parser< std::uint16_t, 10, 1 >();
-        main_rule = ihost[ phx::bind( &value_type::host, _val ) = _1 ] >>
+        main_rule = (iface[ phx::bind( &value_type::host, _val ) = get_iface_addr(_1) ] |
+                    ihost[ phx::bind( &value_type::host, _val ) = _1 ]) >>
                 qi::lit(':')
                 >> port[ phx::bind( &value_type::port, _val ) = _1 ];
     }
     parser_value_rule< InputIterator, value_type >                  main_rule;
+    inet_interface_grammar< InputIterator >                         iface;
     tip::iri::grammar::parse::ihost_str_grammar< InputIterator >    ihost;
     parser_value_rule< InputIterator, uint16_t >                    port;
 };

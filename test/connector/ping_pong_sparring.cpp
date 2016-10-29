@@ -6,6 +6,7 @@
  */
 
 #include <iostream>
+#include <fstream>
 #include "ping_pong_impl.hpp"
 
 #include <wire/core/connector.hpp>
@@ -14,6 +15,40 @@
 
 #include <boost/program_options.hpp>
 
+class stream_redirect {
+public:
+    stream_redirect(::std::ostream& stream,
+            ::std::string const& file_name,
+            ::std::ios_base::openmode open_mode
+                 = ::std::ios_base::out | ::std::ios_base::app) :
+        stream_(stream), old_(stream.rdbuf())
+    {
+        file_.open(file_name.c_str(), open_mode);
+        if (!file_.good()) {
+            std::ostringstream msg;
+            msg << "Failed to open file " << file_name
+                    << ": " << strerror(errno) << "\n";
+            throw std::runtime_error(msg.str());
+        }
+        stream_.rdbuf(file_.rdbuf());
+    }
+    ~stream_redirect()
+    {
+        stream_.flush();
+        stream_.rdbuf(old_);
+    }
+private:
+    std::ostream& stream_;
+    std::streambuf* old_;
+    std::ofstream file_;
+};
+
+namespace {
+
+::std::shared_ptr<stream_redirect> redirect_cerr;
+
+}  /* namespace  */
+
 int
 main(int argc, char* argv[])
 try {
@@ -21,14 +56,15 @@ try {
     namespace po = ::boost::program_options;
     ::std::uint16_t port_no{0};
     po::options_description desc("Test options");
+    ::std::string log_file;
 
     desc.add_options()
         ("help,h", "show options description")
         ("port,p",
             po::value< ::std::uint16_t >(&port_no),
             "Port to bind to")
+        ("log", po::value< ::std::string >(&log_file))
     ;
-
     po::parsed_options parsed_cmd =
             po::command_line_parser(argc, argv).options(desc).
                         allow_unregistered().run();
@@ -43,10 +79,16 @@ try {
     auto unrecognized_cmd = po::collect_unrecognized(parsed_cmd.options, po::exclude_positional);
     po::notify(vm);
 
+    if (!log_file.empty()) {
+        redirect_cerr =
+            std::make_shared< stream_redirect >( std::cerr,
+                    log_file );
+    }
+
     ::wire::asio_config::io_service_ptr io_service =
             ::std::make_shared< ::wire::asio_config::io_service >();
 
-    ASIO_NS::signal_set signals(*io_service);
+    asio_ns::signal_set signals(*io_service);
     signals.add(SIGINT);
     signals.add(SIGTERM);
     signals.add(SIGQUIT);

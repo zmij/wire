@@ -20,7 +20,7 @@ namespace wire {
 namespace core {
 
 #ifdef SO_REUSEPORT
-typedef ASIO_NS::detail::socket_option::boolean<
+typedef asio_ns::detail::socket_option::boolean<
 BOOST_ASIO_OS_DEF(SOL_SOCKET), SO_REUSEPORT > reuse_port;
 #endif
 
@@ -71,7 +71,7 @@ struct transport_type_traits<transport_type::ssl> {
     using endpoint_data         = detail::ssl_endpoint_data;
 
     using protocol              = asio_config::tcp;
-    using socket_type           = ASIO_NS::ssl::stream< protocol::socket >;
+    using socket_type           = asio_ns::ssl::stream< protocol::socket >;
     using listen_socket_type    = socket_type::lowest_layer_type;
     using endpoint_type         = protocol::endpoint;
     using resolver_type         = protocol::resolver;
@@ -162,7 +162,7 @@ struct tcp_transport {
     void async_write(BufferType const& buffer, HandlerType const& handler)
     {
         if (socket_.is_open()) {
-            ASIO_NS::async_write(socket_, buffer, strand_.wrap(handler));
+            asio_ns::async_write(socket_, buffer, handler);
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
@@ -173,8 +173,8 @@ struct tcp_transport {
     async_read(BufferType&& buffer, HandlerType handler)
     {
         if (socket_.is_open()) {
-            ASIO_NS::async_read(socket_, std::forward< BufferType&& >(buffer),
-                    ASIO_NS::transfer_at_least(1), strand_.wrap(handler));
+            asio_ns::async_read(socket_, std::forward< BufferType&& >(buffer),
+                    asio_ns::transfer_at_least(1), handler);
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
@@ -212,8 +212,6 @@ private:
 private:
     resolver_type   resolver_;
     socket_type     socket_;
-
-    strand_type     strand_;
     // TODO timeout settings
 };
 
@@ -222,7 +220,7 @@ struct ssl_transport {
     using socket_type           = traits::socket_type;
     using listen_socket_type    = traits::listen_socket_type;
     using resolver_type         = traits::resolver_type;
-    using verify_mode           = ASIO_NS::ssl::verify_mode;
+    using verify_mode           = asio_ns::ssl::verify_mode;
     static constexpr transport_type type = transport_type::ssl;
 
     static asio_config::ssl_context
@@ -264,7 +262,7 @@ struct ssl_transport {
     void async_write(BufferType const& buffer, HandlerType handler)
     {
         if (socket_.lowest_layer().is_open()) {
-            ASIO_NS::async_write(socket_, buffer, handler);
+            asio_ns::async_write(socket_, buffer, handler);
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
@@ -275,8 +273,8 @@ struct ssl_transport {
     async_read(BufferType&& buffer, HandlerType handler)
     {
         if (socket_.lowest_layer().is_open()) {
-            ASIO_NS::async_read(socket_, buffer,
-                    ASIO_NS::transfer_at_least(1), handler);
+            asio_ns::async_read(socket_, buffer,
+                    asio_ns::transfer_at_least(1), handler);
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
@@ -301,7 +299,7 @@ struct ssl_transport {
     }
 private:
     bool
-    verify_certificate(bool preverified, ASIO_NS::ssl::verify_context& ctx);
+    verify_certificate(bool preverified, asio_ns::ssl::verify_context& ctx);
 
     void
     handle_resolve(asio_config::error_code const& ec,
@@ -319,7 +317,7 @@ private:
     asio_config::ssl_context    ctx_;
     resolver_type               resolver_;
     socket_type                 socket_;
-    verify_mode                 verify_mode_ = ASIO_NS::ssl::verify_peer;
+    verify_mode                 verify_mode_ = asio_ns::ssl::verify_peer;
 };
 
 struct udp_transport {
@@ -422,7 +420,7 @@ struct socket_transport {
     void async_write(BufferType const& buffer, HandlerType handler)
     {
         if (socket_.is_open()) {
-            ASIO_NS::async_write(socket_, buffer, handler);
+            asio_ns::async_write(socket_, buffer, handler);
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
@@ -433,8 +431,8 @@ struct socket_transport {
     async_read(BufferType&& buffer, HandlerType handler)
     {
         if (socket_.is_open()) {
-            ASIO_NS::async_read(socket_, ::std::forward< BufferType >(buffer),
-                    ASIO_NS::transfer_at_least(1), handler);
+            asio_ns::async_read(socket_, ::std::forward< BufferType >(buffer),
+                    asio_ns::transfer_at_least(1), handler);
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
@@ -444,8 +442,8 @@ struct socket_transport {
     ::std::future< ::std::size_t >
     async_read( BufferType&& buffer )
     {
-        return ASIO_NS::async_read(socket_, std::forward< BufferType&& >(buffer),
-                ASIO_NS::transfer_at_least(1), asio_config::use_future);
+        return asio_ns::async_read(socket_, std::forward< BufferType&& >(buffer),
+                asio_ns::transfer_at_least(1), asio_config::use_future);
     }
 
     listen_socket_type&

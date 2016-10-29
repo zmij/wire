@@ -57,7 +57,7 @@ struct version {
 
 
     void
-    swap(version& rhs)
+    swap(version& rhs) noexcept
     {
         using ::std::swap;
         swap(major, rhs.major);
@@ -81,6 +81,22 @@ wire_read(InputIterator& begin, InputIterator end, version& v)
     v.swap(tmp);
 }
 
+template < typename InputIterator >
+bool
+try_read(InputIterator& start, InputIterator end, version& v)
+{
+    using reader = detail::reader<decltype(v.major)>;
+    version tmp;
+    auto begin = start;
+    if (!reader::try_input(begin, end, tmp.major))
+        return false;
+    if (!reader::try_input(begin, end, tmp.minor))
+        return false;
+    v.swap(tmp);
+    start = begin;
+    return true;
+}
+
 
 struct message {
     using size_type = uint64_t;
@@ -102,6 +118,13 @@ struct message {
     };
     static constexpr uint32_t MAGIC_NUMBER =
             ('w') | ('i' << 8) | ('r' << 16) | ('e' << 24);
+    static constexpr uint32_t magic_number_size = sizeof(uint32_t);
+    /** 4 bytes for magic number, 1 for flags, 1 for size */
+    static constexpr uint32_t min_header_size = 6;
+    /** 4 bytes for magic number, 1 for flags,  2 for protocol version
+     * 2 for encoding version, 9 - for maximum possible size
+     */
+    static constexpr uint32_t max_header_size = 18;
 
     version         protocol_version    = version{ ::wire::PROTOCOL_MAJOR, ::wire::PROTOCOL_MINOR };
     version         encoding_version    = version{ ::wire::ENCODING_MAJOR, ::wire::ENCODING_MINOR };
@@ -124,7 +147,7 @@ struct message {
     }
 
     void
-    swap(message& rhs)
+    swap(message& rhs) noexcept
     {
         using ::std::swap;
         swap(protocol_version, rhs.protocol_version);
@@ -180,6 +203,7 @@ read(InputIterator& begin, InputIterator end, message& v)
     int32_fixed_t magic;
     read(begin, end, magic);
     if (magic != message::MAGIC_NUMBER) {
+        // Unrecoverable
         throw errors::invalid_magic_number("Invalid magic number in message header");
     }
     message tmp;
@@ -192,6 +216,49 @@ read(InputIterator& begin, InputIterator end, message& v)
 
     read(begin, end, tmp.size);
     v.swap(tmp);
+}
+
+/**
+ * Try to read message header from buffer.
+ * @pre Minimum size of the buffer to succeed is message::min_header_size
+ * @param begin
+ * @param end
+ * @param v
+ * @return
+ */
+template < typename InputIterator >
+bool
+try_read(InputIterator& start, InputIterator end, message& v)
+{
+    using flags_reader = detail::reader<message::message_flags>;
+    using size_reader = detail::reader<message::size_type>;
+
+    if (end - start < message::magic_number_size)
+        return false; // We cannot read even the magic number
+    auto begin = start;
+    int32_fixed_t magic;
+    read(begin, end, magic);
+    if (magic != message::MAGIC_NUMBER) {
+        // Unrecoverable
+        throw errors::invalid_magic_number("Invalid magic number in message header");
+    }
+    message tmp;
+    if (!flags_reader::try_input(begin, end, tmp.flags))
+        return false;
+    if (tmp.flags & message::protocol) {
+        if (!try_read(begin, end, tmp.protocol_version))
+            return false;
+    }
+    if (tmp.flags & message::encoding) {
+        if (!try_read(begin, end, tmp.encoding_version))
+            return false;
+    }
+    if (!size_reader::try_input(begin, end, tmp.size))
+        return false;
+
+    v.swap(tmp);
+    start = begin;
+    return true;
 }
 
 struct invocation_target {
