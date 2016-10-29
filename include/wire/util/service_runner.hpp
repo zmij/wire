@@ -31,7 +31,7 @@ public:
 private:
 private:
     asio_config::io_service_ptr io_svc_;
-    ASIO_NS::signal_set         signals_;
+    asio_ns::signal_set         signals_;
 
     thread_func                 run_;
     stop_func                   stop_;

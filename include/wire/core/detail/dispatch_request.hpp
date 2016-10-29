@@ -17,6 +17,9 @@ namespace core {
 namespace detail {
 
 struct dispatch_request {
+    static const encoding::request_result_callback  ignore_result;
+    static const functional::exception_callback     ignore_exception;
+
     encoding::incoming_ptr              buffer;
     encoding::incoming::const_iterator  encaps_start;
     encoding::incoming::const_iterator  encaps_end;

@@ -27,10 +27,14 @@ struct locator::impl {
     core::object_prx
     find_object(core::identity const& id)
     {
+        #if DEBUG_OUTPUT >= 1
+        ::std::cerr << "Locator lookup well-known object " << id << "\n";
+        #endif
         proxy_map::const_accessor f;
         if (objects_.find(f, id)) {
             return f->second;
         }
+        ::std::cerr << "Locator well-known object " << id << " not found\n";
         throw core::object_not_found{id};
     }
 
@@ -46,6 +50,9 @@ struct locator::impl {
             #endif
             throw core::not_enough_data{};
         }
+        #if DEBUG_OUTPUT >= 1
+        ::std::cerr << "Locator add well-known object " << *obj << "\n";
+        #endif
         auto id = ref.object_id;
         proxy_map::accessor f;
         if (!objects_.find(f, id)) {
@@ -66,6 +73,21 @@ struct locator::impl {
                 } else {
                     f->second = obj;
                 }
+            }
+        }
+    }
+
+    void
+    remove_well_known_object(core::object_prx obj)
+    {
+        if (obj) {
+            auto const& id = obj->wire_identity();
+            #if DEBUG_OUTPUT >= 1
+            ::std::cerr << "Locator remove well-known object " << id << "\n";
+            #endif
+            proxy_map::accessor f;
+            if (objects_.find(f, id)) {
+                objects_.erase(f);
             }
         }
     }
@@ -235,6 +257,12 @@ locator::add_well_known_object(core::object_prx obj)
 }
 
 void
+locator::remove_well_known_object(core::object_prx obj)
+{
+    pimpl_->remove_well_known_object(obj);
+}
+
+void
 locator::add_adapter(core::object_prx adapter)
 {
     pimpl_->add_adapter(adapter);
@@ -268,6 +296,42 @@ locator_registry::add_well_known_object(::wire::core::object_prx obj,
 {
     try {
         loc_->add_well_known_object(obj);
+        __resp();
+    } catch (...) {
+        __exception(::std::current_exception());
+    }
+}
+
+void
+locator_registry::add_well_known_objects(::wire::core::object_seq const& objs,
+        ::wire::core::functional::void_callback __resp,
+        ::wire::core::functional::exception_callback __exception,
+        ::wire::core::current const&)
+{
+    ::std::exception_ptr ex;
+    for (auto obj : objs) {
+        try {
+            loc_->add_well_known_object(obj);
+        } catch (...) {
+            if (!ex)
+                ex = ::std::current_exception();
+        }
+    }
+    if (ex) {
+        __exception(ex);
+    } else {
+        __resp();
+    }
+}
+
+void
+locator_registry::remove_well_known_object(::wire::core::object_prx obj,
+        ::wire::core::functional::void_callback __resp,
+        ::wire::core::functional::exception_callback __exception,
+        ::wire::core::current const&)
+{
+    try {
+        loc_->remove_well_known_object(obj);
         __resp();
     } catch (...) {
         __exception(::std::current_exception());

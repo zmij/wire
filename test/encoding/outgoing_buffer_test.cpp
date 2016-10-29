@@ -198,7 +198,7 @@ TEST(OutgoingBuffer, NestedEncapsulation)
 TEST(OutgoingBuffer, MessageHeaders)
 {
     outgoing out{ core::connector_ptr{}, message::request};
-    request req{ 0, operation_specs{  core::identity::random(), "", "pewpew" },
+    request req{ 0, operation_specs{ {core::identity::random(), ""}, "pewpew" },
             request::normal };
     EXPECT_NO_THROW(write(std::back_inserter(out), req));
     EXPECT_LT(0, out.size());
@@ -214,8 +214,8 @@ TEST(OutgoingBuffer, MessageHeaders)
     char* in = data;
     std::size_t header_size(0);
     for (auto const& buff : buffers) {
-        char const* bdata = reinterpret_cast<char const*>(ASIO_NS::detail::buffer_cast_helper(buff));
-        std::size_t sz = ASIO_NS::detail::buffer_size_helper(buff);
+        char const* bdata = reinterpret_cast<char const*>(asio_ns::detail::buffer_cast_helper(buff));
+        std::size_t sz = asio_ns::detail::buffer_size_helper(buff);
         if (!header_size) {
             header_size = sz;
         }

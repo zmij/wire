@@ -129,7 +129,7 @@ struct local_invocation< Handler, Member,
     sent_handler            sent;
 
     void
-    operator()(bool run_sync) const
+    operator()(invocation_options const& opts) const
     {
         invocation_sent();
         object_ptr obj = ref->get_local_object();
@@ -143,17 +143,17 @@ struct local_invocation< Handler, Member,
             return;
         }
         servant_ptr srv = ::std::dynamic_pointer_cast< interface_type >(obj);
-
-        current curr{{ref->object_id(), ref->facet(), op}, ctx};
+        auto ctx_ptr = ::std::make_shared<context_type>(ctx);
+        current curr{{{ref->object_id(), ref->facet()}, op}, ctx_ptr};
         if (!srv) {
-            dispatch(obj, curr, run_sync);
+            dispatch(obj, curr, opts);
         } else {
-            invoke(srv, curr, run_sync, invokation_selector< is_void, is_sync >{});
+            invoke(srv, curr, opts, invokation_selector< is_void, is_sync >{});
         }
     }
 
     void
-    invoke( servant_ptr srv, current const& curr, bool run_sync,
+    invoke( servant_ptr srv, current const& curr, invocation_options const&,
             invocation_mode< invokation_type::void_sync > const& ) const
     {
         try {
@@ -165,7 +165,7 @@ struct local_invocation< Handler, Member,
     }
 
     void
-    invoke( servant_ptr srv, current const& curr, bool run_sync,
+    invoke( servant_ptr srv, current const& curr, invocation_options const&,
             invocation_mode< invokation_type::nonvoid_sync > const& ) const
     {
         try {
@@ -176,7 +176,7 @@ struct local_invocation< Handler, Member,
     }
 
     void
-    invoke( servant_ptr srv, current const& curr, bool run_sync,
+    invoke( servant_ptr srv, current const& curr, invocation_options const&,
             invocation_mode< invokation_type::void_async > const&) const
     {
         try {
@@ -264,7 +264,7 @@ struct local_invocation< Handler, Member,
         };
     }
     void
-    dispatch(object_ptr obj, current const& curr,  bool run_sync) const
+    dispatch(object_ptr obj, current const& curr,  invocation_options const&) const
     {
         using namespace encoding;
         outgoing out{ ref->get_connector() };
@@ -299,21 +299,21 @@ struct remote_invocation< Handler,
     using sent_handler      = functional::callback< bool >;
 
     struct invocation_data {
-        identity            id;
-        ::std::string       op;
-        context_type        ctx;
-        encoding::outgoing  out;
+        encoding::invocation_target target;
+        ::std::string               op;
+        context_type                ctx;
+        encoding::outgoing          out;
 
-        response_hanlder    response;
-        exception_handler   exception;
-        sent_handler        sent;
+        response_hanlder            response;
+        exception_handler           exception;
+        sent_handler                sent;
     };
 
     remote_invocation( reference_const_ptr r, ::std::string const& o,
             context_type const& c, invocation_args&& args,
             response_hanlder resp, exception_handler exc, sent_handler snt)
         : ref(r),
-          data{ new invocation_data{ ref->object_id(), o, c,
+          data{ new invocation_data{ {ref->object_id(), ref->facet()}, o, c,
               encoding::outgoing{ ref->get_connector() }, resp, exc, snt } }
     {
         encoding::write(::std::back_inserter(data->out),
@@ -321,7 +321,7 @@ struct remote_invocation< Handler,
     }
 
     /**
-     * Make a connection response callback for a non-void function invokation
+     * Make a connection response callback for a non-void function invocation
      * @param response
      * @param exception
      * @param
@@ -331,12 +331,18 @@ struct remote_invocation< Handler,
     typename ::std::enable_if< (::psst::meta::function_traits< ReplyHandler >::arity > 0),
         encoding::reply_callback >::type
     make_callback(ReplyHandler response, exception_handler exception,
-            ::std::false_type const&) const
+            invocation_options const& opts, ::std::false_type const&) const
     {
         using encoding::incoming;
         using reply_traits = ::psst::meta::function_traits<ReplyHandler>;
         using reply_tuple  = typename reply_traits::decayed_args_tuple_type;
-        if (response)
+        if (response) {
+            if (opts.is_one_way()) {
+                ::std::ostringstream os;
+                os << "Cannot invoke a non-void function "
+                    << data->op << " on a one-way proxy";
+                throw errors::invalid_one_way_invocation{os.str()};
+            }
             return [response, exception](incoming::const_iterator begin, incoming::const_iterator end) {
                 try {
                     auto encaps = begin.incoming_encapsulation();
@@ -352,11 +358,12 @@ struct remote_invocation< Handler,
                     }
                 }
             };
+        }
         return [](incoming::const_iterator, incoming::const_iterator) {};
     }
 
     /**
-     * Make a connection response callback for a void function invokation
+     * Make a connection response callback for a void function invocation
      * @param response
      * @param exception
      * @param
@@ -364,10 +371,10 @@ struct remote_invocation< Handler,
      */
     encoding::reply_callback
     make_callback(response_hanlder response, exception_handler exception,
-            ::std::true_type const&) const
+            invocation_options const& opts, ::std::true_type const&) const
     {
         using encoding::incoming;
-        if (response)
+        if (response && !opts.is_one_way())
             return [response, exception](incoming::const_iterator, incoming::const_iterator) {
                 try {
                     response();
@@ -383,12 +390,12 @@ struct remote_invocation< Handler,
     }
 
     void
-    operator()(bool run_sync) const
+    operator()(invocation_options const& opts) const
     {
-        auto reply = make_callback(data->response, data->exception, is_void{});
-        if (run_sync) {
+        auto reply = make_callback(data->response, data->exception, opts, is_void{});
+        if (opts.is_sync()) {
             try {
-                ref->get_connection()->invoke(data->id, data->op, data->ctx, true,
+                ref->get_connection()->invoke(data->target, data->op, data->ctx, opts,
                         ::std::move(data->out), reply, data->exception, data->sent);
             } catch (...) {
                 if (data->exception)
@@ -397,8 +404,8 @@ struct remote_invocation< Handler,
         } else {
             auto d = data;
             ref->get_connection_async(
-            [d, reply](connection_ptr conn) {
-                conn->invoke(d->id, d->op, d->ctx, false,
+            [d, reply, opts](connection_ptr conn) {
+                conn->invoke(d->target, d->op, d->ctx, opts,
                     ::std::move(d->out), reply, d->exception, d->sent);
             },
             [d](::std::exception_ptr ex) {

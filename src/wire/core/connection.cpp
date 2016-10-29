@@ -9,9 +9,9 @@
 #include <wire/core/adapter.hpp>
 #include <wire/core/detail/connection_impl.hpp>
 #include <wire/core/detail/dispatch_request.hpp>
+#include <wire/core/detail/configuration_options.hpp>
 #include <wire/core/current.hpp>
 #include <wire/core/object.hpp>
-
 #include <wire/encoding/message.hpp>
 #include <wire/errors/user_exception.hpp>
 
@@ -19,6 +19,9 @@
 
 namespace wire {
 namespace core {
+
+constexpr invocation_options::timeout_type invocation_options::default_timout;
+const invocation_options invocation_options::unspecified{ invocation_flags::unspecified };
 
 namespace detail {
 
@@ -30,23 +33,29 @@ using tcp_listen_connection_impl    = listen_connection_impl< transport_type::tc
 using ssl_listen_connection_impl    = listen_connection_impl< transport_type::ssl >;
 using socket_listen_connection_impl = listen_connection_impl< transport_type::socket >;
 
+const encoding::request_result_callback dispatch_request::ignore_result
+    = [](encoding::outgoing&&){};
+const functional::exception_callback dispatch_request::ignore_exception
+    = [](::std::exception_ptr){};
+
 class invocation_foolproof_guard {
+    using atomic_flag               = ::std::atomic_flag;
     functional::void_callback       destroy_;
-    bool                            responded_ = false;
+    atomic_flag                     responded_{false};
 public:
     invocation_foolproof_guard(functional::void_callback on_destroy)
         : destroy_{on_destroy}
     {}
     ~invocation_foolproof_guard()
     {
-        if (!responded_ && destroy_) {
+        if (respond() && destroy_) {
             destroy_();
         }
     }
-    void
-    responded()
+    bool
+    respond()
     {
-        responded_ = true;
+        return !responded_.test_and_set();
     }
 };
 
@@ -109,28 +118,53 @@ connection_implementation::create_listen_connection(adapter_ptr adptr, transport
 }
 
 void
-connection_implementation::set_connection_timer()
+connection_implementation::set_connect_timer()
 {
-    if (can_drop_connection()) {
-        // FIXME Configurable timeout
-        if (connection_timer_.expires_from_now(::std::chrono::seconds{10}) > 0) {
-            #if DEBUG_OUTPUT >= 5
-            ::std::cerr << "Reset timer\n";
-            #endif
-            connection_timer_.async_wait(::std::bind(&connection_implementation::on_connection_timeout,
-                    shared_from_this(), ::std::placeholders::_1));
-        } else {
-            #if DEBUG_OUTPUT >= 5
-            ::std::cerr << "Set timer\n";
-            #endif
-            connection_timer_.async_wait(::std::bind(&connection_implementation::on_connection_timeout,
-                    shared_from_this(), ::std::placeholders::_1));
-        }
+    auto _this = shared_from_this();
+    connection_timer_.expires_from_now(::std::chrono::seconds{1});
+    connection_timer_.async_wait(
+        [_this](asio_config::error_code const& ec)
+        {
+            _this->on_connect_timeout(ec);
+        });
+}
+
+void
+connection_implementation::on_connect_timeout(asio_config::error_code const& ec)
+{
+    if (!ec) {
+        process_event(events::connection_failure{
+            ::std::make_exception_ptr(errors::connection_failed("Connection timed out"))
+        });
     }
 }
 
 void
-connection_implementation::on_connection_timeout(asio_config::error_code const& ec)
+connection_implementation::set_idle_timer()
+{
+    if (can_drop_connection()) {
+        auto const& opts = get_connector()->options();
+        #if DEBUG_OUTPUT >= 5
+        auto cancelled_events =
+        #endif
+        connection_timer_.expires_from_now(::std::chrono::milliseconds{opts.connection_idle_timeout});
+        #if DEBUG_OUTPUT >= 5
+        if (cancelled_events)
+            ::std::cerr << "Reset timer\n";
+        else
+            ::std::cerr << "Set timer\n";
+        #endif
+        auto _this = shared_from_this();
+        connection_timer_.async_wait(
+                [_this](asio_config::error_code const& ec)
+                {
+                    _this->on_idle_timeout(ec);
+                });
+    }
+}
+
+void
+connection_implementation::on_idle_timeout(asio_config::error_code const& ec)
 {
     if (!ec) {
         #if DEBUG_OUTPUT >= 5
@@ -144,9 +178,11 @@ connection_implementation::on_connection_timeout(asio_config::error_code const& 
 bool
 connection_implementation::can_drop_connection() const
 {
+    if (get_connector()->options().enable_connection_timeouts) {
+        // TODO Check if peer endpoint has a routable bidir adapter
+        return pending_replies_.empty() && outstanding_responses_ <= 0;
+    }
     return false; // Turn off connection timeout
-    // TODO Check if peer endpoint has a routable bidir adapter
-    //return pending_replies_.empty() && outstanding_responses_ <= 0;
 }
 
 void
@@ -163,9 +199,9 @@ connection_implementation::request_error(request_number r_no,
 {
     pending_replies_type::const_accessor acc;
     if (pending_replies_.find(acc, r_no)) {
-        #if DEBUG_OUTPUT >= 5
-                ::std::cerr << "Request timed out\n";
-                #endif
+        #if DEBUG_OUTPUT >= 3
+        ::std::cerr << "Request " << r_no << " connection error\n";
+        #endif
         if (acc->second.error) {
             auto err_handler = acc->second.error;
             io_service_->post(
@@ -230,6 +266,7 @@ connection_implementation::handle_connected(asio_config::error_code const& ec)
     ::std::cerr << "Handle connected\n";
     #endif
     if (!ec) {
+        connection_timer_.cancel();
         process_event(events::connected{});
         auto adp = adapter_.lock();
         if (adp) {
@@ -285,9 +322,6 @@ connection_implementation::handle_close()
 
     reply_expiration r_exp;
     while (expiration_queue_.try_pop(r_exp)) {
-        #if DEBUG_OUTPUT >= 2
-        ::std::cerr << "Notify request " << r_exp.number << "\n";
-        #endif
         request_error(r_exp.number, ex);
     }
 
@@ -300,7 +334,7 @@ connection_implementation::write_async(encoding::outgoing_ptr out,
         functional::void_callback cb)
 {
     #if DEBUG_OUTPUT >= 3
-    ::std::cerr << "Send message " << out->type() << " size " << out->size() << "\n";
+    ::std::cerr << "Send " << out->type() << " size " << out->size() << "\n";
     #endif
     do_write_async( out,
         ::std::bind(&connection_implementation::handle_write, shared_from_this(),
@@ -313,7 +347,7 @@ connection_implementation::handle_write(asio_config::error_code const& ec, ::std
 {
     if (!ec) {
         if (cb) cb();
-        set_connection_timer();
+        set_idle_timer();
     } else {
         #if DEBUG_OUTPUT >= 2
         ::std::cerr << "Write failed " << ec.message() << "\n";
@@ -328,9 +362,9 @@ void
 connection_implementation::start_read()
 {
     if (!is_terminated()) {
-    incoming_buffer_ptr buffer = ::std::make_shared< incoming_buffer >();
-    read_async(buffer);
-}
+        incoming_buffer_ptr buffer = ::std::make_shared< incoming_buffer >();
+        read_async(buffer);
+    }
 }
 
 void
@@ -346,9 +380,9 @@ connection_implementation::handle_read(asio_config::error_code const& ec, ::std:
         incoming_buffer_ptr buffer)
 {
     if (!ec) {
-        read_incoming_message(buffer, bytes);
         start_read();
-        set_connection_timer();
+        process_event(events::receive_data{buffer, bytes});
+        set_idle_timer();
     } else {
         #if DEBUG_OUTPUT >= 2
         ::std::cerr << "Read failed " << ec.message() << "\n";
@@ -360,6 +394,54 @@ connection_implementation::handle_read(asio_config::error_code const& ec, ::std:
 }
 
 void
+connection_implementation::process_message(encoding::message m,
+            incoming_buffer::iterator& b, incoming_buffer::iterator e)
+{
+    using encoding::message;
+    switch(m.type()) {
+        case message::validate: {
+            if (m.size > 0) {
+                throw errors::connection_failed("Invalid validate message");
+            }
+            process_event(events::receive_validate{});
+            break;
+        }
+        case message::close : {
+            if (m.size > 0) {
+                throw errors::connection_failed("Invalid close message");
+            }
+            process_event(events::receive_close{});
+            break;
+        }
+        default: {
+            if (m.size == 0) {
+                throw errors::connection_failed(
+                        "Zero sized ", m.type(), " message");
+            }
+            #if DEBUG_OUTPUT >= 3
+            ::std::cerr << "Receive " << m.type()
+                    << " size " << m.size << " buffer remains: "
+                    << (e - b) << "\n";
+            #endif
+
+            encoding::incoming_ptr incoming =
+                ::std::make_shared< encoding::incoming >( get_connector(), m, b, e );
+            if (!incoming->complete()) {
+                #if DEBUG_OUTPUT >= 3
+                ::std::cerr << "Wait for more data from peer\n";
+                #endif
+                incoming_ = incoming;
+            } else {
+                #if DEBUG_OUTPUT >= 3
+                ::std::cerr << "Dispatch message\n";
+                #endif
+                dispatch_incoming(incoming);
+            }
+        }
+    }
+}
+
+void
 connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::std::size_t bytes)
 {
     using encoding::message;
@@ -367,53 +449,59 @@ connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::s
     auto e = b + bytes;
     try {
         while (b != e) {
-            if (incoming_) {
+            if (!carry_.empty()) {
+                #if DEBUG_OUTPUT >= 3
+                ::std::cerr << "Read message with carry. Carry size " << carry_.size() << "\n";
+                #endif
+                auto need_bytes = message::max_header_size - carry_.size();
+                for (auto i = 0U; i < need_bytes && b != e; ++i) {
+                    carry_.push_back(*b++);
+                }
+                auto cb = carry_.begin();
+                auto ce = carry_.end();
+                message m;
+                if (try_read(cb, ce, m)) {
+                    // Rewind b
+                    b -= ce - cb;
+                    carry_.clear();
+
+                    bytes -= b - buffer->begin();
+                    process_message(m, b, e);
+                }
+                // If we fail to read the message with carry
+                // it means we exhausted the buffer and moved it to the carry.
+                // b == e, carry is filled with needed bytes
+            } else if (incoming_) {
+                #if DEBUG_OUTPUT >= 3
+                ::std::cerr << "Incomplete message is pending\n";
+                #endif
                 incoming_->insert_back(b, e);
                 if (incoming_->complete()) {
                     dispatch_incoming(incoming_);
                     incoming_.reset();
                 }
             } else {
+                #if DEBUG_OUTPUT >= 3
+                ::std::cerr << "Read message. Buffer size " << e - b << "\n";
+                #endif
                 message m;
-                read(b, e, m);
-                bytes -= b - buffer->begin();
 
-                switch(m.type()) {
-                    case message::validate: {
-                        if (m.size > 0) {
-                            throw errors::connection_failed("Invalid validate message");
-                        }
-                        process_event(events::receive_validate{});
-                        break;
-                    }
-                    case message::close : {
-                        if (m.size > 0) {
-                            throw errors::connection_failed("Invalid close message");
-                        }
-                        process_event(events::receive_close{});
-                        break;
-                    }
-                    default: {
-                        if (m.size == 0) {
-                            throw errors::connection_failed(
-                                    "Zero sized ", m.type(), " message");
-                        }
-                        #if DEBUG_OUTPUT >= 3
-                        ::std::cerr << "Receive message " << m.type()
-                                << " size " << m.size << "\n";
-                        #endif
-
-                        encoding::incoming_ptr incoming =
-                            ::std::make_shared< encoding::incoming >( get_connector(), m, b, e );
-                        if (!incoming->complete()) {
-                            incoming_ = incoming;
-                        } else {
-                            dispatch_incoming(incoming);
-                        }
-                    }
+                if (try_read(b, e, m)) {
+                    bytes -= b - buffer->begin();
+                    process_message(m, b, e);
+                } else {
+                    // The buffer was not enough to read the message size.
+                    // b != e, need to carry this.
+                    break;
                 }
             }
         }
+        #if DEBUG_OUTPUT >= 3
+        if (b != e) {
+            ::std::cerr << "Add " << e - b << " bytes to the carry\n";
+        }
+        #endif
+        carry_.insert(carry_.end(), b, e);
     } catch (::std::exception const& e) {
         /** TODO Make it a protocol error? Can we handle it? */
         #if DEBUG_OUTPUT >= 2
@@ -444,9 +532,9 @@ connection_implementation::dispatch_incoming(encoding::incoming_ptr incoming)
 }
 
 void
-connection_implementation::invoke(identity const& id, ::std::string const& op,
+connection_implementation::invoke(encoding::invocation_target const& target, ::std::string const& op,
         context_type const& ctx,
-        bool run_sync,
+        invocation_options const& opts,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
         functional::exception_callback exception,
@@ -458,27 +546,49 @@ connection_implementation::invoke(identity const& id, ::std::string const& op,
             encoding::message::request);
     request r{
         ++request_no_,
-        encoding::operation_specs{ id, "", op },
+        encoding::operation_specs{ target, op },
         request::normal
     };
+    if (ctx.empty())
+        r.mode |= request::no_context;
+    if (opts.is_one_way())
+        r.mode |= request::one_way;
+
     #if DEBUG_OUTPUT >= 5
-    ::std::cerr << "Invoke request " << id << "::"
+    ::std::cerr << "Invoke request " << target.identity << "::"
             << op << " #" << r.number << "\n";
     #endif
+
     write(::std::back_inserter(*out), r);
+    if (!ctx.empty())
+        write(::std::back_inserter(*out), ctx);
     params.close_all_encaps();
     out->insert_encapsulation(::std::move(params));
-    functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
-    // TODO Pass timeout in invokation parameters
-    time_point expires = clock_type::now() + expire_duration{5000};
+    time_point expires = clock_type::now() + expire_duration{opts.timeout};
     pending_replies_.insert(::std::make_pair( r.number,
             pending_reply{ reply, exception } ));
     expiration_queue_.push(reply_expiration{ r.number, expires });
+    auto _this = shared_from_this();
+    auto r_no = r.number;
+    functional::void_callback write_cb = functional::void_callback{};
+    if (opts.is_one_way()) {
+        write_cb = sent ?
+            functional::void_callback{[_this, sent, r_no]()
+            {
+                sent(true);
+                _this->pending_replies_.erase(r_no);
+            }} :
+            functional::void_callback{[_this, r_no]()
+            {
+                _this->pending_replies_.erase(r_no);
+            }};
+    } else {
+        write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
+    }
     process_event(events::send_request{ out, write_cb });
 
-    if (run_sync) {
-        auto _this = shared_from_this();
-        auto r_no = r.number;
+    if (opts.is_sync()) {
+        // TODO Decide what to do in case of one way invocation
         util::run_while(io_service_, [_this, r_no](){
             pending_replies_type::const_accessor acc;
             return _this->pending_replies_.find(acc, r_no);
@@ -498,7 +608,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
         incoming::const_iterator b = buffer->begin();
         incoming::const_iterator e = buffer->end();
         read(b, e, rep);
-        pending_replies_type::const_accessor acc;
+        pending_replies_type::accessor acc;
         if (pending_replies_.find(acc, rep.number)) {
             auto const& p_rep = acc->second;
             switch (rep.status) {
@@ -559,8 +669,8 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                                     errors::not_found{
                                         static_cast< errors::not_found::subject >(
                                                 rep.status - reply::no_object ),
-                                        op.identity,
-                                        op.facet,
+                                        op.target.identity,
+                                        op.target.facet,
                                         op.name()
                                     } )
                             );
@@ -696,7 +806,7 @@ connection_implementation::send_unknown_exception(uint32_t req_num)
 
     {
         outgoing::encaps_guard guard{ out->begin_encapsulation() };
-        errors::unexpected ue {};
+        errors::unexpected ue {"Unknown type", "Unexpected exception not deriving from std::exception"};
         ue.__wire_write(o);
     }
     process_event(events::send_reply{out});
@@ -718,63 +828,80 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
             // TODO Use facet
             #if DEBUG_OUTPUT >= 3
             ::std::cerr << "Dispatch request " << req.operation.name()
-                    << " to " << req.operation.identity << "\n";
+                    << " to " << req.operation.target.identity << "\n";
             #endif
 
-            auto disp = adp->find_object(req.operation.identity);
+            current curr {
+                req.operation,
+                {},
+                remote_endpoint(),
+                adp
+            };
+            if (!(req.mode && request::no_context)) {
+                auto ctx_ptr = ::std::make_shared<context_type>();
+                read(b, e, *ctx_ptr);
+                curr.context = ctx_ptr;
+            }
+            auto disp = adp->find_object(req.operation.target.identity);
             if (disp) {
-                // TODO Read context
                 incoming::encaps_guard encaps{ buffer->begin_encapsulation(b) };
                 auto const& en = encaps.encaps();
                 auto _this = shared_from_this();
-                auto fpg = ::std::make_shared< invocation_foolproof_guard >(
-                    [_this, req]() mutable {
-                        #if DEBUG_OUTPUT >= 3
-                        ::std::cerr << "Invocation to " << req.operation.identity
-                                << " operation " << req.operation.operation
-                                << " failed to respond";
-                        #endif
-                        _this->send_not_found(req.number, errors::not_found::object,
-                                req.operation);
-                    });
-                detail::dispatch_request r{
-                    buffer, en.begin(), en.end(), en.size(),
-                    [_this, req, fpg](outgoing&& res) mutable {
-                        outgoing_ptr out =
-                                ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
-                        reply rep {
-                            req.number,
-                            res.empty() ? reply::success_no_body : reply::success
-                        };
-                        write(::std::back_inserter(*out), rep);
-                        if (!res.empty()) {
-                            res.close_all_encaps();
-                            out->insert_encapsulation(::std::move(res));
+                if (req.mode & request::one_way) {
+                    detail::dispatch_request r {
+                        buffer, en.begin(), en.end(), en.size(),
+                        detail::dispatch_request::ignore_result,
+                        detail::dispatch_request::ignore_exception
+                    };
+                    disp->__dispatch(r, curr);
+                } else {
+                    auto fpg = ::std::make_shared< invocation_foolproof_guard >(
+                        [_this, req]() mutable {
+                            #if DEBUG_OUTPUT >= 3
+                            ::std::cerr << "Invocation to "
+                                    << req.operation.target.identity
+                                    << " operation " << req.operation.operation
+                                    << " failed to respond";
+                            #endif
+                            _this->send_not_found(req.number, errors::not_found::object,
+                                    req.operation);
+                        });
+                    detail::dispatch_request r{
+                        buffer, en.begin(), en.end(), en.size(),
+                        [_this, req, fpg](outgoing&& res) mutable {
+                            if (fpg->respond()) {
+                                outgoing_ptr out =
+                                        ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
+                                reply rep {
+                                    req.number,
+                                    res.empty() ? reply::success_no_body : reply::success
+                                };
+                                write(::std::back_inserter(*out), rep);
+                                if (!res.empty()) {
+                                    res.close_all_encaps();
+                                    out->insert_encapsulation(::std::move(res));
+                                }
+                                _this->process_event(events::send_reply{out});
+                            }
+                        },
+                        [_this, req, fpg](::std::exception_ptr ex) mutable {
+                            if (fpg->respond()) {
+                                try {
+                                    ::std::rethrow_exception(ex);
+                                } catch (errors::not_found const& e) {
+                                    _this->send_not_found(req.number, e.subj(), req.operation);
+                                } catch (errors::user_exception const& e) {
+                                    _this->send_exception(req.number, e);
+                                } catch (::std::exception const& e) {
+                                    _this->send_exception(req.number, e);
+                                } catch (...) {
+                                    _this->send_unknown_exception(req.number);
+                                }
+                            }
                         }
-                        _this->process_event(events::send_reply{out});
-                        fpg->responded();
-                    },
-                    [_this, req, fpg](::std::exception_ptr ex) mutable {
-                        try {
-                            ::std::rethrow_exception(ex);
-                        } catch (errors::not_found const& e) {
-                            _this->send_not_found(req.number, e.subj(), req.operation);
-                        } catch (errors::user_exception const& e) {
-                            _this->send_exception(req.number, e);
-                        } catch (::std::exception const& e) {
-                            _this->send_exception(req.number, e);
-                        } catch (...) {
-                            _this->send_unknown_exception(req.number);
-                        }
-                        fpg->responded();
-                    }
-                };
-                current curr {
-                    req.operation,
-                    /* FIXME add context */
-                    /* FIXME add endpoint */
-                };
-                disp->__dispatch(r, curr);
+                    };
+                    disp->__dispatch(r, curr);
+                }
                 return;
             } else {
                 #if DEBUG_OUTPUT >= 3
@@ -797,41 +924,41 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
 connection::connection(client_side const&, adapter_ptr adp, transport_type tt,
         close_callback on_close)
     : pimpl_{}
-    {
+{
     create_client_connection(adp, tt, on_close);
-    }
+}
 
 connection::connection(client_side const&, adapter_ptr adp, endpoint const& ep,
-            functional::void_callback       on_connect,
-            functional::exception_callback  on_error,
-            close_callback                  on_close)
+        functional::void_callback on_connect,
+        functional::exception_callback on_error,
+        close_callback on_close)
     : pimpl_{}
-    {
+{
     create_client_connection(adp, ep.transport(), on_close);
     connect_async(ep, on_connect, on_error);
-        }
+}
 
 connection::connection(server_side const&, adapter_ptr adp, endpoint const& ep)
     : pimpl_{}
-    {
+{
     pimpl_ = detail::connection_implementation::create_listen_connection(
         adp, ep.transport(),
-            [](){
+        [](){
             #if DEBUG_OUTPUT >= 1
-                ::std::cerr << "Server connection on close\n";
-                #endif
-            });
+            ::std::cerr << "Server connection on close\n";
+            #endif
+        });
     pimpl_->listen(ep);
-    }
+}
 
 connection::~connection()
-    {
+{
     #if DEBUG_OUTPUT >= 1
     ::std::cerr << "Destroy connection façade\n";
     #endif
-    }
+}
 
-    void
+void
 connection::create_client_connection(adapter_ptr adp, transport_type tt,
         close_callback on_close)
 {
@@ -840,7 +967,7 @@ connection::create_client_connection(adapter_ptr adp, transport_type tt,
             [this, on_close](){
                 #if DEBUG_OUTPUT >= 1
                 ::std::cerr << "Client connection on close\n";
-    #endif
+                #endif
                 if (on_close)
                     on_close(this);
             });
@@ -877,16 +1004,16 @@ connection::close()
 }
 
 void
-connection::invoke(identity const& id, ::std::string const& op,
+connection::invoke(encoding::invocation_target const& target, ::std::string const& op,
         context_type const& ctx,
-        bool run_sync,
+        invocation_options const& opts,
         encoding::outgoing&& params,
         encoding::reply_callback reply,
         functional::exception_callback exception,
         functional::callback< bool > sent)
 {
     assert(pimpl_.get() && "Connection implementation is not set");
-    pimpl_->invoke(id, op, ctx, run_sync, ::std::move(params), reply, exception, sent);
+    pimpl_->invoke(target, op, ctx, opts, ::std::move(params), reply, exception, sent);
 }
 
 endpoint

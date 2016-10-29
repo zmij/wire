@@ -46,6 +46,18 @@ struct connector_options {
      */
     ssl_options     client_ssl;
 
+    //@{
+    /** @name Connection management */
+    /**
+     * Connection inactivity timeout, in milliseconds
+     */
+    int32_t         connection_idle_timeout{30000};
+    /**
+     * Enable connection timing out
+     */
+    bool            enable_connection_timeouts{false};
+    //@}
+
     connector_options() {}
     connector_options(::std::string const& name) : name(name) {}
 };

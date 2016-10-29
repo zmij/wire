@@ -57,7 +57,7 @@ struct version {
 
 
     void
-    swap(version& rhs)
+    swap(version& rhs) noexcept
     {
         using ::std::swap;
         swap(major, rhs.major);
@@ -81,6 +81,22 @@ wire_read(InputIterator& begin, InputIterator end, version& v)
     v.swap(tmp);
 }
 
+template < typename InputIterator >
+bool
+try_read(InputIterator& start, InputIterator end, version& v)
+{
+    using reader = detail::reader<decltype(v.major)>;
+    version tmp;
+    auto begin = start;
+    if (!reader::try_input(begin, end, tmp.major))
+        return false;
+    if (!reader::try_input(begin, end, tmp.minor))
+        return false;
+    v.swap(tmp);
+    start = begin;
+    return true;
+}
+
 
 struct message {
     using size_type = uint64_t;
@@ -102,6 +118,13 @@ struct message {
     };
     static constexpr uint32_t MAGIC_NUMBER =
             ('w') | ('i' << 8) | ('r' << 16) | ('e' << 24);
+    static constexpr uint32_t magic_number_size = sizeof(uint32_t);
+    /** 4 bytes for magic number, 1 for flags, 1 for size */
+    static constexpr uint32_t min_header_size = 6;
+    /** 4 bytes for magic number, 1 for flags,  2 for protocol version
+     * 2 for encoding version, 9 - for maximum possible size
+     */
+    static constexpr uint32_t max_header_size = 18;
 
     version         protocol_version    = version{ ::wire::PROTOCOL_MAJOR, ::wire::PROTOCOL_MINOR };
     version         encoding_version    = version{ ::wire::ENCODING_MAJOR, ::wire::ENCODING_MINOR };
@@ -124,7 +147,7 @@ struct message {
     }
 
     void
-    swap(message& rhs)
+    swap(message& rhs) noexcept
     {
         using ::std::swap;
         swap(protocol_version, rhs.protocol_version);
@@ -180,6 +203,7 @@ read(InputIterator& begin, InputIterator end, message& v)
     int32_fixed_t magic;
     read(begin, end, magic);
     if (magic != message::MAGIC_NUMBER) {
+        // Unrecoverable
         throw errors::invalid_magic_number("Invalid magic number in message header");
     }
     message tmp;
@@ -194,29 +218,114 @@ read(InputIterator& begin, InputIterator end, message& v)
     v.swap(tmp);
 }
 
+/**
+ * Try to read message header from buffer.
+ * @pre Minimum size of the buffer to succeed is message::min_header_size
+ * @param begin
+ * @param end
+ * @param v
+ * @return
+ */
+template < typename InputIterator >
+bool
+try_read(InputIterator& start, InputIterator end, message& v)
+{
+    using flags_reader = detail::reader<message::message_flags>;
+    using size_reader = detail::reader<message::size_type>;
+
+    if (end - start < message::magic_number_size)
+        return false; // We cannot read even the magic number
+    auto begin = start;
+    int32_fixed_t magic;
+    read(begin, end, magic);
+    if (magic != message::MAGIC_NUMBER) {
+        // Unrecoverable
+        throw errors::invalid_magic_number("Invalid magic number in message header");
+    }
+    message tmp;
+    if (!flags_reader::try_input(begin, end, tmp.flags))
+        return false;
+    if (tmp.flags & message::protocol) {
+        if (!try_read(begin, end, tmp.protocol_version))
+            return false;
+    }
+    if (tmp.flags & message::encoding) {
+        if (!try_read(begin, end, tmp.encoding_version))
+            return false;
+    }
+    if (!size_reader::try_input(begin, end, tmp.size))
+        return false;
+
+    v.swap(tmp);
+    start = begin;
+    return true;
+}
+
+struct invocation_target {
+    core::identity  identity;
+    ::std::string   facet;
+
+    void
+    swap(invocation_target& rhs)
+    {
+        using ::std::swap;
+        swap(identity, rhs.identity);
+        swap(facet, rhs.facet);
+    }
+
+    bool
+    operator == (invocation_target const& rhs) const
+    {
+        return identity == rhs.identity && facet == rhs.facet;
+    }
+    bool
+    operator != (invocation_target const& rhs) const
+    {
+        return !(*this == rhs);
+    }
+};
+
+template < typename OutputIterator >
+void
+wire_write(OutputIterator o, invocation_target const& v)
+{
+    write(o,
+        v.identity, v.facet
+    );
+}
+
+template < typename InputIterator >
+void
+wire_read(InputIterator& begin, InputIterator end, invocation_target& v)
+{
+    invocation_target tmp;
+    read(begin, end, tmp.identity, tmp.facet);
+    v.swap(tmp);
+}
+
+using multiple_targets = ::std::set<invocation_target>;
+
 struct operation_specs {
     enum operation_type {
         name_hash,
         name_string
     };
     using operation_id = boost::variant< int32_t, ::std::string >;
-    core::identity  identity;
-    ::std::string   facet;
-    operation_id    operation;
+    invocation_target   target;
+    operation_id        operation;
 
     void
     swap(operation_specs& rhs)
     {
         using ::std::swap;
-        swap(identity, rhs.identity);
-        swap(facet, rhs.facet);
+        swap(target, rhs.target);
         swap(operation, rhs.operation);
     }
 
     bool
     operator == (operation_specs const& rhs) const
     {
-        return identity == rhs.identity && facet == rhs.facet && operation == rhs.operation;
+        return target == rhs.target && operation == rhs.operation;
     }
 
     bool
@@ -243,7 +352,7 @@ void
 wire_write(OutputIterator o, operation_specs const& v)
 {
     write(o,
-        v.identity, v.facet, v.operation
+        v.target, v.operation
     );
 }
 
@@ -252,17 +361,22 @@ void
 wire_read(InputIterator& begin, InputIterator end, operation_specs& v)
 {
     operation_specs tmp;
-    read(begin, end, tmp.identity, tmp.facet, tmp.operation);
+    read(begin, end, tmp.target, tmp.operation);
     v.swap(tmp);
 }
 
 
 struct request {
+    using request_number    = ::std::uint64_t;
     enum request_mode {
-        normal
+        normal          = 0x01,
+        one_way         = 0x02,
+        multi_target    = 0x04,
+        no_context      = 0x10,
+        no_body         = 0x20,
     };
-    uint32_t            number;
-    operation_specs        operation;
+    request_number      number;
+    operation_specs     operation;
     request_mode        mode;
 
     void
@@ -287,6 +401,20 @@ struct request {
     }
 };
 
+inline request::request_mode
+operator | (request::request_mode lhs, request::request_mode rhs)
+{
+    using integral_type = ::std::underlying_type<request::request_mode>::type;
+    return static_cast<request::request_mode>(
+            static_cast<integral_type>(lhs) | static_cast<integral_type>(rhs) );
+}
+
+inline request::request_mode&
+operator |= (request::request_mode& lhs, request::request_mode rhs)
+{
+    return lhs = lhs | rhs;
+}
+
 template < typename OutputIterator >
 void
 wire_write(OutputIterator o, request const& v)
@@ -304,6 +432,7 @@ wire_read(InputIterator& begin, InputIterator end, request& v)
 }
 
 struct reply {
+    using request_number    = request::request_number;
     enum reply_status {
         success,
         success_no_body,
@@ -315,7 +444,7 @@ struct reply {
         unknown_user_exception,
         unknown_exception
     };
-    uint32_t        number;
+    request_number  number;
     reply_status    status;
 
     void

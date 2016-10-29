@@ -63,10 +63,30 @@ interface locator_registry {
      * @param obj Object proxy
      * @throw well_known_object_exists If the object with the same identity
      *      exists in the registry with different endpoints and is alive.
+     * @throw not_enough_data If the object proxy doesn't contain neither
+     *      endpoints nor adapter info
      */
     void
     add_well_known_object(object* obj)
         throw(well_known_object_exists, not_enough_data);
+    /**
+     * Add a sequence of well-known objects to the registry
+     * @param objs
+     * @throw well_known_object_exists If the any of the objects from the list
+     *      with the same identity exists in the registry with
+     *      different endpoints and is alive.
+     * @throw not_enough_data If the any of the object proxies doesn't contain
+     *      neither endpoints nor adapter info
+     */
+    void
+    add_well_known_objects(object_seq objs)
+        throw(well_known_object_exists, not_enough_data);
+    /**
+     * Remove well-known object information from registry.
+     * @param obj
+     */
+    void
+    remove_well_known_object(object* obj);
 
     /**
      * Add adapter direct proxy, as created by the adapter itself.

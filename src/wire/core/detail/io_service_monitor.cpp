@@ -12,14 +12,14 @@ namespace wire {
 namespace core {
 namespace detail {
 
-ASIO_NS::io_service::id io_service_monitor::id;
+asio_ns::io_service::id io_service_monitor::id;
 
 struct io_service_monitor::impl {
     functional::callback_set<>  callbacks_;
 };
 
-io_service_monitor::io_service_monitor(ASIO_NS::io_service& owner)
-    : ASIO_NS::io_service::service{owner}, pimpl_{ new impl{} }
+io_service_monitor::io_service_monitor(asio_ns::io_service& owner)
+    : asio_ns::io_service::service{owner}, pimpl_{ new impl{} }
 {
     #if DEBUG_OUTPUT >= 1
     ::std::cerr << "Create io_service_monitor\n";

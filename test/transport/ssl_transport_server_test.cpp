@@ -43,8 +43,8 @@ struct ssl_session : std::enable_shared_from_this< ssl_session > {
     void
     set_verify_client()
     {
-        transport_.set_verify_mode(ASIO_NS::ssl::verify_peer |
-                ASIO_NS::ssl::verify_fail_if_no_peer_cert);
+        transport_.set_verify_mode(asio_ns::ssl::verify_peer |
+                asio_ns::ssl::verify_fail_if_no_peer_cert);
     }
 
     void

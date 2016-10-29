@@ -37,7 +37,10 @@ namespace core {
 namespace detail {
 
 struct connection_implementation;
-using connection_impl_ptr = ::std::shared_ptr< connection_implementation >;
+using connection_impl_ptr   = ::std::shared_ptr< connection_implementation >;
+
+using incoming_buffer       = ::std::array< unsigned char, 1024 >;
+using incoming_buffer_ptr   = ::std::shared_ptr< incoming_buffer >;
 
 namespace events {
 
@@ -56,19 +59,24 @@ struct connection_failure {
 
 struct receive_validate{};
 struct receive_request{
-    encoding::incoming_ptr            incoming;
+    encoding::incoming_ptr              incoming;
 };
 struct receive_reply{
-    encoding::incoming_ptr            incoming;
+    encoding::incoming_ptr              incoming;
 };
 struct receive_close{};
 
+struct receive_data{
+    incoming_buffer_ptr                 buffer;
+    ::std::size_t                       bytes;
+};
+
 struct send_request{
-    encoding::outgoing_ptr            outgoing;
-    functional::void_callback         sent;
+    encoding::outgoing_ptr              outgoing;
+    functional::void_callback           sent;
 };
 struct send_reply{
-    encoding::outgoing_ptr            outgoing;
+    encoding::outgoing_ptr              outgoing;
 };
 
 }  // namespace events
@@ -202,6 +210,17 @@ struct connection_fsm_def :
             fsm->write_async(rep.outgoing);
         }
     };
+    struct process_incoming {
+        template < typename SourceState, typename TargetState >
+        void
+        operator()(events::receive_data const& data, fsm_type& fsm, SourceState&, TargetState&)
+        {
+            #if DEBUG_OUTPUT >= 3
+            ::std::cerr << "Process incoming\n";
+            #endif
+            fsm->read_incoming_message(data.buffer, data.bytes);
+        }
+    };
     struct dispatch_request {
         template < typename SourceState, typename TargetState >
         void
@@ -290,6 +309,9 @@ struct connection_fsm_def :
         using deferred_events = type_tuple<
             events::send_request
         >;
+        using internal_transitions = transition_table<
+            in< events::receive_data,       process_incoming,   none    >
+        >;
 
         wait_validate()
             : success{nullptr}, fail{nullptr}
@@ -351,6 +373,7 @@ struct connection_fsm_def :
         using internal_transitions = transition_table<
             in< events::send_request,       send_request,       none    >,
             in< events::send_reply,         send_reply,         none    >,
+            in< events::receive_data,       process_incoming,   none    >,
             in< events::receive_request,    dispatch_request,   none    >,
             in< events::receive_reply,      dispatch_reply,     none    >,
             in< events::receive_validate,   none,               none    >,
@@ -458,7 +481,8 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     using clock_type            = ::std::chrono::system_clock;
     using time_point            = ::std::chrono::time_point< clock_type >;
     using expire_duration       = ::std::chrono::duration< ::std::int64_t, ::std::milli >;
-    using request_number        = ::std::uint32_t;
+    using request_number        = encoding::request::request_number;
+    using atomic_counter        = ::std::atomic< request_number >;
 
     struct pending_reply {
         encoding::reply_callback        reply;
@@ -471,15 +495,13 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         bool
         operator < (reply_expiration const& rhs) const
         {
-            return expires < rhs.expires;
+            return expires > rhs.expires;
         }
     };
 
     using pending_replies_type  = ::tbb::concurrent_hash_map<request_number, pending_reply>;
     using pending_replies_expire_queue = ::tbb::concurrent_priority_queue<reply_expiration>;
 
-    using incoming_buffer       = ::std::array< unsigned char, 1024 >;
-    using incoming_buffer_ptr   = ::std::shared_ptr< incoming_buffer >;
     using mutex_type            = ::std::mutex;
     using lock_guard            = ::std::lock_guard<mutex_type>;
 
@@ -502,9 +524,10 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
           on_close_{ on_close }
     {
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Create client connection instance\n";
+        ::std::cerr << this << " Create client connection instance\n";
         #endif
         mode_ = client;
+        carry_.reserve(encoding::message::max_header_size);
     }
     connection_implementation( server_side const&, adapter_ptr adptr,
             functional::void_callback on_close)
@@ -518,9 +541,10 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
           on_close_{ on_close }
     {
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Create server connection instance\n";
+        ::std::cerr << this << " Create server connection instance\n";
         #endif
         mode_ = server;
+        carry_.reserve(encoding::message::max_header_size);
     }
 
     virtual ~connection_implementation()
@@ -528,7 +552,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         connection_timer_.cancel();
         request_timer_.cancel();
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Destroy connection instance\n";
+        ::std::cerr << this << " Destroy connection instance\n";
         #endif
     }
 
@@ -546,9 +570,14 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     }
 
     void
-    set_connection_timer();
+    set_connect_timer();
     void
-    on_connection_timeout(asio_config::error_code const& ec);
+    on_connect_timeout(asio_config::error_code const& ec);
+
+    void
+    set_idle_timer();
+    void
+    on_idle_timeout(asio_config::error_code const& ec);
     bool
     can_drop_connection() const;
 
@@ -597,6 +626,9 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     void
     read_incoming_message(incoming_buffer_ptr, ::std::size_t bytes);
     void
+    process_message(encoding::message m,
+            incoming_buffer::iterator& b, incoming_buffer::iterator e);
+    void
     dispatch_incoming(encoding::incoming_ptr);
 
     void
@@ -615,8 +647,8 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     send_unknown_exception(uint32_t req_num);
 
     void
-    invoke(identity const&, ::std::string const& op, context_type const& ctx,
-            bool run_sync,
+    invoke(encoding::invocation_target const&, ::std::string const& op, context_type const& ctx,
+            invocation_options const& opts,
             encoding::outgoing&&,
             encoding::reply_callback reply,
             functional::exception_callback exception,
@@ -647,9 +679,18 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     void
     do_connect_async(endpoint const& ep)
     {
+        #if DEBUG_OUTPUT >= 3
+        ::std::cerr << this << " Starting async connection operation\n";
+        ::std::cerr << this << "IO service is "
+                << (io_service_->stopped() ? "stopped" : "running") << "\n";
+        #endif
+        set_connect_timer();
+        auto _this = shared_from_this();
         do_connect_async_impl(ep,
-            ::std::bind(&connection_implementation::handle_connected, shared_from_this(),
-                    ::std::placeholders::_1));
+            [_this](asio_config::error_code const& ec)
+            {
+                _this->handle_connected(ec);
+            });
     }
 
     virtual void
@@ -672,16 +713,18 @@ private:
 public:
     adapter_weak_ptr                adapter_;
 protected:
+    using carry_buffer_type = ::std::vector<unsigned char>;
     connector_weak_ptr              connector_;
     asio_config::io_service_ptr     io_service_;
     asio_config::system_timer       connection_timer_;
 
-    ::std::atomic<::std::uint32_t>  request_no_;
+    atomic_counter                  request_no_;
     asio_config::system_timer       request_timer_;
     pending_replies_type            pending_replies_;
     pending_replies_expire_queue    expiration_queue_;
 
     encoding::incoming_ptr          incoming_;
+    carry_buffer_type               carry_;
     ::std::atomic<::std::int32_t>   outstanding_responses_;
     functional::void_callback       on_close_;
 };
@@ -776,7 +819,7 @@ private:
     void
     do_read_async(incoming_buffer_ptr buffer, asio_config::asio_rw_callback cb) override
     {
-        transport_.async_read( ASIO_NS::buffer(*buffer), cb );
+        transport_.async_read( asio_ns::buffer(*buffer), cb );
     }
 
     endpoint        configured_endpoint_;

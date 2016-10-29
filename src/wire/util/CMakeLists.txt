@@ -11,7 +11,6 @@ set(wire_util_SRCS
     bits.cpp
     murmur_hash.cpp
     service_runner.cpp
-    enumerate_interfaces.cpp
 )
 
 add_library(${WIRE_UTIL_LIB} SHARED ${wire_util_SRCS})
@@ -22,11 +21,33 @@ target_link_libraries(
 )
 
 add_executable(murmur_hash murmur_hash_utility.cpp murmur_hash.cpp)
+
+add_library(${WIRE_IFACES_LIB} SHARED enumerate_interfaces.cpp)
+set_target_properties(
+    ${WIRE_IFACES_LIB} PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION 1
+    LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
+)
+target_link_libraries(
+    ${WIRE_IFACES_LIB}
+    ${Boost_SYSTEM_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+)
+
+
 add_executable(wire-enum-ifaces enum_ifaces_util.cpp)
 target_link_libraries(
     wire-enum-ifaces
-    ${WIRE_UTIL_LIB}
+    ${WIRE_IFACES_LIB}
     ${Boost_PROGRAM_OPTIONS_LIBRARIES}
+)
+
+add_executable(wire-ping wire_ping.cpp)
+target_link_libraries(
+    wire-ping
+    ${WIRE_LIB}
+    ${CMAKE_THREAD_LIBS_INIT}
 )
 
 if(BUILD_CMD_UTILS)
@@ -56,7 +77,7 @@ if(BUILD_CMD_UTILS)
 endif()
 
 install (
-    TARGETS ${WIRE_UTIL_LIB}
+    TARGETS ${WIRE_UTIL_LIB} ${WIRE_IFACES_LIB} wire-enum-ifaces
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib

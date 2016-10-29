@@ -10,6 +10,8 @@
 #include <test/ping_pong.hpp>
 #include <wire/core/connector.hpp>
 
+#include <atomic>
+
 #include "sparring/sparring_test.hpp"
 
 namespace wire {
@@ -25,7 +27,10 @@ protected:
     }
 
     void
-    SetupArgs(args_type& args) override {}
+    SetupArgs(args_type& args) override
+    {
+        //args.push_back("--log=ping-pong-test.log");
+    }
 
     void
     ReadSparringOutput(::std::istream& is) override
@@ -110,6 +115,21 @@ TEST_F(PingPong, WireFunctions)
     EXPECT_EQ(2, wire_types.size());
 }
 
+TEST_F(PingPong, OneWayPing)
+{
+    ASSERT_NE(0, child_.pid);
+    ASSERT_TRUE(connector_.get());
+    ASSERT_TRUE(prx_.get());
+
+    auto pp_prx = core::checked_cast< ::test::ping_pong_proxy >(prx_);
+    ASSERT_TRUE(pp_prx.get());
+
+    auto one_way_prx = pp_prx->wire_one_way();
+    EXPECT_TRUE(one_way_prx.get());
+    EXPECT_NO_THROW(one_way_prx->wire_ping());
+    EXPECT_THROW(one_way_prx->wire_type(), errors::invalid_one_way_invocation);
+}
+
 TEST_F(PingPong, SyncRoundtrip)
 {
     ASSERT_NE(0, child_.pid);
@@ -152,6 +172,88 @@ TEST_F(PingPong, SyncRoundtrip)
     ASSERT_FALSE(ret.get());
 }
 
+TEST_F(PingPong, MTConnectionUsage)
+{
+    const ::std::size_t req_per_thread = 100;
+    auto const test_threads = ::std::thread::hardware_concurrency();
+    auto const num_req = req_per_thread * test_threads;
+
+    ASSERT_NE(0, child_.pid);
+    ASSERT_TRUE(connector_.get());
+    ASSERT_TRUE(prx_.get());
+
+    auto work = ::std::make_shared<asio_config::io_service::work>(*io_svc);
+
+    auto pp_prx = core::checked_cast< ::test::ping_pong_proxy >(prx_);
+    ASSERT_TRUE(pp_prx.get());
+
+    ::std::atomic<::std::size_t> requests{0}, responses{0}, errors{0};
+
+    ::std::vector<::std::thread> threads;
+    for (auto t = 0U; t < test_threads; ++t) {
+        threads.emplace_back(
+        [&]()
+        {
+            for (auto i = 0U; i < req_per_thread; ++i) {
+                ++requests;
+                pp_prx->test_int_async(42, //LIPSUM_TEST_STRING,
+                [&](int32_t const& res)
+                {
+                    ++responses;
+                    if (responses + errors >= num_req) {
+                        ::std::cerr << "******* Stop io service\n"
+                                << "SENT        " << requests << "\n"
+                                << "PASS        " << responses << "\n"
+                                << "FAIL        " << errors << "\n"
+                                << "TOTAL       " << responses + errors << "\n"
+                                << "EXPECTED    " << num_req << "\n";
+                        io_svc->stop();
+                    }
+                },
+                [&](::std::exception_ptr ex)
+                {
+                    ++errors;
+                    try {
+                        ::std::rethrow_exception(ex);
+                    } catch (::std::exception const& e) {
+                        ::std::cerr << "Error " << e.what() << "\n";
+                    } catch (...) {
+                        ::std::cerr << "Unknown exception\n";
+                    }
+                    if (responses + errors >= num_req) {
+                        ::std::cerr << "******* Stop io service\n"
+                                << "SENT        " << requests << "\n"
+                                << "PASS        " << responses << "\n"
+                                << "FAIL        " << errors << "\n"
+                                << "TOTAL       " << responses + errors << "\n"
+                                << "EXPECTED    " << num_req << "\n";
+                        io_svc->stop();
+                    }
+                });
+
+            }
+        });
+    }
+    io_svc->run();
+    for (auto& t : threads) {
+        t.join();
+    }
+    EXPECT_EQ(num_req, requests)            << "All requests sent";
+    EXPECT_EQ(requests, responses)          << "All requests without errors";
+    EXPECT_EQ(0, errors)                    << "No errors";
+    EXPECT_EQ(requests, responses + errors) << "Total count";
+}
+
+TEST_F(PingPong, ConnectFailException)
+{
+    ASSERT_NE(0, child_.pid);
+    ASSERT_TRUE(connector_.get());
+    ASSERT_TRUE(prx_.get());
+
+    StopPartner();
+
+    EXPECT_ANY_THROW(prx_->wire_ping()) << "Expect the unreachable object throws an exception";
+}
 
 } // namespace test
 }  /* namespace wire */

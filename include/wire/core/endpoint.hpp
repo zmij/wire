@@ -60,8 +60,29 @@ wire_read(InputIterator& begin, InputIterator read, empty_endpoint& v)
 {
 }
 
+struct inet_interface {
+    enum class version_type { v4, v6 };
+    ::std::string   name;
+    version_type    version;
+
+    void
+    swap(inet_interface& rhs) noexcept
+    {
+        using ::std::swap;
+        swap(name, rhs.name);
+        swap(version, rhs.version);
+    }
+    ::std::string
+    resolve_address() const;
+};
+
+::std::ostream&
+operator << (::std::ostream& os, inet_interface const& val);
+::std::istream&
+operator >> (::std::istream& is, inet_interface& val);
+
 struct inet_endpoint_data {
-    ::std::string        host = "";
+    ::std::string   host = "";
     uint16_t        port = 0;
 
     inet_endpoint_data()
@@ -71,6 +92,14 @@ struct inet_endpoint_data {
     inet_endpoint_data(::std::string const& host, uint16_t port)
         : host(host), port(port)
     {
+    }
+
+    void
+    swap(inet_endpoint_data& rhs) noexcept
+    {
+        using ::std::swap;
+        swap(host, rhs.host);
+        swap(port, rhs.port);
     }
 
     bool
@@ -100,6 +129,8 @@ struct inet_endpoint_data {
 
 ::std::ostream&
 operator << (::std::ostream& os, inet_endpoint_data const& val);
+::std::istream&
+operator >> (::std::istream& is, inet_endpoint_data& val);
 
 ::std::size_t
 hash_value(inet_endpoint_data const& val);
@@ -418,13 +449,18 @@ operator << (::std::ostream& os, endpoint_set const& val);
 ::std::istream&
 operator >> (::std::istream& is, endpoint_set& val);
 
+namespace literal {
+detail::inet_endpoint_data
+operator "" _wire_iep(char const*, ::std::size_t);
+
 endpoint
 operator "" _wire_ep(char const*, ::std::size_t);
+}  /* namespace literal */
 
 }  // namespace core
 }  // namespace wire
 
-using ::wire::core::operator ""_wire_ep;
+using ::wire::core::literal::operator ""_wire_ep;
 
 namespace std {
 

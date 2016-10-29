@@ -175,6 +175,7 @@ TEST_F(Client, TCPConnectInvalidValidate)
 {
     typedef transport_type_traits< transport_type::tcp > used_transport;
     current_transport = used_transport::value;
+    // TODO Test with small or no greeting
     add_args.insert(add_args.end(), {"--greet-message", "hello"});
     StartPartner();
 
@@ -231,11 +232,13 @@ TEST_F(Client, DISABLED_TCPSendRequest)
     bool test_flag = false;
     uint32_t test_int = 0;
 
+    invocation_options opts{};
+
     c.connect_async(endpoint_,
     [&](){
         tests[0] = true;
-        c.invoke(identity::random("test"), std::string("ping_pong"), context_type{},
-        false,
+        c.invoke({identity::random("test"), ""}, std::string("ping_pong"), context_type{},
+        opts,
         [&](std::string const& str, bool flag, uint32_t i) {
             std::cerr << "Response received\n";
 

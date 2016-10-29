@@ -92,8 +92,8 @@ public:
     template < typename Handler, typename ... Args >
     typename ::std::enable_if< (::psst::meta::is_callable_object<Handler>::value &&
             ::psst::meta::function_traits< Handler >::arity > 0), void >::type
-    invoke(identity const& id, ::std::string const& op, context_type const& ctx,
-            bool run_sync,
+    invoke(encoding::invocation_target const& target, ::std::string const& op, context_type const& ctx,
+            invocation_options const& opts,
             Handler response,
             functional::exception_callback exception,
             functional::callback< bool > sent,
@@ -103,9 +103,12 @@ public:
         using args_tuple = typename handler_traits::decayed_args_tuple_type;
 
         using encoding::incoming;
+        if (any(opts.flags | invocation_flags::one_way)) {
+            throw errors::runtime_error{ "Cannot send a non-void invocation one way" };
+        }
         encoding::outgoing out{ get_connector() };
         encoding::write(::std::back_inserter(out), args ...);
-        invoke(id, op, ctx, run_sync, ::std::move(out),
+        invoke(target, op, ctx, opts, ::std::move(out),
             [response, exception](incoming::const_iterator begin, incoming::const_iterator end){
                 try {
                     auto encaps = begin.incoming_encapsulation();
@@ -126,8 +129,8 @@ public:
 
     template < typename ... Args >
     void
-    invoke(identity const& id, ::std::string const& op, context_type const& ctx,
-            bool run_sync,
+    invoke(encoding::invocation_target const& target, ::std::string const& op, context_type const& ctx,
+            invocation_options const&        opts,
             functional::void_callback        response,
             functional::exception_callback   exception,
             functional::callback< bool >     sent,
@@ -136,7 +139,7 @@ public:
         using encoding::incoming;
         encoding::outgoing out{ get_connector() };
         write(::std::back_inserter(out), args ...);
-        invoke(id, op, ctx, run_sync, ::std::move(out),
+        invoke(target, op, ctx, opts, ::std::move(out),
             [response, exception](incoming::const_iterator, incoming::const_iterator){
                 if (response) {
                     try {
@@ -154,8 +157,8 @@ public:
     }
 
     void
-    invoke(identity const&, ::std::string const& op, context_type const& ctx,
-            bool run_sync,
+    invoke(encoding::invocation_target const&, ::std::string const& op, context_type const& ctx,
+            invocation_options const&,
             encoding::outgoing&&,
             encoding::reply_callback,
             functional::exception_callback exception,
