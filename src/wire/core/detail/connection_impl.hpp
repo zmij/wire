@@ -658,7 +658,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
             functional::exception_callback exception,
             functional::callback< bool > sent);
     void
-    send(encoding::multiple_targets, ::std::string const& op,
+    send(encoding::multiple_targets const&, ::std::string const& op,
             context_type const& ctx,
             invocation_options const& opts,
             encoding::outgoing&&,
@@ -666,7 +666,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
             functional::callback< bool > sent);
 
     void
-    forward(encoding::multiple_targets, ::std::string const& op,
+    forward(encoding::multiple_targets const&, ::std::string const& op,
             context_type const& ctx,
             invocation_options const& opts,
             detail::dispatch_request const& req,
@@ -728,6 +728,9 @@ private:
     }
     virtual void
     do_write_async(encoding::outgoing_ptr, asio_config::asio_rw_callback) = 0;
+    virtual void
+    do_write_async(encoding::outgoing::const_buffer head,
+            encoding::outgoing::asio_buffers body, asio_config::asio_rw_callback) = 0;
     virtual void
     do_read_async(incoming_buffer_ptr, asio_config::asio_rw_callback) = 0;
 public:
@@ -837,11 +840,20 @@ private:
         transport_.async_write( buffer->to_buffers(), cb );
     }
     void
+    do_write_async(encoding::outgoing::const_buffer head,
+                encoding::outgoing::asio_buffers body,
+                asio_config::asio_rw_callback cb) override
+    {
+        encoding::outgoing::asio_buffers out;
+        out.push_back(head);
+        ::std::copy(body.begin(), body.end(), ::std::back_inserter(out));
+        transport_.async_write( out, cb );
+    }
+    void
     do_read_async(incoming_buffer_ptr buffer, asio_config::asio_rw_callback cb) override
     {
         transport_.async_read( asio_ns::buffer(*buffer), cb );
     }
-
     endpoint        configured_endpoint_;
     transport_type  transport_;
 };
@@ -898,6 +910,11 @@ private:
     }
     void
     do_write_async(encoding::outgoing_ptr buffer, asio_config::asio_rw_callback cb) override
+    {
+    }
+    void
+    do_write_async(encoding::outgoing::const_buffer head,
+                encoding::outgoing::asio_buffers body, asio_config::asio_rw_callback) override
     {
     }
     void

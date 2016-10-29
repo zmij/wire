@@ -19,6 +19,10 @@
 
 #include <boost/thread/shared_mutex.hpp>
 
+#if DEBUG_OUTPUT >= 1
+#include <iostream>
+#endif
+
 namespace wire {
 namespace svc {
 
@@ -120,6 +124,9 @@ struct publisher::impl {
     {
         bus_subscribers::accessor f;
         if (subscribers_.insert(f, id)) {
+            #if DEBUG_OUTPUT >= 1
+            ::std::cerr << "Add bus " << id << "\n";
+            #endif
             f->second = ::std::make_shared<subscribers>();
         } else {
             throw bus::bus_exists{ id };

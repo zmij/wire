@@ -21,6 +21,8 @@
 #include <wire/core/adapter_fwd.hpp>
 #include <wire/core/functional.hpp>
 
+#include <wire/core/detail/dispatch_request_fwd.hpp>
+
 #include <pushkin/meta/function_traits.hpp>
 
 #include <wire/encoding/buffers.hpp>
@@ -187,6 +189,15 @@ public:
             ::std::string const& op, context_type const& ctx,
             invocation_options const&,
             encoding::outgoing&&,
+            functional::exception_callback exception,
+            functional::callback< bool > sent);
+
+    void
+    forward(encoding::multiple_targets const&,
+            ::std::string const& op, context_type const& ctx,
+            invocation_options const& opts,
+            detail::dispatch_request const& req,
+            encoding::reply_callback reply,
             functional::exception_callback exception,
             functional::callback< bool > sent);
 
