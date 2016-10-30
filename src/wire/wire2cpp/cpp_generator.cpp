@@ -553,10 +553,17 @@ generator::generate_invocation_function_member(ast::function_ptr func)
                     << off << invocation_opts << " _opts)"
                     << mod(-3) << "{";
 
+            ::std::ostringstream os;
+            os << pfx << cpp_name(func);
+            if (!options_.dont_use_hashed_id && cpp_name(func).name.size() > 4) {
+                // Name longer than hash
+                os << "_hash";
+            }
+
             source_ << mod(+1) << "if (_opts == " << invocation_opts << "::unspecified)"
                     << off(+1) << "_opts = wire_invocation_options();";
             source_ << off     << "make_invocation(wire_get_reference(),"
-                    << mod(+2) << pfx << cpp_name(func) << ", _ctx,"
+                    << mod(+2) << os.str() << ", _ctx,"
                     << off << "&" << qname(func->owner()) << "::" << cpp_name(func) << ","
                     << off << "_response, _exception, _sent";
             if (!params.empty()) {

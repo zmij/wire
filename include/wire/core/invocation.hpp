@@ -13,6 +13,7 @@
 #include <wire/core/detail/dispatch_request.hpp>
 #include <wire/core/current.hpp>
 #include <wire/core/object.hpp>
+#include <wire/encoding/message.hpp>
 
 #include <wire/errors/not_found.hpp>
 
@@ -117,16 +118,16 @@ struct local_invocation< Handler, Member,
     using exception_handler = functional::exception_callback;
     using sent_handler      = functional::callback< bool >;
 
-    reference_const_ptr     ref;
-    member_type             member;
+    reference_const_ptr                             ref;
+    member_type                                     member;
 
-    ::std::string const&    op;
-    context_type const&     ctx;
-    invocation_args         args;
+    encoding::operation_specs::operation_id const&  op;
+    context_type const&                             ctx;
+    invocation_args                                 args;
 
-    response_hander         response;
-    exception_handler       exception;
-    sent_handler            sent;
+    response_hander                                 response;
+    exception_handler                               exception;
+    sent_handler                                    sent;
 
     void
     operator()(invocation_options const& opts) const
@@ -299,17 +300,18 @@ struct remote_invocation< Handler,
     using sent_handler      = functional::callback< bool >;
 
     struct invocation_data {
-        encoding::invocation_target target;
-        ::std::string               op;
-        context_type                ctx;
-        encoding::outgoing          out;
+        encoding::invocation_target             target;
+        encoding::operation_specs::operation_id op;
+        context_type                            ctx;
+        encoding::outgoing                      out;
 
-        response_hanlder            response;
-        exception_handler           exception;
-        sent_handler                sent;
+        response_hanlder                        response;
+        exception_handler                       exception;
+        sent_handler                            sent;
     };
 
-    remote_invocation( reference_const_ptr r, ::std::string const& o,
+    remote_invocation( reference_const_ptr r,
+            encoding::operation_specs::operation_id const& o,
             context_type const& c, invocation_args&& args,
             response_hanlder resp, exception_handler exc, sent_handler snt)
         : ref(r),
@@ -424,14 +426,14 @@ struct remote_invocation< Handler,
 
 template < typename Handler, typename Member, typename ... Args>
 functional::invocation_function
-make_invocation(reference_const_ptr     ref,
-        ::std::string const&            op,
-        context_type const&             ctx,
-        Member                          member,
-        Handler                         response,
-        functional::exception_callback  exception,
-        functional::callback< bool >    sent,
-        Args const& ...                 args)
+make_invocation(reference_const_ptr                     ref,
+        encoding::operation_specs::operation_id const&  op,
+        context_type const&                             ctx,
+        Member                                          member,
+        Handler                                         response,
+        functional::exception_callback                  exception,
+        functional::callback< bool >                    sent,
+        Args const& ...                                 args)
 {
     using index_type        = typename ::psst::meta::index_builder< sizeof ... (Args) >::type;
     using remote_invocation = detail::remote_invocation< Handler, index_type, Args ... >;
