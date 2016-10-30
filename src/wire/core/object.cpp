@@ -45,6 +45,12 @@ using object_dispatch_func = void(object::*)(detail::dispatch_request const&, cu
     object::wire_static_type_id()
 };
 
+::std::unordered_map< ::std::uint32_t, ::std::string > object_func_names {
+    { WIRE_CORE_OBJECT_wire_is_a_hash, WIRE_CORE_OBJECT_wire_is_a },
+    { WIRE_CORE_OBJECT_wire_ping_hash, WIRE_CORE_OBJECT_wire_ping },
+    { WIRE_CORE_OBJECT_wire_type_hash, WIRE_CORE_OBJECT_wire_type },
+    { WIRE_CORE_OBJECT_wire_types_hash, WIRE_CORE_OBJECT_wire_types },
+}; // func_names
 }  // namespace
 
 bool
@@ -159,10 +165,38 @@ object::wire_static_type_id()
     return OBJECT_TYPE_ID;
 }
 
-::std::int64_t
+::wire::hash_value_type
 object::wire_static_type_id_hash()
 {
     return OBJECT_TYPE_ID_HASH;
+}
+
+::std::string const&
+object::wire_function_name(::std::uint32_t hash)
+{
+    ::std::string const* str;
+    dispatch_seen_list seen;
+    if (wire_find_function(hash, seen, str)) {
+        return *str;
+    }
+    ::std::ostringstream os;
+    os << ::std::hex << hash;
+    throw ::std::runtime_error{"No operation with hash 0x" + os.str()};
+}
+
+bool
+object::wire_find_function(::std::uint32_t hash, dispatch_seen_list& seen,
+            ::std::string const*& str)
+{
+    if (seen.count(wire_static_type_id_hash()))
+        return false;
+    seen.insert(wire_static_type_id_hash());
+    auto f = object_func_names.find(hash);
+    if (f != object_func_names.end()) {
+        str = &f->second;
+        return true;
+    }
+    return false;
 }
 
 }  // namespace core

@@ -95,6 +95,11 @@ TEST_F(PingPong, CheckedCast)
     EXPECT_TRUE(pp_prx.get());
     auto inv_prx = core::checked_cast< ::test::ping_pong::callback_proxy >(prx_);
     EXPECT_FALSE(inv_prx.get());
+    ::std::string fname;
+    EXPECT_NO_THROW(fname = pp_prx->wire_function_name(0x1cdc304b)); // object::wire_is_a
+    EXPECT_EQ("wire_is_a", fname);
+    EXPECT_NO_THROW(fname = pp_prx->wire_function_name(0x94614471)); // ping_pong::test_int
+    EXPECT_EQ("test_int", fname);
 }
 
 TEST_F(PingPong, WireFunctions)

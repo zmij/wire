@@ -55,6 +55,12 @@ object_proxy::wire_static_type_id()
     return object::wire_static_type_id();
 }
 
+::std::string const&
+object_proxy::wire_function_name(::std::uint32_t hash)
+{
+    return object::wire_function_name(hash);
+}
+
 identity const&
 object_proxy::wire_identity() const
 {
