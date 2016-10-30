@@ -51,8 +51,14 @@ public:
 
     static ::std::string const&
     wire_static_type_id();
-    static ::std::int64_t
+    static ::wire::hash_value_type
     wire_static_type_id_hash();
+
+    static ::std::string const&
+    wire_function_name(::std::uint32_t);
+    static bool
+    wire_find_function(::std::uint32_t hash, dispatch_seen_list&,
+            ::std::string const*&);
 protected:
     virtual bool
     __wire_dispatch(detail::dispatch_request const&, current const&,

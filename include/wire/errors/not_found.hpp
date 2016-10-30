@@ -10,6 +10,7 @@
 
 #include <wire/errors/exceptions.hpp>
 #include <wire/core/identity.hpp>
+#include <wire/encoding/message.hpp>
 
 namespace wire {
 namespace errors {
@@ -17,9 +18,10 @@ namespace errors {
 class not_found : public runtime_error {
 public:
     enum subject { object, facet, operation };
+    using operation_id = encoding::operation_specs::operation_id;
 public:
     not_found(subject s, core::identity const& obj_id,
-            ::std::string const& fct, ::std::string const& op)
+            ::std::string const& fct, operation_id const& op)
         : runtime_error(format_message(s, obj_id, fct, op)),
           subj_{s}, object_id_{obj_id}, facet_{fct}, operation_{op}
     {}
@@ -36,7 +38,7 @@ public:
     get_facet() const
     { return facet_; }
 
-    ::std::string const&
+    operation_id const&
     get_operation() const
     {
         return operation_;
@@ -44,7 +46,7 @@ public:
 
     static ::std::string
     format_message(subject s, core::identity const& obj_id,
-            ::std::string const& facet, ::std::string const& operation);
+            ::std::string const& facet, operation_id const& operation);
 protected:
     void
     stream_message(::std::ostream& os) const override;
@@ -52,28 +54,28 @@ private:
     subject         subj_;
     core::identity  object_id_;
     ::std::string   facet_;
-    ::std::string   operation_;
+    operation_id    operation_;
 };
 
 
 class no_object : public not_found {
 public:
     no_object(core::identity const& obj_id,
-            ::std::string const& fct, ::std::string const& op)
+            ::std::string const& fct, operation_id const& op)
         : not_found{ object, obj_id, fct, op } {}
 };
 
 class no_operation : public not_found {
 public:
     no_operation(core::identity const& obj_id,
-            ::std::string const& fct, ::std::string const& op)
+            ::std::string const& fct, operation_id const& op)
         : not_found{ operation, obj_id, fct, op } {}
 };
 
 class no_facet : public not_found {
 public:
     no_facet(core::identity const& obj_id,
-            ::std::string const& fct, ::std::string const& op)
+            ::std::string const& fct, operation_id const& op)
         : not_found{ facet, obj_id, fct, op } {}
 };
 

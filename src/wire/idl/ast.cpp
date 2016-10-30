@@ -105,7 +105,7 @@ compilation_unit::generate(generator& gen) const
     gen.finish_compilation_unit(*this);
 }
 
-::std::int64_t
+::std::uint64_t
 compilation_unit::get_hash() const noexcept
 {
     ::std::int64_t h = 0;
@@ -187,7 +187,7 @@ parametrized_type::add_parameter(parameter const& param)
     }
 }
 
-::std::int64_t
+entity::hash_value_type
 parametrized_type::get_hash() const noexcept
 {
     auto hash = tmpl_type->get_hash();
@@ -195,6 +195,25 @@ parametrized_type::get_hash() const noexcept
         switch (p.which()) {
             case template_param_type::type:
                 hash = hash::combine(::boost::get< type_ptr >(p)->get_hash(), hash);
+                break;
+            case template_param_type::integral:
+                hash = hash::combine(::boost::get< ::std::string >(p), hash);
+                break;
+            default:
+                break;
+        }
+    }
+    return hash;
+}
+
+entity::hash_value_type_32
+parametrized_type::get_hash_32() const noexcept
+{
+    auto hash = tmpl_type->get_hash_32();
+    for (auto const& p : params_) {
+        switch (p.which()) {
+            case template_param_type::type:
+                hash = hash::combine(::boost::get< type_ptr >(p)->get_hash_32(), hash);
                 break;
             case template_param_type::integral:
                 hash = hash::combine(::boost::get< ::std::string >(p), hash);
@@ -331,18 +350,32 @@ entity::get_type_name() const
     return type_name { get_qualified_name(), type_name::template_params{}, false };
 }
 
-::std::int64_t
+entity::hash_value_type
 entity::get_name_hash() const noexcept
 {
     ::std::ostringstream os;
     os << get_qualified_name();
-    return hash::murmur_hash(os.str());
+    return hash::murmur_hash_64(os.str());
 }
 
-::std::int64_t
+entity::hash_value_type
 entity::get_hash() const noexcept
 {
     return get_name_hash();
+}
+
+entity::hash_value_type_32
+entity::get_name_hash_32() const noexcept
+{
+    ::std::ostringstream os;
+    os << get_qualified_name();
+    return hash::murmur_hash_32(os.str());
+}
+
+entity::hash_value_type_32
+entity::get_hash_32() const noexcept
+{
+    return get_name_hash_32();
 }
 
 global_namespace_ptr
@@ -469,20 +502,32 @@ constant::constant(scope_ptr sc, ::std::size_t pos, ::std::string const& name,
 {
 }
 
-::std::int64_t
+entity::hash_value_type
 constant::get_hash() const noexcept
 {
     auto h = type_->get_hash();
     h = hash::combine(name(), h);
     return hash::combine(init_, h);
 }
+entity::hash_value_type_32
+constant::get_hash_32() const noexcept
+{
+    auto h = type_->get_hash_32();
+    h = hash::combine(name(), h);
+    return hash::combine(init_, h);
+}
 
-::std::int64_t
+entity::hash_value_type
 variable::get_hash() const noexcept
 {
     return hash::combine(name(), type_->get_hash());
 }
 
+entity::hash_value_type_32
+variable::get_hash_32() const noexcept
+{
+    return hash::combine(name(), type_->get_hash_32());
+}
 //----------------------------------------------------------------------------
 //    scope class implementation
 //----------------------------------------------------------------------------
@@ -736,7 +781,7 @@ scope::collect_elements(entity_const_set& elems, entity_predicate pred) const
     }
 }
 
-::std::int64_t
+entity::hash_value_type
 scope::get_hash() const noexcept
 {
     auto h = get_name_hash();
@@ -750,6 +795,24 @@ scope::get_hash() const noexcept
     ::std::sort(constants.begin(), constants.end(), name_compare{});
     for (auto c : constants_) {
         h = hash::combine(c->get_hash(), h);
+    }
+    return h;
+}
+
+entity::hash_value_type_32
+scope::get_hash_32() const noexcept
+{
+    auto h = get_name_hash_32();
+
+    auto types = types_;
+    ::std::sort(types.begin(), types.end(), name_compare{});
+    for (auto t : types) {
+        h = hash::combine(t->get_hash_32(), h);
+    }
+    auto constants = constants_;
+    ::std::sort(constants.begin(), constants.end(), name_compare{});
+    for (auto c : constants_) {
+        h = hash::combine(c->get_hash_32(), h);
     }
     return h;
 }
@@ -792,7 +855,7 @@ function::collect_dependencies(entity_const_set& deps, entity_predicate pred) co
     }
 }
 
-::std::int64_t
+entity::hash_value_type
 function::get_hash() const noexcept
 {
     auto h = hash::combine(name(), ret_type_->get_hash());
@@ -801,6 +864,19 @@ function::get_hash() const noexcept
     }
     for (auto e : throw_spec_) {
         h = hash::combine(e->get_hash(), h);
+    }
+    return hash::combine(is_const_, h);
+}
+
+entity::hash_value_type_32
+function::get_hash_32() const noexcept
+{
+    auto h = hash::combine(name(), ret_type_->get_hash_32());
+    for (auto const& p : parameters_) {
+        h = hash::combine(p.first->get_hash_32(), h);
+    }
+    for (auto e : throw_spec_) {
+        h = hash::combine(e->get_hash_32(), h);
     }
     return hash::combine(is_const_, h);
 }
@@ -963,10 +1039,23 @@ enumeration::add_enumerator(::std::size_t pos, ::std::string const& name, option
     // TODO add entities to enclosing scope if not constrained
 }
 
-::std::int64_t
+entity::hash_value_type
 enumeration::get_hash() const noexcept
 {
     auto h = get_name_hash();
+    for (auto const& e : enumerators_) {
+        h = hash::combine(e.first, h);
+        if (e.second.is_initialized()) {
+            h = hash::combine(*e.second, h);
+        }
+    }
+    return h;
+}
+
+entity::hash_value_type_32
+enumeration::get_hash_32() const noexcept
+{
+    auto h = get_name_hash_32();
     for (auto const& e : enumerators_) {
         h = hash::combine(e.first, h);
         if (e.second.is_initialized()) {
@@ -1031,7 +1120,7 @@ structure::collect_elements(entity_const_set& elems, entity_predicate pred) cons
     }
 }
 
-::std::int64_t
+entity::hash_value_type
 structure::get_hash() const noexcept
 {
     auto h = scope::get_hash();
@@ -1041,6 +1130,15 @@ structure::get_hash() const noexcept
     return h;
 }
 
+entity::hash_value_type_32
+structure::get_hash_32() const noexcept
+{
+    auto h = scope::get_hash_32();
+    for (auto m : data_members_) {
+        h = hash::combine(m->get_hash_32(), h);
+    }
+    return h;
+}
 //----------------------------------------------------------------------------
 //    interface class implementation
 //----------------------------------------------------------------------------
@@ -1176,7 +1274,7 @@ interface::has_functions() const
     return false;
 }
 
-::std::int64_t
+entity::hash_value_type
 interface::get_hash() const noexcept
 {
     auto h = scope::get_hash();
@@ -1189,6 +1287,23 @@ interface::get_hash() const noexcept
     ::std::sort(ancs.begin(), ancs.end(), name_compare{});
     for (auto a : ancs) {
         h = hash::combine(a->get_hash(), h);
+    }
+    return h;
+}
+
+entity::hash_value_type_32
+interface::get_hash_32() const noexcept
+{
+    auto h = scope::get_hash_32();
+    auto funcs = functions_;
+    ::std::sort(funcs.begin(), funcs.end(), name_compare{});
+    for (auto f : funcs) {
+        h = hash::combine(f->get_hash_32(), h);
+    }
+    auto ancs = ancestors_;
+    ::std::sort(ancs.begin(), ancs.end(), name_compare{});
+    for (auto a : ancs) {
+        h = hash::combine(a->get_hash_32(), h);
     }
     return h;
 }
@@ -1212,13 +1327,19 @@ reference::collect_dependencies(entity_const_set& deps, entity_predicate pred) c
     }
 }
 
-::std::int64_t
+entity::hash_value_type
 reference::get_hash() const noexcept
 {
     auto h = get_name_hash();
     return hash::combine(1UL, h);
 }
 
+entity::hash_value_type_32
+reference::get_hash_32() const noexcept
+{
+    auto h = get_name_hash_32();
+    return hash::combine(1U, h);
+}
 //----------------------------------------------------------------------------
 //    class class implementation
 //----------------------------------------------------------------------------
@@ -1304,7 +1425,7 @@ class_::collect_elements(entity_const_set& elems, entity_predicate pred) const
     }
 }
 
-::std::int64_t
+entity::hash_value_type
 class_::get_hash() const noexcept
 {
     auto h = interface::get_hash();
@@ -1313,6 +1434,19 @@ class_::get_hash() const noexcept
     }
     if (parent_) {
         h = hash::combine(parent_->get_hash(), h);
+    }
+    return h;
+}
+
+entity::hash_value_type_32
+class_::get_hash_32() const noexcept
+{
+    auto h = interface::get_hash_32();
+    for (auto d : data_members_) {
+        h = hash::combine(d->get_hash_32(), h);
+    }
+    if (parent_) {
+        h = hash::combine(parent_->get_hash_32(), h);
     }
     return h;
 }
@@ -1351,12 +1485,22 @@ exception::collect_dependencies(entity_const_set& deps, entity_predicate pred) c
         deps.insert(parent_);
 }
 
-::std::int64_t
+entity::hash_value_type
 exception::get_hash() const noexcept
 {
     auto h = structure::get_hash();
     if (parent_) {
         h = hash::combine(parent_->get_hash(), h);
+    }
+    return h;
+}
+
+entity::hash_value_type_32
+exception::get_hash_32() const noexcept
+{
+    auto h = structure::get_hash_32();
+    if (parent_) {
+        h = hash::combine(parent_->get_hash_32(), h);
     }
     return h;
 }

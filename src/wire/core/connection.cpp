@@ -532,7 +532,8 @@ connection_implementation::dispatch_incoming(encoding::incoming_ptr incoming)
 }
 
 void
-connection_implementation::invoke(encoding::invocation_target const& target, ::std::string const& op,
+connection_implementation::invoke(encoding::invocation_target const& target,
+        encoding::operation_specs::operation_id const& op,
         context_type const& ctx,
         invocation_options const& opts,
         encoding::outgoing&& params,
@@ -1004,7 +1005,8 @@ connection::close()
 }
 
 void
-connection::invoke(encoding::invocation_target const& target, ::std::string const& op,
+connection::invoke(encoding::invocation_target const& target,
+        encoding::operation_specs::operation_id const& op,
         context_type const& ctx,
         invocation_options const& opts,
         encoding::outgoing&& params,
