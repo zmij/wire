@@ -230,7 +230,9 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
             "<wire/core/connection.hpp>",
             "<wire/core/detail/dispatch_request.hpp>",
             "<wire/core/invocation.hpp>",
-            "<unordered_map>"
+            "<unordered_map>",
+            "<iomanip>",
+            "<sstream>"
         });
     }
     if (unit_->has_classes()) {
@@ -553,10 +555,17 @@ generator::generate_invocation_function_member(ast::function_ptr func)
                     << off << invocation_opts << " _opts)"
                     << mod(-3) << "{";
 
+            ::std::ostringstream os;
+            os << pfx << cpp_name(func);
+            if (!options_.dont_use_hashed_id && cpp_name(func).name.size() > 4) {
+                // Name longer than hash
+                os << "_hash";
+            }
+
             source_ << mod(+1) << "if (_opts == " << invocation_opts << "::unspecified)"
                     << off(+1) << "_opts = wire_invocation_options();";
             source_ << off     << "make_invocation(wire_get_reference(),"
-                    << mod(+2) << pfx << cpp_name(func) << ", _ctx,"
+                    << mod(+2) << os.str() << ", _ctx,"
                     << off << "&" << qname(func->owner()) << "::" << cpp_name(func) << ","
                     << off << "_response, _exception, _sent";
             if (!params.empty()) {
@@ -1009,7 +1018,8 @@ generator::generate_type_id_funcs(ast::entity_ptr elem)
             << off      <<       "static ::std::string const&"
             << off      <<       "wire_static_type_id();"
             << off      <<       "static " << hash_value_type_name
-            << off      <<       "wire_static_type_id_hash();";
+            << off      <<       "wire_static_type_id_hash();"
+    ;
 
     // Source
     auto eqn = qname(elem);
@@ -1022,7 +1032,7 @@ generator::generate_type_id_funcs(ast::entity_ptr elem)
     source_ << off << "namespace {\n"
             << mod(+1) << "::std::string const " << pfx << "TYPE_ID = \"" << eqn_str << "\";"
             << off << hash_value_type_name << " const " << pfx << "TYPE_ID_HASH = 0x"
-                << ::std::hex << hash::murmur_hash(eqn_str) << ::std::dec << ";"
+                << ::std::hex << hash::murmur_hash_64(eqn_str) << ::std::dec << ";"
             << "\n"
             << mod(-1) << "} /* namespace for " << abs_name << eqn << " */\n";
 
@@ -1068,7 +1078,7 @@ generator::generate_wire_functions(ast::interface_ptr iface)
     auto pfx = constant_prefix(eqn);
     {
         auto const& funcs = iface->get_functions();
-        source_ << off << "namespace { /*    Type ids and dispathc map for "
+        source_ << off << "namespace { /*    Type ids and dispatch map for "
                         << abs_name << qname(iface) << "  */\n";
         offset_guard cn{source_};
         source_.modify_offset(+1);
@@ -1076,12 +1086,17 @@ generator::generate_wire_functions(ast::interface_ptr iface)
             source_ << off << "::std::string const " << pfx << cpp_name(f)
                     << " = \"" << cpp_name(f) << "\";";
         }
+        for (auto f : funcs) {
+            source_ << off << "::std::uint32_t const " << pfx << cpp_name(f) << "_hash"
+                    << " = 0x" << ::std::hex << f->get_hash_32() << ";";
+        }
         if (!funcs.empty())
             source_ << "\n";
         source_ << off << "using " << pfx << "dispatch_func ="
                 << mod(+1) << " void(" << eqn
                 << "::*)(" << wire_disp_request << " const&, " << wire_current << " const&);\n";
 
+        // Name dispatch table
         source_ << mod(-1) << "::std::unordered_map< ::std::string, " << pfx << "dispatch_func >"
                 << " const " << pfx << "dispatch_map {";
 
@@ -1091,7 +1106,19 @@ generator::generate_wire_functions(ast::interface_ptr iface)
                     << "::__" << cpp_name(f) << " },";
         }
 
-        source_ << mod(-1) << "};\n";
+        source_ << mod(-1) << "}; // dispatch_map\n";
+
+        // Hash dispatch table
+        source_ << off << "::std::unordered_map< ::std::uint32_t, " << pfx << "dispatch_func >"
+                << " const " << pfx << "hash_dispatch_map {";
+
+        source_.modify_offset(+1);
+        for (auto f : funcs) {
+            source_ << off << "{ " << pfx << cpp_name(f) << "_hash, &" << eqn
+                    << "::__" << cpp_name(f) << " },";
+        }
+
+        source_ << mod(-1) << "}; // hash_dispatch_map\n";
 
         source_ << off << eqn << "::type_list const "
                 << pfx << "TYPE_IDS = {";
@@ -1102,8 +1129,16 @@ generator::generate_wire_functions(ast::interface_ptr iface)
             source_ << off << qname(a) << "::wire_static_type_id(),";
         }
         source_ << off << qname(iface) << "::wire_static_type_id(),"
-                << mod(-1) << "};"
-                << mod(-1) << "} /* namespace */\n";
+                << mod(-1) << "};\n";
+        source_ << off << "::std::unordered_map< ::std::uint32_t, ::std::string > const "
+                        << pfx << "func_names {";
+        source_.modify_offset(+1);
+        for (auto f : funcs) {
+            source_ << off << "{ " << pfx << cpp_name(f) << "_hash, "
+                    << pfx << cpp_name(f) << " },";
+        }
+        source_ << mod(-1) << "}; // func_names";
+        source_ << mod(-1) << "} /* namespace */\n";
     }
 
 
@@ -1145,12 +1180,23 @@ generator::generate_wire_functions(ast::interface_ptr iface)
             << mod(-1)  <<  "{"
             << mod(+1)  <<      "if (seen.count(wire_static_type_id_hash())) return false;"
             << off      <<      "seen.insert(wire_static_type_id_hash());"
+            << off      <<       pfx << "dispatch_func func = nullptr;"
             << off      <<      "if (c.operation.type() == ::wire::encoding::operation_specs::name_string) {"
             << mod(+1)  <<          "auto f = " << pfx << "dispatch_map.find(c.operation.name());"
             << off      <<          "if (f != " << pfx << "dispatch_map.end()) {"
-            << mod(+1)  <<              "(this->*f->second)(req, c);"
-            << off      <<              "return true;"
-            << mod(-1)  <<          "}"
+            << off(+1)  <<              "func = f->second;"
+            << off      <<          "}"
+            << off(-1)  <<      "} else {"
+            << off      <<          "auto op_hash = ::boost::get< ::wire::encoding::operation_specs::hash_type >(c.operation.operation);"
+            << off      <<          "auto f = " << pfx << "hash_dispatch_map.find(op_hash);"
+            << off      <<          "if (f != " << pfx << "hash_dispatch_map.end()) {"
+            << off(+1)  <<              "func = f->second;"
+            << off      <<          "}"
+            << mod(-1)  <<      "}"
+            << off      <<      "if (func) {"
+            << off(+1)  <<           "(this->*func)(req, c);"
+            << off(+1)  <<           "return true;"
+            << off      <<      "}"
             << off      <<      "bool res = ";
 
     source_.modify_offset(+1);
@@ -1169,12 +1215,8 @@ generator::generate_wire_functions(ast::interface_ptr iface)
 
     source_ << off      <<      "if (!res && throw_not_found)"
             << mod(+1)  <<          "throw ::wire::errors::no_operation{"
-            << mod(+1)  <<              "c.operation.target.identity, c.operation.target.facet, c.operation.name()};"
+            << mod(+1)  <<              "c.operation.target.identity, c.operation.target.facet, c.operation.operation};"
             << mod(-2)  <<      "return res;"
-            << mod(-1)  <<  "} else {"
-            << mod(+1)  <<      "throw ::wire::errors::no_operation{"
-            << mod(+1)  <<          "c.operation.target.identity, c.operation.target.facet, c.operation.name()};"
-            << mod(-2)  <<  "}"
             << mod(-1) << "}\n";
 }
 
@@ -1386,8 +1428,14 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
         header_.modify_offset(-1);
         header_ << off  << "virtual ~" << cpp_name(iface) << "() = default;";
     }
-
     auto qn_str = generate_type_id_funcs(iface);
+    {
+        header_ << off      <<       "static ::std::string const&"
+                << off      <<       "wire_function_name(::std::uint32_t);"
+                << off      <<       "static bool"
+                << off      <<       "wire_find_function(::std::uint32_t hash,"
+                << off(+1)  <<           "dispatch_seen_list&, ::std::string const*&);";
+    }
     generate_wire_functions(iface);
     auto const& funcs = iface->get_functions();
     if (!funcs.empty()) {
@@ -1400,6 +1448,49 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
 
     header_ << mod(-1)  << "};\n";
     header_.pop_scope();
+
+    source_ << off     << "::std::string const&"
+            << off     << qn_str << "::wire_function_name(::std::uint32_t hash)"
+            << off     << "{"
+            << mod(+1) <<     "::std::string const* str;"
+            << off     <<     "dispatch_seen_list seen;"
+            << off     <<     "if (wire_find_function(hash, seen, str)) {"
+            << off(+1) <<         "return *str;"
+            << off     <<     "}"
+            << off     <<     "::std::ostringstream os;"
+            << off     <<     "os << ::std::hex << hash;"
+            << off     <<     "throw ::std::runtime_error{\"No operation with hash 0x\" + os.str()};"
+            << mod(-1) << "}\n"
+    ;
+
+    auto pfx = constant_prefix(qn_str);
+    source_ << off     << "bool"
+            << off     << qn_str << "::wire_find_function(::std::uint32_t hash, dispatch_seen_list& seen,"
+            << off(+3) <<            "::std::string const*& str)"
+            << off     << "{"
+            << mod(+1) <<     "if (seen.count(wire_static_type_id_hash()))"
+            << off(+1) <<          "return false;"
+            << off     <<     "seen.insert(wire_static_type_id_hash());"
+            << off     <<     "auto f = " << pfx << "func_names.find(hash);"
+            << off     <<     "if (f != " << pfx << "func_names.end()) {"
+            << off(+1) <<         "str = &f->second;"
+            << off(+1) <<         "return true;"
+            << off     <<     "}"
+            << off     <<     "bool res = ";
+    source_.modify_offset(+1);
+    if (!ancestors.empty()) {
+        for (auto a = ancestors.begin(); a != ancestors.end(); ++a) {
+            if (a != ancestors.begin())
+                source_ << " ||" << off;
+            source_ << qname((*a)) << "::wire_find_function(hash, seen, str)";
+        }
+    } else {
+        source_ << root_interface << "::wire_find_function(hash, seen, str)";
+    }
+    source_ << ";";
+
+    source_ << mod(-1) << "return res;"
+            << mod(-1) << "}";
 }
 
 void
@@ -1437,6 +1528,10 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
 
     header_.push_scope(iface->name() + "_proxy");
     {
+        header_ << off << "using interface_type = " << cpp_name(iface) << ";";
+    }
+    {
+        header_ << off(-1)     << "public:";
         offset_guard hdr{header_};
         // TODO Constructors
         header_ << off     << cpp_name(iface) << "_proxy ()"

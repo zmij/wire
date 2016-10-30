@@ -20,19 +20,37 @@ namespace {
 ::std::string const WIRE_CORE_OBJECT_wire_type = "wire_type";
 ::std::string const WIRE_CORE_OBJECT_wire_types = "wire_types";
 
+::std::uint32_t const WIRE_CORE_OBJECT_wire_is_a_hash = 0x1cdc304b;
+::std::uint32_t const WIRE_CORE_OBJECT_wire_ping_hash = 0x7052047d;
+::std::uint32_t const WIRE_CORE_OBJECT_wire_type_hash = 0x82d9cb3a;
+::std::uint32_t const WIRE_CORE_OBJECT_wire_types_hash = 0x452e5af9;
+
 using object_dispatch_func = void(object::*)(detail::dispatch_request const&, current const&);
 ::std::unordered_map<::std::string, object_dispatch_func> const object_dispatch_map {
     { WIRE_CORE_OBJECT_wire_is_a,    &object::__wire_is_a },
     { WIRE_CORE_OBJECT_wire_ping,    &object::__wire_ping },
     { WIRE_CORE_OBJECT_wire_type,    &object::__wire_type },
-    { WIRE_CORE_OBJECT_wire_types,    &object::__wire_types },
+    { WIRE_CORE_OBJECT_wire_types,   &object::__wire_types },
+};
+::std::unordered_map<::std::uint32_t, object_dispatch_func> const object_hash_dispatch_map {
+    { WIRE_CORE_OBJECT_wire_is_a_hash,    &object::__wire_is_a },
+    { WIRE_CORE_OBJECT_wire_ping_hash,    &object::__wire_ping },
+    { WIRE_CORE_OBJECT_wire_type_hash,    &object::__wire_type },
+    { WIRE_CORE_OBJECT_wire_types_hash,   &object::__wire_types },
 };
 
 ::std::string OBJECT_TYPE_ID = "::wire::core::object";
+::std::uint64_t OBJECT_TYPE_ID_HASH = 0x34c22399587391a2;
 ::std::vector< ::std::string > OBJECT_TYPE_IDS {
     object::wire_static_type_id()
 };
 
+::std::unordered_map< ::std::uint32_t, ::std::string > object_func_names {
+    { WIRE_CORE_OBJECT_wire_is_a_hash, WIRE_CORE_OBJECT_wire_is_a },
+    { WIRE_CORE_OBJECT_wire_ping_hash, WIRE_CORE_OBJECT_wire_ping },
+    { WIRE_CORE_OBJECT_wire_type_hash, WIRE_CORE_OBJECT_wire_type },
+    { WIRE_CORE_OBJECT_wire_types_hash, WIRE_CORE_OBJECT_wire_types },
+}; // func_names
 }  // namespace
 
 bool
@@ -102,20 +120,27 @@ object::__wire_dispatch(detail::dispatch_request const& req, current const& c,
     if (seen.count(wire_static_type_id_hash()))
         return false;
     seen.insert(wire_static_type_id_hash());
+    object_dispatch_func func = nullptr;
     if (c.operation.type() == encoding::operation_specs::name_string) {
         auto f = object_dispatch_map.find(c.operation.name());
         if (f != object_dispatch_map.end()) {
-            (this->*f->second)(req, c);
-            return true;
+            func = f->second;
         }
-        if (throw_not_found)
-            throw errors::no_operation(
-                    c.operation.target.identity, c.operation.target.facet, c.operation.name());
-        return false;
     } else {
-        throw errors::no_operation(
-                c.operation.target.identity, c.operation.target.facet, c.operation.name());
+        auto op_hash = ::boost::get<encoding::operation_specs::hash_type>(c.operation.operation);
+        auto f = object_hash_dispatch_map.find(op_hash);
+        if (f != object_hash_dispatch_map.end()) {
+            func = f->second;
+        }
     }
+    if (func) {
+        (this->*func)(req, c);
+        return true;
+    }
+    if (throw_not_found)
+        throw errors::no_operation(
+                c.operation.target.identity, c.operation.target.facet, c.operation.operation);
+    return false;
 }
 
 void
@@ -140,10 +165,38 @@ object::wire_static_type_id()
     return OBJECT_TYPE_ID;
 }
 
-::std::int64_t
+::wire::hash_value_type
 object::wire_static_type_id_hash()
 {
-    return 0;
+    return OBJECT_TYPE_ID_HASH;
+}
+
+::std::string const&
+object::wire_function_name(::std::uint32_t hash)
+{
+    ::std::string const* str;
+    dispatch_seen_list seen;
+    if (wire_find_function(hash, seen, str)) {
+        return *str;
+    }
+    ::std::ostringstream os;
+    os << ::std::hex << hash;
+    throw ::std::runtime_error{"No operation with hash 0x" + os.str()};
+}
+
+bool
+object::wire_find_function(::std::uint32_t hash, dispatch_seen_list& seen,
+            ::std::string const*& str)
+{
+    if (seen.count(wire_static_type_id_hash()))
+        return false;
+    seen.insert(wire_static_type_id_hash());
+    auto f = object_func_names.find(hash);
+    if (f != object_func_names.end()) {
+        str = &f->second;
+        return true;
+    }
+    return false;
 }
 
 }  // namespace core

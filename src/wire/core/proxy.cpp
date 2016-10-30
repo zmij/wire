@@ -21,6 +21,11 @@ namespace {
 ::std::string const WIRE_CORE_OBJECT_wire_type = "wire_type";
 ::std::string const WIRE_CORE_OBJECT_wire_types = "wire_types";
 
+::std::uint32_t const WIRE_CORE_OBJECT_wire_is_a_hash = 0x1cdc304b;
+::std::uint32_t const WIRE_CORE_OBJECT_wire_ping_hash = 0x7052047d;
+::std::uint32_t const WIRE_CORE_OBJECT_wire_type_hash = 0x82d9cb3a;
+::std::uint32_t const WIRE_CORE_OBJECT_wire_types_hash = 0x452e5af9;
+
 }  /* namespace  */
 
 object_proxy::object_proxy(reference_ptr ref, invocation_options const& opts)
@@ -48,6 +53,12 @@ object_proxy::operator <(object_proxy const& rhs) const
 object_proxy::wire_static_type_id()
 {
     return object::wire_static_type_id();
+}
+
+::std::string const&
+object_proxy::wire_function_name(::std::uint32_t hash)
+{
+    return object::wire_function_name(hash);
 }
 
 identity const&
@@ -87,7 +98,7 @@ object_proxy::wire_is_a_async(::std::string const&  type_id,
     if (opts == invocation_options::unspecified)
         opts = wire_invocation_options();
     make_invocation(wire_get_reference(),
-            WIRE_CORE_OBJECT_wire_is_a, ctx,
+            WIRE_CORE_OBJECT_wire_is_a_hash, ctx,
             &object::wire_is_a,
             response, exception, sent,
             type_id)(opts);
@@ -112,7 +123,7 @@ object_proxy::wire_ping_async(
     if (opts == invocation_options::unspecified)
         opts = wire_invocation_options();
     make_invocation(wire_get_reference(),
-            WIRE_CORE_OBJECT_wire_ping, ctx,
+            WIRE_CORE_OBJECT_wire_ping_hash, ctx,
             &object::wire_ping,
             response, exception, sent)(opts);
 }
@@ -136,7 +147,7 @@ object_proxy::wire_type_async(
     if (opts == invocation_options::unspecified)
         opts = wire_invocation_options();
     make_invocation(wire_get_reference(),
-            WIRE_CORE_OBJECT_wire_type, ctx,
+            WIRE_CORE_OBJECT_wire_type_hash, ctx,
             &object::wire_type,
             response, exception, sent)(opts);
 }
@@ -160,7 +171,7 @@ object_proxy::wire_types_async(
     if (opts == invocation_options::unspecified)
         opts = wire_invocation_options();
     make_invocation(wire_get_reference(),
-            WIRE_CORE_OBJECT_wire_types, ctx,
+            WIRE_CORE_OBJECT_wire_types_hash, ctx,
             &object::wire_types,
             response, exception, sent)(opts);
 }

@@ -157,7 +157,7 @@ struct compilation_unit {
         return !ents.empty();
     }
 
-    ::std::int64_t
+    ::std::uint64_t
     get_hash() const noexcept;
 };
 
@@ -166,6 +166,9 @@ struct compilation_unit {
  * Base AST entity class
  */
 class entity : public ::std::enable_shared_from_this<entity> {
+public:
+    using hash_value_type = ::std::uint64_t;
+    using hash_value_type_32 = ::std::uint32_t;
 public:
     virtual ~entity() {}
 
@@ -201,11 +204,15 @@ public:
     virtual type_name
     get_type_name() const;
 
-    ::std::int64_t
+    hash_value_type
     get_name_hash() const noexcept;
-
-    virtual ::std::int64_t
+    virtual hash_value_type
     get_hash() const noexcept;
+
+    hash_value_type_32
+    get_name_hash_32() const noexcept;
+    virtual hash_value_type_32
+    get_hash_32() const noexcept;
 
     grammar::annotation_list const&
     get_annotations() const
@@ -413,9 +420,12 @@ public:
     alias() const
     { return type_; }
 
-    ::std::int64_t
+    hash_value_type
     get_hash() const noexcept override
     { return type_->get_hash(); }
+    hash_value_type_32
+    get_hash_32() const noexcept override
+    { return type_->get_hash_32(); }
 
     void
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override
@@ -474,8 +484,10 @@ public:
     void
     add_parameter(parameter const&);
 
-    ::std::int64_t
+    hash_value_type
     get_hash() const noexcept override;
+    hash_value_type_32
+    get_hash_32() const noexcept override;
     void
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
 
@@ -522,8 +534,10 @@ public:
     get_init() const
     { return init_; }
 
-    ::std::int64_t
+    hash_value_type
     get_hash() const noexcept override;
+    hash_value_type_32
+    get_hash_32() const noexcept override;
 private:
     type_ptr                    type_;
     grammar::data_initializer   init_;
@@ -553,8 +567,10 @@ public:
     get_type() const
     { return type_; }
 
-    ::std::int64_t
+    hash_value_type
     get_hash() const noexcept override;
+    hash_value_type_32
+    get_hash_32() const noexcept override;
 private:
     type_ptr type_;
 };
@@ -602,8 +618,10 @@ public:
     throw_specification() const
     { return throw_spec_; }
 
-    ::std::int64_t
+    hash_value_type
     get_hash() const noexcept override;
+    hash_value_type_32
+    get_hash_32() const noexcept override;
 private:
     type_ptr         ret_type_;
     function_params  parameters_;
@@ -721,8 +739,10 @@ public:
     void
     collect_elements(entity_const_set& elems, entity_predicate pred) const override;
 
-    ::std::int64_t
+    hash_value_type
     get_hash() const noexcept override;
+    hash_value_type_32
+    get_hash_32() const noexcept override;
 protected:
     scope() : entity() {}
     /**
@@ -968,8 +988,10 @@ public:
     get_enumerators() const
     { return enumerators_; }
 
-    ::std::int64_t
+    hash_value_type
     get_hash() const noexcept override;
+    hash_value_type_32
+    get_hash_32() const noexcept override;
 private:
     bool            constrained_;
     enumerator_list enumerators_;
@@ -1000,8 +1022,10 @@ public:
     void
     collect_elements(entity_const_set& elems, entity_predicate pred) const override;
 
-    ::std::int64_t
+    hash_value_type
     get_hash() const noexcept override;
+    hash_value_type_32
+    get_hash_32() const noexcept override;
 protected:
     entity_ptr
     local_entity_search(qname_search const& search) const override;
@@ -1022,6 +1046,7 @@ public:
             interface_list const& ancestors = interface_list{})
         : entity(sc, pos, name), type(sc, pos, name), scope(sc, pos, name),
           ancestors_{ ancestors } {}
+    virtual ~interface() = default;
 
     function_ptr
     add_function(::std::size_t pos, ::std::string const& name, type_ptr t = type_ptr{},
@@ -1056,8 +1081,10 @@ public:
     virtual bool
     has_functions() const;
 
-    ::std::int64_t
+    hash_value_type
     get_hash() const noexcept override;
+    hash_value_type_32
+    get_hash_32() const noexcept override;
 protected:
     entity_ptr
     ancestors_entity_search(qname_search const& search) const;
@@ -1083,8 +1110,10 @@ public:
     void
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
 
-    ::std::int64_t
+    hash_value_type
     get_hash() const noexcept override;
+    hash_value_type_32
+    get_hash_32() const noexcept override;
 };
 
 //----------------------------------------------------------------------------
@@ -1123,8 +1152,10 @@ public:
     collect_dependencies(entity_const_set& deps, entity_predicate pred) const override;
     void
     collect_elements(entity_const_set& elems, entity_predicate pred) const override;
-    ::std::int64_t
+    hash_value_type
     get_hash() const noexcept override;
+    hash_value_type_32
+    get_hash_32() const noexcept override;
 private:
     entity_ptr
     local_entity_search(qname_search const& search) const override;
@@ -1153,8 +1184,10 @@ public:
     exception_const_ptr
     get_parent() const
     { return parent_; }
-    ::std::int64_t
+    hash_value_type
     get_hash() const noexcept override;
+    hash_value_type_32
+    get_hash_32() const noexcept override;
 private:
     entity_ptr
     local_entity_search(qname_search const& search) const override;

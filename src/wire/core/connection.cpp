@@ -533,7 +533,7 @@ connection_implementation::dispatch_incoming(encoding::incoming_ptr incoming)
 
 void
 connection_implementation::invoke(encoding::invocation_target const& target,
-        ::std::string const& op,
+        encoding::operation_specs::operation_id const& op,
         context_type const& ctx,
         invocation_options const& opts,
         encoding::outgoing&& params,
@@ -599,7 +599,7 @@ connection_implementation::invoke(encoding::invocation_target const& target,
 
 void
 connection_implementation::send(encoding::multiple_targets const& targets,
-        ::std::string const& op,
+        encoding::operation_specs::operation_id const& op,
         context_type const& ctx,
         invocation_options const& opts,
         encoding::outgoing&& params,
@@ -643,7 +643,7 @@ connection_implementation::send(encoding::multiple_targets const& targets,
 
 void
 connection_implementation::forward(encoding::multiple_targets const& targets,
-        ::std::string const& op,
+        encoding::operation_specs::operation_id const& op,
         context_type const& ctx,
         invocation_options const& opts,
         detail::dispatch_request const& req,
@@ -989,7 +989,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                 r = detail::dispatch_request{
                     buffer, en.begin(), en.end(), en.size(),
                     [_this, req, fpg](outgoing&& res) mutable {
-						if (fpg->respond()) {
+                        if (fpg->respond()) {
                             outgoing_ptr out =
                                     ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
                             reply rep {
@@ -1117,7 +1117,8 @@ connection::close()
 }
 
 void
-connection::invoke(encoding::invocation_target const& target, ::std::string const& op,
+connection::invoke(encoding::invocation_target const& target,
+        encoding::operation_specs::operation_id const& op,
         context_type const& ctx,
         invocation_options const& opts,
         encoding::outgoing&& params,
@@ -1131,7 +1132,8 @@ connection::invoke(encoding::invocation_target const& target, ::std::string cons
 
 void
 connection::send(encoding::multiple_targets const& targets,
-            ::std::string const& op, context_type const& ctx,
+            encoding::operation_specs::operation_id const& op,
+            context_type const& ctx,
             invocation_options const& opts,
             encoding::outgoing&& params,
             functional::exception_callback exception,
@@ -1143,7 +1145,7 @@ connection::send(encoding::multiple_targets const& targets,
 
 void
 connection::forward(encoding::multiple_targets const&,
-        ::std::string const& op,
+        encoding::operation_specs::operation_id const& op,
         context_type const& ctx,
         invocation_options const& opts,
         detail::dispatch_request const& req,

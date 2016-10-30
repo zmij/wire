@@ -41,7 +41,7 @@ public:
     static hash_value_type
     wire_static_type_id_hash()
     {
-        static hash_value_type _hash = hash::murmur_hash(BASE);
+        static hash_value_type _hash = hash::murmur_hash_64(BASE);
         return _hash;
     }
 
@@ -86,7 +86,7 @@ public:
     static hash_value_type
     wire_static_type_id_hash()
     {
-        static hash_value_type _hash = hash::murmur_hash(DERIVED);
+        static hash_value_type _hash = hash::murmur_hash_64(DERIVED);
         return _hash;
     }
 

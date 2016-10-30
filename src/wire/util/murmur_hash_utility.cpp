@@ -18,7 +18,9 @@ try {
     for (int i = 1; i < argc; ++i) {
         os << argv[i];
     }
-    ::std::cout << "0x" << ::std::hex << wire::hash::murmur_hash(os.str()) << "\n";
+    ::std::cout
+        << "32-bit: 0x" << ::std::hex << wire::hash::murmur_hash_32(os.str()) << "\n"
+        << "64-bit: 0x" << ::std::hex << wire::hash::murmur_hash_64(os.str()) << "\n";
     return 0;
 } catch (::std::exception const& e) {
     ::std::cerr << "Standard exception " << e.what() << "\n";

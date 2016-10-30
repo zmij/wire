@@ -650,7 +650,8 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     send_unknown_exception(request_number req_num);
 
     void
-    invoke(encoding::invocation_target const&, ::std::string const& op,
+    invoke(encoding::invocation_target const&,
+            encoding::operation_specs::operation_id const& op,
             context_type const& ctx,
             invocation_options const& opts,
             encoding::outgoing&&,
@@ -658,7 +659,8 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
             functional::exception_callback exception,
             functional::callback< bool > sent);
     void
-    send(encoding::multiple_targets const&, ::std::string const& op,
+    send(encoding::multiple_targets const&,
+            encoding::operation_specs::operation_id const& op,
             context_type const& ctx,
             invocation_options const& opts,
             encoding::outgoing&&,
@@ -666,7 +668,8 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
             functional::callback< bool > sent);
 
     void
-    forward(encoding::multiple_targets const&, ::std::string const& op,
+    forward(encoding::multiple_targets const&,
+            encoding::operation_specs::operation_id const& op,
             context_type const& ctx,
             invocation_options const& opts,
             detail::dispatch_request const& req,
