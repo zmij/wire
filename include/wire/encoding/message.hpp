@@ -310,7 +310,8 @@ struct operation_specs {
         name_hash,
         name_string
     };
-    using operation_id = boost::variant< int32_t, ::std::string >;
+    using hash_type    = uint32_fixed_t;
+    using operation_id = boost::variant< hash_type, ::std::string >;
     invocation_target   target;
     operation_id        operation;
 

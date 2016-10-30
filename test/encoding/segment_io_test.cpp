@@ -18,8 +18,8 @@ namespace {
 ::std::string const DERIVED = "::test::derived_type";
 ::std::string const BASE =  "::test::base_type";
 
-hash_value_type const DERIVED_HASH = hash::murmur_hash(DERIVED);
-hash_value_type const BASE_HASH = hash::murmur_hash(BASE);
+hash_value_type const DERIVED_HASH = hash::murmur_hash_64(DERIVED);
+hash_value_type const BASE_HASH = hash::murmur_hash_64(BASE);
 
 }  /* namespace  */
 

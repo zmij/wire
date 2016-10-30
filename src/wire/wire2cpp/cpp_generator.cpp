@@ -1022,7 +1022,7 @@ generator::generate_type_id_funcs(ast::entity_ptr elem)
     source_ << off << "namespace {\n"
             << mod(+1) << "::std::string const " << pfx << "TYPE_ID = \"" << eqn_str << "\";"
             << off << hash_value_type_name << " const " << pfx << "TYPE_ID_HASH = 0x"
-                << ::std::hex << hash::murmur_hash(eqn_str) << ::std::dec << ";"
+                << ::std::hex << hash::murmur_hash_64(eqn_str) << ::std::dec << ";"
             << "\n"
             << mod(-1) << "} /* namespace for " << abs_name << eqn << " */\n";
 
@@ -1068,7 +1068,7 @@ generator::generate_wire_functions(ast::interface_ptr iface)
     auto pfx = constant_prefix(eqn);
     {
         auto const& funcs = iface->get_functions();
-        source_ << off << "namespace { /*    Type ids and dispathc map for "
+        source_ << off << "namespace { /*    Type ids and dispatch map for "
                         << abs_name << qname(iface) << "  */\n";
         offset_guard cn{source_};
         source_.modify_offset(+1);
@@ -1076,18 +1076,35 @@ generator::generate_wire_functions(ast::interface_ptr iface)
             source_ << off << "::std::string const " << pfx << cpp_name(f)
                     << " = \"" << cpp_name(f) << "\";";
         }
+        for (auto f : funcs) {
+            source_ << off << "::std::uint32_t const " << pfx << cpp_name(f) << "_hash"
+                    << " = 0x" << ::std::hex << f->get_hash_32() << ";";
+        }
         if (!funcs.empty())
             source_ << "\n";
         source_ << off << "using " << pfx << "dispatch_func ="
                 << mod(+1) << " void(" << eqn
                 << "::*)(" << wire_disp_request << " const&, " << wire_current << " const&);\n";
 
+        // Name dispatch table
         source_ << mod(-1) << "::std::unordered_map< ::std::string, " << pfx << "dispatch_func >"
                 << " const " << pfx << "dispatch_map {";
 
         source_.modify_offset(+1);
         for (auto f : funcs) {
             source_ << off << "{ " << pfx << cpp_name(f) << ", &" << eqn
+                    << "::__" << cpp_name(f) << " },";
+        }
+
+        source_ << mod(-1) << "};\n";
+
+        // Hash dispatch table
+        source_ << off << "::std::unordered_map< ::std::uint32_t, " << pfx << "dispatch_func >"
+                << " const " << pfx << "hash_dispatch_map {";
+
+        source_.modify_offset(+1);
+        for (auto f : funcs) {
+            source_ << off << "{ " << pfx << cpp_name(f) << "_hash, &" << eqn
                     << "::__" << cpp_name(f) << " },";
         }
 
@@ -1145,12 +1162,23 @@ generator::generate_wire_functions(ast::interface_ptr iface)
             << mod(-1)  <<  "{"
             << mod(+1)  <<      "if (seen.count(wire_static_type_id_hash())) return false;"
             << off      <<      "seen.insert(wire_static_type_id_hash());"
+            << off      <<       pfx << "dispatch_func func = nullptr;"
             << off      <<      "if (c.operation.type() == ::wire::encoding::operation_specs::name_string) {"
             << mod(+1)  <<          "auto f = " << pfx << "dispatch_map.find(c.operation.name());"
             << off      <<          "if (f != " << pfx << "dispatch_map.end()) {"
-            << mod(+1)  <<              "(this->*f->second)(req, c);"
-            << off      <<              "return true;"
-            << mod(-1)  <<          "}"
+            << off(+1)  <<              "func = f->second;"
+            << off      <<          "}"
+            << off(-1)  <<      "} else {"
+            << off      <<          "auto op_hash = ::boost::get< ::wire::encoding::operation_specs::hash_type >(c.operation.operation);"
+            << off      <<          "auto f = " << pfx << "hash_dispatch_map.find(op_hash);"
+            << off      <<          "if (f != " << pfx << "hash_dispatch_map.end()) {"
+            << off(+1)  <<              "func = f->second;"
+            << off      <<          "}"
+            << mod(-1)  <<      "}"
+            << off      <<      "if (func) {"
+            << off(+1)  <<           "(this->*func)(req, c);"
+            << off(+1)  <<           "return true;"
+            << off      <<      "}"
             << off      <<      "bool res = ";
 
     source_.modify_offset(+1);
@@ -1169,12 +1197,8 @@ generator::generate_wire_functions(ast::interface_ptr iface)
 
     source_ << off      <<      "if (!res && throw_not_found)"
             << mod(+1)  <<          "throw ::wire::errors::no_operation{"
-            << mod(+1)  <<              "c.operation.target.identity, c.operation.target.facet, c.operation.name()};"
+            << mod(+1)  <<              "c.operation.target.identity, c.operation.target.facet, c.operation.operation};"
             << mod(-2)  <<      "return res;"
-            << mod(-1)  <<  "} else {"
-            << mod(+1)  <<      "throw ::wire::errors::no_operation{"
-            << mod(+1)  <<          "c.operation.target.identity, c.operation.target.facet, c.operation.name()};"
-            << mod(-2)  <<  "}"
             << mod(-1) << "}\n";
 }
 

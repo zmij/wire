@@ -20,7 +20,7 @@ target_link_libraries(
     ${OPENSSL_LIBRARIES}
 )
 
-add_executable(murmur_hash murmur_hash_utility.cpp murmur_hash.cpp)
+add_executable(wire-hash murmur_hash_utility.cpp murmur_hash.cpp)
 
 add_library(${WIRE_IFACES_LIB} SHARED enumerate_interfaces.cpp)
 set_target_properties(
@@ -77,7 +77,7 @@ if(BUILD_CMD_UTILS)
 endif()
 
 install (
-    TARGETS ${WIRE_UTIL_LIB} ${WIRE_IFACES_LIB} wire-enum-ifaces
+    TARGETS ${WIRE_UTIL_LIB} ${WIRE_IFACES_LIB} wire-enum-ifaces wire-hash
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
