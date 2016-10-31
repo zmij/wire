@@ -81,9 +81,10 @@ hash_result<32>::bytes(void const* ptr, ::std::size_t length, type seed_val)
     static type const r2    = 13;
     static type const m     = 5;
     static type const n     = 0xe6546b64;
+    static type const b_sz  = 4;
 
     ::std::uint8_t const* data = reinterpret_cast< ::std::uint8_t const* >(ptr);
-    int const nblocks = length / 4;
+    int const nblocks = length / b_sz;
 
     type hash = seed_val;
     //--------
@@ -102,7 +103,7 @@ hash_result<32>::bytes(void const* ptr, ::std::size_t length, type seed_val)
 
     //--------
     // tail
-    ::std::uint8_t const* tail = reinterpret_cast<::std::uint8_t const*>(data + nblocks*16);
+    ::std::uint8_t const* tail = reinterpret_cast<::std::uint8_t const*>(data + nblocks*b_sz);
     type k = 0;
 
     switch (length & 3) {
@@ -133,9 +134,10 @@ hash_result<64>::bytes(void const* ptr, ::std::size_t length, type seed_val)
     static type const m     = 5;
     static type const n1    = 0x52dce729;
     static type const n2    = 0x38495ab5;
+    static type const b_sz  = 16;
 
     ::std::uint8_t const* data = reinterpret_cast< ::std::uint8_t const* >(ptr);
-    int const nblocks = length / 16;
+    int const nblocks = length / b_sz;
 
     type h1 = seed_val;
     type h2 = seed_val;
@@ -158,7 +160,7 @@ hash_result<64>::bytes(void const* ptr, ::std::size_t length, type seed_val)
 
     //--------
     // tail
-    ::std::uint8_t const* tail = reinterpret_cast<::std::uint8_t const*>(data + nblocks*16);
+    ::std::uint8_t const* tail = reinterpret_cast<::std::uint8_t const*>(data + nblocks*b_sz);
 
     type k1 = 0;
     type k2 = 0;

@@ -98,7 +98,7 @@ TEST_F(PingPong, CheckedCast)
     ::std::string fname;
     EXPECT_NO_THROW(fname = pp_prx->wire_function_name(0x1cdc304b)); // object::wire_is_a
     EXPECT_EQ("wire_is_a", fname);
-    EXPECT_NO_THROW(fname = pp_prx->wire_function_name(0x94614471)); // ping_pong::test_int
+    EXPECT_NO_THROW(fname = pp_prx->wire_function_name(0x9705e5cb)); // ping_pong::test_int
     EXPECT_EQ("test_int", fname);
 }
 
