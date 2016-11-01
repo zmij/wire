@@ -17,6 +17,8 @@
 #include <tbb/concurrent_hash_map.h>
 #include <tbb/concurrent_unordered_set.h>
 
+#include <boost/thread/shared_mutex.hpp>
+
 #include <mutex>
 #include <iostream>
 
@@ -38,8 +40,11 @@ struct adapter::impl {
 
     using atomic_bool           = ::std::atomic<bool>;
 
-    using mutex_type        = ::std::mutex;
-    using lock_guard        = ::std::lock_guard<mutex_type>;
+    using mutex_type            = ::std::mutex;
+    using lock_guard            = ::std::lock_guard<mutex_type>;
+    using shared_mutex_type     = ::boost::shared_mutex;
+    using shared_lock           = ::boost::shared_lock<shared_mutex_type>;
+    using exclusive_lock        = ::std::lock_guard<shared_mutex_type>;
 
     connector_weak_ptr          connector_;
     asio_config::io_service_ptr io_service_;
@@ -60,9 +65,14 @@ struct adapter::impl {
 
     mutex_type                  mtx_;
 
-    impl(connector_ptr c, identity const& id, detail::adapter_options const& options)
+    shared_mutex_type           observer_mtx_;
+    connection_observer_set     connection_observers_;
+
+    impl(connector_ptr c, identity const& id, detail::adapter_options const& options,
+            connection_observer_set const& observers)
         : connector_{c}, io_service_{c->io_service()},
-          id_{id}, options_{options}, is_active_{false}, registered_{false}
+          id_{id}, options_{options}, is_active_{false}, registered_{false},
+          connection_observers_{observers}
     {
     }
 
@@ -176,6 +186,35 @@ struct adapter::impl {
         connections_.clear();
         published_endpoints_.clear();
         is_active_ = false;
+    }
+
+    void
+    add_observer(connection_observer_ptr observer)
+    {
+        {
+            exclusive_lock lock{observer_mtx_};
+            connection_observers_.insert(observer);
+        }
+        for (auto& c : connections_) {
+            c.second->add_observer(observer);
+        }
+    }
+    void
+    remove_observer(connection_observer_ptr observer)
+    {
+        {
+            exclusive_lock lock{observer_mtx_};
+            connection_observers_.erase(observer);
+        }
+        for (auto& c : connections_) {
+            c.second->add_observer(observer);
+        }
+    }
+    connection_observer_set
+    connection_observers()
+    {
+        shared_lock lock{observer_mtx_};
+        return connection_observers_;
     }
 
     void
@@ -336,16 +375,18 @@ struct adapter::impl {
 
 adapter_ptr
 adapter::create_adapter(connector_ptr c, identity const& id,
-        detail::adapter_options const& options)
+        detail::adapter_options const& options,
+        connection_observer_set const& observers)
 {
-    adapter_ptr a(new adapter{c, id, options});
+    adapter_ptr a(new adapter{c, id, options, observers});
     a->pimpl_->owner_ = a;
     return a;
 }
 
 adapter::adapter(connector_ptr c, identity const& id,
-        detail::adapter_options const& options)
-    : pimpl_( ::std::make_shared<impl>(c, id, options) )
+        detail::adapter_options const& options,
+        connection_observer_set const& observers)
+    : pimpl_( ::std::make_shared<impl>(c, id, options, observers) )
 {
 }
 
@@ -485,6 +526,24 @@ object_ptr
 adapter::find_object(identity const& id, ::std::string const& facet) const
 {
     return pimpl_->find_object(id, facet);
+}
+
+void
+adapter::add_observer(connection_observer_ptr observer)
+{
+    pimpl_->add_observer(observer);
+}
+
+void
+adapter::remove_observer(connection_observer_ptr observer)
+{
+    pimpl_->remove_observer(observer);
+}
+
+connection_observer_set
+adapter::connection_observers() const
+{
+    return pimpl_->connection_observers();
 }
 
 void

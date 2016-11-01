@@ -12,7 +12,10 @@
 #include <wire/core/adapter.hpp>
 #include <wire/core/connector.hpp>
 
+#include <wire/core/connection_observer.hpp>
+
 #include <wire/core/detail/configuration_options.hpp>
+#include <wire/core/detail/observer_container.hpp>
 
 #include <wire/encoding/buffers.hpp>
 
@@ -485,8 +488,10 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     using atomic_counter        = ::std::atomic< request_number >;
 
     struct pending_reply {
-        encoding::reply_callback        reply;
-        functional::exception_callback  error;
+        encoding::invocation_target             target;
+        encoding::operation_specs::operation_id operation;
+        encoding::reply_callback                reply;
+        functional::exception_callback          error;
     };
     struct reply_expiration {
         request_number                  number;
@@ -521,7 +526,8 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
           request_no_{0},
           request_timer_{*io_service_},
           outstanding_responses_{0},
-          on_close_{ on_close }
+          on_close_{ on_close },
+          observer_{adptr->io_service(), adptr->connection_observers()}
     {
         #if DEBUG_OUTPUT >= 1
         ::std::cerr << this << " Create client connection instance\n";
@@ -538,7 +544,8 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
           request_no_{0},
           request_timer_{*io_service_},
           outstanding_responses_{0},
-          on_close_{ on_close }
+          on_close_{ on_close },
+          observer_{adptr->io_service(), adptr->connection_observers()}
     {
         #if DEBUG_OUTPUT >= 1
         ::std::cerr << this << " Create server connection instance\n";
@@ -595,6 +602,17 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     handle_connected(asio_config::error_code const& ec);
     void
     send_validate_message();
+
+    void
+    add_observer(connection_observer_ptr observer)
+    {
+        observer_.add_observer(observer);
+    }
+    void
+    remove_observer(connection_observer_ptr observer)
+    {
+        observer_.remove_observer(observer);
+    }
 
     void
     start_session();
@@ -729,6 +747,8 @@ protected:
     carry_buffer_type               carry_;
     ::std::atomic<::std::int32_t>   outstanding_responses_;
     functional::void_callback       on_close_;
+
+    observer_container              observer_;
 };
 
 template < typename T >

@@ -303,6 +303,10 @@ wire_read(InputIterator& begin, InputIterator end, invocation_target& v)
     v.swap(tmp);
 }
 
+::std::ostream&
+operator << (::std::ostream& os, invocation_target const& val);
+
+
 using multiple_targets = ::std::set<invocation_target>;
 
 struct operation_specs {

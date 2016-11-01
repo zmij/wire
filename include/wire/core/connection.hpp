@@ -20,6 +20,7 @@
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/adapter_fwd.hpp>
 #include <wire/core/functional.hpp>
+#include <wire/core/connection_observer_fwd.hpp>
 
 #include <pushkin/meta/function_traits.hpp>
 
@@ -42,6 +43,7 @@ using connection_impl_ptr = ::std::shared_ptr<connection_implementation>;
 
 class connection {
 public:
+    // FIXME Change callback signature to (endpoint, pointer)
     using close_callback = functional::callback<connection const*>;
 public:
     /**
@@ -72,6 +74,11 @@ public:
 
     connector_ptr
     get_connector() const;
+
+    void
+    add_observer(connection_observer_ptr);
+    void
+    remove_observer(connection_observer_ptr);
     /**
      * Start asynchronous connect
      * @param endpoint

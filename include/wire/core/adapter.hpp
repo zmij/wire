@@ -18,6 +18,7 @@
 #include <wire/core/object_locator_fwd.hpp>
 #include <wire/core/endpoint.hpp>
 #include <wire/core/detail/configuration_options_fwd.hpp>
+#include <wire/core/connection_observer_fwd.hpp>
 
 #include <string>
 
@@ -51,7 +52,8 @@ public:
      */
     static adapter_ptr
     create_adapter(connector_ptr c, identity const& id,
-            detail::adapter_options const& options);
+            detail::adapter_options const& options,
+            connection_observer_set const&);
 public:
     ~adapter();
 
@@ -206,13 +208,26 @@ public:
     is_local_endpoint(endpoint const&) const;
 
     void
+    add_observer(connection_observer_ptr);
+    void
+    remove_observer(connection_observer_ptr);
+    /**
+     * Get connection observers set.
+     * Intentionally by value
+     * @return
+     */
+    connection_observer_set
+    connection_observers() const;
+
+    void
     connection_online(endpoint const& local, endpoint const& remote);
     void
     listen_connection_online(endpoint const& local);
     void
     connection_offline(endpoint const&);
 private:
-    adapter(connector_ptr c, identity const& id, detail::adapter_options const&);
+    adapter(connector_ptr c, identity const& id, detail::adapter_options const&,
+            connection_observer_set const&);
 
     adapter(adapter const&) = delete;
     adapter&
