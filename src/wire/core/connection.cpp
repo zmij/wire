@@ -253,6 +253,7 @@ connection_implementation::start_session()
     ::std::cerr << "Start server session\n";
     #endif
     process_event(events::start{});
+    observer_.connect(remote_endpoint());
 }
 
 void
@@ -891,6 +892,9 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                         buffer, en.begin(), en.end(), en.size(),
                         [_this, req, fpg](outgoing&& res) mutable {
                             if (fpg->respond()) {
+                                _this->observer_.request_ok(
+                                    req.operation.target, req.operation.operation,
+                                    _this->remote_endpoint());
                                 outgoing_ptr out =
                                         ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
                                 reply rep {
