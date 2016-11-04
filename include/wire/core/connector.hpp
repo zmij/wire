@@ -22,6 +22,7 @@
 #include <wire/core/reference_fwd.hpp>
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/locator_fwd.hpp>
+#include <wire/core/connection_observer_fwd.hpp>
 #include <wire/core/detail/configuration_options_fwd.hpp>
 
 #include <wire/core/functional.hpp>
@@ -310,7 +311,14 @@ public:
 
         return promise->get_future();
     }
+    //@}
 
+    //@{
+    /** @name Connection observers */
+    void
+    add_observer(connection_observer_ptr observer);
+    void
+    remove_observer(connection_observer_ptr observer);
     //@}
 private:
     connector(connector const&) = delete;

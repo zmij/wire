@@ -20,10 +20,12 @@
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/adapter_fwd.hpp>
 #include <wire/core/functional.hpp>
+#include <wire/core/connection_observer_fwd.hpp>
 
 #include <pushkin/meta/function_traits.hpp>
 
 #include <wire/encoding/buffers.hpp>
+#include <wire/encoding/message.hpp>
 
 #include <tuple>
 
@@ -41,6 +43,7 @@ using connection_impl_ptr = ::std::shared_ptr<connection_implementation>;
 
 class connection {
 public:
+    // FIXME Change callback signature to (endpoint, pointer)
     using close_callback = functional::callback<connection const*>;
 public:
     /**
@@ -71,6 +74,11 @@ public:
 
     connector_ptr
     get_connector() const;
+
+    void
+    add_observer(connection_observer_ptr);
+    void
+    remove_observer(connection_observer_ptr);
     /**
      * Start asynchronous connect
      * @param endpoint
@@ -92,7 +100,9 @@ public:
     template < typename Handler, typename ... Args >
     typename ::std::enable_if< (::psst::meta::is_callable_object<Handler>::value &&
             ::psst::meta::function_traits< Handler >::arity > 0), void >::type
-    invoke(encoding::invocation_target const& target, ::std::string const& op, context_type const& ctx,
+    invoke(encoding::invocation_target const& target,
+            encoding::operation_specs::operation_id const& op,
+            context_type const& ctx,
             invocation_options const& opts,
             Handler response,
             functional::exception_callback exception,
@@ -129,7 +139,9 @@ public:
 
     template < typename ... Args >
     void
-    invoke(encoding::invocation_target const& target, ::std::string const& op, context_type const& ctx,
+    invoke(encoding::invocation_target const& target,
+            encoding::operation_specs::operation_id const& op,
+            context_type const& ctx,
             invocation_options const&        opts,
             functional::void_callback        response,
             functional::exception_callback   exception,
@@ -157,7 +169,9 @@ public:
     }
 
     void
-    invoke(encoding::invocation_target const&, ::std::string const& op, context_type const& ctx,
+    invoke(encoding::invocation_target const&,
+            encoding::operation_specs::operation_id const& op,
+            context_type const& ctx,
             invocation_options const&,
             encoding::outgoing&&,
             encoding::reply_callback,

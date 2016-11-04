@@ -84,6 +84,11 @@ struct connector::impl {
     detail::reference_resolver  resolver_;
     //@}
 
+    //@{
+    /** @name Connection observers */
+    connection_observer_set     connection_observers_;
+    //@}
+
     impl(asio_config::io_service_ptr svc)
         : io_service_{svc}, options_{},
           cmd_line_options_{ options_.name + " command line options" },
@@ -412,20 +417,42 @@ struct connector::impl {
         if (find_adapter(id))
             throw errors::runtime_error("Adapter ", id, " is already configured");
         detail::adapter_options opts = configure_adapter(id, eps);
-        auto adptr = adapter::create_adapter(conn, id, opts);
+        auto adptr = adapter::create_adapter(conn, id, opts, connection_observers_);
         listen_adapters_.push_back(adptr);
         return adptr;
     }
 
     void create_bidir_adapter()
     {
-            connector_ptr conn = owner_.lock();
-            if (!conn) {
-                throw errors::runtime_error("Connector already destroyed");
-            }
-        detail::adapter_options opts { {}, 0, false, false, options_.client_ssl};
-            bidir_adapter_ = adapter::create_adapter(conn, identity::random("client"), opts);
+        connector_ptr conn = owner_.lock();
+        if (!conn) {
+            throw errors::runtime_error("Connector already destroyed");
         }
+        detail::adapter_options opts { {}, 0, false, false, options_.client_ssl};
+            bidir_adapter_ = adapter::create_adapter(
+                conn, identity::random("client"), opts, connection_observers_);
+    }
+
+    void
+    add_observer(connection_observer_ptr observer)
+    {
+        connection_observers_.insert(observer);
+        if (bidir_adapter_)
+            bidir_adapter_->add_observer(observer);
+        for (auto a : listen_adapters_) {
+            a->add_observer(observer);
+        }
+    }
+    void
+    remove_observer(connection_observer_ptr observer)
+    {
+        connection_observers_.erase(observer);
+        if (bidir_adapter_)
+            bidir_adapter_->remove_observer(observer);
+        for (auto a : listen_adapters_) {
+            a->remove_observer(observer);
+        }
+    }
 
     adapter_ptr
     bidir_adapter()
@@ -610,6 +637,8 @@ struct connector::impl {
             outgoing_.erase(acc);
         }
     }
+
+    ;
 };
 
 connector_ptr
@@ -908,6 +937,18 @@ connector::get_locator_registry_async(
         bool                                        run_sync) const
 {
     pimpl_->get_locator_registry_async(result, exception, ctx, run_sync);
+}
+
+void
+connector::add_observer(connection_observer_ptr observer)
+{
+    pimpl_->add_observer(observer);
+}
+
+void
+connector::remove_observer(connection_observer_ptr observer)
+{
+    pimpl_->remove_observer(observer);
 }
 
 }  // namespace core

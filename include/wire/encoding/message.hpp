@@ -303,6 +303,10 @@ wire_read(InputIterator& begin, InputIterator end, invocation_target& v)
     v.swap(tmp);
 }
 
+::std::ostream&
+operator << (::std::ostream& os, invocation_target const& val);
+
+
 using multiple_targets = ::std::set<invocation_target>;
 
 struct operation_specs {
@@ -310,7 +314,8 @@ struct operation_specs {
         name_hash,
         name_string
     };
-    using operation_id = boost::variant< int32_t, ::std::string >;
+    using hash_type    = uint32_fixed_t;
+    using operation_id = boost::variant< hash_type, ::std::string >;
     invocation_target   target;
     operation_id        operation;
 

@@ -197,13 +197,16 @@ void
 connection_implementation::request_error(request_number r_no,
         ::std::exception_ptr ex)
 {
-    pending_replies_type::const_accessor acc;
+    pending_replies_type::accessor acc;
     if (pending_replies_.find(acc, r_no)) {
         #if DEBUG_OUTPUT >= 3
         ::std::cerr << "Request " << r_no << " connection error\n";
         #endif
-        if (acc->second.error) {
-            auto err_handler = acc->second.error;
+        auto const& p_rep = acc->second;
+        observer_.invocation_error(p_rep.target, p_rep.operation,
+                remote_endpoint(), ex);
+        if (p_rep.error) {
+            auto err_handler = p_rep.error;
             io_service_->post(
             [err_handler, ex]()
             {
@@ -250,6 +253,7 @@ connection_implementation::start_session()
     ::std::cerr << "Start server session\n";
     #endif
     process_event(events::start{});
+    observer_.connect(remote_endpoint());
 }
 
 void
@@ -272,6 +276,7 @@ connection_implementation::handle_connected(asio_config::error_code const& ec)
         if (adp) {
             adp->connection_online(local_endpoint(), remote_endpoint());
         }
+        observer_.connect(remote_endpoint());
         start_request_timer();
     } else {
         process_event(events::connection_failure{
@@ -327,6 +332,7 @@ connection_implementation::handle_close()
 
     if (on_close_)
         on_close_();
+    observer_.disconnect(remote_endpoint());
 }
 
 void
@@ -346,6 +352,7 @@ connection_implementation::handle_write(asio_config::error_code const& ec, ::std
         functional::void_callback cb, encoding::outgoing_ptr out)
 {
     if (!ec) {
+        observer_.send_bytes(bytes, remote_endpoint());
         if (cb) cb();
         set_idle_timer();
     } else {
@@ -380,6 +387,7 @@ connection_implementation::handle_read(asio_config::error_code const& ec, ::std:
         incoming_buffer_ptr buffer)
 {
     if (!ec) {
+        observer_.receive_bytes(bytes, remote_endpoint());
         start_read();
         process_event(events::receive_data{buffer, bytes});
         set_idle_timer();
@@ -532,7 +540,8 @@ connection_implementation::dispatch_incoming(encoding::incoming_ptr incoming)
 }
 
 void
-connection_implementation::invoke(encoding::invocation_target const& target, ::std::string const& op,
+connection_implementation::invoke(encoding::invocation_target const& target,
+        encoding::operation_specs::operation_id const& op,
         context_type const& ctx,
         invocation_options const& opts,
         encoding::outgoing&& params,
@@ -541,6 +550,7 @@ connection_implementation::invoke(encoding::invocation_target const& target, ::s
         functional::callback< bool > sent)
 {
     using encoding::request;
+    observer_.invoke_remote(target, op, remote_endpoint());
     encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(
             get_connector(),
             encoding::message::request);
@@ -566,7 +576,7 @@ connection_implementation::invoke(encoding::invocation_target const& target, ::s
     out->insert_encapsulation(::std::move(params));
     time_point expires = clock_type::now() + expire_duration{opts.timeout};
     pending_replies_.insert(::std::make_pair( r.number,
-            pending_reply{ reply, exception } ));
+            pending_reply{ target, op, reply, exception } ));
     expiration_queue_.push(reply_expiration{ r.number, expires });
     auto _this = shared_from_this();
     auto r_no = r.number;
@@ -609,6 +619,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
         incoming::const_iterator e = buffer->end();
         read(b, e, rep);
         pending_replies_type::accessor acc;
+        auto peer_ep = remote_endpoint();
         if (pending_replies_.find(acc, rep.number)) {
             auto const& p_rep = acc->second;
             switch (rep.status) {
@@ -624,6 +635,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                         ::std::cerr << "Reply encaps v" << ever.major << "." << ever.minor
                                 << " size " << encaps.size() << "\n";
                         #endif
+                        observer_.invocation_ok(p_rep.target, p_rep.operation, peer_ep);
                         try {
                             p_rep.reply(encaps->begin(), encaps->end());
                         } catch (...) {
@@ -636,6 +648,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                     #if DEBUG_OUTPUT >= 3
                     ::std::cerr << "Reply status is success without body\n";
                     #endif
+                    observer_.invocation_ok(p_rep.target, p_rep.operation, peer_ep);
                     if (p_rep.reply) {
                         try {
                             p_rep.reply( incoming::const_iterator{}, incoming::const_iterator{} );
@@ -663,17 +676,17 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                         auto b = encaps->begin();
                         read(b, encaps->end(), op);
                         encaps->read_indirection_table(b);
+                        auto ex = ::std::make_exception_ptr(
+                                errors::not_found{
+                                    static_cast< errors::not_found::subject >(
+                                            rep.status - reply::no_object ),
+                                    op.target.identity,
+                                    op.target.facet,
+                                    op.name()
+                                });
+                        observer_.invocation_error(p_rep.target, p_rep.operation, peer_ep, ex);
                         try {
-                            p_rep.error(
-                                ::std::make_exception_ptr(
-                                    errors::not_found{
-                                        static_cast< errors::not_found::subject >(
-                                                rep.status - reply::no_object ),
-                                        op.target.identity,
-                                        op.target.facet,
-                                        op.name()
-                                    } )
-                            );
+                            p_rep.error(ex);
                         } catch (...) {
                             // Ignore handler error
                         }
@@ -699,8 +712,10 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                         auto b = encaps->begin();
                         read(b, encaps->end(), exc);
                         encaps->read_indirection_table(b);
+                        auto ex = exc->make_exception_ptr();
+                        observer_.invocation_error(p_rep.target, p_rep.operation, peer_ep, ex);
                         try {
-                            p_rep.error(exc->make_exception_ptr());
+                            p_rep.error(ex);
                         } catch (...) {
                             // Ignore handler error
                         }
@@ -709,9 +724,11 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                 }
                 default:
                     if (p_rep.error) {
+                        auto ex = ::std::make_exception_ptr(
+                                errors::unmarshal_error{ "Unhandled reply status" } );
+                        observer_.invocation_error(p_rep.target, p_rep.operation, peer_ep, ex);
                         try {
-                            p_rep.error(::std::make_exception_ptr(
-                                    errors::unmarshal_error{ "Unhandled reply status" } ));
+                            p_rep.error(ex);
                         } catch (...) {
                             // Ignore handler error
                         }
@@ -830,11 +847,13 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
             ::std::cerr << "Dispatch request " << req.operation.name()
                     << " to " << req.operation.target.identity << "\n";
             #endif
-
+            auto peer_ep = remote_endpoint();
+            observer_.receive_request(req.operation.target,
+                    req.operation.operation, peer_ep);
             current curr {
                 req.operation,
                 {},
-                remote_endpoint(),
+                peer_ep,
                 adp
             };
             if (!(req.mode && request::no_context)) {
@@ -863,6 +882,9 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                     << " operation " << req.operation.operation
                                     << " failed to respond";
                             #endif
+                            _this->observer_.request_no_response(
+                                    req.operation.target, req.operation.operation,
+                                    _this->remote_endpoint());
                             _this->send_not_found(req.number, errors::not_found::object,
                                     req.operation);
                         });
@@ -870,6 +892,9 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                         buffer, en.begin(), en.end(), en.size(),
                         [_this, req, fpg](outgoing&& res) mutable {
                             if (fpg->respond()) {
+                                _this->observer_.request_ok(
+                                    req.operation.target, req.operation.operation,
+                                    _this->remote_endpoint());
                                 outgoing_ptr out =
                                         ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
                                 reply rep {
@@ -882,10 +907,18 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                     out->insert_encapsulation(::std::move(res));
                                 }
                                 _this->process_event(events::send_reply{out});
+                            } else {
+                                _this->observer_.request_double_response(
+                                    req.operation.target,
+                                    req.operation.operation,
+                                    _this->remote_endpoint());
                             }
                         },
                         [_this, req, fpg](::std::exception_ptr ex) mutable {
                             if (fpg->respond()) {
+                                _this->observer_.request_error(
+                                    req.operation.target, req.operation.operation,
+                                    _this->remote_endpoint(), ex);
                                 try {
                                     ::std::rethrow_exception(ex);
                                 } catch (errors::not_found const& e) {
@@ -897,6 +930,11 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                 } catch (...) {
                                     _this->send_unknown_exception(req.number);
                                 }
+                            } else {
+                                _this->observer_.request_double_response(
+                                    req.operation.target,
+                                    req.operation.operation,
+                                    _this->remote_endpoint());
                             }
                         }
                     };
@@ -981,6 +1019,20 @@ connection::get_connector() const
 }
 
 void
+connection::add_observer(connection_observer_ptr observer)
+{
+    assert(pimpl_.get() && "Connection implementation is not set");
+    pimpl_->add_observer(observer);
+}
+
+void
+connection::remove_observer(connection_observer_ptr observer)
+{
+    assert(pimpl_.get() && "Connection implementation is not set");
+    pimpl_->remove_observer(observer);
+}
+
+void
 connection::connect_async(endpoint const& ep,
         functional::void_callback       on_connect,
         functional::exception_callback  on_error)
@@ -1004,7 +1056,8 @@ connection::close()
 }
 
 void
-connection::invoke(encoding::invocation_target const& target, ::std::string const& op,
+connection::invoke(encoding::invocation_target const& target,
+        encoding::operation_specs::operation_id const& op,
         context_type const& ctx,
         invocation_options const& opts,
         encoding::outgoing&& params,

@@ -86,8 +86,18 @@ find(annotation_list const&, ::std::string const& name);
 namespace hash {
 
 template <>
-struct murmur_hash_calc< idl::grammar::data_initializer > {
-    using base_type     = detail::hash_base< idl::grammar::data_initializer const& >;
+struct murmur_hash_calc< idl::grammar::data_initializer, 32 > {
+    using base_type     = detail::hash_base< idl::grammar::data_initializer const&, 32 >;
+    using result_type   = typename base_type::result_type;
+    using argument_type = typename base_type::argument_type;
+
+    result_type
+    operator()(argument_type arg) const noexcept;
+};
+
+template <>
+struct murmur_hash_calc< idl::grammar::data_initializer, 64 > {
+    using base_type     = detail::hash_base< idl::grammar::data_initializer const&, 64 >;
     using result_type   = typename base_type::result_type;
     using argument_type = typename base_type::argument_type;
 

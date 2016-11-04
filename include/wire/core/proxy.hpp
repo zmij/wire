@@ -12,6 +12,7 @@
 #include <wire/core/proxy_fwd.hpp>
 #include <wire/core/connection_fwd.hpp>
 #include <wire/core/connector_fwd.hpp>
+#include <wire/core/object_fwd.hpp>
 #include <wire/core/reference.hpp>
 
 #include <wire/core/context.hpp>
@@ -29,6 +30,8 @@ namespace wire {
 namespace core {
 
 class object_proxy : public ::std::enable_shared_from_this< object_proxy > {
+public:
+    using interface_type = object;
 public:
     explicit
     object_proxy(reference_ptr ref, invocation_options const& ops = invocation_options{});
@@ -77,6 +80,8 @@ public:
 
     static ::std::string const&
     wire_static_type_id();
+    static ::std::string const&
+    wire_function_name(::std::uint32_t hash);
 public:
 
     bool
@@ -274,6 +279,19 @@ class proxy : public virtual Bases ... {
 public:
     using proxy_type        = Prx;
     using proxy_ptr_type    = ::std::shared_ptr<proxy_type>;
+public:
+    static ::std::string const&
+    wire_static_type_id()
+    {
+        using interface_type    = typename proxy_type::interface_type;
+        return interface_type::wire_static_type_id();
+    }
+    static ::std::string const&
+    wire_function_name(::std::uint32_t hash)
+    {
+        using interface_type    = typename proxy_type::interface_type;
+        return interface_type::wire_function_name(hash);
+    }
 public:
     proxy_ptr_type
     wire_well_known_proxy() const

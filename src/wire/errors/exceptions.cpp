@@ -34,7 +34,7 @@ not_found::stream_message(::std::ostream& os) const
 
 ::std::string
 not_found::format_message(subject s, core::identity const& obj_id,
-        ::std::string const& f, ::std::string const& op)
+        ::std::string const& f, operation_id const& op)
 {
     ::std::ostringstream os;
 
