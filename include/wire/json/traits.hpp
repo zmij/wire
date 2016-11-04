@@ -19,6 +19,9 @@
 #include <unordered_set>
 #include <queue>
 #include <deque>
+#include <map>
+#include <unordered_map>
+
 #include <memory>
 
 namespace wire {
@@ -76,6 +79,14 @@ template < typename T >
 struct json_type< ::std::shared_ptr<T> > : json_type<T> {};
 template < typename T >
 struct json_type< ::std::unique_ptr<T> > : json_type<T> {};
+
+template <typename T, ::std::size_t N>
+struct json_type< T[N] > : json_type_constant< value_type::ARRAY > {};
+
+template <>
+struct json_type<char*> : json_type_constant< value_type::STRING > {};
+template <>
+struct json_type<char const*> : json_type_constant< value_type::STRING > {};
 //@}
 
 //@{
@@ -94,7 +105,22 @@ template < typename T, typename ... Rest>
 struct json_type< ::std::unordered_set< T, Rest ... > > : json_type_constant< value_type::ARRAY >{};
 template < typename T, typename ... Rest>
 struct json_type< ::std::unordered_multiset< T, Rest ... > > : json_type_constant< value_type::ARRAY >{};
+template < typename K, typename V, typename ... Rest >
+struct json_type< ::std::map< K, V, Rest ... > > : json_type_constant< value_type::OBJECT >{};
+template < typename K, typename V, typename ... Rest >
+struct json_type< ::std::multimap< K, V, Rest ... > > : json_type_constant< value_type::OBJECT >{};
+template < typename K, typename V, typename ... Rest >
+struct json_type< ::std::unordered_map< K, V, Rest ... > > : json_type_constant< value_type::OBJECT >{};
+template < typename K, typename V, typename ... Rest >
+struct json_type< ::std::unordered_multimap< K, V, Rest ... > > : json_type_constant< value_type::OBJECT >{};
 //@}
+
+template <typename T>
+struct json_quote : ::std::conditional<
+        json_type<T>::value == value_type::STRING,
+        ::std::true_type,
+        ::std::false_type
+    >::type {};
 
 }  /* namespace traits */
 }  /* namespace json */

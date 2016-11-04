@@ -8,26 +8,11 @@
 #ifndef WIRE_JSON_DETAIL_MAP_PARSER_HPP_
 #define WIRE_JSON_DETAIL_MAP_PARSER_HPP_
 
-#include <map>
-#include <unordered_map>
-
 #include <wire/json/traits.hpp>
 #include <wire/json/detail/parser_base.hpp>
 
 namespace wire {
 namespace json {
-namespace traits {
-
-template < typename K, typename V, typename ... Rest >
-struct json_type< ::std::map< K, V, Rest ... > > : json_type_constant< value_type::OBJECT >{};
-template < typename K, typename V, typename ... Rest >
-struct json_type< ::std::multimap< K, V, Rest ... > > : json_type_constant< value_type::OBJECT >{};
-template < typename K, typename V, typename ... Rest >
-struct json_type< ::std::unordered_map< K, V, Rest ... > > : json_type_constant< value_type::OBJECT >{};
-template < typename K, typename V, typename ... Rest >
-struct json_type< ::std::unordered_multimap< K, V, Rest ... > > : json_type_constant< value_type::OBJECT >{};
-
-}
 namespace detail {
 
 template < typename K, typename V>

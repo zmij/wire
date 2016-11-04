@@ -19,6 +19,7 @@ include_directories(${GTEST_INCLUDE_DIRS}
 
 set(json_test_SRCS
     static_tests.cpp
+    output_tests.cpp
     parse_tests.cpp
 )
 

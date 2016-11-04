@@ -6,6 +6,7 @@ cmake_minimum_required(VERSION 2.6)
 
 set(
     json_lib_SRCS
+    json_stream.cpp
     detail/parser_base.cpp
 )
 add_library(wire-json SHARED ${json_lib_SRCS})

@@ -55,6 +55,11 @@ struct has_iostream_operators {
             && has_output_operator<T>::value;
 };
 
+template <>
+struct has_input_operator< ::std::nullptr_t > : ::std::false_type{};
+template <>
+struct has_output_operator< ::std::nullptr_t > : ::std::false_type{};
+
 }  /* namespace util */
 }  /* namespace wire */
 
