@@ -811,8 +811,12 @@ struct connection_impl : connection_implementation {
     endpoint
     remote_endpoint() const override
     {
-        if (transport_.is_open())
-            return transport_.remote_endpoint();
+        if (transport_.is_open()) {
+            asio_config::error_code ec;
+            auto ep = transport_.remote_endpoint(ec);
+            if (!ec)
+                return ep;
+        }
         return configured_endpoint_;
     }
 

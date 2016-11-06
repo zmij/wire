@@ -192,11 +192,29 @@ struct tcp_transport {
     {
         return traits::get_endpoint_data(socket_.local_endpoint());
     }
+    endpoint
+    local_endpoint(asio_config::error_code& ec) const
+    {
+        auto ep = socket_.local_endpoint(ec);
+        if (ec) {
+            return endpoint{};
+        }
+        return traits::get_endpoint_data(ep);
+    }
 
     endpoint
     remote_endpoint() const
     {
         return traits::get_endpoint_data(socket_.remote_endpoint());
+    }
+    endpoint
+    remote_endpoint(asio_config::error_code& ec) const
+    {
+        auto ep = socket_.remote_endpoint(ec);
+        if (ec) {
+            return endpoint{};
+        }
+        return traits::get_endpoint_data(ep);
     }
 private:
     void
@@ -293,9 +311,28 @@ struct ssl_transport {
         return traits::get_endpoint_data(socket_.lowest_layer().local_endpoint() );
     }
     endpoint
+    local_endpoint(asio_config::error_code& ec) const
+    {
+        auto ep = socket_.lowest_layer().local_endpoint(ec);
+        if (ec) {
+            return endpoint{};
+        }
+        return traits::get_endpoint_data(ep);
+    }
+
+    endpoint
     remote_endpoint() const
     {
         return traits::get_endpoint_data(socket_.lowest_layer().remote_endpoint());
+    }
+    endpoint
+    remote_endpoint(asio_config::error_code& ec) const
+    {
+        auto ep = socket_.lowest_layer().remote_endpoint(ec);
+        if (ec) {
+            return endpoint{};
+        }
+        return traits::get_endpoint_data(ep);
     }
 private:
     bool
@@ -371,9 +408,28 @@ struct udp_transport {
         return traits::get_endpoint_data(socket_.local_endpoint());
     }
     endpoint
+    local_endpoint(asio_config::error_code& ec) const
+    {
+        auto ep = socket_.local_endpoint(ec);
+        if (ec) {
+            return endpoint{};
+        }
+        return traits::get_endpoint_data(ep);
+    }
+
+    endpoint
     remote_endpoint() const
     {
         return traits::get_endpoint_data(socket_.remote_endpoint());
+    }
+    endpoint
+    remote_endpoint(asio_config::error_code& ec) const
+    {
+        auto ep = socket_.remote_endpoint(ec);
+        if (ec) {
+            return endpoint{};
+        }
+        return traits::get_endpoint_data(ep);
     }
 private:
     void
@@ -459,9 +515,28 @@ struct socket_transport {
         return traits::get_endpoint_data(socket_.local_endpoint());
     }
     endpoint
+    local_endpoint(asio_config::error_code& ec) const
+    {
+        auto ep = socket_.local_endpoint(ec);
+        if (ec) {
+            return endpoint{};
+        }
+        return traits::get_endpoint_data(ep);
+    }
+
+    endpoint
     remote_endpoint() const
     {
         return traits::get_endpoint_data(socket_.remote_endpoint());
+    }
+    endpoint
+    remote_endpoint(asio_config::error_code& ec) const
+    {
+        auto ep = socket_.remote_endpoint(ec);
+        if (ec) {
+            return endpoint{};
+        }
+        return traits::get_endpoint_data(ep);
     }
 private:
     void
