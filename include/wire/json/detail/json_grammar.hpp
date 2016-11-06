@@ -8,15 +8,27 @@
 #ifndef WIRE_JSON_DETAIL_JSON_GRAMMAR_HPP_
 #define WIRE_JSON_DETAIL_JSON_GRAMMAR_HPP_
 
-#include <wire/idl/grammar/common.hpp>
 #include <wire/json/detail/parser_state_adapter.hpp>
 
 namespace wire {
 namespace json {
 namespace grammar {
 
+template < typename InputIterator, typename Lexer, typename CharT >
+using parser_grammar = ::boost::spirit::qi::grammar<
+        InputIterator,
+        ::boost::spirit::qi::in_state_skipper< Lexer, CharT const* >
+>;
+
+template < typename InputIterator, typename Lexer, typename CharT >
+using parser_rule = ::boost::spirit::qi::rule <
+        InputIterator,
+        ::boost::spirit::qi::in_state_skipper< Lexer, CharT const* >
+>;
+
+template < typename CharT, typename Traits = ::std::char_traits< CharT > >
 struct dequote_func {
-    using result = ::std::string;
+    using result = ::std::basic_string<CharT, Traits>;
 
     template < typename TokenValue >
     result
@@ -32,18 +44,28 @@ struct dequote_func {
     }
 };
 
-::boost::phoenix::function< dequote_func > const dequote { dequote_func{} };
+template < typename InputIterator, typename Lexer, typename CharT,
+        typename Traits = ::std::char_traits<CharT> >
+struct json_grammar : parser_grammar< InputIterator, Lexer, CharT > {
+    using main_rule_type    = parser_rule< InputIterator, Lexer, CharT >;
+    using rule_type         = parser_rule< InputIterator, Lexer, CharT >;
+    using json_io_type      = json_io_base<CharT, Traits>;
+    using char_type         = typename json_io_type::char_type;
+    using string_type       = typename json_io_type::string_type;
+    using chars             = typename json_io_type::chars;
 
-template < typename InputIterator, typename Lexer >
-struct json_grammar : idl::grammar::parser_grammar< InputIterator, Lexer > {
-    using main_rule_type    = idl::grammar::parser_rule< InputIterator, Lexer >;
-    using rule_type         = idl::grammar::parser_rule< InputIterator, Lexer >;
+    constexpr static char_type
+    cvt(chars v)
+    { return static_cast<char_type>(v); }
 
     template < typename TokenDef, typename ParserState >
     json_grammar(TokenDef const& tok, ParserState& state)
         : json_grammar::base_type{json}
     {
-        using state_adapter = parser_state_adapter< ParserState >;
+        using state_adapter = basic_parser_state_adapter< ParserState, CharT, Traits >;
+        using dequote_type  = dequote_func<CharT, Traits>;
+        ::boost::phoenix::function<dequote_type> const dequote{dequote_type{}};
+
         namespace qi = ::boost::spirit::qi;
         using qi::_1;
         using qi::eps;
@@ -52,28 +74,28 @@ struct json_grammar : idl::grammar::parser_grammar< InputIterator, Lexer > {
         state_adapter parser{state};
 
         value = object | array
-            | tok.string_literal        [ parser.string_literal( dequote(_1) ) ]
-            | tok.empty_string          [ parser.string_literal("") ]
-            | tok.integral_literal      [ parser.integral_literal(_1) ]
-            | tok.float_literal         [ parser.float_literal(_1) ]
-            | tok.true_                 [ parser.bool_literal(true) ]
-            | tok.false_                [ parser.bool_literal(false) ]
-            | tok.null                  [ parser.null_literal() ]
+            | tok.string_literal                                            [ parser.string_literal( dequote(_1) ) ]
+            | tok.empty_string                                              [ parser.string_literal(string_type{}) ]
+            | tok.integral_literal                                          [ parser.integral_literal(_1) ]
+            | tok.float_literal                                             [ parser.float_literal(_1) ]
+            | tok.true_                                                     [ parser.bool_literal(true) ]
+            | tok.false_                                                    [ parser.bool_literal(false) ]
+            | tok.null                                                      [ parser.null_literal() ]
         ;
 
-        array   = ( '[' >> lit(']')     [ parser.start_array(), parser.end_array() ])
-                | ('[' >> eps           [ parser.start_array() ]
-                >> -(element >> *(',' >> element))
-                >> ']' >> eps           [ parser.end_array() ])
+        array   = (cvt(chars::start_array) >> lit(cvt(chars::end_array))    [ parser.start_array(), parser.end_array() ])
+                | (lit(cvt(chars::start_array)) >> eps                      [ parser.start_array() ]
+                >> -(element >> *(cvt(chars::comma) >> element))
+                >> lit(cvt(chars::end_array)) >> eps                        [ parser.end_array() ])
         ;
-        object  = '{'  >> eps           [ parser.start_object() ]
-                >> -(member >> *(',' >> member))
-                >> '}' >> eps           [ parser.end_object() ]
+        object  = cvt(chars::start_object)  >> eps                          [ parser.start_object() ]
+                >> -(member >> *(cvt(chars::comma) >> member))
+                >> cvt(chars::end_object) >> eps                            [ parser.end_object() ]
         ;
-        member  = tok.string_literal    [ parser.start_member( dequote(_1) ) ]
-                >> ':' >> value;
+        member  = tok.string_literal                                        [ parser.start_member( dequote(_1) ) ]
+                >> cvt(chars::colon) >> value;
 
-        element = eps                   [ parser.start_element() ]
+        element = eps                                                       [ parser.start_element() ]
                 >> value;
 
         json = value.alias();

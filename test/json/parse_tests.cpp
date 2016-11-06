@@ -22,11 +22,11 @@ R"~({
 "int":123,
 "obj": {},
 "obj2": null,
-"array": [ 123, "123" ],
-"empty-array": [],
 "sub-obj":{
     "foo" : "bar"
-}
+},
+"empty-array": [],
+"array": [ 123, "123" ]
 })~";
 
 }  /* namespace  */
@@ -53,7 +53,7 @@ TEST(Parser, BoolParser)
     ::std::string json{"true"};
 
     bool val{false};
-    detail::boolean_parser parser{val};
+    parser<bool> parser{val};
 
     EXPECT_TRUE(detail::parse(parser, json));
     EXPECT_TRUE(val);

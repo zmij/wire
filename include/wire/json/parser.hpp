@@ -20,30 +20,53 @@ namespace json {
 
 namespace detail {
 
-template < traits::value_type, typename T >
-struct parser_impl;
+template < traits::value_type, typename T, typename CharT,
+    typename Traits = ::std::char_traits<CharT> >
+struct basic_parser_impl;
 
-template <>
-struct parser_impl< traits::value_type::BOOL, bool > : boolean_parser {};
+template < typename CharT, typename Traits >
+struct basic_parser_impl< traits::value_type::BOOL, bool, CharT, Traits >
+        : basic_boolean_parser<CharT, Traits> {
+    using base_type = basic_boolean_parser<CharT, Traits>;
+    basic_parser_impl(bool& val) : base_type{val} {}
+};
 
-template < typename T >
-struct parser_impl<traits::value_type::INTEGRAL, T> : integral_parser< T > {};
+template < typename T, typename CharT, typename Traits >
+struct basic_parser_impl<traits::value_type::INTEGRAL, T, CharT, Traits>
+        : basic_integral_parser< T, CharT, Traits > {
+    using base_type = basic_integral_parser< T, CharT, Traits >;
+    basic_parser_impl(T& val) : base_type{val} {}
+};
 
-template < typename T >
-struct parser_impl<traits::value_type::FLOATING, T> : floating_parser< T > {};
+template < typename T, typename CharT, typename Traits >
+struct basic_parser_impl<traits::value_type::FLOATING, T, CharT, Traits>
+        : basic_floating_parser< T, CharT, Traits > {
+    using base_type = basic_floating_parser< T, CharT, Traits >;
+    basic_parser_impl(T& val) : base_type{val} {}
+};
 
-template < typename T >
-struct parser_impl< traits::value_type::STRING, T > : streamable_object_parser< T >{};
+template < typename T, typename CharT, typename Traits >
+struct basic_parser_impl< traits::value_type::STRING, T, CharT, Traits >
+        : basic_streamable_object_parser< T, CharT, Traits > {
+    using base_type = basic_streamable_object_parser< T, CharT, Traits >;
+    basic_parser_impl(T& val) : base_type{val} {}
+};
 
-template < typename T >
-struct parser_impl< traits::value_type::OBJECT, T > : map_parser< T >{};
+//// FIXME Use a generic object parser
+//template < typename T >
+//struct parser_impl< traits::value_type::OBJECT, T > : map_parser< T > {
+//    using base_type = map_parser< T >;
+//    parser_impl(T& val) : base_type{val} {}
+//};
 
 }  /* namespace detail */
 
-template < typename T >
-struct parser : detail::parser_impl< traits::json_type< T >::value, T > {};
-
-
+template < typename T, typename CharT, typename Traits >
+struct basic_parser
+        : detail::basic_parser_impl< traits::json_type< T >::value, T, CharT, Traits > {
+    using base_type = detail::basic_parser_impl< traits::json_type< T >::value, T, CharT, Traits >;
+    basic_parser(T& val) : base_type{val} {}
+};
 
 }  /* namespace json */
 }  /* namespace wire */

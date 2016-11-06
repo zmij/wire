@@ -9,22 +9,26 @@
 #define WIRE_JSON_DETAIL_INTEGRAL_PARSER_HPP_
 
 #include <wire/json/detail/parser_base.hpp>
+#include <sstream>
 
 namespace wire {
 namespace json {
 namespace detail {
 
-template < bool IsEnum, typename T >
-struct integral_parser_impl : parser_base {
+template < bool IsEnum, typename T, typename CharT, typename Traits = ::std::char_traits<CharT> >
+struct basic_integral_parser_impl : basic_parser_base<CharT, Traits> {
+    using base_type     = basic_parser_base<CharT, Traits>;
+    using string_type   = typename base_type::string_type;
+
     T& value;
 
-    integral_parser_impl(T& v) : value{v} {}
-    virtual ~integral_parser_impl() {}
+    basic_integral_parser_impl(T& v) : value{v} {}
+    virtual ~basic_integral_parser_impl() {}
 
     parse_result
-    string_literal(::std::string const& val) override
+    string_literal(string_type const& val) override
     {
-        ::std::istringstream is(val);
+        ::std::basic_istringstream<CharT, Traits> is(val);
         T tmp;
         if ((bool)(is >> tmp)) {
             ::std::swap(value, tmp);
@@ -52,17 +56,20 @@ struct integral_parser_impl : parser_base {
     }
 };
 
-template < typename T >
-struct integral_parser_impl< true, T > : parser_base {
+template < typename T, typename CharT, typename Traits >
+struct basic_integral_parser_impl< true, T, CharT, Traits > : basic_parser_base<CharT, Traits> {
+    using base_type     = basic_parser_base<CharT, Traits>;
+    using string_type   = typename base_type::string_type;
+
     T& value;
 
-    integral_parser_impl(T& v) : value{v} {}
-    virtual ~integral_parser_impl() {}
+    basic_integral_parser_impl(T& v) : value{v} {}
+    virtual ~basic_integral_parser_impl() {}
 
     parse_result
     string_literal(::std::string const& val) override
     {
-        ::std::istringstream is(val);
+        ::std::basic_istringstream<CharT, Traits> is(val);
         T tmp;
         if ((bool)(is >> tmp)) {
             ::std::swap(value, tmp);
@@ -84,23 +91,27 @@ struct integral_parser_impl< true, T > : parser_base {
     }
 };
 
-template < typename T >
-struct integral_parser :
-        integral_parser_impl< ::std::is_enum<T>::value, T > {
-    using base_type = integral_parser_impl< ::std::is_enum<T>::value, T >;
-    integral_parser(T& value) : base_type{value} {}
+template < typename T, typename CharT, typename Traits = ::std::char_traits<CharT> >
+struct basic_integral_parser :
+        basic_integral_parser_impl< ::std::is_enum<T>::value, T, CharT, Traits > {
+    using base_type = basic_integral_parser_impl< ::std::is_enum<T>::value, T, CharT, Traits >;
+    basic_integral_parser(T& value) : base_type{value} {}
 };
 
-struct boolean_parser : parser_base {
+template < typename CharT, typename Traits = ::std::char_traits<CharT> >
+struct basic_boolean_parser : basic_parser_base<CharT, Traits> {
+    using base_type     = basic_parser_base<CharT, Traits>;
+    using string_type   = typename base_type::string_type;
+
     bool& value;
 
-    boolean_parser(bool& v) : value{v} {}
-    virtual ~boolean_parser() {}
+    basic_boolean_parser(bool& v) : value{v} {}
+    virtual ~basic_boolean_parser() {}
 
     parse_result
-    string_literal(::std::string const& val) override
+    string_literal(string_type const& val) override
     {
-        ::std::istringstream is(val);
+        ::std::basic_istringstream<CharT, Traits> is(val);
         bool tmp;
         if ((bool)(is >> tmp)) {
             ::std::swap(value, tmp);
@@ -127,6 +138,37 @@ struct boolean_parser : parser_base {
         return parse_result::done;
     }
 };
+
+template < typename T >
+using integral_parser = basic_integral_parser<T, char>;
+template < typename T >
+using wintegral_parser = basic_integral_parser<T, wchar_t>;
+
+using boolean_parser    = basic_boolean_parser<char>;
+using wboolean_parser   = basic_boolean_parser<wchar_t>;
+
+extern template struct basic_integral_parser<char, char>;
+extern template struct basic_integral_parser<unsigned char, char>;
+extern template struct basic_integral_parser<short, char>;
+extern template struct basic_integral_parser<unsigned short, char>;
+extern template struct basic_integral_parser<int, char>;
+extern template struct basic_integral_parser<unsigned int, char>;
+extern template struct basic_integral_parser<long, char>;
+extern template struct basic_integral_parser<unsigned long, char>;
+extern template struct basic_integral_parser<long long, char>;
+extern template struct basic_integral_parser<unsigned long long, char>;
+
+extern template struct basic_integral_parser<short, wchar_t>;
+extern template struct basic_integral_parser<unsigned short, wchar_t>;
+extern template struct basic_integral_parser<int, wchar_t>;
+extern template struct basic_integral_parser<unsigned int, wchar_t>;
+extern template struct basic_integral_parser<long, wchar_t>;
+extern template struct basic_integral_parser<unsigned long, wchar_t>;
+extern template struct basic_integral_parser<long long, wchar_t>;
+extern template struct basic_integral_parser<unsigned long long, wchar_t>;
+
+extern template struct basic_boolean_parser<char>;
+extern template struct basic_boolean_parser<wchar_t>;
 
 }  /* namespace detail */
 }  /* namespace json */

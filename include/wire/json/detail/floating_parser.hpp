@@ -14,14 +14,18 @@ namespace wire {
 namespace json {
 namespace detail {
 
-template < typename T >
-struct floating_parser : parser_base {
+template < typename T, typename CharT, typename Traits = ::std::char_traits<CharT> >
+struct basic_floating_parser : basic_parser_base<CharT, Traits> {
+    using base_type     = basic_parser_base<CharT, Traits>;
+    using string_type   = typename base_type::string_type;
+
     T& value;
+    basic_floating_parser(T& val) : value{val} {}
 
     parse_result
-    string_literal(::std::string const& val) override
+    string_literal(string_type const& val) override
     {
-        ::std::istringstream is(val);
+        ::std::basic_istringstream<CharT, Traits> is(val);
         T tmp;
         if ((bool)(is >> tmp)) {
             ::std::swap(value, tmp);
@@ -48,6 +52,19 @@ struct floating_parser : parser_base {
         return parse_result::done;
     }
 };
+
+template < typename T >
+using floating_parser   = basic_floating_parser<T, char>;
+template < typename T >
+using wfloating_parser  = basic_floating_parser<T, wchar_t>;
+
+extern template struct basic_floating_parser<float, char>;
+extern template struct basic_floating_parser<double, char>;
+extern template struct basic_floating_parser<long double, char>;
+
+extern template struct basic_floating_parser<float, wchar_t>;
+extern template struct basic_floating_parser<double, wchar_t>;
+extern template struct basic_floating_parser<long double, wchar_t>;
 
 }  /* namespace detail */
 }  /* namespace json */

@@ -15,18 +15,23 @@ namespace wire {
 namespace json {
 namespace detail {
 
-template < typename T >
-struct streamable_object_parser : parser_base {
+template < typename T, typename CharT, typename Traits = ::std::char_traits<CharT> >
+struct basic_streamable_object_parser : basic_parser_base<CharT, Traits> {
+    using base_type     = basic_parser_base<CharT, Traits>;
+    using string_type   = typename base_type::string_type;
+    using json_io       = json_io_base<CharT, Traits>;
+    using istringstream = ::std::basic_istringstream<CharT, Traits>;
+
     T& value;
 
     explicit
-    streamable_object_parser(T& v) : value{v} {}
-    virtual ~streamable_object_parser() {}
+    basic_streamable_object_parser(T& v) : value{v} {}
+    virtual ~basic_streamable_object_parser() {}
 
     parse_result
-    string_literal(::std::string const& val) override
+    string_literal(string_type const& val) override
     {
-        ::std::istringstream is(val);
+        istringstream is(val);
         T tmp;
         if ((bool)(is >> tmp)) {
             ::std::swap(value, tmp);
@@ -37,7 +42,7 @@ struct streamable_object_parser : parser_base {
     parse_result
     integral_literal(::std::int64_t val) override
     {
-        ::std::istringstream is(::std::to_string(val));
+        istringstream is(json_io::to_string(val));
         T tmp;
         if ((bool)(is >> tmp)) {
             ::std::swap(value, tmp);
@@ -48,7 +53,7 @@ struct streamable_object_parser : parser_base {
     parse_result
     float_literal(long double val) override
     {
-        ::std::istringstream is(::std::to_string(val));
+        istringstream is(json_io::to_string(val));
         T tmp;
         if ((bool)(is >> tmp)) {
             ::std::swap(value, tmp);
@@ -59,7 +64,7 @@ struct streamable_object_parser : parser_base {
     parse_result
     bool_literal(bool val) override
     {
-        ::std::istringstream is(val ? "true" : "false");
+        istringstream is(val ? json_io::true_str : json_io::false_str);
         T tmp;
         if ((bool)(is >> tmp)) {
             ::std::swap(value, tmp);
@@ -70,12 +75,17 @@ struct streamable_object_parser : parser_base {
 };
 
 template<>
-struct streamable_object_parser< ::std::string > : parser_base {
+struct basic_streamable_object_parser< ::std::string, char >
+        : basic_parser_base<char> {
+    using base_type     = basic_parser_base<char>;
+    using string_type   = typename base_type::string_type;
+    using json_io       = json_io_base<char>;
+
     ::std::string& value;
 
     explicit
-    streamable_object_parser(::std::string& v) : value{v} {}
-    virtual ~streamable_object_parser() {}
+    basic_streamable_object_parser(::std::string& v) : value{v} {}
+    virtual ~basic_streamable_object_parser() {}
 
     parse_result
     string_literal(::std::string const& val) override
@@ -98,7 +108,7 @@ struct streamable_object_parser< ::std::string > : parser_base {
     parse_result
     bool_literal(bool val) override
     {
-        value = val ? "true" : "false";
+        value = val ? json_io::true_str : json_io::false_str;
         return parse_result::done;
     }
 };

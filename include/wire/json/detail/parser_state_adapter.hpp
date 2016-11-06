@@ -9,14 +9,18 @@
 #define WIRE_JSON_DETAIL_PARSER_STATE_ADAPTER_HPP_
 
 #include <wire/idl/grammar/common.hpp>
+#include <wire/json/json_io_base.hpp>
 
 namespace wire {
 namespace json {
 namespace grammar {
 
-template < typename State >
-struct parser_state_adapter {
-    using state_type = State;
+template < typename State, typename CharT, typename Traits = ::std::char_traits<CharT> >
+struct basic_parser_state_adapter {
+    using state_type    = State;
+    using json_io_type  = json_io_base<CharT, Traits>;
+    using string_type   = typename json_io_type::string_type;
+
     template < typename Func >
     using fn = ::boost::phoenix::function< Func >;
 
@@ -27,7 +31,7 @@ struct parser_state_adapter {
         state_type& state;
 
         void
-        operator()(::std::string const& tok) const
+        operator()(string_type const& tok) const
         {
             state.string_literal(tok);
         }
@@ -134,14 +138,14 @@ struct parser_state_adapter {
         state_type& state;
 
         void
-        operator()(::std::string const& name) const
+        operator()(string_type const& name) const
         {
             state.start_member(name);
         }
     };
 
 
-    parser_state_adapter(state_type& st)
+    basic_parser_state_adapter(state_type& st)
         : state{st},
           string_literal    { string_literal_func{st} },
           integral_literal  { integral_literal_func{st} },

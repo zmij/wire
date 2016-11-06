@@ -20,25 +20,25 @@ struct debug_parser : detail::parser_base {
     detail::parse_result
     string_literal(::std::string const& str) override
     {
-        ::std::cerr << "String literal " << str << "\n";
+        ::std::cerr << "String literal '" << str << "'\n";
         return detail::parse_result::need_more;
     }
     detail::parse_result
     integral_literal(::std::int64_t val) override
     {
-        ::std::cerr << "Int literal " << val << "\n";
+        ::std::cerr << "Int literal '" << val << "'\n";
         return detail::parse_result::need_more;
     }
     detail::parse_result
     float_literal(long double val) override
     {
-        ::std::cerr << "Float literal " << val << "\n";
+        ::std::cerr << "Float literal '" << val << "'\n";
         return detail::parse_result::need_more;
     }
     detail::parse_result
     bool_literal(bool val) override
     {
-        ::std::cerr << "Bool literal " << val << "\n";
+        ::std::cerr << "Bool literal '" << val << "'\n";
         return detail::parse_result::need_more;
     }
     detail::parse_result
@@ -82,7 +82,7 @@ struct debug_parser : detail::parser_base {
     detail::parse_result
     start_member(::std::string const& str) override
     {
-        ::std::cerr << "Start member " << str << "\n";
+        ::std::cerr << "Start member '" << str << "'\n";
         return detail::parse_result::need_more;
     }
 };

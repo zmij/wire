@@ -14,19 +14,26 @@
 #include <boost/spirit/include/phoenix_statement.hpp>
 #include <boost/spirit/include/phoenix_algorithm.hpp>
 #include <boost/spirit/include/phoenix_core.hpp>
+
 #include <wire/idl/source_location.hpp>
+#include <wire/json/json_io_base.hpp>
 
 namespace wire {
 namespace json {
 namespace lexer {
 
-template < typename Lexer >
-struct json_tokens : ::boost::spirit::lex::lexer< Lexer > {
-    using base = ::boost::spirit::lex::lexer< Lexer >;
+template < typename Lexer, typename CharT, typename Traits = ::std::char_traits<CharT> >
+struct basic_json_tokens : ::boost::spirit::lex::lexer< Lexer > {
+    using base          = ::boost::spirit::lex::lexer< Lexer >;
+    using json_io       = json_io_base<CharT, Traits>;
+    using string_type   = ::std::basic_string<CharT, Traits>;
+    using chars         = typename json_io::chars;
     using base::self;
 
-    template < typename ... T >
-    using token_def = ::boost::spirit::lex::token_def<T...>;
+    template < typename T, typename ... U >
+    using token_def     = ::boost::spirit::lex::token_def<T, CharT, U... >;
+    using empty_token   = ::boost::spirit::lex::token_def<
+                                ::boost::spirit::unused_type, CharT>;
 
     enum token_ids {
         id_string        = 1000,
@@ -38,32 +45,42 @@ struct json_tokens : ::boost::spirit::lex::lexer< Lexer > {
         id_null
     };
 
-    json_tokens()
-        : string_literal{R"~(\"((\\\")|(\\.)|[^\"])+\")~", id_string },
-          empty_string{R"~(\"\")~", id_empty_string},
-          integral_literal{"-?([1-9][0-9]*)|0", id_integral},
-          float_literal{"-?([1-9][0-9]*)?\\.[0-9]*([eE]-?[1-9][0-9]*)?", id_float},
-          true_{"true", id_true},
-          false_{"false", id_false},
-          null{"null", id_null}
+    basic_json_tokens()
+        : string_literal    {json_io::string_re, id_string },
+          empty_string      {json_io::empty_re, id_empty_string},
+          integral_literal  {json_io::integral_re, id_integral},
+          float_literal     {json_io::float_re, id_float},
+          true_             {json_io::true_str, id_true},
+          false_            {json_io::false_str, id_false},
+          null              {json_io::null_str, id_null}
     {
         self = string_literal | empty_string
             | integral_literal | float_literal
             | true_ | false_ | null
-            | '{' | '}' | '[' | ']' | ':' | ','
+            | json_io::cvt(chars::start_object)
+            | json_io::cvt(chars::end_object)
+            | json_io::cvt(chars::start_array)
+            | json_io::cvt(chars::end_array)
+            | json_io::cvt(chars::colon)
+            | json_io::cvt(chars::comma)
         ;
-        self("WS") = token_def<>("[ \\t\\n]+")
-            | R"~(\/\*[^*]*\*+([^/*][^*]*\*+)*\/)~" // C-style comments
-            | R"~(\/\/.*?\n)~"                      // C++-style comments
+        self(json_io::ws_state) = empty_token(json_io::ws_re)
+            | json_io::c_comment_re     // C-style comments
+            | json_io::cpp_comment_re   // C++-style comments
         ;
     }
 
-    token_def< ::std::string > string_literal, empty_string;
-    token_def< long > integral_literal;
-    token_def< long double > float_literal;
-    token_def< bool > true_, false_;
-    token_def<> null;
+    token_def< string_type >    string_literal, empty_string;
+    token_def< long >           integral_literal;
+    token_def< long double >    float_literal;
+    token_def< bool >           true_, false_;
+    empty_token                 null;
 };
+
+template <typename Lexer>
+using json_tokens   = basic_json_tokens<Lexer, char>;
+template <typename Lexer>
+using wjson_tokens  = basic_json_tokens<Lexer, wchar_t>;
 
 }  /* namespace lexer */
 }  /* namespace json */
