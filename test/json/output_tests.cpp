@@ -10,25 +10,11 @@
 #include <sstream>
 #include <iostream>
 #include "debug_parser.hpp"
+#include "test_data_structure.hpp"
 
 namespace wire {
 namespace json {
 namespace test {
-
-struct test_structure {
-    ::std::string   str;
-    int             ival;
-    float           fval;
-};
-
-json::json_ostream&
-json_write(json::json_ostream& os, test_structure const& v)
-{
-    os  << "str" << v.str
-        << "ival" << v.ival
-        << "fval" << v.fval;
-    return os;
-}
 
 TEST(Json, SimpleDatatypesOut)
 {

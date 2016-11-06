@@ -23,8 +23,8 @@ set(json_test_SRCS
     parse_tests.cpp
 )
 
-add_executable(test-json ${json_test_SRCS})
-target_link_libraries(test-json
+add_executable(test-wire-json ${json_test_SRCS})
+target_link_libraries(test-wire-json
     ${GTEST_BOTH_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     wire-json
@@ -32,11 +32,32 @@ target_link_libraries(test-json
 
 if (GTEST_XML_OUTPUT)
     set (
-        BASE_TEST_ARGS --gtest_output=xml:test-wire.xml
+        BASE_TEST_ARGS --gtest_output=xml:test-wire-json.xml
     )
 endif()
 
 add_test(
-    NAME test-json
-    COMMAND test-json ${BASE_TEST_ARGS}
+    NAME test-wire-json
+    COMMAND test-wire-json ${BASE_TEST_ARGS}
 )
+
+if (GBENCH_FOUND)
+    set(benchmark_SRCS
+        output_benchmarks.cpp
+    )
+    if (CEREAL_INCLUDE_DIRS)
+        include_directories(${CEREAL_INCLUDE_DIRS})
+        # Add cereal benchmarks to compare
+        message(STATUS "Adding cereal benchmarks")
+        list(APPEND benchmark_SRCS cereal_output_benchmarks.cpp)
+    endif()
+    add_executable(bench-wire-json ${benchmark_SRCS})
+    target_link_libraries(bench-wire-json
+        ${GBENCH_LIBRARIES}
+        ${CMAKE_THREAD_LIBS_INIT}
+        wire-json)
+    add_test(
+        NAME bench-wire-json
+        COMMAND bench-wire-json
+    )
+endif()
