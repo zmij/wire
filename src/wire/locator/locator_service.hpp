@@ -26,6 +26,11 @@ public:
     start(core::connector_ptr cnctr) override;
     void
     stop() override;
+
+    ::std::string const&
+    name() const;
+    void
+    name(::std::string const&);
 private:
     struct impl;
     using pimpl = ::std::unique_ptr<impl>;

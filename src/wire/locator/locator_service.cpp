@@ -127,5 +127,17 @@ locator_service::stop()
     pimpl_->stop();
 }
 
+::std::string const&
+locator_service::name() const
+{
+    return pimpl_->name_;
+}
+
+void
+locator_service::name(::std::string const& nm)
+{
+    pimpl_->name_ = nm;
+}
+
 } /* namespace svc */
 } /* namespace wire */
