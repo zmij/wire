@@ -29,6 +29,14 @@ json_write(json::json_ostream& os, test_structure const& v)
     return os;
 }
 
+inline json::json_istream&
+json_read(json::json_istream& is, test_structure& v)
+{
+    is  >> "str" >> v.str
+        >> "ival" >> v.ival
+        >> "fval" >> v.fval;
+    return is;
+}
 
 }  /* namespace test */
 }  /* namespace json */

@@ -42,6 +42,14 @@ struct basic_parser_base {
         return 0;
     }
 
+    basic_parser_base&
+    top_parser()
+    {
+        if (current_parser_)
+            return current_parser_->top_parser();
+        return *this;
+    }
+
     virtual parse_result
     string_literal(string_type const& val)
     {
@@ -152,8 +160,18 @@ struct basic_parser_base {
                 current_parser_ = nullptr;
             return parse_result::need_more;
         }
-        // FIXME Report member name, for whcar_t also
+        // FIXME Report member name, for wchar_t also
         throw ::std::runtime_error{ "Unexpected member start" };
+    }
+    virtual void
+    add_member_parser(string_type&& name, parser_ptr_type)
+    {
+        throw ::std::runtime_error{"Cannot add member parser"};
+    }
+    virtual void
+    add_element_parser(parser_ptr_type)
+    {
+        throw ::std::runtime_error{"Cannot add element parser"};
     }
 protected:
     parser_ptr_type     current_parser_ = nullptr;

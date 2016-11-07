@@ -16,7 +16,7 @@ namespace wire {
 namespace json {
 namespace test {
 
-TEST(Json, SimpleDatatypesOut)
+TEST(JOstream, SimpleDatatypesOut)
 {
     ::std::string const k{R"~(bla"bla"bla)~"};
     test_structure ts{"foo", 100500, 3.14};
@@ -68,7 +68,7 @@ TEST(Json, SimpleDatatypesOut)
     EXPECT_TRUE(r) << "Successful parse";
 }
 
-TEST(Json, VectorOut)
+TEST(JOstream, VectorOut)
 {
     ::std::vector<::std::string> strings{
         "one", "two", "three"

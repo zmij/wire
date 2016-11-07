@@ -7,8 +7,10 @@
 
 #include <gtest/gtest.h>
 #include <wire/json/parser.hpp>
+#include <wire/json/json_istream.hpp>
 #include <iterator>
 #include "debug_parser.hpp"
+#include "test_data_structure.hpp"
 
 namespace wire {
 namespace json {
@@ -79,6 +81,52 @@ TEST(Parser, IntegralParser)
     json = "-42";
     EXPECT_TRUE(detail::parse(parser, json));
     EXPECT_EQ(-42, val);
+}
+
+TEST(JIstream, Bool)
+{
+    {
+        ::std::istringstream is{"true"};
+        json_istream jis{is};
+        bool val{false};
+        EXPECT_NO_THROW(jis >> val);
+        EXPECT_TRUE(val);
+    }
+    {
+        ::std::istringstream is{"false"};
+        json_istream jis{is};
+        bool val{true};
+        EXPECT_NO_THROW(jis >> val);
+        EXPECT_FALSE(val);
+    }
+}
+
+TEST(JIstream, Integral)
+{
+    {
+        ::std::istringstream is{"100500"};
+        json_istream jis{is};
+        int val{0};
+        EXPECT_NO_THROW(jis >> val);
+        EXPECT_EQ(100500, val);
+    }
+}
+
+TEST(JIstream, String)
+{
+    ::std::istringstream is{"\"foo\""};
+    json_istream jis{is};
+    ::std::string val{};
+    EXPECT_NO_THROW(jis >> val);
+    EXPECT_EQ("foo", val);
+}
+
+TEST(JIstream, Struct)
+{
+    ::std::istringstream is{R"~({"fval":2.13,"ival":42,"str":"bar"})~"};
+    json_istream jis{is};
+    test_structure ts;
+    EXPECT_NO_THROW(jis >> ts);
 }
 
 }  /* namespace test */

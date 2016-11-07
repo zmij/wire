@@ -371,7 +371,7 @@ public:
     { return current_state().first; }
 private:
     using state_type    = ::std::pair<json_context, size_type>;
-    using state_stack   = ::std::stack<::std::pair<json_context, size_type>>;
+    using state_stack   = ::std::stack<state_type>;
 
     state_type&
     current_state()
@@ -482,6 +482,7 @@ json_write(basic_json_ostream<CharT, Traits>& os, CharT const* str)
     for (auto c = str; static_cast<chars>(*c) != chars::null; ++c) {
         switch (static_cast<chars>(*c)) {
             case chars::double_quote:
+            case chars::escape_symbol:
                 os.put(chars::escape_symbol);
             default:
                 os.put(*c);
@@ -500,6 +501,7 @@ json_write(basic_json_ostream<CharT, Traits>& os,
     for (auto c : str) {
         switch (static_cast<chars>(c)) {
             case chars::double_quote:
+            case chars::escape_symbol:
                 os.put(chars::escape_symbol);
             default:
                 os.put(c);
@@ -518,6 +520,7 @@ json_write(basic_json_ostream<CharT, Traits>& os,
     for (auto c : str) {
         switch (static_cast<chars>(c)) {
             case chars::double_quote:
+            case chars::escape_symbol:
                 os.put(chars::escape_symbol);
             default:
                 os.put(c);

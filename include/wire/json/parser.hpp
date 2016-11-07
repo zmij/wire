@@ -12,6 +12,7 @@
 #include <wire/json/detail/streamable_parser.hpp>
 #include <wire/json/detail/integral_parser.hpp>
 #include <wire/json/detail/floating_parser.hpp>
+#include <wire/json/detail/object_parser.hpp>
 
 #include <wire/json/detail/map_parser.hpp>
 
@@ -53,11 +54,12 @@ struct basic_parser_impl< traits::value_type::STRING, T, CharT, Traits >
 };
 
 //// FIXME Use a generic object parser
-//template < typename T >
-//struct parser_impl< traits::value_type::OBJECT, T > : map_parser< T > {
-//    using base_type = map_parser< T >;
-//    parser_impl(T& val) : base_type{val} {}
-//};
+template < typename T, typename CharT, typename Traits >
+struct basic_parser_impl< traits::value_type::OBJECT, T, CharT, Traits >
+        : basic_object_parser< CharT, Traits > {
+    using base_type = basic_object_parser< CharT, Traits >;
+    basic_parser_impl(T& val) : base_type{} {}
+};
 
 }  /* namespace detail */
 
