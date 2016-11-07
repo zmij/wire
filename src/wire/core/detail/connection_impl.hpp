@@ -806,7 +806,13 @@ struct connection_impl : connection_implementation {
     endpoint
     local_endpoint() const override
     {
-        return transport_.local_endpoint();
+        if (transport_.is_open()) {
+            asio_config::error_code ec;
+            auto ep = transport_.local_endpoint(ec);
+            if (!ec)
+                return ep;
+        }
+        return endpoint{};
     }
     endpoint
     remote_endpoint() const override
