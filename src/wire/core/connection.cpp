@@ -269,8 +269,8 @@ connection_implementation::handle_connected(asio_config::error_code const& ec)
     #if DEBUG_OUTPUT >= 1
     ::std::cerr << "Handle connected\n";
     #endif
+    connection_timer_.cancel();
     if (!ec) {
-        connection_timer_.cancel();
         process_event(events::connected{});
         auto adp = adapter_.lock();
         if (adp) {
