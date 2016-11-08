@@ -269,8 +269,8 @@ connection_implementation::handle_connected(asio_config::error_code const& ec)
     #if DEBUG_OUTPUT >= 1
     ::std::cerr << "Handle connected\n";
     #endif
+    connection_timer_.cancel();
     if (!ec) {
-        connection_timer_.cancel();
         process_event(events::connected{});
         auto adp = adapter_.lock();
         if (adp) {
@@ -342,9 +342,11 @@ connection_implementation::write_async(encoding::outgoing_ptr out,
     #if DEBUG_OUTPUT >= 3
     ::std::cerr << "Send " << out->type() << " size " << out->size() << "\n";
     #endif
-    do_write_async( out,
-        ::std::bind(&connection_implementation::handle_write, shared_from_this(),
-                ::std::placeholders::_1, ::std::placeholders::_2, cb, out));
+    if (!is_terminated() && is_open()) {
+        do_write_async( out,
+            ::std::bind(&connection_implementation::handle_write, shared_from_this(),
+                    ::std::placeholders::_1, ::std::placeholders::_2, cb, out));
+    }
 }
 
 void
@@ -368,7 +370,7 @@ connection_implementation::handle_write(asio_config::error_code const& ec, ::std
 void
 connection_implementation::start_read()
 {
-    if (!is_terminated()) {
+    if (!is_terminated() && is_open()) {
         incoming_buffer_ptr buffer = ::std::make_shared< incoming_buffer >();
         read_async(buffer);
     }
