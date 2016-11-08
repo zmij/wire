@@ -578,6 +578,10 @@ struct transport_listener {
     bool
     ready() const
     { return ready_; }
+
+    bool
+    is_open() const
+    { return acceptor_.is_open(); }
 private:
     void
     start_accept();

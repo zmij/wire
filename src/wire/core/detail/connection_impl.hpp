@@ -577,6 +577,9 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         return connection_fsm::is_in_state< connection_fsm_def::terminated >();
     }
 
+    virtual bool
+    is_open() const = 0;
+
     void
     set_connect_timer();
     void
@@ -804,6 +807,9 @@ struct connection_impl : connection_implementation {
     is_stream_oriented() const override
     { return transport_traits::stream_oriented; }
 
+    bool
+    is_open() const override
+    { return transport_.is_open(); }
     endpoint
     local_endpoint() const override
     {
@@ -888,6 +894,9 @@ struct listen_connection_impl : connection_implementation {
     bool
     is_stream_oriented() const override
     { return transport_traits::stream_oriented; }
+    bool
+    is_open() const override
+    { return listener_.is_open(); }
     endpoint
     local_endpoint() const override
     {
