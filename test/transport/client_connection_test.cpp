@@ -269,6 +269,7 @@ TEST_F(Client, DISABLED_TCPSendRequest)
     });
 
     io_svc->run();
+    ::std::cerr << "Done running io_service\n";
 
     EXPECT_TRUE(tests[0]);    // Connected
     EXPECT_TRUE(tests[1]);    // Response received
@@ -281,7 +282,7 @@ TEST_F(Client, DISABLED_TCPSendRequest)
     EXPECT_EQ(42, test_int);
 }
 
-TEST_F(Client, DISABLED_ProxyPingAsyncTest)
+TEST_F(Client, ProxyPingAsyncTest)
 {
     typedef transport_type_traits< transport_type::tcp > used_transport;
     current_transport = used_transport::value;
@@ -337,7 +338,7 @@ TEST_F(Client, DISABLED_ProxyPingAsyncTest)
     EXPECT_TRUE(tests[2]);
 }
 
-TEST_F(Client, DISABLED_ProxyPingSyncTest)
+TEST_F(Client, ProxyPingSyncTest)
 {
     typedef transport_type_traits< transport_type::tcp > used_transport;
     current_transport = used_transport::value;

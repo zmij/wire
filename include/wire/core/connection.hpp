@@ -113,7 +113,7 @@ public:
         using args_tuple = typename handler_traits::decayed_args_tuple_type;
 
         using encoding::incoming;
-        if (any(opts.flags | invocation_flags::one_way)) {
+        if (any(opts.flags & invocation_flags::one_way)) {
             throw errors::runtime_error{ "Cannot send a non-void invocation one way" };
         }
         encoding::outgoing out{ get_connector() };
