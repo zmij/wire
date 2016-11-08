@@ -509,6 +509,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
 
     using mutex_type            = ::std::mutex;
     using lock_guard            = ::std::lock_guard<mutex_type>;
+    using optional_endpoint     = ::boost::optional<endpoint>;
 
     static connection_impl_ptr
     create_connection( adapter_ptr adptr, transport_type _type,
@@ -758,9 +759,9 @@ struct is_secure< ssl_transport > : ::std::true_type {};
 
 template < transport_type _type >
 struct connection_impl : connection_implementation {
-    using transport_traits    = transport_type_traits< _type >;
+    using transport_traits  = transport_type_traits< _type >;
     using transport_type    = typename transport_traits::type;
-    using socket_type        = typename transport_traits::listen_socket_type;
+    using socket_type       = typename transport_traits::listen_socket_type;
 
     template < typename T = transport_type >
     connection_impl(client_side const& c, adapter_ptr adptr,
@@ -806,22 +807,31 @@ struct connection_impl : connection_implementation {
     endpoint
     local_endpoint() const override
     {
+        if (local_endpoint_.is_initialized())
+            return *local_endpoint_;
         if (transport_.is_open()) {
             asio_config::error_code ec;
             auto ep = transport_.local_endpoint(ec);
-            if (!ec)
-                return ep;
+            if (!ec) {
+                local_endpoint_ = ep;
+                return *local_endpoint_;
+            }
         }
+
         return endpoint{};
     }
     endpoint
     remote_endpoint() const override
     {
+        if (remote_endpoint_.is_initialized())
+            return *remote_endpoint_;
         if (transport_.is_open()) {
             asio_config::error_code ec;
             auto ep = transport_.remote_endpoint(ec);
-            if (!ec)
+            if (!ec) {
+                remote_endpoint_ = ep;
                 return ep;
+            }
         }
         return configured_endpoint_;
     }
@@ -854,8 +864,11 @@ private:
         transport_.async_read( asio_ns::buffer(*buffer), cb );
     }
 
-    endpoint        configured_endpoint_;
-    transport_type  transport_;
+    endpoint                    configured_endpoint_;
+    optional_endpoint mutable   remote_endpoint_;
+    optional_endpoint mutable   local_endpoint_;
+
+    transport_type              transport_;
 };
 
 template < transport_type _type >
