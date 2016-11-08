@@ -573,9 +573,9 @@ struct connector::impl {
             } else {
                 conn = ::std::make_shared< connection >(
                         client_side{}, bidir_adapter(), ep.transport(),
-                        [this](connection const* c)
+                        [this, ep](connection const* c)
                         {
-                            erase_outgoing(c);
+                            erase_outgoing(ep);
                         });
                 outgoing_.emplace(ep, conn);
                 new_conn = true;
@@ -600,7 +600,6 @@ struct connector::impl {
                         ::std::cerr << "Failed to connect to " << ep << "\n";
                     #endif
                     *res = true;
-                    erase_outgoing(ep);
                     try {
                         exception(ex);
                     } catch (...) {}
@@ -614,13 +613,6 @@ struct connector::impl {
             on_get(conn);
             } catch(...) {}
         }
-    }
-
-    void
-    erase_outgoing(connection const* conn)
-    {
-        auto ep = conn->remote_endpoint();
-        erase_outgoing(ep);
     }
 
     void
