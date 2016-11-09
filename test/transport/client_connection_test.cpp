@@ -282,7 +282,7 @@ TEST_F(Client, DISABLED_TCPSendRequest)
     EXPECT_EQ(42, test_int);
 }
 
-TEST_F(Client, ProxyPingAsyncTest)
+TEST_F(Client, DISABLED_ProxyPingAsyncTest)
 {
     typedef transport_type_traits< transport_type::tcp > used_transport;
     current_transport = used_transport::value;
