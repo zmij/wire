@@ -17,6 +17,7 @@
 #include <wire/core/connector_fwd.hpp>
 #include <wire/core/reference_fwd.hpp>
 #include <wire/core/object_fwd.hpp>
+#include <wire/core/adapter_fwd.hpp>
 #include <wire/core/proxy_fwd.hpp>
 #include <wire/core/functional.hpp>
 
@@ -89,6 +90,7 @@ hash(reference_data const&);
 class reference : public ::std::enable_shared_from_this<reference> {
 public:
     using connection_callback = functional::callback< connection_ptr >;
+    using local_servant         = ::std::pair<object_ptr, adapter_ptr>;
 public:
     reference(connector_ptr cn, reference_data const& ref)
         : connector_{cn}, ref_{ref} {}
@@ -104,7 +106,7 @@ public:
 
     bool
     is_local() const;
-    object_ptr
+    local_servant
     get_local_object() const;
 
     identity const&
@@ -164,8 +166,9 @@ protected:
 private:
     connector_weak_ptr  connector_;
 protected:
-    reference_data          ref_;
-    object_weak_ptr mutable local_object_cache_;
+    reference_data              ref_;
+    object_weak_ptr mutable     local_object_cache_;
+    adapter_weak_ptr mutable    adapter_cache_;
 };
 
 /**

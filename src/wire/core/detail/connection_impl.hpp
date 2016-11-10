@@ -42,7 +42,8 @@ namespace detail {
 struct connection_implementation;
 using connection_impl_ptr   = ::std::shared_ptr< connection_implementation >;
 
-using incoming_buffer       = ::std::array< unsigned char, 1024 >;
+using incoming_buffer       = ::std::array< unsigned char,
+                                asio_config::incoming_buffer_size >;
 using incoming_buffer_ptr   = ::std::shared_ptr< incoming_buffer >;
 
 namespace events {

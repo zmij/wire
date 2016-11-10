@@ -522,20 +522,23 @@ struct connector::impl {
         return false;
     }
 
-    object_ptr
+    local_servant
     find_local_servant(reference const& ref)
     {
         if (!ref.data().endpoints.empty()) {
             for (auto const& ep : ref.data().endpoints) {
                 adapter_const_accessor acc;
                 if (online_adapters_.find(acc, ep)) {
-                    return acc->second->find_object(ref.object_id());
+                    return {
+                        acc->second->find_object(ref.object_id()),
+                        acc->second
+                    };
                 }
             }
         } else {
             // Check reference adapter id
         }
-        return object_ptr{};
+        return {object_ptr{}, adapter_ptr{}};
     }
 
     object_prx
@@ -840,7 +843,7 @@ connector::is_local(reference const& ref) const
     return pimpl_->is_local(ref);
 }
 
-object_ptr
+connector::local_servant
 connector::find_local_servant(reference const& ref) const
 {
     return pimpl_->find_local_servant(ref);
