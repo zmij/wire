@@ -133,9 +133,8 @@ void
 connection_implementation::on_connect_timeout(asio_config::error_code const& ec)
 {
     if (!ec) {
-        process_event(events::connection_failure{
-            ::std::make_exception_ptr(errors::connection_failed("Connection timed out"))
-        });
+        connection_failure(
+            ::std::make_exception_ptr(errors::connection_failed("Connection timed out")));
     }
 }
 
@@ -279,9 +278,8 @@ connection_implementation::handle_connected(asio_config::error_code const& ec)
         observer_.connect(remote_endpoint());
         start_request_timer();
     } else {
-        process_event(events::connection_failure{
-            ::std::make_exception_ptr(errors::connection_failed(ec.message()))
-        });
+        connection_failure(
+            ::std::make_exception_ptr(errors::connection_failed(ec.message())));
     }
 }
 
@@ -361,9 +359,8 @@ connection_implementation::handle_write(asio_config::error_code const& ec, ::std
         #if DEBUG_OUTPUT >= 2
         ::std::cerr << "Write failed " << ec.message() << "\n";
         #endif
-        process_event(events::connection_failure{
-            ::std::make_exception_ptr(errors::connection_failed(ec.message()))
-        });
+        connection_failure(
+            ::std::make_exception_ptr(errors::connection_failed(ec.message())));
     }
 }
 
@@ -397,9 +394,8 @@ connection_implementation::handle_read(asio_config::error_code const& ec, ::std:
         #if DEBUG_OUTPUT >= 2
         ::std::cerr << "Read failed " << ec.message() << "\n";
         #endif
-        process_event(events::connection_failure{
-            ::std::make_exception_ptr(errors::connection_failed(ec.message()))
-        });
+        connection_failure(
+            ::std::make_exception_ptr(errors::connection_failed(ec.message())));
     }
 }
 
@@ -517,9 +513,7 @@ connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::s
         #if DEBUG_OUTPUT >= 2
         ::std::cerr << "Protocol read exception: " << e.what() << "\n";
         #endif
-        process_event(events::connection_failure{
-            ::std::current_exception()
-        });
+        connection_failure(::std::current_exception());
     }
 }
 
@@ -535,9 +529,9 @@ connection_implementation::dispatch_incoming(encoding::incoming_ptr incoming)
             process_event(events::receive_reply{ incoming });
             break;
         default:
-            process_event(events::connection_failure{
-                ::std::make_exception_ptr(errors::unmarshal_error{ "Unknown message type ", incoming->type() })
-            });
+            connection_failure(
+                ::std::make_exception_ptr(errors::unmarshal_error{ "Unknown message type ", incoming->type() }));
+            break;
     }
 }
 
@@ -751,12 +745,12 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
         #if DEBUG_OUTPUT >= 2
         ::std::cerr << "Exception when reading reply: " << e.what() << "\n";
         #endif
-        process_event(events::connection_failure{ ::std::current_exception() });
+        connection_failure(::std::current_exception());
     } catch (...) {
         #if DEBUG_OUTPUT >= 2
         ::std::cerr << "Exception when reading reply\n";
         #endif
-        process_event(events::connection_failure{ ::std::current_exception() });
+        connection_failure(::std::current_exception());
     }
 }
 
@@ -955,8 +949,15 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
         }
         send_not_found(req.number, errors::not_found::object, req.operation);
     } catch (...) {
-        process_event(events::connection_failure{ ::std::current_exception() });
+        connection_failure( ::std::current_exception() );
     }
+}
+
+void
+connection_implementation::connection_failure(::std::exception_ptr ex)
+{
+    process_event(events::connection_failure{ ex });
+    observer_.connection_failure(remote_endpoint(), ex);
 }
 
 }  // namespace detail

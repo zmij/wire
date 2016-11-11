@@ -696,6 +696,9 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         });
     }
 
+    void
+    connection_failure(::std::exception_ptr ex);
+
     virtual endpoint
     local_endpoint() const = 0;
     virtual endpoint
