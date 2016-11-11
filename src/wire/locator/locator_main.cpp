@@ -57,28 +57,28 @@ try {
         pfile << getpid() << "\n";
     }
 
-    ::std::cerr << "Locator name " << locator_name << "\n";
+    ::std::cerr <<::getpid() << " Locator name " << locator_name << "\n";
     svc::locator_service loc_svc{locator_name};
     loc_svc.start(cnctr);
 
     if (thread_count > ::std::thread::hardware_concurrency()) {
         thread_count = ::std::thread::hardware_concurrency();
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Thread count corrected to " << thread_count << "\n";
+        ::std::cerr <<::getpid() << " Thread count corrected to " << thread_count << "\n";
         #endif
     }
 
     util::service_runner srv{io_svc, [&](){ loc_svc.stop(); }};
 
     #if DEBUG_OUTPUT >= 1
-    ::std::cerr << "Running locator service with " << thread_count << " threads\n";
+    ::std::cerr <<::getpid() << " Running locator service with " << thread_count << " threads\n";
     #endif
     srv.run(thread_count);
     return 0;
 } catch (::std::exception const& e) {
-    ::std::cerr << "Exception: " << e.what() << "\n";
+    ::std::cerr <<::getpid() << " Exception: " << e.what() << "\n";
     return 1;
 } catch (...) {
-    ::std::cerr << "Unexpected exception\n";
+    ::std::cerr <<::getpid() << " Unexpected exception\n";
     return 2;
 }

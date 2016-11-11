@@ -71,7 +71,7 @@ struct reference_resolver::impl {
 
         if (!loc && !options.locator_ref.object_id.empty()) {
             #if DEBUG_OUTPUT >= 1
-            ::std::cerr << "Connecting to locator "
+            ::std::cerr <<::getpid() << " Connecting to locator "
                     << options.locator_ref << "\n";
             #endif
             try {
@@ -95,7 +95,7 @@ struct reference_resolver::impl {
                     [exception](::std::exception_ptr ex)
                     {
                         #if DEBUG_OUTPUT >= 1
-                        ::std::cerr << "Exception in checked_cast<locator_proxy>\n";
+                        ::std::cerr <<::getpid() << " Exception in checked_cast<locator_proxy>\n";
                         #endif
                         if (exception) {
                             try {
@@ -136,7 +136,7 @@ struct reference_resolver::impl {
                 {
                     if (loc) {
                         #if DEBUG_OUTPUT >= 1
-                        ::std::cerr << "Try to obtain locator registry proxy from locator "
+                        ::std::cerr <<::getpid() << " Try to obtain locator registry proxy from locator "
                                 << *loc << "\n";
                         #endif
                         auto opts = loc->wire_invocation_options();
@@ -162,7 +162,7 @@ struct reference_resolver::impl {
                 #if DEBUG_OUTPUT >= 1
                 [exception](::std::exception_ptr ex)
                 {
-                    ::std::cerr << "Exception in get_locator_registry\n";
+                    ::std::cerr <<::getpid() << " Exception in get_locator_registry\n";
                     exception(ex);
                 },
                 #else

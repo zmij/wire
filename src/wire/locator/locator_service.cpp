@@ -96,7 +96,7 @@ struct locator_service::impl {
 
         cnctr->set_locator(loc_prx);
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Locator service initialized, try to register adapters\n";
+        ::std::cerr <<::getpid() << " Locator service initialized, try to register adapters\n";
         #endif
         locator_adapter_->register_adapter();
         if (registry_adapter_ != locator_adapter_)
