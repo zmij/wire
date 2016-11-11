@@ -94,7 +94,8 @@ reference::get_local_object() const
     auto obj = local_object_cache_.lock();
     if (!obj) {
         auto loc_srv = get_connector()->find_local_servant(*this);
-        local_object_cache_ = loc_srv.first;
+        obj = loc_srv.first;
+        local_object_cache_ = obj;
         adapter_cache_      = loc_srv.second;
     }
     return {obj, adapter_cache_.lock()};

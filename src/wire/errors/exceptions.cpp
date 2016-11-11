@@ -14,6 +14,40 @@
 namespace wire {
 namespace errors {
 
+namespace detail {
+
+struct op_id {
+    ::wire::encoding::operation_specs::operation_id value;
+};
+
+struct op_id_printer {
+    using result_type = void;
+    ::std::ostream& os;
+    void
+    operator()( ::wire::encoding::operation_specs::hash_type v ) const
+    {
+        os << "0x" << ::std::hex << v.value;
+    }
+    void
+    operator()(::std::string const& str) const
+    {
+        os << str;
+    }
+};
+
+::std::ostream&
+operator << (::std::ostream& os, op_id const& val)
+{
+    ::std::ostream::sentry s(os);
+    if (s) {
+        op_id_printer vis{os};
+        val.value.apply_visitor(vis);
+    }
+    return os;
+}
+
+}  /* namespace detail */
+
 char const*
 runtime_error::what() const noexcept
 {
@@ -52,7 +86,8 @@ not_found::format_message(subject s, core::identity const& obj_id,
             break;
     }
 
-    os << "not found. Id: " << obj_id << " Facet: " << f << " Operation: " << op;
+    os << "not found. Id: '" << obj_id << "' Facet: '" << f
+            << "' Operation: " << detail::op_id{ op };
 
     return os.str();
 }
