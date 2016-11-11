@@ -455,6 +455,9 @@ connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::s
     auto e = b + bytes;
     try {
         while (b != e) {
+            #if DEBUG_OUTPUT >= 3
+            ::std::cerr << ::getpid() << " Buffer size " << e - b << "\n";
+            #endif
             if (!carry_.empty()) {
                 #if DEBUG_OUTPUT >= 3
                 ::std::cerr << ::getpid() << " Read message with carry. Carry size " << carry_.size() << "\n";
@@ -479,12 +482,24 @@ connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::s
                 // b == e, carry is filled with needed bytes
             } else if (incoming_) {
                 #if DEBUG_OUTPUT >= 3
-                ::std::cerr << ::getpid() << " Incomplete message is pending\n";
+                ::std::cerr << ::getpid() << " Incomplete message is pending. Message current size: "
+                        << incoming_->size() << " expected " << incoming_->header().size << "\n";
                 #endif
                 incoming_->insert_back(b, e);
                 if (incoming_->complete()) {
+                    #if DEBUG_OUTPUT >= 3
+                    ::std::cerr << ::getpid() << " Pending message complete size: "
+                            << incoming_->size()
+                            << " (expected " << incoming_->header().size << ")\n";
+                    #endif
                     dispatch_incoming(incoming_);
                     incoming_.reset();
+                #if DEBUG_OUTPUT >= 3
+                } else {
+                    ::std::cerr << ::getpid() << " Pending message size: "
+                        << incoming_->size()
+                        << " (expected " << incoming_->header().size << ")\n";
+                #endif
                 }
             } else {
                 #if DEBUG_OUTPUT >= 3
