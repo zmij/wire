@@ -55,4 +55,4 @@ BENCHMARK(BM_StringOutput);
 }  /* namespace json */
 }  /* namespace wire */
 
-BENCHMARK_MAIN();
+BENCHMARK_MAIN()

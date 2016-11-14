@@ -15,76 +15,89 @@ namespace json {
 namespace test {
 
 struct debug_parser : detail::parser_base {
+    debug_parser(bool blabla = true) : blabla_{blabla} {}
     virtual ~debug_parser() {}
 
     detail::parse_result
     string_literal(::std::string const& str) override
     {
-        ::std::cerr << "String literal '" << str << "'\n";
+        if (blabla_)
+            ::std::cerr << "String literal '" << str << "'\n";
         return detail::parse_result::need_more;
     }
     detail::parse_result
     integral_literal(::std::int64_t val) override
     {
-        ::std::cerr << "Int literal '" << val << "'\n";
+        if (blabla_)
+            ::std::cerr << "Int literal '" << val << "'\n";
         return detail::parse_result::need_more;
     }
     detail::parse_result
     float_literal(long double val) override
     {
-        ::std::cerr << "Float literal '" << val << "'\n";
+        if (blabla_)
+            ::std::cerr << "Float literal '" << val << "'\n";
         return detail::parse_result::need_more;
     }
     detail::parse_result
     bool_literal(bool val) override
     {
-        ::std::cerr << "Bool literal '" << val << "'\n";
+        if (blabla_)
+            ::std::cerr << "Bool literal '" << val << "'\n";
         return detail::parse_result::need_more;
     }
     detail::parse_result
     null_literal() override
     {
-        ::std::cerr << "Null literal\n";
+        if (blabla_)
+            ::std::cerr << "Null literal\n";
         return detail::parse_result::need_more;
     }
 
     detail::parse_result
     start_array() override
     {
-        ::std::cerr << "Start array\n";
+        if (blabla_)
+            ::std::cerr << "Start array\n";
         return detail::parse_result::need_more;
     }
     detail::parse_result
     end_array() override
     {
-        ::std::cerr << "End array\n";
+        if (blabla_)
+            ::std::cerr << "End array\n";
         return detail::parse_result::need_more;
     }
     detail::parse_result
     start_element() override
     {
-        ::std::cerr << "Start element\n";
+        if (blabla_)
+            ::std::cerr << "Start element\n";
         return detail::parse_result::need_more;
     }
 
     detail::parse_result
     start_object() override
     {
-        ::std::cerr << "Start object\n";
+        if (blabla_)
+            ::std::cerr << "Start object\n";
         return detail::parse_result::need_more;
     }
     detail::parse_result
     end_object() override
     {
-        ::std::cerr << "End object\n";
+        if (blabla_)
+            ::std::cerr << "End object\n";
         return detail::parse_result::need_more;
     }
     detail::parse_result
     start_member(::std::string const& str) override
     {
-        ::std::cerr << "Start member '" << str << "'\n";
+        if (blabla_)
+            ::std::cerr << "Start member '" << str << "'\n";
         return detail::parse_result::need_more;
     }
+    bool blabla_;
 };
 
 }  /* namespace test */

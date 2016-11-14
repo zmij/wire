@@ -8,13 +8,14 @@
 #ifndef WIRE_JSON_PARSER_HPP_
 #define WIRE_JSON_PARSER_HPP_
 
+#include <wire/json/traits.hpp>
 #include <wire/json/detail/parser_base.hpp>
 #include <wire/json/detail/streamable_parser.hpp>
 #include <wire/json/detail/integral_parser.hpp>
 #include <wire/json/detail/floating_parser.hpp>
 #include <wire/json/detail/object_parser.hpp>
 
-#include <wire/json/detail/map_parser.hpp>
+//#include <wire/json/detail/map_parser.hpp>
 
 namespace wire {
 namespace json {
