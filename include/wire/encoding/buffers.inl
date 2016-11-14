@@ -28,9 +28,6 @@ incoming::insert_back(InputIterator& begin, InputIterator end)
     size_type sz = size();
     if (header().size > sz) {
         auto to_copy = header().size - sz;
-        #if DEBUG_OUTPUT >= 3
-        ::std::cerr << ::getpid() << " Want " << to_copy << " bytes more\n";
-        #endif
         detail::copy_max(begin, end, std::back_inserter(back_buffer()),
                 to_copy);
     }
