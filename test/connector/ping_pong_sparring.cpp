@@ -108,9 +108,9 @@ try {
     adptr->add_default_servant(pp_server);
     ::std::cout << *prx << ::std::endl;
     if (prx->wire_get_reference()->is_local()) {
-        ::std::cerr << "Reference classified to be local\n";
+        ::std::cerr << ::getpid() << " Reference classified to be local\n";
     } else {
-        ::std::cerr << "Reference classified to be remote\n";
+        ::std::cerr << ::getpid() << " Reference classified to be remote\n";
     }
 
     io_service->run();

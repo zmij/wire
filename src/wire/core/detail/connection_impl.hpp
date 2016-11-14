@@ -140,7 +140,9 @@ struct connection_fsm_def :
                 SourceState&, TargetState&)
         {
             #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " connect action\n";
+            ::std::ostringstream os;
+            os <<::getpid() << " connect action\n";
+            ::std::cerr << os.str();
             #endif
             // Do connect async
             fsm->do_connect_async(evt.ep);
@@ -166,9 +168,6 @@ struct connection_fsm_def :
         operator()(events::connection_failure const& evt, conn_fsm_type& fsm,
                 SourceState&, TargetState&)
         {
-            #if DEBUG_OUTPUT >= 3
-            ::std::cerr <<::getpid() << " Disconnected on error\n";
-            #endif
             fsm->handle_close();
         }
         template < typename SourceState, typename TargetState >
@@ -176,9 +175,6 @@ struct connection_fsm_def :
         operator()(events::close const& evt, conn_fsm_type& fsm,
                 SourceState&, TargetState&)
         {
-            #if DEBUG_OUTPUT >= 3
-            ::std::cerr <<::getpid() << " Disconnected gracefully\n";
-            #endif
             fsm->handle_close();
         }
     };
@@ -187,9 +183,6 @@ struct connection_fsm_def :
         void
         operator()(Event const&, conn_fsm_type& fsm, SourceState&, TargetState&)
         {
-            #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " send validate action\n";
-            #endif
             fsm->send_validate_message();
         }
     };
@@ -222,9 +215,6 @@ struct connection_fsm_def :
         void
         operator()(events::receive_data const& data, conn_fsm_type& fsm, SourceState&, TargetState&)
         {
-            #if DEBUG_OUTPUT >= 3
-            ::std::cerr <<::getpid() << " Process incoming\n";
-            #endif
             fsm->read_incoming_message(data.buffer, data.bytes);
         }
     };
@@ -233,9 +223,6 @@ struct connection_fsm_def :
         void
         operator()(events::receive_request const& req, conn_fsm_type& fsm, SourceState&, TargetState&)
         {
-            #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " Dispatch request\n";
-            #endif
             fsm->post(&concrete_type::dispatch_incoming_request, req.incoming);
         }
     };
@@ -265,9 +252,6 @@ struct connection_fsm_def :
         void
         on_enter(events::connect const& evt, conn_fsm_type& fsm)
         {
-            #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " connecting enter\n";
-            #endif
             success = evt.success;
             fail    = evt.fail;
         }
@@ -275,24 +259,13 @@ struct connection_fsm_def :
         void
         on_exit(Event const&, conn_fsm_type&)
         {
-            #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " connecting exit (unexpected event)\n";
-            #endif
             clear_callbacks();
         }
         void
-        on_exit( events::connected const&, conn_fsm_type& )
-        {
-            #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " connecting exit (success)\n";
-            #endif
-        }
+        on_exit( events::connected const&, conn_fsm_type& ) {}
         void
         on_exit(events::connection_failure const& err, conn_fsm_type&)
         {
-            #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " connecting exit (fail)\n";
-            #endif
             if (fail) {
                 try {
                     fail(err.error);
@@ -329,26 +302,17 @@ struct connection_fsm_def :
         void
         on_enter(Event const&, conn_fsm_type& fsm)
         {
-            #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " wait_validate enter\n";
-            #endif
             fsm->start_read();
         }
         template < typename Event >
         void
         on_exit(Event const&, conn_fsm_type&)
         {
-            #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " wait_validate exit\n";
-            #endif
             clear_callbacks();
         }
         void
         on_exit( events::receive_validate const&, conn_fsm_type& )
         {
-            #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " wait_validate exit (success)\n";
-            #endif
             if (success) {
                 success();
             }
@@ -357,9 +321,6 @@ struct connection_fsm_def :
         void
         on_exit( events::connection_failure const& evt, conn_fsm_type& )
         {
-            #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " wait_validate (fail)\n";
-            #endif
             if (fail) {
                 fail(evt.error);
             }
@@ -378,78 +339,29 @@ struct connection_fsm_def :
 
     struct online : state_machine< online > {
         using online_fsm_type = ::afsm::inner_state_machine<online, conn_fsm_type>;
-        template < typename Event >
-        void
-        on_enter(Event const&, conn_fsm_type& fsm)
-        {
-            #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " connected enter\n";
-            #endif
-        }
-        template < typename Event >
-        void
-        on_exit(Event const&, conn_fsm_type& fsm)
-        {
-            #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " connected exit\n";
-            #endif
-        }
 
-        struct write_idle : state< write_idle > {
-            template < typename Event, typename FSM >
-            void
-            on_enter(Event const&, FSM& fsm)
-            {
-                #if DEBUG_OUTPUT >= 4
-                ::std::cerr <<::getpid() << " write_idle enter\n";
-                #endif
-            }
-            template < typename Event, typename FSM >
-            void
-            on_exit(Event const&, FSM& fsm)
-            {
-                #if DEBUG_OUTPUT >= 4
-                ::std::cerr <<::getpid() << " write_idle exit\n";
-                #endif
-            }
-        };
-        struct writing : state< writing > {
+        struct out_idle : state< out_idle > {};
+        struct out_busy : state< out_busy > {
             using deferred_events = type_tuple<
                 events::send_request,
-                events::send_request
+                events::send_reply
             >;
-            template < typename Event, typename FSM >
-            void
-            on_enter(Event const&, FSM& fsm)
-            {
-                #if DEBUG_OUTPUT >= 4
-                ::std::cerr <<::getpid() << " writing enter\n";
-                #endif
-            }
-            template < typename Event, typename FSM >
-            void
-            on_exit(Event const&, FSM& fsm)
-            {
-                #if DEBUG_OUTPUT >= 4
-                ::std::cerr <<::getpid() << " writing exit\n";
-                #endif
-            }
         };
-        using initial_state = write_idle;
+        using initial_state = out_idle;
 
         using internal_transitions = transition_table<
-            /*  Event                       Action              Guard   */
-            in< events::receive_data,       process_incoming,   none    >,
-            in< events::receive_request,    dispatch_request,   none    >,
-            in< events::receive_reply,      dispatch_reply,     none    >,
-            in< events::receive_validate,   none,               none    >,
-            in< events::connected,          none,               none    >
+            /*                  Event                                   Action              Guard   */
+            in<                 events::receive_data,                   process_incoming,   none    >,
+            in<                 events::receive_request,                dispatch_request,   none    >,
+            in<                 events::receive_reply,                  dispatch_reply,     none    >,
+            in<                 events::receive_validate,               none,               none    >,
+            in<                 events::connected,                      none,               none    >
         >;
         using transitions = transition_table <
-            /*  Start           Event                       Next        Action          Guard   */
-            tr< write_idle,     events::send_request,       writing,    send_request,   none    >,
-            tr< write_idle,     events::send_reply,         writing,    send_reply,     none    >,
-            tr< writing,        events::write_done,         write_idle, none,           none    >
+            /*  Start           Event                       Next        Action              Guard   */
+            tr< out_idle,       events::send_request,       out_busy,   send_request,       none    >,
+            tr< out_idle,       events::send_reply,         out_busy,   send_reply,         none    >,
+            tr< out_busy,       events::write_done,         out_idle,   none,               none    >
         >;
 
         online_fsm_type&
@@ -467,18 +379,7 @@ struct connection_fsm_def :
         { return rebind().enclosing_fsm(); }
     };
 
-    struct terminated : ::afsm::def::terminal_state< terminated > {
-        template < typename Event >
-        void
-        on_enter(Event const&, conn_fsm_type& fsm)
-        {
-            #if DEBUG_OUTPUT >= 4
-            ::std::cerr <<::getpid() << " terminated enter\n";
-            #endif
-            fsm->do_close();
-            fsm->handle_close();
-        }
-    };
+    struct terminated : ::afsm::def::terminal_state< terminated > {};
 
     using initial_state = unplugged;
     //@}
@@ -598,7 +499,9 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
           observer_{adptr->io_service(), adptr->connection_observers()}
     {
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << ::getpid() << " " << this << " Create client connection instance\n";
+        ::std::ostringstream os;
+        os << ::getpid() << " " << this << " Create client connection instance\n";
+        ::std::cerr << os.str();
         #endif
         mode_ = client;
         carry_.reserve(encoding::message::max_header_size);
@@ -616,7 +519,9 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
           observer_{adptr->io_service(), adptr->connection_observers()}
     {
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << ::getpid() << " " << this << " Create server connection instance\n";
+        ::std::ostringstream os;
+        os << ::getpid() << " " << this << " Create server connection instance\n";
+        ::std::cerr << os.str();
         #endif
         mode_ = server;
         carry_.reserve(encoding::message::max_header_size);
@@ -627,7 +532,9 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         connection_timer_.cancel();
         request_timer_.cancel();
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << ::getpid() << " " << this << " Destroy connection instance\n";
+        ::std::ostringstream os;
+        os << ::getpid() << " " << this << " Destroy connection instance\n";
+        ::std::cerr << os.str();
         #endif
     }
 
@@ -774,9 +681,13 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     do_connect_async(endpoint const& ep)
     {
         #if DEBUG_OUTPUT >= 3
-        ::std::cerr << ::getpid() << " " << this << " Starting async connection operation\n";
-        ::std::cerr << ::getpid() << " " << this << " IO service is "
+        ::std::ostringstream os;
+        os << ::getpid() << " " << this << " Starting async connection operation\n";
+        ::std::cerr << os.str();
+        os.str("");
+        os << ::getpid() << " " << this << " IO service is "
                 << (io_service_->stopped() ? "stopped" : "running") << "\n";
+        ::std::cerr << os.str();
         #endif
         set_connect_timer();
         auto _this = shared_from_this();
@@ -983,7 +894,9 @@ private:
     do_listen(endpoint const& ep, bool reuse_port) override
     {
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr <<::getpid() << " Open endpoint " << ep << "\n";
+        ::std::ostringstream os;
+        os <<::getpid() << " Open endpoint " << ep << "\n";
+        ::std::cerr << os.str();
         #endif
         listener_.open(ep, reuse_port);
         auto adptr = adapter_.lock();
