@@ -83,6 +83,8 @@ struct send_reply{
     encoding::outgoing_ptr              outgoing;
 };
 
+struct write_done {};
+
 }  // namespace events
 
 template < typename Mutex, typename Concrete >
@@ -93,7 +95,7 @@ struct connection_fsm_def :
     using mutex_type    = Mutex;
 
     using this_type     = connection_fsm_def< mutex_type, concrete_type >;
-    typedef ::afsm::state_machine< this_type, mutex_type > fsm_type;
+    using conn_fsm_type = ::afsm::state_machine< this_type, mutex_type >;
     //@{
     /** @name Typedefs for AFSM types */
     template < typename StateDef, typename ... Tags >
@@ -134,7 +136,8 @@ struct connection_fsm_def :
     struct connect {
         template < typename SourceState, typename TargetState >
         void
-        operator()(events::connect const& evt, fsm_type& fsm, SourceState&, TargetState&)
+        operator()(events::connect const& evt, conn_fsm_type& fsm,
+                SourceState&, TargetState&)
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " connect action\n";
@@ -145,14 +148,14 @@ struct connection_fsm_def :
     };
     struct on_connected {
         void
-        operator()(events::connected const& evt, fsm_type& fsm,
+        operator()(events::connected const& evt, conn_fsm_type& fsm,
                 connecting& from, wait_validate& to)
         {
             ::std::swap(to.success, from.success);
             ::std::swap(to.fail, from.fail);
         }
         void
-        operator()(events::receive_validate const& evt, fsm_type& fsm,
+        operator()(events::receive_validate const& evt, conn_fsm_type& fsm,
                 wait_validate& from, online& to)
         {
         }
@@ -160,7 +163,7 @@ struct connection_fsm_def :
     struct on_disconnected {
         template < typename SourceState, typename TargetState >
         void
-        operator()(events::connection_failure const& evt, fsm_type& fsm,
+        operator()(events::connection_failure const& evt, conn_fsm_type& fsm,
                 SourceState&, TargetState&)
         {
             #if DEBUG_OUTPUT >= 3
@@ -170,7 +173,7 @@ struct connection_fsm_def :
         }
         template < typename SourceState, typename TargetState >
         void
-        operator()(events::close const& evt, fsm_type& fsm,
+        operator()(events::close const& evt, conn_fsm_type& fsm,
                 SourceState&, TargetState&)
         {
             #if DEBUG_OUTPUT >= 3
@@ -182,7 +185,7 @@ struct connection_fsm_def :
     struct send_validate {
         template < typename Event, typename SourceState, typename TargetState >
         void
-        operator()(Event const&, fsm_type& fsm, SourceState&, TargetState&)
+        operator()(Event const&, conn_fsm_type& fsm, SourceState&, TargetState&)
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " send validate action\n";
@@ -193,31 +196,31 @@ struct connection_fsm_def :
     struct send_close {
         template < typename SourceState, typename TargetState >
         void
-        operator()(events::close const&, fsm_type& fsm, SourceState&, TargetState&)
+        operator()(events::close const&, conn_fsm_type& fsm, SourceState&, TargetState&)
         {
             fsm->send_close_message();
         }
     };
     struct send_request {
-        template < typename SourceState, typename TargetState >
+        template < typename FSM, typename SourceState, typename TargetState >
         void
-        operator()(events::send_request const& req, fsm_type& fsm, SourceState&, TargetState&)
+        operator()(events::send_request const& req, FSM& fsm, SourceState&, TargetState&)
         {
-            fsm->write_async(req.outgoing, req.sent);
+            fsm.connection()->write_async(req.outgoing, req.sent);
         }
     };
     struct send_reply {
-        template < typename SourceState, typename TargetState >
+        template < typename FSM, typename SourceState, typename TargetState >
         void
-        operator()(events::send_reply const& rep, fsm_type& fsm, SourceState&, TargetState&)
+        operator()(events::send_reply const& rep, FSM& fsm, SourceState&, TargetState&)
         {
-            fsm->write_async(rep.outgoing);
+            fsm.connection()->write_async(rep.outgoing);
         }
     };
     struct process_incoming {
         template < typename SourceState, typename TargetState >
         void
-        operator()(events::receive_data const& data, fsm_type& fsm, SourceState&, TargetState&)
+        operator()(events::receive_data const& data, conn_fsm_type& fsm, SourceState&, TargetState&)
         {
             #if DEBUG_OUTPUT >= 3
             ::std::cerr <<::getpid() << " Process incoming\n";
@@ -228,7 +231,7 @@ struct connection_fsm_def :
     struct dispatch_request {
         template < typename SourceState, typename TargetState >
         void
-        operator()(events::receive_request const& req, fsm_type& fsm, SourceState&, TargetState&)
+        operator()(events::receive_request const& req, conn_fsm_type& fsm, SourceState&, TargetState&)
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " Dispatch request\n";
@@ -239,7 +242,7 @@ struct connection_fsm_def :
     struct dispatch_reply {
         template < typename SourceState, typename TargetState >
         void
-        operator()(events::receive_reply const& rep, fsm_type& fsm, SourceState&, TargetState&)
+        operator()(events::receive_reply const& rep, conn_fsm_type& fsm, SourceState&, TargetState&)
         {
             fsm->post(&concrete_type::dispatch_reply, rep.incoming);
         }
@@ -260,7 +263,7 @@ struct connection_fsm_def :
         >;
 
         void
-        on_enter(events::connect const& evt, fsm_type& fsm)
+        on_enter(events::connect const& evt, conn_fsm_type& fsm)
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " connecting enter\n";
@@ -270,7 +273,7 @@ struct connection_fsm_def :
         }
         template < typename Event >
         void
-        on_exit(Event const&, fsm_type&)
+        on_exit(Event const&, conn_fsm_type&)
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " connecting exit (unexpected event)\n";
@@ -278,14 +281,14 @@ struct connection_fsm_def :
             clear_callbacks();
         }
         void
-        on_exit( events::connected const&, fsm_type& )
+        on_exit( events::connected const&, conn_fsm_type& )
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " connecting exit (success)\n";
             #endif
         }
         void
-        on_exit(events::connection_failure const& err, fsm_type&)
+        on_exit(events::connection_failure const& err, conn_fsm_type&)
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " connecting exit (fail)\n";
@@ -324,7 +327,7 @@ struct connection_fsm_def :
 
         template < typename Event >
         void
-        on_enter(Event const&, fsm_type& fsm)
+        on_enter(Event const&, conn_fsm_type& fsm)
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " wait_validate enter\n";
@@ -333,7 +336,7 @@ struct connection_fsm_def :
         }
         template < typename Event >
         void
-        on_exit(Event const&, fsm_type&)
+        on_exit(Event const&, conn_fsm_type&)
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " wait_validate exit\n";
@@ -341,7 +344,7 @@ struct connection_fsm_def :
             clear_callbacks();
         }
         void
-        on_exit( events::receive_validate const&, fsm_type& )
+        on_exit( events::receive_validate const&, conn_fsm_type& )
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " wait_validate exit (success)\n";
@@ -352,7 +355,7 @@ struct connection_fsm_def :
             clear_callbacks();
         }
         void
-        on_exit( events::connection_failure const& evt, fsm_type& )
+        on_exit( events::connection_failure const& evt, conn_fsm_type& )
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " wait_validate (fail)\n";
@@ -373,19 +376,11 @@ struct connection_fsm_def :
         functional::exception_callback  fail;
     };
 
-    struct online : state< online > {
-        using internal_transitions = transition_table<
-            in< events::send_request,       send_request,       none    >,
-            in< events::send_reply,         send_reply,         none    >,
-            in< events::receive_data,       process_incoming,   none    >,
-            in< events::receive_request,    dispatch_request,   none    >,
-            in< events::receive_reply,      dispatch_reply,     none    >,
-            in< events::receive_validate,   none,               none    >,
-            in< events::connected,          none,               none    >
-        >;
+    struct online : state_machine< online > {
+        using online_fsm_type = ::afsm::inner_state_machine<online, conn_fsm_type>;
         template < typename Event >
         void
-        on_enter(Event const&, fsm_type& fsm)
+        on_enter(Event const&, conn_fsm_type& fsm)
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " connected enter\n";
@@ -393,18 +388,89 @@ struct connection_fsm_def :
         }
         template < typename Event >
         void
-        on_exit(Event const&, fsm_type& fsm)
+        on_exit(Event const&, conn_fsm_type& fsm)
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " connected exit\n";
             #endif
         }
+
+        struct write_idle : state< write_idle > {
+            template < typename Event, typename FSM >
+            void
+            on_enter(Event const&, FSM& fsm)
+            {
+                #if DEBUG_OUTPUT >= 4
+                ::std::cerr <<::getpid() << " write_idle enter\n";
+                #endif
+            }
+            template < typename Event, typename FSM >
+            void
+            on_exit(Event const&, FSM& fsm)
+            {
+                #if DEBUG_OUTPUT >= 4
+                ::std::cerr <<::getpid() << " write_idle exit\n";
+                #endif
+            }
+        };
+        struct writing : state< writing > {
+            using deferred_events = type_tuple<
+                events::send_request,
+                events::send_request
+            >;
+            template < typename Event, typename FSM >
+            void
+            on_enter(Event const&, FSM& fsm)
+            {
+                #if DEBUG_OUTPUT >= 4
+                ::std::cerr <<::getpid() << " writing enter\n";
+                #endif
+            }
+            template < typename Event, typename FSM >
+            void
+            on_exit(Event const&, FSM& fsm)
+            {
+                #if DEBUG_OUTPUT >= 4
+                ::std::cerr <<::getpid() << " writing exit\n";
+                #endif
+            }
+        };
+        using initial_state = write_idle;
+
+        using internal_transitions = transition_table<
+            /*  Event                       Action              Guard   */
+            in< events::receive_data,       process_incoming,   none    >,
+            in< events::receive_request,    dispatch_request,   none    >,
+            in< events::receive_reply,      dispatch_reply,     none    >,
+            in< events::receive_validate,   none,               none    >,
+            in< events::connected,          none,               none    >
+        >;
+        using transitions = transition_table <
+            /*  Start           Event                       Next        Action          Guard   */
+            tr< write_idle,     events::send_request,       writing,    send_request,   none    >,
+            tr< write_idle,     events::send_reply,         writing,    send_reply,     none    >,
+            tr< writing,        events::write_done,         write_idle, none,           none    >
+        >;
+
+        online_fsm_type&
+        rebind()
+        { return static_cast<online_fsm_type&>(*this); }
+        online_fsm_type const&
+        rebind() const
+        { return static_cast<online_fsm_type const&>(*this); }
+
+        conn_fsm_type&
+        connection()
+        { return rebind().enclosing_fsm(); }
+        conn_fsm_type const&
+        connection() const
+        { return rebind().enclosing_fsm(); }
     };
 
     struct terminated : ::afsm::def::terminal_state< terminated > {
         template < typename Event >
         void
-        on_enter(Event const&, fsm_type& fsm)
+        on_enter(Event const&, conn_fsm_type& fsm)
         {
             #if DEBUG_OUTPUT >= 4
             ::std::cerr <<::getpid() << " terminated enter\n";
@@ -421,7 +487,7 @@ struct connection_fsm_def :
     struct is_server {
         template < typename State >
         bool
-        operator()(fsm_type const& fsm, State const&)
+        operator()(conn_fsm_type const& fsm, State const&)
         {
             return fsm.mode_ >= server;
         }
@@ -429,7 +495,7 @@ struct connection_fsm_def :
     struct is_stream_oriented {
         template < typename State >
         bool
-        operator()(fsm_type const& fsm, State const&)
+        operator()(conn_fsm_type const& fsm, State const&)
         {
             return fsm->is_stream_oriented();
         }

@@ -355,6 +355,7 @@ connection_implementation::handle_write(asio_config::error_code const& ec, ::std
         observer_.send_bytes(bytes, remote_endpoint());
         if (cb) cb();
         set_idle_timer();
+        process_event(events::write_done{});
     } else {
         #if DEBUG_OUTPUT >= 2
         ::std::cerr << ::getpid() << " Write failed " << ec.message() << "\n";

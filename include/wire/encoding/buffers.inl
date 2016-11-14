@@ -33,7 +33,6 @@ incoming::insert_back(InputIterator& begin, InputIterator end)
         #endif
         detail::copy_max(begin, end, std::back_inserter(back_buffer()),
                 to_copy);
-        std::copy(begin, end, std::back_inserter(back_buffer()));
     }
 }
 
