@@ -151,11 +151,11 @@ connection_implementation::set_idle_timer()
         if (cancelled_events) {
             ::std::ostringstream os;
             os << ::getpid() << " Reset timer\n";
-            ::std::cerr << os.str();
+            ::std::clog << os.str();
         } else {
             ::std::ostringstream os;
             os << ::getpid() << " Set timer\n";
-            ::std::cerr << os.str();
+            ::std::clog << os.str();
         }
         #endif
         auto _this = shared_from_this();
@@ -174,7 +174,7 @@ connection_implementation::on_idle_timeout(asio_config::error_code const& ec)
         #if DEBUG_OUTPUT >= 5
         ::std::ostringstream os;
         os << ::getpid() << " Timer expired\n";
-        ::std::cerr << os.str();
+        ::std::clog << os.str();
         #endif
         if (can_drop_connection())
             process_event(events::close{});
@@ -208,7 +208,7 @@ connection_implementation::request_error(request_number r_no,
         #if DEBUG_OUTPUT >= 3
         ::std::ostringstream os;
         os << ::getpid() << " Request " << r_no << " connection error\n";
-        ::std::cerr << os.str();
+        ::std::clog << os.str();
         #endif
         auto const& p_rep = acc->second;
         observer_.invocation_error(p_rep.target, p_rep.operation,
@@ -260,7 +260,7 @@ connection_implementation::start_session()
     #if DEBUG_OUTPUT >= 1
     ::std::ostringstream os;
     os << ::getpid() << " Start server session\n";
-    ::std::cerr << os.str();
+    ::std::clog << os.str();
     #endif
     process_event(events::start{});
     observer_.connect(remote_endpoint());
@@ -279,7 +279,7 @@ connection_implementation::handle_connected(asio_config::error_code const& ec)
     #if DEBUG_OUTPUT >= 1
     ::std::ostringstream os;
     os << ::getpid() << " Handle connected\n";
-    ::std::cerr << os.str();
+    ::std::clog << os.str();
     #endif
     connection_timer_.cancel();
     if (!ec) {
@@ -329,7 +329,7 @@ connection_implementation::handle_close()
     #if DEBUG_OUTPUT >= 1
     ::std::ostringstream os;
     os << ::getpid() << " Handle close\n";
-    ::std::cerr << os.str();
+    ::std::clog << os.str();
     #endif
 
     errors::connection_failed err{ "Conection closed" };
@@ -355,7 +355,7 @@ connection_implementation::write_async(encoding::outgoing_ptr out,
     #if DEBUG_OUTPUT >= 3
     ::std::ostringstream os;
     os << ::getpid() << " Send " << out->type() << " size " << out->size() << "\n";
-    ::std::cerr << os.str();
+    ::std::clog << os.str();
     #endif
     if (!is_terminated() && is_open()) {
     do_write_async( out,
@@ -377,7 +377,7 @@ connection_implementation::handle_write(asio_config::error_code const& ec, ::std
         #if DEBUG_OUTPUT >= 2
         ::std::ostringstream os;
         os << ::getpid() << " Write failed " << ec.message() << "\n";
-        ::std::cerr << os.str();
+        ::std::clog << os.str();
         #endif
         connection_failure(
             ::std::make_exception_ptr(errors::connection_failed(ec.message())));
@@ -414,7 +414,7 @@ connection_implementation::handle_read(asio_config::error_code const& ec, ::std:
         #if DEBUG_OUTPUT >= 2
         ::std::ostringstream os;
         os << ::getpid() << " Read failed " << ec.message() << "\n";
-        ::std::cerr << os.str();
+        ::std::clog << os.str();
         #endif
         connection_failure(
             ::std::make_exception_ptr(errors::connection_failed(ec.message())));
@@ -451,7 +451,7 @@ connection_implementation::process_message(encoding::message m,
             os << ::getpid() << " Receive " << m.type()
                     << " size " << m.size << " buffer remains: "
                     << (e - b) << "\n";
-            ::std::cerr << os.str();
+            ::std::clog << os.str();
             #endif
 
             encoding::incoming_ptr incoming =
@@ -460,14 +460,14 @@ connection_implementation::process_message(encoding::message m,
                 #if DEBUG_OUTPUT >= 3
                 ::std::ostringstream os;
                 os << ::getpid() << " Wait for more data from peer\n";
-                ::std::cerr << os.str();
+                ::std::clog << os.str();
                 #endif
                 incoming_ = incoming;
             } else {
                 #if DEBUG_OUTPUT >= 4
                 ::std::ostringstream os;
                 os << ::getpid() << " Dispatch message\n";
-                ::std::cerr << os.str();
+                ::std::clog << os.str();
                 #endif
                 dispatch_incoming(incoming);
             }
@@ -486,13 +486,13 @@ connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::s
             #if DEBUG_OUTPUT >= 3
             ::std::ostringstream os;
             os << ::getpid() << " Buffer size " << e - b << "\n";
-            ::std::cerr << os.str();
+            ::std::clog << os.str();
             #endif
             if (!carry_.empty()) {
                 #if DEBUG_OUTPUT >= 3
                 ::std::ostringstream os;
                 os << ::getpid() << " Read message with carry. Carry size " << carry_.size() << "\n";
-                ::std::cerr << os.str();
+                ::std::clog << os.str();
                 #endif
                 auto need_bytes = message::max_header_size - carry_.size();
                 for (auto i = 0U; i < need_bytes && b != e; ++i) {
@@ -519,7 +519,7 @@ connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::s
                     << " Incomplete message is pending. Message current size: "
                     << incoming_->size()
                     << " expected " << incoming_->header().size << "\n";
-                ::std::cerr << os.str();
+                ::std::clog << os.str();
                 #endif
                 incoming_->insert_back(b, e);
                 if (incoming_->complete()) {
@@ -528,7 +528,7 @@ connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::s
                     os << ::getpid()
                         << " Pending message complete size: " << incoming_->size()
                         << " (expected " << incoming_->header().size << ")\n";
-                    ::std::cerr << os.str();
+                    ::std::clog << os.str();
                     #endif
                     dispatch_incoming(incoming_);
                     incoming_.reset();
@@ -538,14 +538,14 @@ connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::s
                     os << ::getpid()
                         << " Pending message size: " << incoming_->size()
                         << " (expected " << incoming_->header().size << ")\n";
-                    ::std::cerr << os.str();
+                    ::std::clog << os.str();
                 #endif
                 }
             } else {
                 #if DEBUG_OUTPUT >= 3
                 ::std::ostringstream os;
                 os << ::getpid() << " Read message. Buffer size " << e - b << "\n";
-                ::std::cerr << os.str();
+                ::std::clog << os.str();
                 #endif
                 message m;
 
@@ -563,7 +563,7 @@ connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::s
         if (b != e) {
             ::std::ostringstream os;
             os << ::getpid() << " Add " << e - b << " bytes to the carry\n";
-            ::std::cerr << os.str();
+            ::std::clog << os.str();
         }
         #endif
         carry_.insert(carry_.end(), b, e);
@@ -572,7 +572,7 @@ connection_implementation::read_incoming_message(incoming_buffer_ptr buffer, ::s
         #if DEBUG_OUTPUT >= 2
         ::std::ostringstream os;
         os << ::getpid() << " Protocol read exception: " << e.what() << "\n";
-        ::std::cerr << os.str();
+        ::std::clog << os.str();
         #endif
         connection_failure(::std::current_exception());
     }
@@ -625,7 +625,7 @@ connection_implementation::invoke(encoding::invocation_target const& target,
     ::std::ostringstream os;
     os << ::getpid() << " Invoke request " << target.identity << "::" << op
             << " #" << r.number << "\n";
-    ::std::cerr << os.str();
+    ::std::clog << os.str();
     #endif
 
     write(::std::back_inserter(*out), r);
@@ -658,7 +658,7 @@ connection_implementation::invoke(encoding::invocation_target const& target,
                 {
                     ::std::ostringstream os;
                     os << ::getpid() << " Invocation #" << r_no << " has been sent\n";
-                    ::std::cerr << os.str();
+                    ::std::clog << os.str();
                 }};
             #else
                 functional::void_callback{};
@@ -688,7 +688,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
         #if DEBUG_OUTPUT >= 3
         ::std::ostringstream os;
         os << ::getpid() << " Dispatch reply #" << rep.number << "\n";
-        ::std::cerr << os.str();
+        ::std::clog << os.str();
         #endif
         auto peer_ep = remote_endpoint();
         if (pending_replies_.find(acc, rep.number)) {
@@ -698,7 +698,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                     #if DEBUG_OUTPUT >= 3
                     ::std::ostringstream os;
                     os << ::getpid() << " Reply #" << rep.number << " status is success\n";
-                    ::std::cerr << os.str();
+                    ::std::clog << os.str();
                     #endif
                     if (p_rep.reply) {
                         incoming::encaps_guard encaps{buffer->begin_encapsulation(b)};
@@ -708,7 +708,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                         ::std::ostringstream os;
                         os << ::getpid() << " Reply encaps v" << ever.major << "." << ever.minor
                                 << " size " << encaps.size() << "\n";
-                        ::std::cerr << os.str();
+                        ::std::clog << os.str();
                         #endif
                         observer_.invocation_ok(p_rep.target, p_rep.operation, peer_ep);
                         try {
@@ -723,7 +723,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                     #if DEBUG_OUTPUT >= 3
                     ::std::ostringstream os;
                     os << ::getpid() << " Reply #" << rep.number << " status is success without body\n";
-                    ::std::cerr << os.str();
+                    ::std::clog << os.str();
                     #endif
                     observer_.invocation_ok(p_rep.target, p_rep.operation, peer_ep);
                     if (p_rep.reply) {
@@ -741,7 +741,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                     #if DEBUG_OUTPUT >= 3
                     ::std::ostringstream os;
                     os << ::getpid() << " Reply #" << rep.number << " status is not found\n";
-                    ::std::cerr << os.str();
+                    ::std::clog << os.str();
                     #endif
                     if (p_rep.error) {
                         incoming::encaps_guard encaps{buffer->begin_encapsulation(b)};
@@ -751,7 +751,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                         ::std::ostringstream os;
                         os << ::getpid() << " Reply encaps v" << ever.major << "." << ever.minor
                                 << " size " << encaps.size() << "\n";
-                        ::std::cerr << os.str();
+                        ::std::clog << os.str();
                         #endif
                         encoding::operation_specs op;
                         auto b = encaps->begin();
@@ -781,14 +781,14 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                     #if DEBUG_OUTPUT >= 3
                     ::std::ostringstream os;
                     os << ::getpid() << " Reply #" << rep.number << " status is an exception\n";
-                    ::std::cerr << os.str();
+                    ::std::clog << os.str();
                     #endif
                     if (p_rep.error) {
                         incoming::encaps_guard encaps{buffer->begin_encapsulation(b)};
 
                         #if DEBUG_OUTPUT >= 3
                         version const& ever = encaps.encaps().encoding_version();
-                        ::std::cerr << ::getpid() << " Reply encaps v" << ever.major << "." << ever.minor
+                        ::std::clog << ::getpid() << " Reply encaps v" << ever.major << "." << ever.minor
                                 << " size " << encaps.size() << "\n";
                         #endif
                         errors::user_exception_ptr exc;
@@ -822,28 +822,28 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
             #if DEBUG_OUTPUT >= 4
             ::std::ostringstream os;
             os << ::getpid() << " Pending replies: " << pending_replies_.size() << "\n";
-            ::std::cerr << os.str();
+            ::std::clog << os.str();
             #endif
         } else {
             // else discard the reply (it can be timed out)
             #if DEBUG_OUTPUT >= 4
             ::std::ostringstream os;
             os << ::getpid() << " No waiting callback for reply\n";
-            ::std::cerr << os.str();
+            ::std::clog << os.str();
             #endif
         }
     } catch (::std::exception const& e) {
         #if DEBUG_OUTPUT >= 2
         ::std::ostringstream os;
         os << ::getpid() << " Exception when reading reply: " << e.what() << "\n";
-        ::std::cerr << os.str();
+        ::std::clog << os.str();
         #endif
         connection_failure(::std::current_exception());
     } catch (...) {
         #if DEBUG_OUTPUT >= 2
         ::std::ostringstream os;
         os << ::getpid() << " Exception when reading reply\n";
-        ::std::cerr << os.str();
+        ::std::clog << os.str();
         #endif
         connection_failure(::std::current_exception());
     }
@@ -939,7 +939,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
             os << ::getpid() << " Dispatch request #" << req.number << " "
                     << req.operation.operation
                     << " to " << req.operation.target.identity << "\n";
-            ::std::cerr << os.str();
+            ::std::clog << os.str();
             #endif
             auto peer_ep = remote_endpoint();
             observer_.receive_request(req.operation.target,
@@ -976,7 +976,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                     << " to " << req.operation.target.identity
                                     << " operation " << req.operation.operation
                                     << " failed to respond\n";
-                            ::std::cerr << os.str();
+                            ::std::clog << os.str();
                             #endif
                             _this->observer_.request_no_response(
                                     req.operation.target, req.operation.operation,
@@ -992,7 +992,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                 ::std::ostringstream os;
                                 os << ::getpid() << " Request #" << req.number
                                         << " success responce\n";
-                                ::std::cerr << os.str();
+                                ::std::clog << os.str();
                                 #endif
                                 _this->observer_.request_ok(
                                     req.operation.target, req.operation.operation,
@@ -1022,7 +1022,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                 ::std::ostringstream os;
                                 os << ::getpid() << " Request #" << req.number
                                         << " exception responce\n";
-                                ::std::cerr << os.str();
+                                ::std::clog << os.str();
                                 #endif
                                 _this->observer_.request_error(
                                     req.operation.target, req.operation.operation,
@@ -1053,14 +1053,14 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                 #if DEBUG_OUTPUT >= 3
                 ::std::ostringstream os;
                 os << ::getpid() << " No object\n";
-                ::std::cerr << os.str();
+                ::std::clog << os.str();
                 #endif
             }
         } else {
             #if DEBUG_OUTPUT >= 3
             ::std::ostringstream os;
             os << ::getpid() << " No adapter\n";
-            ::std::cerr << os.str();
+            ::std::clog << os.str();
             #endif
         }
         send_not_found(req.number, errors::not_found::object, req.operation);
@@ -1104,7 +1104,7 @@ connection::connection(server_side const&, adapter_ptr adp, endpoint const& ep)
             #if DEBUG_OUTPUT >= 1
             ::std::ostringstream os;
             os << ::getpid() << " Server connection on close\n";
-            ::std::cerr << os.str();
+            ::std::clog << os.str();
             #endif
         });
     pimpl_->listen(ep);
@@ -1115,7 +1115,7 @@ connection::~connection()
     #if DEBUG_OUTPUT >= 1
     ::std::ostringstream os;
     os << ::getpid() << " Destroy connection façade\n";
-    ::std::cerr << os.str();
+    ::std::clog << os.str();
     #endif
 }
 
@@ -1129,7 +1129,7 @@ connection::create_client_connection(adapter_ptr adp, transport_type tt,
                 #if DEBUG_OUTPUT >= 1
                 ::std::ostringstream os;
                 os << ::getpid() << " Client connection on close\n";
-                ::std::cerr << os.str();
+                ::std::clog << os.str();
                 #endif
                 if (on_close)
                     on_close(this);
