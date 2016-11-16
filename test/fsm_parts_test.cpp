@@ -52,9 +52,9 @@ struct dummy_action_a {
 };
 
 struct a_guard {
-    template <typename FSM, typename State>
+    template <typename FSM, typename State, typename Event>
     bool
-    operator()(FSM const&, State const&) const
+    operator()(FSM const&, State const&, Event const&) const
     { return true; }
 };
 
@@ -70,7 +70,11 @@ struct internal_transitions_test : def::state< internal_transitions_test > {
     >;
 };
 
-using test_state = state<internal_transitions_test, none>;
+struct test_state : state<internal_transitions_test, none> {
+    using base_state = state<internal_transitions_test, none>;
+    using base_state::process_event;
+    test_state(enclosing_fsm_type& fsm) : base_state{fsm} {}
+};
 
 TEST(FSM, InnerStateTransitions)
 {
@@ -100,6 +104,13 @@ struct is_none {
     {
         return fsm.value == "none";
     }
+};
+
+struct dummy_sm {
+    dummy_sm&
+    root_fsm() { return *this; }
+    dummy_sm const&
+    root_fsm() const { return *this; }
 };
 
 struct inner_dispatch_test : def::state_machine< inner_dispatch_test > {
@@ -159,11 +170,15 @@ struct inner_dispatch_test : def::state_machine< inner_dispatch_test > {
     ::std::string value = "none";
 };
 
-using test_sm = inner_state_machine< inner_dispatch_test, none >;
+struct test_sm : inner_state_machine< inner_dispatch_test, dummy_sm > {
+    using base_state = inner_state_machine<inner_dispatch_test, dummy_sm>;
+    using base_state::process_event;
+    test_sm(enclosing_fsm_type& fsm) : base_state{fsm} {}
+};
 
 TEST(FSM, InnerEventDispatch)
 {
-    none n;
+    dummy_sm n;
     test_sm tsm{n};
     EXPECT_EQ("none", tsm.value);
     EXPECT_EQ(test_sm::initial_state_index, tsm.current_state());
