@@ -41,7 +41,7 @@ struct conection_fsm_observer : ::afsm::detail::null_observer {
                 << " -> "
                 << cut_type_name(demangle< typename TargetState::state_definition_type >())
                 << " (" << cut_type_name(demangle<Event>()) << ")\n";
-        ::std::clog << os.str();
+        ::std::cerr << os.str();
     }
     #if DEBUG_OUTPUT >= 4
     template < typename FSM, typename State >
@@ -52,7 +52,7 @@ struct conection_fsm_observer : ::afsm::detail::null_observer {
         ::std::ostringstream os;
         os << ::getpid() << " Connection state cleared "
                 << cut_type_name(demangle<typename State::state_definition_type>()) << "\n";
-        ::std::clog << os.str();
+        ::std::cerr << os.str();
     }
 
     template < typename FSM, typename Event >
@@ -63,7 +63,7 @@ struct conection_fsm_observer : ::afsm::detail::null_observer {
         ::std::ostringstream os;
         os << ::getpid() << " Connection start process event "
                 << cut_type_name(demangle<Event>()) << "\n";
-        ::std::clog << os.str();
+        ::std::cerr << os.str();
     }
 
     template < typename FSM, typename Event >
@@ -74,7 +74,7 @@ struct conection_fsm_observer : ::afsm::detail::null_observer {
         ::std::ostringstream os;
         os << ::getpid() << " Connection processed event "
                 << cut_type_name(demangle<Event>()) << " in state\n";
-        ::std::clog << os.str();
+        ::std::cerr << os.str();
     }
 
     template < typename FSM, typename Event >
@@ -85,7 +85,7 @@ struct conection_fsm_observer : ::afsm::detail::null_observer {
         ::std::ostringstream os;
         os << ::getpid() << " Connection enqueue event "
                 << cut_type_name(demangle<Event>()) << "\n";
-        ::std::clog << os.str();
+        ::std::cerr << os.str();
     }
     template < typename FSM, typename Event >
     void
@@ -95,7 +95,7 @@ struct conection_fsm_observer : ::afsm::detail::null_observer {
         ::std::ostringstream os;
         os << ::getpid() << " Connection defer event "
                 << cut_type_name(demangle<Event>()) << "\n";
-        ::std::clog << os.str();
+        ::std::cerr << os.str();
     }
     #endif
     template < typename FSM, typename Event >
@@ -106,7 +106,7 @@ struct conection_fsm_observer : ::afsm::detail::null_observer {
         ::std::ostringstream os;
         os << ::getpid() << " Connection reject event "
                 << cut_type_name(demangle<Event>()) << "\n";
-        ::std::clog << os.str();
+        ::std::cerr << os.str();
     }
 };
 

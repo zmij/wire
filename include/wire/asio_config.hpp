@@ -54,7 +54,7 @@ make_error_code(Code c)
     return error::make_error_code(c);
 }
 
-::std::size_t const incoming_buffer_size = 1024;
+::std::size_t const incoming_buffer_size = 8192;
 
 }  // namespace asio_config
 }  // namespace wire
