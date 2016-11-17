@@ -145,7 +145,7 @@ struct connection_fsm_def :
             #if DEBUG_OUTPUT >= 4
             ::std::ostringstream os;
             os <<::getpid() << " connect action\n";
-            ::std::clog << os.str();
+            ::std::cerr << os.str();
             #endif
             // Do connect async
             root_machine(fsm)->do_connect_async(evt.ep);
@@ -165,22 +165,6 @@ struct connection_fsm_def :
         operator()(events::receive_validate const& evt, FSM& fsm,
                 wait_validate& from, online& to)
         {
-        }
-    };
-    struct on_disconnected {
-        template < typename FSM, typename SourceState, typename TargetState >
-        void
-        operator()(events::connection_failure const& evt, FSM& fsm,
-                SourceState&, TargetState&)
-        {
-            root_machine(fsm)->handle_close();
-        }
-        template < typename FSM, typename SourceState, typename TargetState >
-        void
-        operator()(events::close const& evt, FSM& fsm,
-                SourceState&, TargetState&)
-        {
-            root_machine(fsm)->handle_close();
         }
     };
     struct send_validate {
@@ -310,7 +294,7 @@ struct connection_fsm_def :
             } else {
                 ::std::ostringstream os;
                 os << ::getpid() << " No success callback in wait_validate\n";
-                ::std::clog << os.str();
+                ::std::cerr << os.str();
             }
             clear_callbacks();
         }
@@ -323,7 +307,7 @@ struct connection_fsm_def :
             } else {
                 ::std::ostringstream os;
                 os << ::getpid() << " No fail callback in wait_validate\n";
-                ::std::clog << os.str();
+                ::std::cerr << os.str();
             }
             clear_callbacks();
         }
@@ -364,7 +348,14 @@ struct connection_fsm_def :
         >;
     };
 
-    struct terminated : ::afsm::def::terminal_state< terminated > {};
+    struct terminated : ::afsm::def::terminal_state< terminated > {
+        template < typename Event, typename FSM >
+        void
+        on_enter(Event const&, FSM& fsm)
+        {
+            root_machine(fsm)->handle_close();
+        }
+    };
 
     using initial_state = unplugged;
     //@}
@@ -490,7 +481,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         #if DEBUG_OUTPUT >= 1
         ::std::ostringstream os;
         os << ::getpid() << " " << this << " Create client connection instance\n";
-        ::std::clog << os.str();
+        ::std::cerr << os.str();
         #endif
         #if DEBUG_OUTPUT >= 3
         make_observer();
@@ -513,7 +504,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         #if DEBUG_OUTPUT >= 1
         ::std::ostringstream os;
         os << ::getpid() << " " << this << " Create server connection instance\n";
-        ::std::clog << os.str();
+        ::std::cerr << os.str();
         #endif
         #if DEBUG_OUTPUT >= 3
         make_observer();
@@ -529,7 +520,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         #if DEBUG_OUTPUT >= 1
         ::std::ostringstream os;
         os << ::getpid() << " " << this << " Destroy connection instance\n";
-        ::std::clog << os.str();
+        ::std::cerr << os.str();
         #endif
     }
 
@@ -678,11 +669,11 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         #if DEBUG_OUTPUT >= 3
         ::std::ostringstream os;
         os << ::getpid() << " " << this << " Starting async connection operation\n";
-        ::std::clog << os.str();
+        ::std::cerr << os.str();
         os.str("");
         os << ::getpid() << " " << this << " IO service is "
                 << (io_service_->stopped() ? "stopped" : "running") << "\n";
-        ::std::clog << os.str();
+        ::std::cerr << os.str();
         #endif
         set_connect_timer();
         auto _this = shared_from_this();
@@ -891,7 +882,7 @@ private:
         #if DEBUG_OUTPUT >= 1
         ::std::ostringstream os;
         os <<::getpid() << " Open endpoint " << ep << "\n";
-        ::std::clog << os.str();
+        ::std::cerr << os.str();
         #endif
         listener_.open(ep, reuse_port);
         auto adptr = adapter_.lock();
