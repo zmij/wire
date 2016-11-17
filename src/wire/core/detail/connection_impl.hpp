@@ -279,12 +279,6 @@ struct connection_fsm_def :
         {
             fsm->start_read();
         }
-        template < typename FSM, typename Event >
-        void
-        on_exit(Event const&, FSM&)
-        {
-            clear_callbacks();
-        }
         template < typename FSM >
         void
         on_exit( events::receive_validate const&, FSM& )
@@ -296,7 +290,6 @@ struct connection_fsm_def :
                 os << ::getpid() << " No success callback in wait_validate\n";
                 ::std::cerr << os.str();
             }
-            clear_callbacks();
         }
         template < typename FSM >
         void
@@ -309,17 +302,10 @@ struct connection_fsm_def :
                 os << ::getpid() << " No fail callback in wait_validate\n";
                 ::std::cerr << os.str();
             }
-            clear_callbacks();
         }
 
-        void
-        clear_callbacks()
-        {
-            success = nullptr;
-            fail    = nullptr;
-        }
-        functional::void_callback       success;
-        functional::exception_callback  fail;
+        functional::void_callback       success = nullptr;
+        functional::exception_callback  fail    = nullptr;
     };
 
     struct online : state_machine< online > {
