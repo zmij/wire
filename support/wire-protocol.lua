@@ -534,7 +534,7 @@ read_operation = function(tvbuf, offset)
             dprint("Failed to read literal op name")
             return 0
         end
-        op.value = name
+        op.value = name.value
         consumed = consumed + n
     end
     op.size = consumed
