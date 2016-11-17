@@ -407,8 +407,8 @@ connection_implementation::handle_read(asio_config::error_code const& ec, ::std:
 {
     if (!ec) {
         observer_.receive_bytes(bytes, remote_endpoint());
-        start_read();
         process_event(events::receive_data{buffer, bytes});
+        start_read();
         set_idle_timer();
     } else {
         #if DEBUG_OUTPUT >= 2
