@@ -179,7 +179,7 @@ TEST_F(PingPong, SyncRoundtrip)
 
 TEST_F(PingPong, MTConnectionUsage)
 {
-    const ::std::size_t req_per_thread = 100;
+    const ::std::size_t req_per_thread = 10;
     auto const test_threads = ::std::thread::hardware_concurrency();
     auto const num_req = req_per_thread * test_threads * 2;
 
