@@ -90,8 +90,8 @@ function(wire2cpp)
         message(STATUS "Add target ${wire_file} -> ${cpp_file}")
         add_custom_command(
             OUTPUT ${cpp_file} ${hpp_file}
-            COMMAND wire2cpp ${wire2cpp_options} ${base_dir}/${wire_file}
-            DEPENDS ${base_dir}/${wire_file} wire2cpp
+            COMMAND ${WIRE2CPP} ${wire2cpp_options} ${base_dir}/${wire_file}
+            DEPENDS ${base_dir}/${wire_file} ${WIRE2CPP}
             COMMENT "Generate C++ sources from ${wire_file}"
         )
         if (DEPENDENCIES)

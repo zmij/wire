@@ -21,3 +21,8 @@ target_link_libraries(wire2cpp
     ${Boost_FILESYSTEM_LIBRARIES}
     ${WIRE_IDL_LIB}
 )
+
+install(
+    TARGETS wire2cpp
+    RUNTIME DESTINATION bin
+)

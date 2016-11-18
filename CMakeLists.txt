@@ -28,8 +28,16 @@ option(BUILD_TESTS "Build tests for ${lib_name} library" ON)
 option(COMPILE_TESTS "Test compile generated sources" OFF)
 option(DEBUG_OUTPUT "Generate debug output" OFF)
 
-set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules" )
+set( CMAKE_MODULE_PATH
+    ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"
+    "${CMAKE_CURRENT_SOURCE_DIR}/lib/meta/cmake"
+    "${CMAKE_CURRENT_SOURCE_DIR}/lib/afsm/cmake"
+)
 
+# wire2cpp generator. Variable is required by wire2cpp cmake script
+# When wire is found by find_package, the variable will be set by
+# FindWire.cmake script
+set(WIRE2CPP wire2cpp)
 include(cmake/scripts/wire2cpp.cmake)
 
 set(
@@ -46,6 +54,7 @@ find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(TBB REQUIRED)
 find_package(Readline)
+find_package(AFSM)
 
 if (Readline_INCLUDE_DIR)
     option(BUILD_CMD_UTILS "Build command line utils" ON)
@@ -55,11 +64,11 @@ if (NOT TIP_IRI_INCLUDE_DIRS)
     set(_TIP_IRI_SUBTREE ON)
 endif()
 
-if (NOT METAPUSHKIN_INCLUDE_DIR)
+if (NOT METAPUSHKIN_FOUND)
     set(_METAPUSHKIN_SUBTREE ON)
 endif()
 
-if (NOT AFSM_INCLUDE_DIR)
+if (NOT AFSM_FOUND)
     set(_AFSM_SUBTREE ON)
 endif()
 
@@ -137,13 +146,16 @@ include_directories(
     ${CMAKE_BINARY_DIR}/include
     ${BOOST_PROCESS_INCLUDE_DIRS}
     ${TIP_IRI_INCLUDE_DIRS}
-    ${METAPUSHKIN_INCLUDE_DIR}
-    ${AFSM_INCLUDE_DIR}
+    ${METAPUSHKIN_INCLUDE_DIRS}
+    ${AFSM_INCLUDE_DIRS}
 )
 
 # Add subdirectories here
 add_subdirectory(experiments)
 add_subdirectory(src/wire)
+add_subdirectory(include)
+add_subdirectory(cmake/scripts)
+
 if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
@@ -152,5 +164,5 @@ endif()
 get_directory_property(has_parent PARENT_DIRECTORY)
 if (has_parent)
     set(${LIB_NAME}_LIB ${lib_name} CACHE INTERNAL "Name of wire library target")
-    set(${LIB_NAME}_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE INTERNAL "Path to wire libaray includes" )
+    set(${LIB_NAME}_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE INTERNAL "Path to wire libaray includes" )
 endif()
