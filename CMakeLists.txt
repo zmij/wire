@@ -32,6 +32,7 @@ set( CMAKE_MODULE_PATH
     ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/meta/cmake"
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/afsm/cmake"
+    "${CMAKE_CURRENT_SOURCE_DIR}/lib/afsm/cmake/modules"
 )
 
 # wire2cpp generator. Variable is required by wire2cpp cmake script
