@@ -154,6 +154,7 @@ include_directories(
 add_subdirectory(experiments)
 add_subdirectory(src/wire)
 add_subdirectory(include)
+add_subdirectory(idl)
 add_subdirectory(cmake/scripts)
 
 if(BUILD_TESTS)
