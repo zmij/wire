@@ -87,8 +87,6 @@ struct send_reply{
     encoding::outgoing_ptr              outgoing;
 };
 
-struct write_done {};
-
 }  // namespace events
 
 template < typename Mutex, typename Concrete >
@@ -308,29 +306,22 @@ struct connection_fsm_def :
         functional::exception_callback  fail    = nullptr;
     };
 
-    struct online : state_machine< online > {
-        struct out_idle : state< out_idle > {};
-        struct out_busy : state< out_busy > {
-            using deferred_events = type_tuple<
-                events::send_request,
-                events::send_reply
-            >;
-        };
-        using initial_state = out_idle;
-
+    struct online : state< online > {
         using internal_transitions = transition_table<
-            /*                  Event                                   Action              Guard   */
-            in<                 events::receive_data,                   process_incoming,   none    >,
-            in<                 events::receive_request,                dispatch_request,   none    >,
-            in<                 events::receive_reply,                  dispatch_reply,     none    >,
-            in<                 events::receive_validate,               none,               none    >,
-            in<                 events::connected,                      none,               none    >
-        >;
-        using transitions = transition_table <
-            /*  Start           Event                       Next        Action              Guard   */
-            tr< out_idle,       events::send_request,       out_busy,   send_request,       none    >,
-            tr< out_idle,       events::send_reply,         out_busy,   send_reply,         none    >,
-            tr< out_busy,       events::write_done,         out_idle,   none,               none    >
+            /* Event                    |   Action          |   Guard   */
+            /* Writing to socket                                        */
+            /*--------------------------+-------------------+-----------*/
+            in< events::send_request    ,   send_request    ,   none    >,
+            in< events::send_reply      ,   send_reply      ,   none    >,
+            /* Reading from socket and dispatching messages             */
+            /*--------------------------+-------------------+-----------*/
+            in< events::receive_data    ,   process_incoming,   none    >,
+            in< events::receive_request ,   dispatch_request,   none    >,
+            in< events::receive_reply   ,   dispatch_reply  ,   none    >,
+            in< events::receive_validate,   none            ,   none    >,
+            /* Miscellaneous                                            */
+            /*--------------------------+-------------------+-----------*/
+            in< events::connected       ,   none            ,   none    >
         >;
     };
 
