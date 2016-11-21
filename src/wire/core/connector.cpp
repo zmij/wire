@@ -490,7 +490,7 @@ struct connector::impl {
             online_adapters_.erase(e);
         }
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Adapter " << adptr->id() << " is listening to " << eps << "\n";
+        ::std::cerr <<::getpid() << " Adapter " << adptr->id() << " is listening to " << eps << "\n";
             #endif
         for (auto e : eps)
             online_adapters_.emplace(e, adptr);
@@ -501,7 +501,7 @@ struct connector::impl {
         endpoint_list eps;
         ep.published_endpoints(eps);
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Adapter " << adptr->id() << " listening to " << eps << " went offline\n";
+        ::std::cerr <<::getpid() << " Adapter " << adptr->id() << " listening to " << eps << " went offline\n";
         #endif
         for (auto const& e : eps) {
             online_adapters_.erase(e);
@@ -522,20 +522,23 @@ struct connector::impl {
         return false;
     }
 
-    object_ptr
+    local_servant
     find_local_servant(reference const& ref)
     {
         if (!ref.data().endpoints.empty()) {
             for (auto const& ep : ref.data().endpoints) {
                 adapter_const_accessor acc;
                 if (online_adapters_.find(acc, ep)) {
-                    return acc->second->find_object(ref.object_id());
+                    return {
+                        acc->second->find_object(ref.object_id()),
+                        acc->second
+                    };
                 }
             }
         } else {
             // Check reference adapter id
         }
-        return object_ptr{};
+        return {object_ptr{}, adapter_ptr{}};
     }
 
     object_prx
@@ -587,7 +590,7 @@ struct connector::impl {
                 [on_get, conn, res, ep]()
                 {
                     #ifdef DEBUG_OUTPUT
-                    ::std::cerr << "Connected to " << ep << "\n";
+                    ::std::cerr <<::getpid() << " Connected to " << ep << "\n";
                     #endif
                     *res = true;
                     try {
@@ -597,7 +600,7 @@ struct connector::impl {
                 [this, exception, res, ep](::std::exception_ptr ex)
                 {
                     #if DEBUG_OUTPUT >= 2
-                        ::std::cerr << "Failed to connect to " << ep << "\n";
+                        ::std::cerr <<::getpid() << " Failed to connect to " << ep << "\n";
                     #endif
                     *res = true;
                     try {
@@ -619,12 +622,12 @@ struct connector::impl {
     erase_outgoing(endpoint ep)
     {
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Outgoing connection to " << ep << " closed\n";
+        ::std::cerr <<::getpid() << " Outgoing connection to " << ep << " closed\n";
         #endif
         connection_accessor acc;
         if (outgoing_.find(acc, ep)) {
             #if DEBUG_OUTPUT >= 1
-            ::std::cerr << "Erase connection to " << ep << "\n";
+            ::std::cerr <<::getpid() << " Erase connection to " << ep << "\n";
             #endif
             outgoing_.erase(acc);
         }
@@ -840,7 +843,7 @@ connector::is_local(reference const& ref) const
     return pimpl_->is_local(ref);
 }
 
-object_ptr
+connector::local_servant
 connector::find_local_servant(reference const& ref) const
 {
     return pimpl_->find_local_servant(ref);

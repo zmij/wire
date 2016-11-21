@@ -22,6 +22,28 @@ enum class event_process_result {
     defer,
 };
 
+/**
+ * The event was accepted and either processed or deferred for later processing.
+ * @param res
+ * @return
+ */
+inline bool
+ok(event_process_result res)
+{
+    return res != event_process_result::refuse;
+}
+
+/**
+ * The event was processed either with or without state transition.
+ * @param res
+ * @return
+ */
+inline bool
+done(event_process_result res)
+{
+    return res == event_process_result::process ||
+            res == event_process_result::process_in_state;
+}
 
 namespace detail {
 
@@ -53,20 +75,65 @@ struct handles_event
         ::std::false_type
     >::type {};
 
-template < typename FSM, typename State, typename Guard >
-struct guard_check {
-    static_assert(::psst::meta::is_callable< Guard, FSM const&, State const& >::value,
-            "Guard object is not callable with needed parameters");
+template < typename Guard, typename FSM, typename State, typename Event >
+struct guard_wants_event
+    : ::std::integral_constant<bool,
+        ::psst::meta::is_callable< Guard, FSM const&, State const&, Event const& >::value> {};
 
+template < typename Guard, typename FSM, typename State, typename Event >
+struct guard_wants_event< ::psst::meta::not_<Guard>, FSM, State, Event >
+    : ::std::integral_constant<bool,
+        ::psst::meta::is_callable< Guard, FSM const&, State const&, Event const& >::value> {};
+
+template < bool WantEvent, typename FSM, typename State, typename Event, typename Guard >
+struct guard_event_check {
     bool
-    operator()(FSM const& fsm, State const& state) const
+    operator()(FSM const& fsm, State const& state, Event const&) const
     { return Guard{}(fsm, state); }
 };
 
-template < typename FSM, typename State >
-struct guard_check< FSM, State, none > {
+template < typename FSM, typename State, typename Event, typename Guard >
+struct guard_event_check< true, FSM, State, Event, Guard > {
+    bool
+    operator()(FSM const& fsm, State const& state, Event const& event) const
+    { return Guard{}(fsm, state, event); }
+};
+
+template < typename FSM, typename State, typename Event, typename Guard >
+struct guard_check : ::std::conditional<
+            guard_wants_event< Guard, FSM, State, Event >::value,
+            guard_event_check<true, FSM, State, Event, Guard>,
+            typename ::std::conditional<
+                ::psst::meta::is_callable< Guard, FSM const&, State const& >::value,
+                guard_event_check<false, FSM, State, Event, Guard>,
+                guard_check<FSM, State, Guard, none> // TODO Replace with concept assert
+            >::type
+        >::type {};
+
+template < typename FSM, typename State, typename Event, typename ... Guards >
+struct guard_check< FSM, State, Event, ::psst::meta::and_<Guards...> > {
+    using check_function = ::psst::meta::and_< guard_check< FSM, State, Event, Guards >... >;
+    bool
+    operator()(FSM const& fsm, State const& state, Event const& event) const
+    {
+        return check_function{}(fsm, state, event);
+    }
+};
+
+template < typename FSM, typename State, typename Event, typename ... Guards >
+struct guard_check< FSM, State, Event, ::psst::meta::or_<Guards...> > {
+    using check_function = ::psst::meta::or_< guard_check< FSM, State, Event, Guards >... >;
+    bool
+    operator()(FSM const& fsm, State const& state, Event const& event) const
+    {
+        return check_function{}(fsm, state, event);
+    }
+};
+
+template < typename FSM, typename State, typename Event >
+struct guard_check< FSM, State, Event, none > {
     constexpr bool
-    operator()(FSM const&, State const&) const
+    operator()(FSM const&, State const&, Event const&) const
     { return true; }
 };
 
@@ -97,14 +164,14 @@ struct action_invokation< none, FSM, SourceState, TargetState > {
 template < typename Action, typename Guard, typename FSM,
     typename SourceState, typename TargetState >
 struct guarded_action_invokation {
-    using guard_type        = guard_check< FSM, SourceState, Guard >;
     using invokation_type   = action_invokation< Action, FSM, SourceState, TargetState >;
 
     template < typename Event >
     event_process_result
     operator()(Event&& event, FSM& fsm, SourceState& source, TargetState& target) const
     {
-        if (guard_type{}(fsm, source)) {
+        using guard_type        = guard_check< FSM, SourceState, Event, Guard >;
+        if (guard_type{}(fsm, source, ::std::forward<Event>(event))) {
             invokation_type{}(::std::forward<Event>(event), fsm, source, target);
             return event_process_result::process;
         }
@@ -188,6 +255,23 @@ struct conditional_in_state_invokation {
     }
 };
 
+template < bool hasActions, typename State, typename Event >
+struct is_in_state_action {
+    using state_type        = State;
+    using event_type        = Event;
+    using transitions       = typename state_type::internal_transitions;
+    using event_handlers    = typename ::psst::meta::find_if<
+        def::handles_event<event_type>::template type,
+        typename transitions::transitions >::type;
+
+    static constexpr bool value = event_handlers::size > 0;
+};
+
+template < typename State, typename Event >
+struct is_in_state_action <false, State, Event> {
+    static constexpr bool value = false;
+};
+
 template < bool hasActions, typename FSM, typename State, typename Event >
 struct in_state_action_invokation {
     using fsm_type          = FSM;
@@ -236,6 +320,12 @@ struct in_state_action_invokation<false, FSM, State, Event> {
 };
 
 }  /* namespace detail */
+
+template < typename State, typename Event >
+struct is_in_state_action : detail::is_in_state_action <
+        !::std::is_same<typename State::internal_transitions, void>::value &&
+        ::psst::meta::contains<Event, typename State::internal_events>::value,
+        State, Event >{};
 
 template < typename FSM, typename State, typename Event >
 struct in_state_action_invokation :

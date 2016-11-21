@@ -28,13 +28,13 @@ struct locator::impl {
     find_object(core::identity const& id)
     {
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Locator lookup well-known object " << id << "\n";
+        ::std::cerr <<::getpid() << " Locator lookup well-known object " << id << "\n";
         #endif
         proxy_map::const_accessor f;
         if (objects_.find(f, id)) {
             return f->second;
         }
-        ::std::cerr << "Locator well-known object " << id << " not found\n";
+        ::std::cerr <<::getpid() << " Locator well-known object " << id << " not found\n";
         throw core::object_not_found{id};
     }
 
@@ -46,12 +46,12 @@ struct locator::impl {
         auto const& ref = obj->wire_get_reference()->data();
         if (!ref.adapter.is_initialized() && ref.endpoints.empty()) {
             #if DEBUG_OUTPUT >= 1
-            ::std::cerr << "Locator cannot add well-known object " << *obj << "\n";
+            ::std::cerr <<::getpid() << " Locator cannot add well-known object " << *obj << "\n";
             #endif
             throw core::not_enough_data{};
         }
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Locator add well-known object " << *obj << "\n";
+        ::std::cerr <<::getpid() << " Locator add well-known object " << *obj << "\n";
         #endif
         auto id = ref.object_id;
         proxy_map::accessor f;
@@ -83,7 +83,7 @@ struct locator::impl {
         if (obj) {
             auto const& id = obj->wire_identity();
             #if DEBUG_OUTPUT >= 1
-            ::std::cerr << "Locator remove well-known object " << id << "\n";
+            ::std::cerr <<::getpid() << " Locator remove well-known object " << id << "\n";
             #endif
             proxy_map::accessor f;
             if (objects_.find(f, id)) {
@@ -113,7 +113,7 @@ struct locator::impl {
         auto id = ref.object_id;
 
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Locator add adapter " << *adapter << "\n";
+        ::std::cerr <<::getpid() << " Locator add adapter " << *adapter << "\n";
         #endif
         proxy_map::accessor f;
         // TODO Devise some sort of policies to throw on adapter exists
@@ -136,7 +136,7 @@ struct locator::impl {
             throw core::no_category_for_replica{};
         }
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Locator add replicated adapter " << *adapter << "\n";
+        ::std::cerr <<::getpid() << " Locator add replicated adapter " << *adapter << "\n";
         #endif
 
         if (id.is_wildcard()) {
@@ -174,7 +174,7 @@ struct locator::impl {
             throw core::no_adapter{id};
         } else {
             #if DEBUG_OUTPUT >= 1
-            ::std::cerr << "Locator remove adapter " << *adapter << "\n";
+            ::std::cerr <<::getpid() << " Locator remove adapter " << *adapter << "\n";
             #endif
             if (id.is_wildcard()) {
                 auto data = f->second->wire_get_reference()->data();

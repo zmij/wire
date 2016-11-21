@@ -133,7 +133,8 @@ struct local_invocation< Handler, Member,
     operator()(invocation_options const& opts) const
     {
         invocation_sent();
-        object_ptr obj = ref->get_local_object();
+        auto srvnt = ref->get_local_object();
+        object_ptr obj = srvnt.first;
         if (!obj) {
             invokation_error(
                 ::std::make_exception_ptr(errors::no_object{
@@ -145,7 +146,10 @@ struct local_invocation< Handler, Member,
         }
         servant_ptr srv = ::std::dynamic_pointer_cast< interface_type >(obj);
         auto ctx_ptr = ::std::make_shared<context_type>(ctx);
-        current curr{{{ref->object_id(), ref->facet()}, op}, ctx_ptr};
+        current curr{{{ref->object_id(), ref->facet()}, op},
+            ctx_ptr,
+            endpoint{},
+            srvnt.second};
         if (!srv) {
             dispatch(obj, curr, opts);
         } else {

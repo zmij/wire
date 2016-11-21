@@ -16,6 +16,10 @@
 
 #include <boost/program_options.hpp>
 
+#if DEBUG_OUTPUT >= 1
+#include <iostream>
+#endif
+
 namespace wire {
 namespace svc {
 
@@ -91,6 +95,9 @@ struct locator_service::impl {
         auto loc_prx = core::unchecked_cast<core::locator_proxy>(prx);
 
         cnctr->set_locator(loc_prx);
+        #if DEBUG_OUTPUT >= 1
+        ::std::cerr <<::getpid() << " Locator service initialized, try to register adapters\n";
+        #endif
         locator_adapter_->register_adapter();
         if (registry_adapter_ != locator_adapter_)
             registry_adapter_->register_adapter();

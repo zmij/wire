@@ -14,15 +14,17 @@ endif()
 
 # Add your package dependencies for test here
 
-include_directories(${GTEST_INCLUDE_DIRS})
+include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/../examples)
 
 set(
     test_program_SRCS
     # Add your sources here
     static_tests.cpp
+    state_machine_with_internal_transitions.cpp
     fsm_parts_test.cpp
     transaction_fsm.cpp
     common_base_test.cpp
+    vending_machine_test.cpp
 )
 add_executable(test-afsm-base ${test_program_SRCS})
 target_link_libraries(

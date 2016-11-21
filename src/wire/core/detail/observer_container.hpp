@@ -186,6 +186,19 @@ struct observer_container : connection_observer {
         }
     }
     void
+    connection_failure(endpoint const& ep, ::std::exception_ptr ex) const noexcept override
+    {
+        shared_lock lock{mutex_};
+        for (auto o : observers_) {
+            io_svc_->post(
+                [o, ep, ex]()
+                {
+                    o->connection_failure(ep, ex);
+                }
+            );
+        }
+    }
+    void
     disconnect(endpoint const& ep) const noexcept override
     {
         shared_lock lock{mutex_};

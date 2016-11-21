@@ -124,6 +124,14 @@ struct connection_observer {
     virtual void
     connect(endpoint const& ep) const noexcept {}
     /**
+     * Connection failed for some reason, e.g. connection refused, timeout,
+     * unmarshal error.
+     * @param ep
+     * @param ex
+     */
+    virtual void
+    connection_failure(endpoint const& ep, ::std::exception_ptr ex) const noexcept{}
+    /**
      * Connection is disconnected
      * @param ep
      */
