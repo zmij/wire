@@ -292,7 +292,7 @@ connection_implementation::handle_connected(asio_config::error_code const& ec)
         start_request_timer();
     } else {
         connection_failure(
-            ::std::make_exception_ptr(errors::connection_failed(ec.message())));
+            ::std::make_exception_ptr(errors::connection_refused(ec.message())));
     }
 }
 
@@ -332,7 +332,7 @@ connection_implementation::handle_close()
     ::std::cerr << os.str();
     #endif
 
-    errors::connection_failed err{ "Conection closed" };
+    errors::connection_closed err{ "Conection closed" };
     auto ex = ::std::make_exception_ptr(err);
 
     connection_timer_.cancel();
@@ -762,7 +762,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                                             rep.status - reply::no_object ),
                                     op.target.identity,
                                     op.target.facet,
-                                    op.name()
+                                    op.operation
                                 });
                         observer_.invocation_error(p_rep.target, p_rep.operation, peer_ep, ex);
                         try {
