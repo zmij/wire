@@ -16,6 +16,46 @@
 namespace wire {
 namespace svc {
 
+struct callback_accumulator {
+
+    struct data {
+        ::wire::core::functional::void_callback         responce;
+        ::wire::core::functional::exception_callback    exception_cb;
+        ::std::exception_ptr                            exception = nullptr;
+
+        data(::wire::core::functional::void_callback         __resp,
+             ::wire::core::functional::exception_callback    __exception)
+            : responce(__resp), exception_cb(__exception)
+        {
+        }
+        ~data()
+        {
+            using core::functional::report_exception;
+            if (exception) {
+                report_exception(exception_cb, exception);
+            } else {
+                responce();
+            }
+        }
+    };
+
+    callback_accumulator(
+            ::wire::core::functional::void_callback         __resp,
+            ::wire::core::functional::exception_callback    __exception)
+        : data_{ ::std::make_shared<data>(__resp, __exception ) } {}
+
+    void
+    operator()() {}
+    void
+    operator()(::std::exception_ptr ex)
+    {
+        if (!data_->exception)
+            data_->exception = ex;
+    }
+
+    ::std::shared_ptr<data> data_;
+};
+
 struct locator::impl {
     using proxy_map         = ::tbb::concurrent_hash_map< core::identity, core::object_prx >;
 
@@ -38,6 +78,61 @@ struct locator::impl {
         throw core::object_not_found{id};
     }
 
+    void
+    add_well_known_object(::wire::core::object_prx obj,
+            ::wire::core::functional::void_callback __resp,
+            ::wire::core::functional::exception_callback __exception)
+    {
+        using core::functional::report_exception;
+        if (!obj)
+            report_exception(__exception, core::not_enough_data{});
+        auto const& ref = obj->wire_get_reference()->data();
+        if (!ref.adapter.is_initialized() && ref.endpoints.empty()) {
+            #if DEBUG_OUTPUT >= 1
+            ::std::cerr <<::getpid() << " Locator cannot add well-known object " << *obj << "\n";
+            #endif
+            report_exception(__exception, core::not_enough_data{});
+        }
+        #if DEBUG_OUTPUT >= 1
+        ::std::cerr <<::getpid() << " Locator add well-known object " << *obj << "\n";
+        #endif
+        auto id = ref.object_id;
+        proxy_map::accessor f;
+        if (!objects_.find(f, id)) {
+            objects_.emplace(id, obj);
+        } else {
+            if (*f->second != *obj) {
+                f->second->wire_ping_async(
+                    [__exception]()
+                    {
+                        report_exception(__exception, core::well_known_object_exists{});
+                    },
+                    [this, __resp, id, obj](::std::exception_ptr ex)
+                    {
+                        // Object is not there, replacing
+                        proxy_map::accessor f;
+                        if (!objects_.find(f, id)) {
+                            objects_.emplace(id, obj);
+                        } else {
+                            f->second = obj;
+                        }
+                        __resp();
+                    });
+                return;
+            }
+        }
+        __resp();
+    }
+    void
+    add_well_known_objects(::wire::core::object_seq const& objs,
+            ::wire::core::functional::void_callback __resp,
+            ::wire::core::functional::exception_callback __exception)
+    {
+        callback_accumulator cb(__resp, __exception);
+        for (auto const& obj: objs) {
+            add_well_known_object(obj, cb, cb);
+        }
+    }
     void
     add_well_known_object(core::object_prx obj)
     {
@@ -251,6 +346,23 @@ locator::get_registry(get_registry_return_callback __resp,
 }
 
 void
+locator::add_well_known_object(::wire::core::object_prx object,
+        ::wire::core::functional::void_callback __resp,
+        ::wire::core::functional::exception_callback __exception)
+{
+    pimpl_->add_well_known_object(object, __resp, __exception);
+}
+
+void
+locator::add_well_known_objects(::wire::core::object_seq const& objs,
+        ::wire::core::functional::void_callback __resp,
+        ::wire::core::functional::exception_callback __exception)
+{
+    pimpl_->add_well_known_objects(objs, __resp, __exception);
+}
+
+
+void
 locator::add_well_known_object(core::object_prx obj)
 {
     pimpl_->add_well_known_object(obj);
@@ -295,8 +407,7 @@ locator_registry::add_well_known_object(::wire::core::object_prx obj,
         ::wire::core::current const&)
 {
     try {
-        loc_->add_well_known_object(obj);
-        __resp();
+        loc_->add_well_known_object(obj, __resp, __exception);
     } catch (...) {
         __exception(::std::current_exception());
     }
@@ -308,20 +419,7 @@ locator_registry::add_well_known_objects(::wire::core::object_seq const& objs,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&)
 {
-    ::std::exception_ptr ex;
-    for (auto obj : objs) {
-        try {
-            loc_->add_well_known_object(obj);
-        } catch (...) {
-            if (!ex)
-                ex = ::std::current_exception();
-        }
-    }
-    if (ex) {
-        __exception(ex);
-    } else {
-        __resp();
-    }
+    loc_->add_well_known_objects(objs, __resp, __exception);
 }
 
 void
