@@ -398,6 +398,9 @@ public:
     bool
     empty() const
     { return endpoints_.empty(); }
+    ::std::size_t
+    size() const
+    { return endpoints_.size(); }
 
     endpoint
     next() const

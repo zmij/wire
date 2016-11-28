@@ -368,6 +368,8 @@ struct operation_specs {
     ::std::string const&
     name() const
     {
+        if (type() != name_string)
+            throw ::std::runtime_error("Operation name is hashed");
         return ::boost::get<::std::string>(operation);
     }
 };

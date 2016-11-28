@@ -150,7 +150,7 @@ object::__dispatch(detail::dispatch_request const& req, current const& c)
         dispatch_seen_list seen;
         if (!__wire_dispatch(req, c, seen, true)) {
             throw errors::no_operation{
-                wire_static_type_id(), "::", c.operation.name()};
+                wire_static_type_id(), "::", c.operation.operation};
         }
     } catch (...) {
         if (req.exception) {
