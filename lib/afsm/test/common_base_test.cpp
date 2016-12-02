@@ -32,24 +32,24 @@ struct human_interface {
 };
 
 struct dummy_action {
-    template< typename FSM, typename SourceState, typename TargetState >
+    template< typename FSM >
     void
-    operator()(wash const&, FSM&, SourceState&, TargetState&)
+    operator()(wash const&, FSM&)
     {
         ::std::cerr << "Brrr!\n";
     }
-    template< typename FSM, typename SourceState, typename TargetState >
+    template< typename FSM >
     void
-    operator()(do_work const&, FSM&, SourceState&, TargetState&)
+    operator()(do_work const&, FSM&)
     {
         ::std::cerr << "Enough work!\n";
     }
 };
 
 struct sleep_action {
-    template < typename FSM, typename SourceState, typename TargetState >
+    template < typename FSM >
     void
-    operator()(sleep const&, FSM& fsm, SourceState&, TargetState&) const
+    operator()(sleep const&, FSM& fsm) const
     {
         if (fsm.fatigue > 0)
             --fsm.fatigue;
@@ -57,15 +57,17 @@ struct sleep_action {
 };
 
 struct work_action {
-    template < typename FSM, typename SourceState, typename TargetState >
+    template < typename FSM >
     void
-    operator()(do_work const&, FSM& fsm, SourceState&, TargetState&) const
+    operator()(do_work const&, FSM& fsm) const
     {
         ::std::cerr << "Getting tired! " << ++fsm.fatigue << "\n";
     }
 };
 
-struct human_def : ::afsm::def::state_machine< human_def, human_interface > {
+using common_base_tag = ::afsm::def::tags::common_base<human_interface>;
+
+struct human_def : ::afsm::def::state_machine< human_def, common_base_tag > {
     using fsm_type = ::afsm::state_machine<human_def>;
 
     struct sleeping : state<sleeping> {
@@ -81,7 +83,7 @@ struct human_def : ::afsm::def::state_machine< human_def, human_interface > {
         >;
     };
 
-    struct awake : state_machine<awake, human_interface> {
+    struct awake : state_machine<awake> {
         using fsm_type = ::afsm::inner_state_machine< awake, human_def::fsm_type >;
 
         template < typename Event >

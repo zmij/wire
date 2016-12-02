@@ -14,6 +14,9 @@
 #include <wire/core/context.hpp>
 #include <wire/version.hpp>
 
+#include <iomanip>
+#include <cctype>
+
 namespace wire {
 namespace encoding {
 
@@ -240,7 +243,24 @@ try_read(InputIterator& start, InputIterator end, message& v)
     read(begin, end, magic);
     if (magic != message::MAGIC_NUMBER) {
         // Unrecoverable
-        throw errors::invalid_magic_number("Invalid magic number in message header");
+        ::std::ostringstream os;
+        os << "Invalid magic number in message header (buffer size "
+                << (end - start) << ", first bytes of message: ";
+        begin = start;
+        ::std::ostringstream hex_rep;
+        hex_rep << "0x";
+        for (int i = 0; i < 8 && begin != end; ++i, ++begin) {
+            char c = *begin;
+            if (::std::isprint(c)) {
+                os.put(c);
+            } else {
+                os.put('.');
+            }
+            hex_rep << ::std::hex << ::std::setfill('0') << ::std::setw(2)
+                << ((int)c & 0xff);
+        }
+        os << " [" << hex_rep.str() << "])";
+        throw errors::invalid_magic_number(os.str());
     }
     message tmp;
     if (!flags_reader::try_input(begin, end, tmp.flags))
@@ -348,6 +368,8 @@ struct operation_specs {
     ::std::string const&
     name() const
     {
+        if (type() != name_string)
+            throw ::std::runtime_error("Operation name is hashed");
         return ::boost::get<::std::string>(operation);
     }
 };

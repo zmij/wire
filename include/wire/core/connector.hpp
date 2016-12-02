@@ -46,6 +46,7 @@ class connector : public ::std::enable_shared_from_this<connector> {
 public:
     using args_type             = ::std::vector<::std::string>;
     using connection_callback   = ::std::function< void(connection_ptr) >;
+    using local_servant         = ::std::pair<object_ptr, adapter_ptr>;
 public:
     //@{
     /** @name Connector creation functions */
@@ -167,7 +168,7 @@ public:
     /** @name References */
     bool
     is_local(reference const& ref) const;
-    object_ptr
+    local_servant
     find_local_servant(reference const& ref) const;
 
     object_prx

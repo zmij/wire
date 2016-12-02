@@ -7,309 +7,33 @@
 
 #include <gtest/gtest.h>
 #include <afsm/fsm.hpp>
-#include <afsm/detail/debug_io.hpp>
-#include <pushkin/ansi_colors.hpp>
-#include <iostream>
-#include <iomanip>
+
+#include "transaction_common.hpp"
 
 namespace afsm {
 namespace test {
 
 namespace events {
-
-struct connect {
-    static ::std::string const name;
-};
 ::std::string const connect::name{"connect"};
-struct complete {
-    static ::std::string const name;
-};
 ::std::string const complete::name{"complete"};
-struct ready_for_query {
-    static ::std::string const name;
-};
 ::std::string const ready_for_query::name{"ready_for_query"};
-struct begin {
-    static ::std::string const name;
-};
 ::std::string const begin::name{"begin"};
-struct terminate {
-    static ::std::string const name;
-};
 ::std::string const terminate::name{"terminate"};
-
-struct execute {
-    static ::std::string const name;
-};
 ::std::string const execute::name{"execute"};
-struct exec_prepared {
-    static ::std::string const name;
-};
 ::std::string const exec_prepared::name{"exec_prepared"};
-
-struct commit {
-    static ::std::string const name;
-};
 ::std::string const commit::name{"commit"};
-struct rollback {
-    static ::std::string const name;
-};
 ::std::string const rollback::name{"rollback"};
-
-struct conn_error {
-    static ::std::string const name;
-};
 ::std::string const conn_error::name{"conn_error"};
-struct query_error {
-    static ::std::string const name;
-};
 ::std::string const query_error::name{"query_error"};
-struct client_error {
-    static ::std::string const name;
-};
 ::std::string const client_error::name{"client_error"};
-
-struct row_description {
-    static ::std::string const name;
-};
 ::std::string const row_description::name{"row_description"};
-struct no_data {
-    static ::std::string const name;
-};
 ::std::string const no_data::name{"no_data"};
-struct row_event {
-    static ::std::string const name;
-};
 ::std::string const row_event::name{"row_event"};
-struct command_complete {
-    static ::std::string const name;
-};
 ::std::string const command_complete::name{"command_complete"};
-
 }  /* namespace events */
 
-namespace {
-
-int const event_name_width = 17;
-
-}  /* namespace  */
-
-struct transit_action {
-    template < typename Event, typename FSM, typename SourceState, typename TargetState >
-    void
-    operator()(Event&&, FSM&, SourceState& src, TargetState& tgt) const
-    {
-        using ::psst::ansi_color;
-        ::std::cerr
-                << (ansi_color::cyan | ansi_color::bright)
-                << ::std::setw(event_name_width) << ::std::left
-                << Event::name << ansi_color::clear
-                << ": " << src.name() << " -> " << tgt.name() << "\n";
-    }
-    template < typename FSM, typename SourceState, typename TargetState >
-    void
-    operator()(none&&, FSM&, SourceState& src, TargetState& tgt) const
-    {
-        using ::psst::ansi_color;
-        ::std::cerr
-                << (ansi_color::red | ansi_color::bright)
-                << ::std::setw(event_name_width) << ::std::left
-                << "[default]" << ansi_color::clear
-                << ": " << src.name() << " -> " << tgt.name() << "\n";
-    }
-};
-
-struct state_name {
-    virtual ~state_name() {}
-    virtual ::std::string
-    name() const = 0;
-
-    template < typename Event, typename FSM >
-    void
-    on_enter(Event&&, FSM&)
-    {
-        using decayed_event = typename ::std::decay<Event>::type;
-        using ::psst::ansi_color;
-        ::std::cerr
-             << (ansi_color::blue | ansi_color::bright)
-             << ::std::setw(event_name_width) << ::std::left
-             << decayed_event::name << ansi_color::clear
-             << ": Enter " << name() << "\n";
-    }
-    template < typename FSM >
-    void
-    on_enter(none&&, FSM&)
-    {
-        using ::psst::ansi_color;
-        ::std::cerr
-                << ansi_color::red
-                << ::std::setw(event_name_width) << ::std::left
-                << "[default]" << ansi_color::clear
-                << ": Enter " << name() << "\n";
-    }
-    template < typename Event, typename FSM >
-    void
-    on_exit(Event&&, FSM&)
-    {
-        using decayed_event = typename ::std::decay<Event>::type;
-        using ::psst::ansi_color;
-        ::std::cerr
-             << (ansi_color::cyan | ansi_color::dim)
-             << ::std::setw(event_name_width) << ::std::left
-             << decayed_event::name << ansi_color::clear
-             << ": Exit " << name() << "\n";
-    }
-    template < typename FSM >
-    void
-    on_exit(none const&, FSM&)
-    {
-        using ::psst::ansi_color;
-        ::std::cerr
-                << (ansi_color::red | ansi_color::dim)
-                << ::std::setw(event_name_width) << ::std::left
-                << "[default]" << ansi_color::clear
-                << ": Exit " << name() << "\n";
-    }
-};
-
-struct connection_observer {
-    template < typename FSM, typename Event >
-    void
-    start_process_event(FSM const&, Event const&) const noexcept
-    {
-        using decayed_event = typename ::std::decay<Event>::type;
-        using ::psst::ansi_color;
-        ::std::cerr
-             << (ansi_color::green | ansi_color::dim)
-             << ::std::setw(event_name_width) << ::std::left
-             << decayed_event::name << ansi_color::clear
-             << ": Start processing\n";
-    }
-
-    template < typename FSM >
-    void
-    start_process_event(FSM const&, none const&) const noexcept
-    {
-        using ::psst::ansi_color;
-        ::std::cerr
-             << (ansi_color::green | ansi_color::dim)
-             << ::std::setw(event_name_width) << ::std::left
-             << "[default]" << ansi_color::clear
-             << ": Start processing\n";
-    }
-
-    template < typename FSM >
-    void
-    state_changed(FSM const&) const noexcept
-    {
-        using ::psst::ansi_color;
-        ::std::cerr
-             << (ansi_color::blue | ansi_color::bright)
-             << ::std::setw(event_name_width) << ::std::setfill('*')
-             << "*" << ansi_color::clear  << ::std::setfill(' ')
-             << ": State changed\n";
-    }
-
-    template < typename FSM, typename Event >
-    void
-    processed_in_state(FSM const&, Event const&) const noexcept
-    {
-        using decayed_event = typename ::std::decay<Event>::type;
-        using ::psst::ansi_color;
-        ::std::cerr
-             << (ansi_color::blue | ansi_color::dim)
-             << ::std::setw(event_name_width) << ::std::left
-             << decayed_event::name << ansi_color::clear
-             << ": Processed in state\n";
-    }
-
-    template < typename FSM, typename Event >
-    void
-    enqueue_event(FSM const&, Event const&) const noexcept
-    {
-        using decayed_event = typename ::std::decay<Event>::type;
-        using ::psst::ansi_color;
-        ::std::cerr
-             << (ansi_color::blue | ansi_color::dim)
-             << ::std::setw(event_name_width) << ::std::left
-             << decayed_event::name << ansi_color::clear
-             << ": Enqueue event\n";
-    }
-
-    template < typename FSM >
-    void
-    start_process_events_queue(FSM const&) const noexcept
-    {
-        using ::psst::ansi_color;
-        ::std::cerr
-             << (ansi_color::blue | ansi_color::bright)
-             << ::std::setw(event_name_width) << ::std::setfill('*')
-             << "*" << ansi_color::clear  << ::std::setfill(' ')
-             << ": Start processing event queue\n";
-    }
-    template < typename FSM >
-    void
-    end_process_events_queue(FSM const&) const noexcept
-    {
-        using ::psst::ansi_color;
-        ::std::cerr
-             << (ansi_color::blue | ansi_color::bright)
-             << ::std::setw(event_name_width) << ::std::setfill('*')
-             << "*" << ansi_color::clear  << ::std::setfill(' ')
-             << ": End processing event queue\n";
-    }
-
-    template < typename FSM, typename Event >
-    void
-    defer_event(FSM const&, Event const&) const noexcept
-    {
-        using decayed_event = typename ::std::decay<Event>::type;
-        using ::psst::ansi_color;
-        ::std::cerr
-             << (ansi_color::red | ansi_color::dim)
-             << ::std::setw(event_name_width) << ::std::left
-             << decayed_event::name << ansi_color::clear
-             << ": Defer event\n";
-    }
-
-    template < typename FSM >
-    void
-    start_process_deferred_queue(FSM const&) const noexcept
-    {
-        using ::psst::ansi_color;
-        ::std::cerr
-             << (ansi_color::blue | ansi_color::bright)
-             << ::std::setw(event_name_width) << ::std::setfill('*')
-             << "*" << ansi_color::clear  << ::std::setfill(' ')
-             << ": Start processing deferred event queue\n";
-    }
-    template < typename FSM >
-    void
-    end_process_deferred_queue(FSM const&) const noexcept
-    {
-        using ::psst::ansi_color;
-        ::std::cerr
-             << (ansi_color::blue | ansi_color::bright)
-             << ::std::setw(event_name_width) << ::std::setfill('*')
-             << "*" << ansi_color::clear  << ::std::setfill(' ')
-             << ": End processing deferred event queue\n";
-    }
-
-    template < typename FSM, typename Event >
-    void
-    reject_event(FSM const& fsm, Event const&) const noexcept
-    {
-        using decayed_event = typename ::std::decay<Event>::type;
-        using ::psst::ansi_color;
-        ::std::cerr
-             << (ansi_color::red | ansi_color::bright)
-             << ::std::setw(event_name_width) << ::std::left
-             << decayed_event::name << ansi_color::clear
-             << ": Reject event. State " << fsm.name() << "\n";
-    }
-};
-
-struct connection_fsm_def : def::state_machine<connection_fsm_def, state_name> {
+struct connection_fsm_def : def::state_machine<connection_fsm_def,
+                                def::tags::common_base<state_name>> {
     using connection_fsm =
             ::afsm::state_machine<
                  connection_fsm_def, ::std::mutex, connection_observer>;
@@ -369,12 +93,11 @@ struct connection_fsm_def : def::state_machine<connection_fsm_def, state_name> {
         }
     };
 
-    struct transaction : state_machine<transaction, state_name> {
+    struct transaction : state_machine<transaction> {
         using transaction_fsm = ::afsm::inner_state_machine<transaction, connection_fsm>;
 
         transaction()
         {
-            ::std::cerr << "Construct trasaction state\n";
         }
         ::std::string
         name() const override
@@ -417,7 +140,7 @@ struct connection_fsm_def : def::state_machine<connection_fsm_def, state_name> {
             >;
         };
 
-        struct simple_query : state_machine<simple_query, state_name> {
+        struct simple_query : state_machine<simple_query> {
             using simple_query_fsm = ::afsm::inner_state_machine<simple_query, transaction_fsm>;
             ::std::string
             name() const override
@@ -465,7 +188,7 @@ struct connection_fsm_def : def::state_machine<connection_fsm_def, state_name> {
             >;
         };
 
-        struct extended_query : state_machine<extended_query, state_name> {
+        struct extended_query : state_machine<extended_query> {
             using extended_query_fsm = ::afsm::inner_state_machine<extended_query, transaction_fsm>;
             ::std::string
             name() const override
@@ -606,21 +329,26 @@ static_assert(
     ::std::is_base_of< detail::containment_type< detail::state_containment::immediate >,
      detail::state_containment_type<
              connection_fsm_def::connecting,
+             connection_fsm_def,
              connection_fsm::inner_states_def>>::value, "");
 
 static_assert(
     detail::state_containment_type<
         connection_fsm_def::connecting,
+        connection_fsm_def,
         connection_fsm::inner_states_def>::value == detail::state_containment::immediate, "");
 static_assert(
     detail::state_containment_type<
         connection_fsm_def::transaction::idle,
+        connection_fsm_def,
         connection_fsm::inner_states_def>::value == detail::state_containment::substate, "");
 static_assert(
     detail::state_containment_type<
         connection_fsm_def,
-        connection_fsm::inner_states_def>::value == detail::state_containment::none, "");
+        connection_fsm_def,
+        connection_fsm::inner_states_def>::value == detail::state_containment::self, "");
 
+namespace {
 void
 begin_transaction(connection_fsm& fsm)
 {
@@ -651,12 +379,18 @@ commit_transaction(connection_fsm& fsm)
     EXPECT_FALSE(fsm.is_in_state<connection_fsm_def::transaction::idle>());
 }
 
+}  /* namespace  */
+
 TEST(TranFSM, AllEvents)
 {
     using actions::event_process_result;
     using ::psst::ansi_color;
     connection_fsm fsm;
     fsm.make_observer();
+
+    ::std::cerr << fsm.get_state< connection_fsm_def >().name() << "\n";
+    ::std::cerr << fsm.get_state< connection_fsm::transaction >().name() << "\n";
+    ::std::cerr << fsm.get_state< connection_fsm::transaction::simple_query >().name() << "\n";
 
     EXPECT_EQ(event_process_result::process, fsm.process_event(events::connect{}));
     EXPECT_TRUE(fsm.is_in_state<connection_fsm_def::connecting>());

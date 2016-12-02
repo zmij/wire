@@ -20,15 +20,15 @@ struct eventBC{};
 struct eventAC{};
 
 struct stateA : state< stateA > {};
-struct stateB : state< stateB > {};
-struct stateC : state< stateC > {};
+struct stateB : state< stateB, tags::strong_exception_safety > {};
+struct stateC : state< stateC, tags::nothrow_guarantee > {};
 
 static_assert( traits::is_state<stateA>::value, "" );
 static_assert( traits::is_state<stateB>::value, "" );
 static_assert( traits::is_state<stateC>::value, "" );
 static_assert( !traits::has_history<stateA>::value, "" );
 
-struct stateD : state< stateD, void, tags::has_history > {};
+struct stateD : state< stateD, tags::has_history > {};
 static_assert( traits::is_state<stateD>::value, "" );
 static_assert( traits::has_history<stateD>::value, "" );
 
@@ -95,6 +95,58 @@ struct my_fsm : state_machine<my_fsm> {
 
 static_assert(traits::is_state<my_fsm>::value, "");
 static_assert(traits::is_state_machine<my_fsm>::value, "");
+static_assert(!traits::has_orthogonal_regions<my_fsm>::value, "");
+
+struct ortho_fsm : state_machine<ortho_fsm> {
+    struct region_a : state<region_a> {};
+    struct region_b : state<region_b> {};
+    using orthogonal_regions = type_tuple<region_a, region_b>;
+};
+
+static_assert(traits::is_state<ortho_fsm>::value, "");
+static_assert(traits::is_state_machine<ortho_fsm>::value, "");
+static_assert(traits::has_orthogonal_regions<ortho_fsm>::value, "");
+
+//----------------------------------------------------------------------------
+//  Actions
+//----------------------------------------------------------------------------
+
+struct action_long {
+    template < typename Event, typename FSM, typename SourceState, typename TargetState >
+    void
+    operator()(Event&&, FSM&, SourceState&, TargetState&) {}
+};
+
+struct action_short {
+    template < typename Event, typename FSM >
+    void
+    operator()(Event&&, FSM&) {}
+};
+
+static_assert(actions::detail::action_long_signature<action_long, eventAB, none, stateA, stateB>::value, "");
+static_assert(!actions::detail::action_long_signature<action_short, eventAB, none, stateA, stateB>::value, "");
+
+static_assert(!actions::detail::action_short_signature<action_long, eventAB, none>::value, "");
+static_assert(actions::detail::action_short_signature<action_short, eventAB, none>::value, "");
+
+//----------------------------------------------------------------------------
+//  Exception safety
+//----------------------------------------------------------------------------
+static_assert(
+    ::std::is_same<
+        traits::exception_safety<stateA>::type,
+        tags::basic_exception_safety
+     >::value, "Default exception safety");
+static_assert(
+    ::std::is_same<
+        traits::exception_safety<stateB>::type,
+        tags::strong_exception_safety
+     >::value, "Strong exception safety");
+static_assert(
+    ::std::is_same<
+        traits::exception_safety<stateC>::type,
+        tags::nothrow_guarantee
+     >::value, "No-throw exception guarantee");
 
 }  /* namespace test */
 }  /* namespace def */

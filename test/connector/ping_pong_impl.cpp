@@ -26,7 +26,11 @@ static_assert(::std::is_same<
 ::std::int32_t
 ping_pong_server::test_int(::std::int32_t val, ::wire::core::current const&) const
 {
-    ::std::cerr << __FUNCTION__ << "\n";
+    #if DEBUG_OUTPUT >= 3
+    ::std::ostringstream os;
+    os << ::getpid() << " " << __FUNCTION__ << "\n";
+    ::std::cerr << os.str();
+    #endif
     return val;
 }
 
@@ -36,7 +40,11 @@ ping_pong_server::test_string(::std::string const& val,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&)
 {
-    ::std::cerr << __FUNCTION__ << "\n";
+    #if DEBUG_OUTPUT >= 3
+    ::std::ostringstream os;
+    os << ::getpid() << " " << __FUNCTION__ << "\n";
+    ::std::cerr << os.str();
+    #endif
     __resp(val);
 }
 
@@ -46,7 +54,11 @@ ping_pong_server::test_struct(::test::data const& val,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&) const
 {
-    ::std::cerr << __FUNCTION__ << " " << val << "\n";
+    #if DEBUG_OUTPUT >= 3
+    ::std::ostringstream os;
+    os << ::getpid() << " " << __FUNCTION__ << " " << val << "\n";
+    ::std::cerr << os.str();
+    #endif
     __resp(val);
 }
 
@@ -56,7 +68,11 @@ ping_pong_server::test_callback(::test::ping_pong::callback_prx cb,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&)
 {
-    ::std::cerr << __FUNCTION__ << " " << *cb << "\n";
+    #if DEBUG_OUTPUT >= 3
+    ::std::ostringstream os;
+    os << ::getpid() << " " << __FUNCTION__ << " " << *cb << "\n";
+    ::std::cerr << os.str();
+    #endif
     __resp(cb);
 }
 
@@ -66,12 +82,20 @@ ping_pong_server::test_ball(::test::ball_ptr b,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const&)
 {
-    ::std::cerr << __FUNCTION__ << " ";
+    ::std::ostringstream os;
+    #if DEBUG_OUTPUT >= 3
+    os << ::getpid() << " " << __FUNCTION__ << " ";
+    ::std::cerr << os.str();
     if (b) {
-        ::std::cerr << "Ball size " << b->size << "\n";
+        ::std::ostringstream os;
+        os << ::getpid() << " Ball size " << b->size << "\n";
+        ::std::cerr << os.str();
     } else {
-        ::std::cerr << "No ball\n";
+        ::std::ostringstream os;
+        os << ::getpid() << " No ball\n";
+        ::std::cerr << os.str();
     }
+    #endif
     __resp(b);
 }
 
@@ -86,7 +110,11 @@ ping_pong_server::async_error(::wire::core::functional::void_callback __resp,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&) const
 {
-    ::std::cerr << __FUNCTION__ << "\n";
+    #if DEBUG_OUTPUT >= 3
+    ::std::ostringstream os;
+    os << ::getpid() << " " << __FUNCTION__ << "\n";
+    ::std::cerr << os.str();
+    #endif
     __exception(::std::make_exception_ptr(::test::oops{ "Async shit happens!" }));
 }
 
@@ -95,7 +123,11 @@ ping_pong_server::stop(::wire::core::functional::void_callback __resp,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&)
 {
-    ::std::cerr << __FUNCTION__ << "\n";
+    #if DEBUG_OUTPUT >= 3
+    ::std::ostringstream os;
+    os << ::getpid() << " " << __FUNCTION__ << "\n";
+    ::std::cerr << os.str();
+    #endif
     __resp();
     if (on_stop_)
         on_stop_();

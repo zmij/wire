@@ -179,9 +179,9 @@ TEST_F(PingPong, SyncRoundtrip)
 
 TEST_F(PingPong, MTConnectionUsage)
 {
-    const ::std::size_t req_per_thread = 100;
+    const ::std::size_t req_per_thread = 10;
     auto const test_threads = ::std::thread::hardware_concurrency();
-    auto const num_req = req_per_thread * test_threads;
+    auto const num_req = req_per_thread * test_threads * 2;
 
     ASSERT_NE(0, child_.pid);
     ASSERT_TRUE(connector_.get());
@@ -195,47 +195,64 @@ TEST_F(PingPong, MTConnectionUsage)
     ::std::atomic<::std::size_t> requests{0}, responses{0}, errors{0};
 
     ::std::vector<::std::thread> threads;
+    auto int_resp =
+            [&](int32_t const& res)
+            {
+                ++responses;
+                if (responses + errors >= num_req) {
+                    ::std::cerr << "******* Stop io service\n"
+                            << "SENT        " << requests << "\n"
+                            << "PASS        " << responses << "\n"
+                            << "FAIL        " << errors << "\n"
+                            << "TOTAL       " << responses + errors << "\n"
+                            << "EXPECTED    " << num_req << "\n";
+                    io_svc->stop();
+                }
+            };
+    auto string_resp =
+            [&](::std::string const& res)
+            {
+                ++responses;
+                if (responses + errors >= num_req) {
+                    ::std::cerr << "******* Stop io service\n"
+                            << "SENT        " << requests << "\n"
+                            << "PASS        " << responses << "\n"
+                            << "FAIL        " << errors << "\n"
+                            << "TOTAL       " << responses + errors << "\n"
+                            << "EXPECTED    " << num_req << "\n";
+                    io_svc->stop();
+                }
+            };
+    auto error_resp =
+            [&](::std::exception_ptr ex)
+            {
+                ++errors;
+                try {
+                    ::std::rethrow_exception(ex);
+                } catch (::std::exception const& e) {
+                    ::std::cerr << "Error " << e.what() << "\n";
+                } catch (...) {
+                    ::std::cerr << "Unknown exception\n";
+                }
+                if (responses + errors >= num_req) {
+                    ::std::cerr << "******* Stop io service\n"
+                            << "SENT        " << requests << "\n"
+                            << "PASS        " << responses << "\n"
+                            << "FAIL        " << errors << "\n"
+                            << "TOTAL       " << responses + errors << "\n"
+                            << "EXPECTED    " << num_req << "\n";
+                    io_svc->stop();
+                }
+            };
     for (auto t = 0U; t < test_threads; ++t) {
         threads.emplace_back(
         [&]()
         {
             for (auto i = 0U; i < req_per_thread; ++i) {
                 ++requests;
-                pp_prx->test_int_async(42, //LIPSUM_TEST_STRING,
-                [&](int32_t const& res)
-                {
-                    ++responses;
-                    if (responses + errors >= num_req) {
-                        ::std::cerr << "******* Stop io service\n"
-                                << "SENT        " << requests << "\n"
-                                << "PASS        " << responses << "\n"
-                                << "FAIL        " << errors << "\n"
-                                << "TOTAL       " << responses + errors << "\n"
-                                << "EXPECTED    " << num_req << "\n";
-                        io_svc->stop();
-                    }
-                },
-                [&](::std::exception_ptr ex)
-                {
-                    ++errors;
-                    try {
-                        ::std::rethrow_exception(ex);
-                    } catch (::std::exception const& e) {
-                        ::std::cerr << "Error " << e.what() << "\n";
-                    } catch (...) {
-                        ::std::cerr << "Unknown exception\n";
-                    }
-                    if (responses + errors >= num_req) {
-                        ::std::cerr << "******* Stop io service\n"
-                                << "SENT        " << requests << "\n"
-                                << "PASS        " << responses << "\n"
-                                << "FAIL        " << errors << "\n"
-                                << "TOTAL       " << responses + errors << "\n"
-                                << "EXPECTED    " << num_req << "\n";
-                        io_svc->stop();
-                    }
-                });
-
+                pp_prx->test_int_async(42, int_resp, error_resp);
+                ++requests;
+                pp_prx->test_string_async(LIPSUM_TEST_STRING, string_resp, error_resp);
             }
         });
     }

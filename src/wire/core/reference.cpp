@@ -88,15 +88,17 @@ reference::is_local() const
     return get_connector()->is_local(*this);
 }
 
-object_ptr
+reference::local_servant
 reference::get_local_object() const
 {
     auto obj = local_object_cache_.lock();
     if (!obj) {
-        obj = get_connector()->find_local_servant(*this);
+        auto loc_srv = get_connector()->find_local_servant(*this);
+        obj = loc_srv.first;
         local_object_cache_ = obj;
+        adapter_cache_      = loc_srv.second;
     }
-    return obj;
+    return {obj, adapter_cache_.lock()};
 }
 
 connection_ptr

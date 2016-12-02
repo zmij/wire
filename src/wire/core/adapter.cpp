@@ -121,19 +121,19 @@ struct adapter::impl {
                 reg = cnctr->get_locator_registry();
             } catch (...) {
                 #if DEBUG_OUTPUT >= 1
-                ::std::cerr << "Failed to get locator registry on exception\n";
+                ::std::cerr <<::getpid() << "  Failed to get locator registry on exception\n";
                 #endif
             }
             if (reg) {
                 auto prx = adapter_proxy();
                 if (is_replicated()) {
                     #if DEBUG_OUTPUT >= 2
-                    ::std::cerr << "Try to register replicated adapter " << *prx << " at locator\n";
+                    ::std::cerr <<::getpid() << " Try to register replicated adapter " << *prx << " at locator\n";
                     #endif
                     reg->add_replicated_adapter(prx);
                 } else {
                     #if DEBUG_OUTPUT >= 2
-                    ::std::cerr << "Try to register adapter " << *prx << " at locator\n";
+                    ::std::cerr <<::getpid() << " Try to register adapter " << *prx << " at locator\n";
                     #endif
                     reg->add_adapter(prx);
                 }
@@ -168,12 +168,12 @@ struct adapter::impl {
                     }
                 } catch ( ::std::exception const& e) {
                     #if DEBUG_OUTPUT >= 1
-                    ::std::cerr << "Error wnen unregistering adapter " << id_<< ": "
+                    ::std::cerr <<::getpid() << " Error wnen unregistering adapter " << id_<< ": "
                             << e.what() << "\n";
                     #endif
                 } catch (...) {
                     #if DEBUG_OUTPUT >= 1
-                    ::std::cerr << "Unexpected error when unregistering adapter "
+                    ::std::cerr <<::getpid() << " Unexpected error when unregistering adapter "
                             << id_ << "\n";
                     #endif
                 }
@@ -221,7 +221,7 @@ struct adapter::impl {
     connection_online(endpoint const& local, endpoint const& remote)
     {
         #ifdef DEBUG_OUTPUT
-        ::std::cerr << "Connection " << local << " -> " << remote << " is online\n";
+        ::std::cerr <<::getpid() << " Connection " << local << " -> " << remote << " is online\n";
         #endif
     }
     void
@@ -239,7 +239,7 @@ struct adapter::impl {
     connection_offline(endpoint const& ep)
     {
         #ifdef DEBUG_OUTPUT
-        ::std::cerr << "Connection " << ep << " is offline\n";
+        ::std::cerr <<::getpid() << " Connection " << ep << " is offline\n";
         #endif
     }
 
