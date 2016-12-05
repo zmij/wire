@@ -20,14 +20,17 @@ namespace {
 
 ::std::string const TEST_JSON_OBJECT =
 R"~({
-"string":"string",
-"int":123,
-"obj": {},
-"obj2": null,
-"sub-obj":{
+"string" : "string",
+"int" : 123,
+"obj" : {},
+"obj2" : null,
+"sub-obj" : {
     "foo" : "bar"
 },
 "empty-array": [],
+"empty-array": [
+    []
+],
 "array": [ 123, "123" ]
 })~";
 
@@ -41,7 +44,16 @@ TEST(Parser, CharIterator)
     EXPECT_TRUE(r);
 }
 
-TEST(Parser, StreamIterator)
+TEST(StreamParser, EmptyArray)
+{
+    ::std::istringstream is{ "[[   ]]" };
+
+    debug_parser parser;
+    bool r = detail::parse(parser, is);
+    EXPECT_TRUE(r);
+}
+
+TEST(StreamParser, Iterator)
 {
     ::std::istringstream is{ TEST_JSON_OBJECT };
 
@@ -83,7 +95,7 @@ TEST(Parser, IntegralParser)
     EXPECT_EQ(-42, val);
 }
 
-TEST(JIstream, Bool)
+TEST(JIstream, DISABLED_Bool)
 {
     {
         ::std::istringstream is{"true"};
@@ -101,7 +113,7 @@ TEST(JIstream, Bool)
     }
 }
 
-TEST(JIstream, Integral)
+TEST(JIstream, DISABLED_Integral)
 {
     {
         ::std::istringstream is{"100500"};
@@ -112,7 +124,7 @@ TEST(JIstream, Integral)
     }
 }
 
-TEST(JIstream, String)
+TEST(JIstream, DISABLED_String)
 {
     ::std::istringstream is{"\"foo\""};
     json_istream jis{is};
@@ -121,7 +133,7 @@ TEST(JIstream, String)
     EXPECT_EQ("foo", val);
 }
 
-TEST(JIstream, Struct)
+TEST(JIstream, DISABLED_Struct)
 {
     ::std::istringstream is{R"~({"fval":2.13,"ival":42,"str":"bar"})~"};
     json_istream jis{is};

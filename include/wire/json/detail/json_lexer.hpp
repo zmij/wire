@@ -35,28 +35,20 @@ struct basic_json_tokens : ::boost::spirit::lex::lexer< Lexer > {
     using empty_token   = ::boost::spirit::lex::token_def<
                                 ::boost::spirit::unused_type, CharT>;
 
-    enum token_ids {
-        id_string        = 1000,
-        id_empty_string,
-        id_integral,
-        id_float,
-        id_true,
-        id_false,
-        id_null
-    };
-
     basic_json_tokens()
-        : string_literal    {json_io::string_re, id_string },
-          empty_string      {json_io::empty_re, id_empty_string},
-          integral_literal  {json_io::integral_re, id_integral},
-          float_literal     {json_io::float_re, id_float},
-          true_             {json_io::true_str, id_true},
-          false_            {json_io::false_str, id_false},
-          null              {json_io::null_str, id_null}
+        : string_literal    {json_io::string_re,            json_io::id_string       },
+          empty_string      {json_io::empty_re,             json_io::id_empty_string },
+          integral_literal  {json_io::integral_re,          json_io::id_integral     },
+          float_literal     {json_io::float_re,             json_io::id_float        },
+          true_             {json_io::true_str,             json_io::id_true         },
+          false_            {json_io::false_str,            json_io::id_false        },
+          null              {json_io::null_str,             json_io::id_null         },
+          eol               {json_io::cvt(chars::newline),  json_io::id_newline      },
+          ws                {json_io::ws_re,                json_io::id_ws           }
     {
         self = string_literal | empty_string
             | integral_literal | float_literal
-            | true_ | false_ | null
+            | true_ | false_ | null | eol | ws
             | json_io::cvt(chars::start_object)
             | json_io::cvt(chars::end_object)
             | json_io::cvt(chars::start_array)
@@ -64,17 +56,17 @@ struct basic_json_tokens : ::boost::spirit::lex::lexer< Lexer > {
             | json_io::cvt(chars::colon)
             | json_io::cvt(chars::comma)
         ;
-        self(json_io::ws_state) = empty_token(json_io::ws_re)
-            | json_io::c_comment_re     // C-style comments
-            | json_io::cpp_comment_re   // C++-style comments
-        ;
+//        self(json_io::ws_state) = empty_token(json_io::ws_re)
+//            | json_io::c_comment_re     // C-style comments
+//            | json_io::cpp_comment_re   // C++-style comments
+//        ;
     }
 
     token_def< string_type >    string_literal, empty_string;
     token_def< long >           integral_literal;
     token_def< long double >    float_literal;
     token_def< bool >           true_, false_;
-    empty_token                 null;
+    empty_token                 null, eol, ws;
 };
 
 template <typename Lexer>

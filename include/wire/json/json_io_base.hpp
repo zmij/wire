@@ -14,8 +14,24 @@
 namespace wire {
 namespace json {
 
+struct json_token_defs {
+    enum token_ids {
+        id_string        = 1000,
+        id_empty_string,
+        id_integral,
+        id_float,
+        id_true,
+        id_false,
+        id_null,
+        id_newline,
+        id_ws
+    };
+    using integral_type     = ::std::int64_t;
+    using float_type        = long double;
+};
+
 template < typename CharT, typename Traits = ::std::char_traits<CharT> >
-struct json_io_base {
+struct json_io_base : json_token_defs {
     using char_type     = CharT;
     using traits_type   = Traits;
     using ostream_type  = ::std::basic_ostream<char_type, traits_type>;
@@ -50,7 +66,7 @@ struct json_io_base {
 
     static ostream_type&
     put(ostream_type& os, chars);
-    static char_type
+    static constexpr char_type
     cvt(chars);
     template < typename T >
     static string_type
@@ -58,7 +74,7 @@ struct json_io_base {
 };
 
 template < typename Traits >
-struct json_io_base<char, Traits> {
+struct json_io_base<char, Traits> : json_token_defs {
     using char_type     = char;
     using traits_type   = Traits;
     using ostream_type  = ::std::basic_ostream<char_type, traits_type>;
@@ -84,8 +100,8 @@ struct json_io_base<char, Traits> {
     static constexpr char_type const* string_re         = R"~(\"((\\\")|(\\.)|[^\"])+\")~";
     static constexpr char_type const* empty_re          = R"~(\"\")~";
     static constexpr char_type const* integral_re       = "-?([1-9][0-9]*)|0";
-    static constexpr char_type const* float_re          = "-?([1-9][0-9]*)?\\.[0-9]*([eE]-?[1-9][0-9]*)?";
-    static constexpr char_type const* ws_re             = "[ \\t\\n]+";
+    static constexpr char_type const* float_re          = "-?(([1-9][0-9]*)|0)?(\\.[0-9]*)?([eE][+-]?[1-9][0-9]*)?";
+    static constexpr char_type const* ws_re             = "[ \\t]+";
     static constexpr char_type const* c_comment_re      = R"~(\/\*[^*]*\*+([^/*][^*]*\*+)*\/)~";
     static constexpr char_type const* cpp_comment_re    = R"~(\/\/.*?\n)~";
 
@@ -97,7 +113,7 @@ struct json_io_base<char, Traits> {
         os.put(static_cast<char_type>(v));
         return os;
     }
-    static char_type
+    static constexpr char_type
     cvt(chars v)
     { return static_cast<char_type>(v); }
 
@@ -120,7 +136,7 @@ constexpr char const*
 json_io_base<char, Traits>::ws_state;
 
 template < typename Traits >
-struct json_io_base<wchar_t, Traits> {
+struct json_io_base<wchar_t, Traits> : json_token_defs {
     using char_type     = wchar_t;
     using traits_type   = Traits;
     using ostream_type  = ::std::basic_ostream<char_type, traits_type>;
@@ -159,7 +175,7 @@ struct json_io_base<wchar_t, Traits> {
         os.put(static_cast<char_type>(v));
         return os;
     }
-    constexpr static char_type
+    static constexpr char_type
     cvt(chars v)
     { return static_cast<char_type>(v); }
 

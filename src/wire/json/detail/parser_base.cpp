@@ -10,6 +10,13 @@
 #include <wire/json/detail/integral_parser.hpp>
 #include <wire/json/detail/floating_parser.hpp>
 
+#include <wire/json/detail/json_fsm.hpp>
+
+namespace afsm {
+template class state_machine< wire::json::detail::json_parser_fsm_def<char> >;
+template class state_machine< wire::json::detail::json_parser_fsm_def<wchar_t> >;
+}  /* namespace afsm */
+
 namespace wire {
 namespace json {
 namespace detail {
@@ -68,8 +75,9 @@ parse(parser_base& p, char const* first, ::std::size_t size)
     parser_traits::token_iterator iter = tokens.begin(first, first + size);
     parser_traits::token_iterator end = tokens.end();
 
-    parser_traits::grammar_type grammar(tokens, p);
-    return qi::phrase_parse(iter, end, grammar, qi::in_state(json_io::ws_state)[tokens.self]);
+//    parser_traits::grammar_type grammar(tokens, p);
+//    return qi::phrase_parse(iter, end, grammar, qi::in_state(json_io::ws_state)[tokens.self]);
+    return false;
 }
 
 bool
@@ -82,19 +90,33 @@ bool
 parse(parser_base& p, ::std::istream& is)
 {
     namespace qi = ::boost::spirit::qi;
+    namespace lex = ::boost::spirit::lex;
     using istream_iterator = ::boost::spirit::istream_iterator;
     using parser_traits = detail::parser_traits< istream_iterator, char >;
     using json_io = json_io_base<char>;
+    using tokenizer_type = parser_traits::tokenizer_type;
+    using fsm_type = parser_traits::fsm_type;
+
+    is.unsetf(::std::ios_base::skipws);
 
     istream_iterator sb{is};
     istream_iterator se;
 
-    parser_traits::tokenizer_type tokens;
+    tokenizer_type tokens;
     parser_traits::token_iterator iter = tokens.begin(sb, se);
     parser_traits::token_iterator end = tokens.end();
+    fsm_type fsm;
 
-    parser_traits::grammar_type grammar(tokens, p);
-    return qi::phrase_parse(iter, end, grammar, qi::in_state(json_io::ws_state)[tokens.self]);
+//    lex::tokenize(iter, end, tokens, ::std::ref(fsm));
+    while (iter != end && token_is_valid(*iter)) {
+        if (!fsm(*iter))
+            return false;
+        ++iter;
+    }
+
+//    parser_traits::grammar_type grammar(tokens, p);
+//    return qi::phrase_parse(iter, end, grammar, qi::in_state(json_io::ws_state)[tokens.self]);
+    return fsm.is_in_state< fsm_type::context::end >();
 }
 
 bool
@@ -108,8 +130,9 @@ parse(wparser_base& p, wchar_t const* first, ::std::size_t size)
     parser_traits::token_iterator iter = tokens.begin(first, first + size);
     parser_traits::token_iterator end = tokens.end();
 
-    parser_traits::grammar_type grammar(tokens, p);
-    return qi::phrase_parse(iter, end, grammar, qi::in_state(json_io::ws_state)[tokens.self]);
+//    parser_traits::grammar_type grammar(tokens, p);
+//    return qi::phrase_parse(iter, end, grammar, qi::in_state(json_io::ws_state)[tokens.self]);
+    return false;
 }
 
 bool
@@ -133,8 +156,9 @@ parse(wparser_base& p, ::std::wistream& is)
     parser_traits::token_iterator iter = tokens.begin(sb, se);
     parser_traits::token_iterator end = tokens.end();
 
-    parser_traits::grammar_type grammar(tokens, p);
-    return qi::phrase_parse(iter, end, grammar, qi::in_state(json_io::ws_state)[tokens.self]);
+//    parser_traits::grammar_type grammar(tokens, p);
+//    return qi::phrase_parse(iter, end, grammar, qi::in_state(json_io::ws_state)[tokens.self]);
+    return false;
 }
 
 }  /* namespace detail */
