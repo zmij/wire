@@ -30,7 +30,7 @@ TEST_P(pass_parse_test, PASS)
     debug_parser parser{false};
     bool r = detail::parse(parser, is);
     EXPECT_TRUE(r) << fname << " has been successfully parsed";
-};
+}
 
 TEST_P(fail_parse_test, FAIL)
 {
@@ -53,7 +53,7 @@ TEST_P(unsure_test, PASS)
     } else {
         ::std::cerr << fname << " was not parsed\n";
     }
-};
+}
 
 @INSTANTIATE_EXPECTED_PASS@
 @INSTANTIATE_EXPECTED_FAIL@
