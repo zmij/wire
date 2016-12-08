@@ -26,7 +26,9 @@ template < typename Lexer, typename CharT, typename Traits = ::std::char_traits<
 struct basic_json_tokens : ::boost::spirit::lex::lexer< Lexer > {
     using base          = ::boost::spirit::lex::lexer< Lexer >;
     using json_io       = json_io_base<CharT, Traits>;
-    using string_type   = ::std::basic_string<CharT, Traits>;
+    using string_type   = typename json_io::string_type;
+    using integral_type = typename json_io::integral_type;
+    using float_type    = typename json_io::float_type;
     using chars         = typename json_io::chars;
     using base::self;
 
@@ -63,8 +65,8 @@ struct basic_json_tokens : ::boost::spirit::lex::lexer< Lexer > {
     }
 
     token_def< string_type >    string_literal, empty_string;
-    token_def< long >           integral_literal;
-    token_def< long double >    float_literal;
+    token_def< integral_type >  integral_literal;
+    token_def< float_type >     float_literal;
     token_def< bool >           true_, false_;
     empty_token                 null, eol, ws;
 };

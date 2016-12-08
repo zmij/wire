@@ -212,7 +212,8 @@ struct json_parser_fsm_def
             ::std::cerr << "Token value '" << c << "'\n";
         } else if (tok.id() < json_io::id_newline) {
             ::std::cerr << "Token id " << tok.id()
-                << " value '" << tok.value() << "'\n";
+                << " value '" << tok.value() << "' which "
+                << tok.value().which() << "\n";
         }
         switch (tok.id()) {
             case json_io::cvt(chars::start_object):
@@ -232,9 +233,13 @@ struct json_parser_fsm_def
             case json_io::id_empty_string:
                 return ok(fsm.process_event(string_type{}));
             case json_io::id_integral:
+//                return ok(fsm.process_event(
+//                        ::boost::get<integral_type>(tok.value())));
                 return ok(fsm.process_event(integral_type{}));
             case json_io::id_float:
                 return ok(fsm.process_event(float_type{}));
+//                return ok(fsm.process_event(
+//                        ::boost::get<float_type>(tok.value())));
             case json_io::id_true:
                 return ok(fsm.process_event(true));
             case json_io::id_false:

@@ -101,6 +101,7 @@ set(json_test_SRCS
     static_tests.cpp
     output_tests.cpp
     parse_tests.cpp
+    codepoints.cpp
 )
 
 if (RUN_JSONTESTSUITE_TESTS)

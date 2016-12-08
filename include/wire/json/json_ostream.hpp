@@ -478,18 +478,7 @@ template < typename CharT, typename Traits >
 basic_json_ostream<CharT, Traits>&
 json_write(basic_json_ostream<CharT, Traits>& os, CharT const* str)
 {
-    using chars = typename basic_json_ostream<CharT, Traits>::chars;
-    for (auto c = str; static_cast<chars>(*c) != chars::null; ++c) {
-        switch (static_cast<chars>(*c)) {
-            case chars::double_quote:
-            case chars::escape_symbol:
-                os.put(chars::escape_symbol);
-            default:
-                os.put(*c);
-                break;
-        }
-    }
-    return os;
+    return escape(os, str);
 }
 
 template < typename CharT, typename Traits, typename Allocator >
@@ -497,18 +486,7 @@ basic_json_ostream<CharT, Traits>&
 json_write(basic_json_ostream<CharT, Traits>& os,
         ::std::basic_string<CharT, Traits, Allocator>&& str)
 {
-    using chars = typename basic_json_ostream<CharT, Traits>::chars;
-    for (auto c : str) {
-        switch (static_cast<chars>(c)) {
-            case chars::double_quote:
-            case chars::escape_symbol:
-                os.put(chars::escape_symbol);
-            default:
-                os.put(c);
-                break;
-        }
-    }
-    return os;
+    return escape(os, str.c_str());
 }
 
 template < typename CharT, typename Traits, typename Allocator >
@@ -516,18 +494,7 @@ basic_json_ostream<CharT, Traits>&
 json_write(basic_json_ostream<CharT, Traits>& os,
         ::std::basic_string<CharT, Traits, Allocator> const& str)
 {
-    using chars = typename basic_json_ostream<CharT, Traits>::chars;
-    for (auto c : str) {
-        switch (static_cast<chars>(c)) {
-            case chars::double_quote:
-            case chars::escape_symbol:
-                os.put(chars::escape_symbol);
-            default:
-                os.put(c);
-                break;
-        }
-    }
-    return os;
+    return escape(os, str.c_str());
 }
 
 //----------------------------------------------------------------------------

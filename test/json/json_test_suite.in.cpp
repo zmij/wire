@@ -26,6 +26,7 @@ using unsure_test     = parse_test;
 TEST_P(pass_parse_test, PASS)
 {
     auto fname = GetParam();
+    ::std::cerr << "Test file " << JSON_TEST_DATA_ROOT << fname << "\n";
     ::std::ifstream is{JSON_TEST_DATA_ROOT + fname};
     debug_parser parser{false};
     bool r = detail::parse(parser, is);
@@ -35,6 +36,7 @@ TEST_P(pass_parse_test, PASS)
 TEST_P(fail_parse_test, FAIL)
 {
     auto fname = GetParam();
+    ::std::cerr << "Test file " << JSON_TEST_DATA_ROOT << fname << "\n";
     ::std::ifstream is{JSON_TEST_DATA_ROOT + fname};
     debug_parser parser{false};
     bool r = detail::parse(parser, is);
@@ -44,6 +46,7 @@ TEST_P(fail_parse_test, FAIL)
 TEST_P(unsure_test, PASS)
 {
     auto fname = GetParam();
+    ::std::cerr << "Test file " << JSON_TEST_DATA_ROOT << fname << "\n";
     ::std::ifstream is{JSON_TEST_DATA_ROOT + fname};
     debug_parser parser{false};
     bool r = false;
