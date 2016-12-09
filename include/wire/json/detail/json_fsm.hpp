@@ -204,17 +204,12 @@ struct json_parser_fsm_def
     bool
     operator()(Token const& tok)
     {
-        using chars     = typename json_io::chars;
-        using char_type = typename json_io::char_type;
+        using chars             = typename json_io::chars;
+        using char_type         = typename json_io::char_type;
+        using iterator_type     = typename Token::iterator_type;
+        using iterpair_type     = ::boost::iterator_range<iterator_type>;
+
         auto& fsm = rebind();
-        if (tok.id() < json_io::id_string) {
-            char c = tok.id();
-            ::std::cerr << "Token value '" << c << "'\n";
-        } else if (tok.id() < json_io::id_newline) {
-            ::std::cerr << "Token id " << tok.id()
-                << " value '" << tok.value() << "' which "
-                << tok.value().which() << "\n";
-        }
         switch (tok.id()) {
             case json_io::cvt(chars::start_object):
                 return ok(fsm.process_event(events::start_object{}));
@@ -228,18 +223,25 @@ struct json_parser_fsm_def
                 return ok(fsm.process_event(events::colon{}));
             case json_io::cvt(chars::comma):
                 return ok(fsm.process_event(events::comma{}));
-            case json_io::id_string:
-                return ok(fsm.process_event(string_type{}));
+            case json_io::id_string: {
+                string_type literal;
+                auto seq = ::boost::get<iterpair_type>(tok.value());
+                if (!unescape(seq.begin(), seq.end(), literal))
+                    return false;
+                return ok(fsm.process_event(::std::move(literal)));
+            }
             case json_io::id_empty_string:
                 return ok(fsm.process_event(string_type{}));
-            case json_io::id_integral:
-//                return ok(fsm.process_event(
-//                        ::boost::get<integral_type>(tok.value())));
-                return ok(fsm.process_event(integral_type{}));
-            case json_io::id_float:
-                return ok(fsm.process_event(float_type{}));
-//                return ok(fsm.process_event(
-//                        ::boost::get<float_type>(tok.value())));
+            case json_io::id_integral: {
+                auto seq = ::boost::get<iterpair_type>(tok.value());
+                integral_type literal = json_io::extract_integer(seq.begin(), seq.end());
+                return ok(fsm.process_event(literal));
+            }
+            case json_io::id_float: {
+                auto seq = ::boost::get<iterpair_type>(tok.value());
+                float_type literal = json_io::extract_float(seq.begin(), seq.end());
+                return ok(fsm.process_event(literal));
+            }
             case json_io::id_true:
                 return ok(fsm.process_event(true));
             case json_io::id_false:

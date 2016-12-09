@@ -70,14 +70,20 @@ parse(parser_base& p, char const* first, ::std::size_t size)
     namespace qi = ::boost::spirit::qi;
     using parser_traits = detail::parser_traits< char const*, char >;
     using json_io = json_io_base<char>;
+    using fsm_type = parser_traits::fsm_type;
 
     parser_traits::tokenizer_type tokens;
     parser_traits::token_iterator iter = tokens.begin(first, first + size);
     parser_traits::token_iterator end = tokens.end();
+    fsm_type fsm;
 
-//    parser_traits::grammar_type grammar(tokens, p);
-//    return qi::phrase_parse(iter, end, grammar, qi::in_state(json_io::ws_state)[tokens.self]);
-    return false;
+    while (iter != end && token_is_valid(*iter)) {
+        if (!fsm(*iter))
+            return false;
+        ++iter;
+    }
+
+    return fsm.is_in_state< fsm_type::context::end >() && iter == end;
 }
 
 bool
@@ -107,16 +113,13 @@ parse(parser_base& p, ::std::istream& is)
     parser_traits::token_iterator end = tokens.end();
     fsm_type fsm;
 
-//    lex::tokenize(iter, end, tokens, ::std::ref(fsm));
     while (iter != end && token_is_valid(*iter)) {
         if (!fsm(*iter))
             return false;
         ++iter;
     }
 
-//    parser_traits::grammar_type grammar(tokens, p);
-//    return qi::phrase_parse(iter, end, grammar, qi::in_state(json_io::ws_state)[tokens.self]);
-    return fsm.is_in_state< fsm_type::context::end >();
+    return fsm.is_in_state< fsm_type::context::end >() && iter == end;
 }
 
 bool

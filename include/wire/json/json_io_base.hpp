@@ -10,6 +10,10 @@
 
 #include <string>
 #include <iosfwd>
+#include <sstream>
+#include <locale>
+#include <codecvt>
+#include <algorithm>
 
 namespace wire {
 namespace json {
@@ -37,10 +41,12 @@ struct json_io_base : json_token_defs {
     using ostream_type  = ::std::basic_ostream<char_type, traits_type>;
     using istream_type  = ::std::basic_istream<char_type, traits_type>;
     using string_type   = ::std::basic_string<char_type, traits_type>;
+    using istringstream = ::std::basic_istringstream<char_type, traits_type>;
     enum class chars {
         null,
         double_quote,
         escape_symbol,
+        slash,
         start_object,
         end_object,
         start_array,
@@ -48,13 +54,24 @@ struct json_io_base : json_token_defs {
         colon,
         comma,
         space,
+        // Escaped symbols
         newline,
         carriage_ret,
         backspace,
         tab,
         form_feed,
+        // Hex digits
+        zero,
+        nine,
+        a,
+        f,
+        A,
+        F,
     };
     enum class escaped {
+        double_quote,
+        escape_symbol,
+        slash,
         newline,
         carriage_ret,
         backspace,
@@ -86,10 +103,16 @@ struct json_io_base : json_token_defs {
     static string_type
     to_string(T&&);
 
+    static bool
+    is_cntrl(char_type c);
+
     static char_type
     get_escaped(char_type c);
     static char_type
     get_unescaped(char_type c);
+
+    static void
+    add_codepoint(string_type& str, char32_t c);
 };
 
 template < typename Traits >
@@ -99,6 +122,7 @@ struct json_io_base<char, Traits> : json_token_defs {
     using ostream_type  = ::std::basic_ostream<char_type, traits_type>;
     using istream_type  = ::std::basic_istream<char_type, traits_type>;
     using string_type   = ::std::basic_string<char_type, traits_type>;
+    using istringstream = ::std::basic_istringstream<char_type, traits_type>;
 
     enum class chars : char_type {
         null            = 0,
@@ -112,13 +136,24 @@ struct json_io_base<char, Traits> : json_token_defs {
         colon           = ':',
         comma           = ',',
         space           = ' ',
+        // Escaped symbols
         newline         = '\n',
         carriage_ret    = '\r',
         backspace       = '\b',
         tab             = '\t',
         form_feed       = '\f',
+        // Hex digits
+        zero            = '0',
+        nine            = '9',
+        a               = 'a',
+        f               = 'f',
+        A               = 'A',
+        F               = 'F',
     };
     enum class escaped : char_type {
+        double_quote    = '"',
+        escape_symbol   = '\\',
+        slash           = '/',
         newline         = 'n',
         carriage_ret    = 'r',
         backspace       = 'b',
@@ -132,12 +167,11 @@ struct json_io_base<char, Traits> : json_token_defs {
 
     static constexpr char_type const* string_re         = R"~(\"((\\\")|(\\.)|[^\"])+\")~";
     static constexpr char_type const* empty_re          = R"~(\"\")~";
-    static constexpr char_type const* integral_re       = "(-?[1-9][0-9]*)|0";
+    static constexpr char_type const* integral_re       = "-?(([1-9][0-9]*)|0)";
     static constexpr char_type const* float_re          =
-            "-?"    // Optional minus
-            "(((([1-9][0-9]*)|0)(\\.[0-9]*)?)"  // Integral part with optional fractional part
-            "|(\\.[0-9]*))"                     // Or fractional part only
-            "([eE][+-]?[1-9][0-9]*)?"           // Optional exponent
+            "-?(([1-9][0-9]*)|0)"               // Integral part
+            "(\\.[0-9]+)?"                      // Optional fractional part
+            "([Ee](\\+|-)?[0-9]+)?"             // Optional exponent
             ;
     static constexpr char_type const* ws_re             = "[ \\t]+";
     static constexpr char_type const* c_comment_re      = R"~(\/\*[^*]*\*+([^/*][^*]*\*+)*\/)~";
@@ -165,6 +199,14 @@ struct json_io_base<char, Traits> : json_token_defs {
         return ::std::to_string(::std::forward<T>(v));
     }
 
+    static bool
+    is_cntrl(char_type c)
+    {
+        if (c == '\177') // Del character
+            return false;
+        return ::std::iscntrl(c, ::std::locale{});
+    }
+
     static char_type
     get_escaped(char_type c)
     {
@@ -188,6 +230,10 @@ struct json_io_base<char, Traits> : json_token_defs {
     get_unescaped(char_type c)
     {
         switch(static_cast<escaped>(c)) {
+            case escaped::double_quote:
+            case escaped::escape_symbol:
+            case escaped::slash:
+                return c;
             case escaped::newline:
                 return cvt(chars::newline);
             case escaped::carriage_ret:
@@ -204,18 +250,36 @@ struct json_io_base<char, Traits> : json_token_defs {
         return cvt(chars::null);
     }
 
+    static void
+    add_codepoint(string_type& str, char32_t c)
+    {
+        ::std::wstring_convert<::std::codecvt_utf8<char32_t>, char32_t> converter;
+        string_type tmp = converter.to_bytes(c);
+        ::std::copy(tmp.begin(), tmp.end(), ::std::back_inserter(str));
+    }
+
     template < typename Iterator >
     static integral_type
     extract_integer(Iterator begin, Iterator end)
     {
-        return integral_type{};
+        istringstream is(string_type{begin, end});
+        integral_type res;
+        if (!(is >> res))
+            // FIXME Throw an exception here
+            return res;
+        return res;
     }
 
     template < typename Iterator >
     static float_type
     extract_float(Iterator begin, Iterator end)
     {
-        return float_type{};
+        istringstream is(string_type{begin, end});
+        float_type res;
+        if (!(is >> res))
+            // FIXME Throw an exception here
+            return res;
+        return res;
     }
 };
 
@@ -236,10 +300,13 @@ struct json_io_base<wchar_t, Traits> : json_token_defs {
     using ostream_type  = ::std::basic_ostream<char_type, traits_type>;
     using istream_type  = ::std::basic_istream<char_type, traits_type>;
     using string_type   = ::std::basic_string<char_type, traits_type>;
+    using istringstream = ::std::basic_istringstream<char_type, traits_type>;
+
     enum class chars : char_type {
         null            = 0,
         double_quote    = L'"',
         escape_symbol   = L'\\',
+        slash           = L'/',
         start_object    = L'{',
         end_object      = L'}',
         start_array     = L'[',
@@ -247,13 +314,24 @@ struct json_io_base<wchar_t, Traits> : json_token_defs {
         colon           = L':',
         comma           = L',',
         space           = L' ',
+        // Escaped symbols
         newline         = L'\n',
         carriage_ret    = L'\r',
         backspace       = L'\b',
         tab             = L'\t',
         form_feed       = L'\f',
+        // Hex digits
+        zero            = L'0',
+        nine            = L'9',
+        a               = L'a',
+        f               = L'f',
+        A               = L'A',
+        F               = L'F',
     };
     enum class escaped : char_type {
+        double_quote    = L'"',
+        escape_symbol   = L'\\',
+        slash           = L'/',
         newline         = L'n',
         carriage_ret    = L'r',
         backspace       = L'b',
@@ -267,8 +345,12 @@ struct json_io_base<wchar_t, Traits> : json_token_defs {
 
     static constexpr char_type const* string_re         = LR"~(\"((\\\")|(\\.)|[^\"])+\")~";
     static constexpr char_type const* empty_re          = LR"~(\"\")~";
-    static constexpr char_type const* integral_re       = L"-?([1-9][0-9]*)|0";
-    static constexpr char_type const* float_re          = L"-?([1-9][0-9]*)?\\.[0-9]*([eE]-?[1-9][0-9]*)?";
+    static constexpr char_type const* integral_re       = L"-?(([1-9][0-9]*)|0)";
+    static constexpr char_type const* float_re          =
+            L"-?(([1-9][0-9]*)|0)"              // Integral part
+            L"(\\.[0-9]+)?"                     // Optional fractional part
+            L"([Ee](\\+|-)?[0-9]+)?"            // Optional exponent
+            ;
     static constexpr char_type const* ws_re             = L"[ \\t\\n]+";
     static constexpr char_type const* c_comment_re      = LR"~(\/\*[^*]*\*+([^/*][^*]*\*+)*\/)~";
     static constexpr char_type const* cpp_comment_re    = LR"~(\/\/.*?\n)~";
@@ -295,6 +377,12 @@ struct json_io_base<wchar_t, Traits> : json_token_defs {
         return ::std::to_wstring(::std::forward<T>(v));
     }
 
+    static bool
+    is_cntrl(char_type c)
+    {
+        return ::std::iscntrl(c, ::std::locale{});
+    }
+
     static char_type
     get_escaped(char_type c)
     {
@@ -318,6 +406,10 @@ struct json_io_base<wchar_t, Traits> : json_token_defs {
     get_unescaped(char_type c)
     {
         switch(static_cast<escaped>(c)) {
+            case escaped::double_quote:
+            case escaped::escape_symbol:
+            case escaped::slash:
+                return c;
             case escaped::newline:
                 return cvt(chars::newline);
             case escaped::carriage_ret:
@@ -332,6 +424,12 @@ struct json_io_base<wchar_t, Traits> : json_token_defs {
                 break;
         }
         return cvt(chars::null);
+    }
+
+    static void
+    add_codepoint(string_type& str, char32_t c)
+    {
+        // FIXME Implement adding wchar_t codepoint
     }
 };
 
@@ -383,11 +481,75 @@ escape(Stream& os, CharT const* str)
     return os;
 }
 
+/**
+ *
+ * @param begin
+ * @param end
+ * @return A pair of value and bool. If the flat is true, the value was parsed
+ *         and contains integral codepoint. Otherwise it contains number of
+ *         bytes read for error reporting.
+ */
 template < typename InputIterator >
-char32_t
-read_codepoint(InputIterator begin, InputIterator end)
+::std::pair<char32_t, bool>
+unicode_escape_sequence(InputIterator& begin, InputIterator end)
 {
-    char32_t res;
+    using iterator_traits   = ::std::iterator_traits<InputIterator>;
+    using char_type         = typename iterator_traits::value_type;
+    using json_io           = json_io_base<char_type>;
+    using chars             = typename json_io::chars;
+
+    char32_t res{0};
+    int i = 0;
+    for (; i < 4 && begin != end; ++i) {
+        res <<= 4;
+        char_type c = *begin++;
+        if (c >= json_io::cvt(chars::zero) && c <= json_io::cvt(chars::nine)) {
+            res += c - json_io::cvt(chars::zero);
+        } else if (c >= json_io::cvt(chars::a) && c <= json_io::cvt(chars::f)) {
+            res += c - json_io::cvt(chars::a) + 10;
+        } else if (c >= json_io::cvt(chars::A) && c <= json_io::cvt(chars::F)) {
+            res += c - json_io::cvt(chars::A) + 10;
+        } else {
+            break;
+        }
+    }
+    if (i < 4) {
+        return {i, false};
+    }
+    return {res, true};
+}
+
+template <typename InputIterator>
+::std::pair<char32_t, bool>
+unicode_codepoint(InputIterator& begin, InputIterator end)
+{
+    using iterator_traits   = ::std::iterator_traits<InputIterator>;
+    using char_type         = typename iterator_traits::value_type;
+    using json_io           = json_io_base<char_type>;
+    using chars             = typename json_io::chars;
+    using escaped           = typename json_io::escaped;
+
+    auto res = unicode_escape_sequence(begin, end);
+    if (!res.second)
+        return res;
+
+    if (0xd800 <= res.first && res.first <= 0xdbff) {
+        // Surrogate pair
+        if (begin == end)
+            return {4, false};
+        if (*begin++ != json_io::cvt(chars::escape_symbol) || begin == end)
+            return {5, false};
+        if (*begin++ != json_io::cvt(escaped::utf_codepoint) || begin == end)
+            return {6, false};
+        auto scnd = unicode_escape_sequence(begin, end);
+        if (!scnd.second) {
+            scnd.first += 6;
+            return scnd;
+        }
+        res.first = 0x10000 + ((res.first & 0x3ff) << 10) + (scnd.first & 0x3ff);
+    }
+
+    return res;
 }
 
 template < typename InputIterator, typename CharT, typename Traits, typename Allocator >
@@ -401,8 +563,9 @@ unescape(InputIterator begin,
 
     str.clear();
     str.reserve( ::std::distance(begin, end) );
-    // TODO Cut the quotes
-    for (::std::size_t dist = 0; begin != end; ++begin, ++dist) {
+    // Skip opening quote
+    ++begin;
+    for (::std::size_t dist = 0; begin != end; ++dist) {
         auto c = *begin;
         if (c == json_io::cvt(chars::escape_symbol)) {
             // Get next symbol
@@ -411,25 +574,49 @@ unescape(InputIterator begin,
                 ++dist;
                 c = *begin;
                 if (c == json_io::cvt(escaped::utf_codepoint)) {
-                    // Read next four symbols
+                    // Read unicode escape sequence
+                    ++begin;
+                    ++dist;
+                    auto codepoint = unicode_codepoint(begin, end);
+                    if (!codepoint.second) {
+                        dist += codepoint.first;
+                        // FIXME Throw an exception here with `dist` as position
+                        return false;
+                    }
+                    dist += (codepoint.first >= 0x10000) ? 10 : 4;
+                    // Convert the character to current char type
+                    json_io::add_codepoint(str, codepoint.first);
                 } else {
                     c = json_io::get_unescaped(c);
                     if (c == json_io::cvt(chars::null)) { // Unknown escape character
                         // FIXME Throw an exception here with `dist` as position
                         return false;
                     }
-                    str.push_back(c);
+                    ++begin;
+                    if (begin != end) // Not the closing quote
+                        str.push_back(c);
+                    else
+                        // FIXME Throw an exception here with `dist` as position
+                        // dangling escape
+                        return false;
                 }
             } else {
                 // FIXME Throw an exception here with `dist` as position
                 return false;
             }
         } else {
-            str.push_back(c);
+            // Check for unescaped symbol
+            if (json_io::is_cntrl(c))
+                // FIXME Throw an exception here with `dist` as position
+                return false;
+            ++begin;
+            if (begin != end) // Not the closing quote
+                str.push_back(c);
         }
     }
     return true;
 }
+
 
 }  /* namespace json */
 }  /* namespace wire */
