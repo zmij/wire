@@ -180,7 +180,7 @@ TEST_F(PingPong, SyncRoundtrip)
 TEST_F(PingPong, MTConnectionUsage)
 {
     const ::std::size_t req_per_thread = 10;
-    auto const test_threads = ::std::thread::hardware_concurrency();
+    auto const test_threads = ::std::thread::hardware_concurrency() / 2;
     auto const num_req = req_per_thread * test_threads * 2;
 
     ASSERT_NE(0, child_.pid);
@@ -246,15 +246,25 @@ TEST_F(PingPong, MTConnectionUsage)
             };
     for (auto t = 0U; t < test_threads; ++t) {
         threads.emplace_back(
-        [&]()
+        [&](::std::size_t n)
         {
+            ::std::string fat_string;
+            {
+                ::std::ostringstream os;
+                ::std::size_t sz{0};
+                while (sz < 66000) {
+                    os << n;
+                    ++sz;
+                }
+                fat_string = os.str();
+            }
             for (auto i = 0U; i < req_per_thread; ++i) {
                 ++requests;
                 pp_prx->test_int_async(42, int_resp, error_resp);
                 ++requests;
-                pp_prx->test_string_async(LIPSUM_TEST_STRING, string_resp, error_resp);
+                pp_prx->test_string_async(fat_string, string_resp, error_resp);
             }
-        });
+        }, t);
     }
     io_svc->run();
     for (auto& t : threads) {

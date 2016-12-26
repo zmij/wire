@@ -87,6 +87,8 @@ struct send_reply{
     encoding::outgoing_ptr              outgoing;
 };
 
+struct write_done {};
+
 }  // namespace events
 
 template < typename Mutex, typename Concrete >
@@ -306,13 +308,24 @@ struct connection_fsm_def :
         functional::exception_callback  fail    = nullptr;
     };
 
-    struct online : state< online > {
+    struct online : state_machine< online > {
+        struct write_idle : state<write_idle> {};
+        struct write_busy : state<write_busy> {
+            using deferred_events = type_tuple<
+                events::send_request, events::send_reply
+            >;
+        };
+        using initial_state = write_idle;
+        using transitions = transition_table <
+            /*  Start           Event                   Next            Action       */
+            /* Writing to socket                                                     */
+            /*----------------+-----------------------+---------------+--------------*/
+            tr< write_idle    , events::send_request  , write_busy    , send_request >,
+            tr< write_idle    , events::send_reply    , write_busy    , send_reply   >,
+            tr< write_busy    , events::write_done    , write_idle    , none         >
+        >;
         using internal_transitions = transition_table<
             /* Event                    |   Action          |   Guard   */
-            /* Writing to socket                                        */
-            /*--------------------------+-------------------+-----------*/
-            in< events::send_request    ,   send_request    ,   none    >,
-            in< events::send_reply      ,   send_reply      ,   none    >,
             /* Reading from socket and dispatching messages             */
             /*--------------------------+-------------------+-----------*/
             in< events::receive_data    ,   process_incoming,   none    >,
