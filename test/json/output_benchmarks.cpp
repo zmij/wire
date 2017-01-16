@@ -47,9 +47,21 @@ BM_StringOutput(::benchmark::State& state)
     }
 }
 
+void
+BM_StructVectorOutput(::benchmark::State& state)
+{
+    static ::std::vector<test::test_structure> vec(10000, test::test_structure{"foo", 100500, 3.14});
+    while (state.KeepRunning()) {
+        ::std::ostringstream os;
+        json::json_ostream jos{os, true};
+        jos << vec;
+    }
+}
+
 BENCHMARK(BM_StructOutput);
 BENCHMARK(BM_VectorOutput);
 BENCHMARK(BM_StringOutput);
+BENCHMARK(BM_StructVectorOutput);
 
 }  /* namespace bench */
 }  /* namespace json */

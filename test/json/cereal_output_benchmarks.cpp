@@ -48,9 +48,26 @@ BM_CerealStringOutput(::benchmark::State& state)
     }
 }
 
+void
+BM_CerealStructVectorOutput(::benchmark::State& state)
+{
+    static ::std::vector<test::test_structure> vec(10000, test::test_structure{"foo", 100500, 3.14});
+//    vec.reserve(1000);
+//    for (int i = 0; i < 1000; ++i) {
+//        vec.emplace_back(test::test_structure{"foo", 100500, 3.14});
+//    }
+    while (state.KeepRunning()) {
+        ::std::ostringstream os;
+        cereal::JSONOutputArchive ar{os};
+        ar(vec);
+    }
+}
+
+
 BENCHMARK(BM_CerealStructOutput);
 BENCHMARK(BM_CerealVectorOutput);
 BENCHMARK(BM_CerealStringOutput);
+BENCHMARK(BM_CerealStructVectorOutput);
 
 }  /* namespace bench */
 }  /* namespace json */
