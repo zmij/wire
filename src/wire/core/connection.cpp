@@ -1175,6 +1175,8 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                     adp->dispatch(r, curr);
                 }
                 return;
+            } else if (adp->dispatch(r, curr)) {
+                return;
             } else {
                 #if DEBUG_OUTPUT >= 3
                 ::std::ostringstream os;
