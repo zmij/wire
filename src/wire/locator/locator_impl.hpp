@@ -39,6 +39,14 @@ public:
     //@{
     /** @name Actual registry implementation */
     void
+    add_well_known_object(::wire::core::object_prx object,
+            ::wire::core::functional::void_callback __resp,
+            ::wire::core::functional::exception_callback __exception);
+    void
+    add_well_known_objects(::wire::core::object_seq const& objs,
+            ::wire::core::functional::void_callback __resp,
+            ::wire::core::functional::exception_callback __exception);
+    void
     add_well_known_object(::wire::core::object_prx object);
     void
     remove_well_known_object(::wire::core::object_prx object);

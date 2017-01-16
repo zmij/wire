@@ -56,13 +56,37 @@ public:
     no_locator() : runtime_error{"Locator is not configured"} {}
 };
 
-
-class connection_failed : public runtime_error {
+/**
+ * Connection has been closed, either on timeout, or on error or by user request
+ */
+class connection_closed : public runtime_error {
 public:
-    connection_failed(std::string const& message) : runtime_error(message) {}
+    connection_closed(std::string const& msg) : runtime_error{msg} {}
+    connection_closed(char const* msg) : runtime_error{msg} {}
     template < typename ... T >
-    connection_failed(T const& ... args) : runtime_error(args ...) {}
+    connection_closed(T const& ... args) : runtime_error(args ...) {}
 };
+
+/**
+ * Failed to initiate connection
+ */
+class connection_refused : public connection_closed {
+public:
+    connection_refused(std::string const& msg) : connection_closed{msg} {}
+    template < typename ... T >
+    connection_refused(T const& ... args) : connection_closed(args ...) {}
+};
+
+/**
+ * Connection was unexpectedly closed
+ */
+class connection_failed : public connection_closed {
+public:
+    connection_failed(std::string const& message) : connection_closed(message) {}
+    template < typename ... T >
+    connection_failed(T const& ... args) : connection_closed(args ...) {}
+};
+
 
 class request_timed_out : public runtime_error {
 public:

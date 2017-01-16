@@ -26,12 +26,19 @@ TEST(LocatorInProc, LookupAdapter)
     svc::locator_service loc_svc{};
     loc_svc.start(cnctr);
 
-    auto loc = cnctr->get_locator();
-    EXPECT_TRUE(loc.get()) << "Locator object in connector";
-    auto reg = cnctr->get_locator_registry();
-    EXPECT_TRUE(reg.get()) << "Locator registry object in connector";
+    core::locator_prx loc;
+    EXPECT_NO_THROW(loc = cnctr->get_locator())
+            << "Get locator object from connector";
+    EXPECT_TRUE(loc.get())
+            << "Locator object in connector";
+    core::locator_registry_prx reg;
+    EXPECT_NO_THROW(reg = cnctr->get_locator_registry())
+            << "Get locator registry from connector";
+    EXPECT_TRUE(reg.get())
+            << "Locator registry object in connector";
 
-    auto prx = loc->find_adapter("locator"_wire_id);
+    core::object_prx prx;
+    EXPECT_NO_THROW(prx = loc->find_adapter("locator"_wire_id));
     EXPECT_TRUE(prx.get()) << "Find adapter via locator";
     EXPECT_THROW(loc->find_adapter("__never_been_there__"_wire_id), core::no_adapter);
 }

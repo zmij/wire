@@ -67,7 +67,29 @@ private:
     ::std::vector< callback_type > callbacks_;
 };
 
-}  // namespace callbacks
+inline void
+report_exception(exception_callback handler, ::std::exception_ptr ex) noexcept
+{
+    if (handler) {
+        try {
+            handler(ex);
+        } catch(...) {}
+    }
+}
+
+template < typename Exception >
+void
+report_exception(exception_callback handler, Exception&& err) noexcept
+{
+    if (handler) {
+        try {
+            handler(::std::make_exception_ptr(::std::forward<Exception>(err)));
+        } catch(...) {}
+    }
+}
+
+
+}  // namespace functional
 }  // namespace core
 }  // namespace wire
 

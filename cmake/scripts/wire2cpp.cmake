@@ -22,13 +22,17 @@ function(parse_argn _PREFIX _ARGNAMES)
     endif()
 endfunction()
 
+## wire_include_directories
+# Works like plain include_directories cmake function but affects the include
+# paths for wire2cpp generator.
+# Sets variable WIRE_IDL_DIRECTORIES
 function(wire_include_directories)
-    set(wire_includes ${WIRE_INCLUDE_DIRECTORIES})
+    set(wire_includes ${WIRE_IDL_DIRECTORIES})
     foreach(arg ${ARGN})
         list(APPEND wire_includes -I${arg})
     endforeach()
-    set(WIRE_INCLUDE_DIRECTORIES ${wire_includes} PARENT_SCOPE)
-    set_property(DIRECTORY APPEND PROPERTY WIRE_INCLUDE_DIRECTORIES ${wire_includes})
+    set(WIRE_IDL_DIRECTORIES ${wire_includes} PARENT_SCOPE)
+    set_property(DIRECTORY APPEND PROPERTY WIRE_IDL_DIRECTORIES ${wire_includes})
 endfunction()
 
 ## wire2cpp macro
@@ -55,7 +59,7 @@ function(wire2cpp)
     set(out_cpps ${${SOURCES}})
     set(out_hpps ${${HEADERS}})
     set(deps)
-    set(wire2cpp_options ${WIRE_INCLUDE_DIRECTORIES})
+    set(wire2cpp_options ${WIRE_IDL_DIRECTORIES})
 
     if(HEADER_DIR)
         list(APPEND wire2cpp_options --header-output-dir=${HEADER_DIR})
@@ -90,8 +94,8 @@ function(wire2cpp)
         message(STATUS "Add target ${wire_file} -> ${cpp_file}")
         add_custom_command(
             OUTPUT ${cpp_file} ${hpp_file}
-            COMMAND wire2cpp ${wire2cpp_options} ${base_dir}/${wire_file}
-            DEPENDS ${base_dir}/${wire_file} wire2cpp
+            COMMAND ${WIRE2CPP} ${wire2cpp_options} ${base_dir}/${wire_file}
+            DEPENDS ${base_dir}/${wire_file} ${WIRE2CPP}
             COMMENT "Generate C++ sources from ${wire_file}"
         )
         if (DEPENDENCIES)

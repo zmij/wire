@@ -84,6 +84,11 @@ struct connector::impl {
     detail::reference_resolver  resolver_;
     //@}
 
+    //@{
+    /** @name Connection observers */
+    connection_observer_set     connection_observers_;
+    //@}
+
     impl(asio_config::io_service_ptr svc)
         : io_service_{svc}, options_{},
           cmd_line_options_{ options_.name + " command line options" },
@@ -412,20 +417,42 @@ struct connector::impl {
         if (find_adapter(id))
             throw errors::runtime_error("Adapter ", id, " is already configured");
         detail::adapter_options opts = configure_adapter(id, eps);
-        auto adptr = adapter::create_adapter(conn, id, opts);
+        auto adptr = adapter::create_adapter(conn, id, opts, connection_observers_);
         listen_adapters_.push_back(adptr);
         return adptr;
     }
 
     void create_bidir_adapter()
     {
-            connector_ptr conn = owner_.lock();
-            if (!conn) {
-                throw errors::runtime_error("Connector already destroyed");
-            }
-        detail::adapter_options opts { {}, 0, false, false, options_.client_ssl};
-            bidir_adapter_ = adapter::create_adapter(conn, identity::random("client"), opts);
+        connector_ptr conn = owner_.lock();
+        if (!conn) {
+            throw errors::runtime_error("Connector already destroyed");
         }
+        detail::adapter_options opts { {}, 0, false, false, options_.client_ssl};
+            bidir_adapter_ = adapter::create_adapter(
+                conn, identity::random("client"), opts, connection_observers_);
+    }
+
+    void
+    add_observer(connection_observer_ptr observer)
+    {
+        connection_observers_.insert(observer);
+        if (bidir_adapter_)
+            bidir_adapter_->add_observer(observer);
+        for (auto a : listen_adapters_) {
+            a->add_observer(observer);
+        }
+    }
+    void
+    remove_observer(connection_observer_ptr observer)
+    {
+        connection_observers_.erase(observer);
+        if (bidir_adapter_)
+            bidir_adapter_->remove_observer(observer);
+        for (auto a : listen_adapters_) {
+            a->remove_observer(observer);
+        }
+    }
 
     adapter_ptr
     bidir_adapter()
@@ -463,7 +490,7 @@ struct connector::impl {
             online_adapters_.erase(e);
         }
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Adapter " << adptr->id() << " is listening to " << eps << "\n";
+        ::std::cerr <<::getpid() << " Adapter " << adptr->id() << " is listening to " << eps << "\n";
             #endif
         for (auto e : eps)
             online_adapters_.emplace(e, adptr);
@@ -474,7 +501,7 @@ struct connector::impl {
         endpoint_list eps;
         ep.published_endpoints(eps);
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Adapter " << adptr->id() << " listening to " << eps << " went offline\n";
+        ::std::cerr <<::getpid() << " Adapter " << adptr->id() << " listening to " << eps << " went offline\n";
         #endif
         for (auto const& e : eps) {
             online_adapters_.erase(e);
@@ -495,20 +522,23 @@ struct connector::impl {
         return false;
     }
 
-    object_ptr
+    local_servant
     find_local_servant(reference const& ref)
     {
         if (!ref.data().endpoints.empty()) {
             for (auto const& ep : ref.data().endpoints) {
                 adapter_const_accessor acc;
                 if (online_adapters_.find(acc, ep)) {
-                    return acc->second->find_object(ref.object_id());
+                    return {
+                        acc->second->find_object(ref.object_id()),
+                        acc->second
+                    };
                 }
             }
         } else {
             // Check reference adapter id
         }
-        return object_ptr{};
+        return {object_ptr{}, adapter_ptr{}};
     }
 
     object_prx
@@ -546,9 +576,9 @@ struct connector::impl {
             } else {
                 conn = ::std::make_shared< connection >(
                         client_side{}, bidir_adapter(), ep.transport(),
-                        [this](connection const* c)
+                        [this, ep](connection const* c)
                         {
-                            erase_outgoing(c);
+                            erase_outgoing(ep);
                         });
                 outgoing_.emplace(ep, conn);
                 new_conn = true;
@@ -560,7 +590,7 @@ struct connector::impl {
                 [on_get, conn, res, ep]()
                 {
                     #ifdef DEBUG_OUTPUT
-                    ::std::cerr << "Connected to " << ep << "\n";
+                    ::std::cerr <<::getpid() << " Connected to " << ep << "\n";
                     #endif
                     *res = true;
                     try {
@@ -570,10 +600,9 @@ struct connector::impl {
                 [this, exception, res, ep](::std::exception_ptr ex)
                 {
                     #if DEBUG_OUTPUT >= 2
-                        ::std::cerr << "Failed to connect to " << ep << "\n";
+                        ::std::cerr <<::getpid() << " Failed to connect to " << ep << "\n";
                     #endif
                     *res = true;
-                    erase_outgoing(ep);
                     try {
                         exception(ex);
                     } catch (...) {}
@@ -590,26 +619,21 @@ struct connector::impl {
     }
 
     void
-    erase_outgoing(connection const* conn)
-    {
-        auto ep = conn->remote_endpoint();
-        erase_outgoing(ep);
-    }
-
-    void
     erase_outgoing(endpoint ep)
     {
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr << "Outgoing connection to " << ep << " closed\n";
+        ::std::cerr <<::getpid() << " Outgoing connection to " << ep << " closed\n";
         #endif
         connection_accessor acc;
         if (outgoing_.find(acc, ep)) {
             #if DEBUG_OUTPUT >= 1
-            ::std::cerr << "Erase connection to " << ep << "\n";
+            ::std::cerr <<::getpid() << " Erase connection to " << ep << "\n";
             #endif
             outgoing_.erase(acc);
         }
     }
+
+    ;
 };
 
 connector_ptr
@@ -819,7 +843,7 @@ connector::is_local(reference const& ref) const
     return pimpl_->is_local(ref);
 }
 
-object_ptr
+connector::local_servant
 connector::find_local_servant(reference const& ref) const
 {
     return pimpl_->find_local_servant(ref);
@@ -908,6 +932,18 @@ connector::get_locator_registry_async(
         bool                                        run_sync) const
 {
     pimpl_->get_locator_registry_async(result, exception, ctx, run_sync);
+}
+
+void
+connector::add_observer(connection_observer_ptr observer)
+{
+    pimpl_->add_observer(observer);
+}
+
+void
+connector::remove_observer(connection_observer_ptr observer)
+{
+    pimpl_->remove_observer(observer);
 }
 
 }  // namespace core

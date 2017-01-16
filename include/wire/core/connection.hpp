@@ -20,6 +20,7 @@
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/adapter_fwd.hpp>
 #include <wire/core/functional.hpp>
+#include <wire/core/connection_observer_fwd.hpp>
 
 #include <wire/core/detail/dispatch_request_fwd.hpp>
 
@@ -44,6 +45,7 @@ using connection_impl_ptr = ::std::shared_ptr<connection_implementation>;
 
 class connection {
 public:
+    // FIXME Change callback signature to (endpoint, pointer)
     using close_callback = functional::callback<connection const*>;
 public:
     /**
@@ -74,6 +76,11 @@ public:
 
     connector_ptr
     get_connector() const;
+
+    void
+    add_observer(connection_observer_ptr);
+    void
+    remove_observer(connection_observer_ptr);
     /**
      * Start asynchronous connect
      * @param endpoint
@@ -108,7 +115,7 @@ public:
         using args_tuple = typename handler_traits::decayed_args_tuple_type;
 
         using encoding::incoming;
-        if (any(opts.flags | invocation_flags::one_way)) {
+        if (any(opts.flags & invocation_flags::one_way)) {
             throw errors::runtime_error{ "Cannot send a non-void invocation one way" };
         }
         encoding::outgoing out{ get_connector() };

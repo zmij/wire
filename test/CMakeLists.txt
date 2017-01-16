@@ -19,8 +19,11 @@ endif()
 if (NOT CMAKE_THREAD_LIBS_INIT)
     find_package(Threads REQUIRED)
 endif()
+if (NOT GBENCH_FOUND)
+    find_package(GBenchmark)
+endif()
 
-include_directories(${GTEST_INCLUDE_DIRS})
+include_directories(${GTEST_INCLUDE_DIRS} ${GBENCH_INCLUDE_DIRS})
 
 add_subdirectory(data)
 add_subdirectory(idl)

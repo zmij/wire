@@ -18,6 +18,8 @@
 #include <tbb/concurrent_hash_map.h>
 #include <tbb/concurrent_unordered_set.h>
 
+#include <boost/thread/shared_mutex.hpp>
+
 #include <mutex>
 #include <iostream>
 
@@ -39,8 +41,11 @@ struct adapter::impl {
 
     using atomic_bool           = ::std::atomic<bool>;
 
-    using mutex_type        = ::std::mutex;
-    using lock_guard        = ::std::lock_guard<mutex_type>;
+    using mutex_type            = ::std::mutex;
+    using lock_guard            = ::std::lock_guard<mutex_type>;
+    using shared_mutex_type     = ::boost::shared_mutex;
+    using shared_lock           = ::boost::shared_lock<shared_mutex_type>;
+    using exclusive_lock        = ::std::lock_guard<shared_mutex_type>;
 
     connector_weak_ptr          connector_;
     asio_config::io_service_ptr io_service_;
@@ -61,9 +66,14 @@ struct adapter::impl {
 
     mutex_type                  mtx_;
 
-    impl(connector_ptr c, identity const& id, detail::adapter_options const& options)
+    shared_mutex_type           observer_mtx_;
+    connection_observer_set     connection_observers_;
+
+    impl(connector_ptr c, identity const& id, detail::adapter_options const& options,
+            connection_observer_set const& observers)
         : connector_{c}, io_service_{c->io_service()},
-          id_{id}, options_{options}, is_active_{false}, registered_{false}
+          id_{id}, options_{options}, is_active_{false}, registered_{false},
+          connection_observers_{observers}
     {
     }
 
@@ -112,19 +122,19 @@ struct adapter::impl {
                 reg = cnctr->get_locator_registry();
             } catch (...) {
                 #if DEBUG_OUTPUT >= 1
-                ::std::cerr << "Failed to get locator registry on exception\n";
+                ::std::cerr <<::getpid() << "  Failed to get locator registry on exception\n";
                 #endif
             }
             if (reg) {
                 auto prx = adapter_proxy();
                 if (is_replicated()) {
                     #if DEBUG_OUTPUT >= 2
-                    ::std::cerr << "Try to register replicated adapter " << *prx << " at locator\n";
+                    ::std::cerr <<::getpid() << " Try to register replicated adapter " << *prx << " at locator\n";
                     #endif
                     reg->add_replicated_adapter(prx);
                 } else {
                     #if DEBUG_OUTPUT >= 2
-                    ::std::cerr << "Try to register adapter " << *prx << " at locator\n";
+                    ::std::cerr <<::getpid() << " Try to register adapter " << *prx << " at locator\n";
                     #endif
                     reg->add_adapter(prx);
                 }
@@ -159,12 +169,12 @@ struct adapter::impl {
                     }
                 } catch ( ::std::exception const& e) {
                     #if DEBUG_OUTPUT >= 1
-                    ::std::cerr << "Error wnen unregistering adapter " << id_<< ": "
+                    ::std::cerr <<::getpid() << " Error wnen unregistering adapter " << id_<< ": "
                             << e.what() << "\n";
                     #endif
                 } catch (...) {
                     #if DEBUG_OUTPUT >= 1
-                    ::std::cerr << "Unexpected error when unregistering adapter "
+                    ::std::cerr <<::getpid() << " Unexpected error when unregistering adapter "
                             << id_ << "\n";
                     #endif
                 }
@@ -180,10 +190,39 @@ struct adapter::impl {
     }
 
     void
+    add_observer(connection_observer_ptr observer)
+    {
+        {
+            exclusive_lock lock{observer_mtx_};
+            connection_observers_.insert(observer);
+        }
+        for (auto& c : connections_) {
+            c.second->add_observer(observer);
+        }
+    }
+    void
+    remove_observer(connection_observer_ptr observer)
+    {
+        {
+            exclusive_lock lock{observer_mtx_};
+            connection_observers_.erase(observer);
+        }
+        for (auto& c : connections_) {
+            c.second->add_observer(observer);
+        }
+    }
+    connection_observer_set
+    connection_observers()
+    {
+        shared_lock lock{observer_mtx_};
+        return connection_observers_;
+    }
+
+    void
     connection_online(endpoint const& local, endpoint const& remote)
     {
         #ifdef DEBUG_OUTPUT
-        ::std::cerr << "Connection " << local << " -> " << remote << " is online\n";
+        ::std::cerr <<::getpid() << " Connection " << local << " -> " << remote << " is online\n";
         #endif
     }
     void
@@ -201,7 +240,7 @@ struct adapter::impl {
     connection_offline(endpoint const& ep)
     {
         #ifdef DEBUG_OUTPUT
-        ::std::cerr << "Connection " << ep << " is offline\n";
+        ::std::cerr <<::getpid() << " Connection " << ep << " is offline\n";
         #endif
     }
 
@@ -348,16 +387,18 @@ struct adapter::impl {
 
 adapter_ptr
 adapter::create_adapter(connector_ptr c, identity const& id,
-        detail::adapter_options const& options)
+        detail::adapter_options const& options,
+        connection_observer_set const& observers)
 {
-    adapter_ptr a(new adapter{c, id, options});
+    adapter_ptr a(new adapter{c, id, options, observers});
     a->pimpl_->owner_ = a;
     return a;
 }
 
 adapter::adapter(connector_ptr c, identity const& id,
-        detail::adapter_options const& options)
-    : pimpl_( ::std::make_shared<impl>(c, id, options) )
+        detail::adapter_options const& options,
+        connection_observer_set const& observers)
+    : pimpl_( ::std::make_shared<impl>(c, id, options, observers) )
 {
 }
 
@@ -503,6 +544,24 @@ bool
 adapter::dispatch(detail::dispatch_request const& req, current const& curr)
 {
     return pimpl_->dispatch(req, curr);
+}
+
+void
+adapter::add_observer(connection_observer_ptr observer)
+{
+    pimpl_->add_observer(observer);
+}
+
+void
+adapter::remove_observer(connection_observer_ptr observer)
+{
+    pimpl_->remove_observer(observer);
+}
+
+connection_observer_set
+adapter::connection_observers() const
+{
+    return pimpl_->connection_observers();
 }
 
 void

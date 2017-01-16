@@ -45,10 +45,10 @@ struct publisher::impl {
             auto _this = shared_from_this();
             // Copy encaps to out buffer
             read_lock lock{mutex_};
-            for (auto const& s : subscribers_) {
+            //for (auto const& s : subscribers_) {
                 // Invoke op on all object proxies
                 //s.second->
-            }
+            //}
         }
         void
         add_subscriber(core::object_prx obj)

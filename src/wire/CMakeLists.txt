@@ -72,6 +72,7 @@ target_link_libraries(
     ${WIRE_LIB}
     ${WIRE_UTIL_LIB}
     ${WIRE_IFACES_LIB}
+    ${Boost_THREAD_LIBRARIES}
     ${Boost_PROGRAM_OPTIONS_LIBRARIES}
     ${Boost_SYSTEM_LIBRARIES}
     ${OPENSSL_LIBRARIES}

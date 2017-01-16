@@ -35,6 +35,7 @@ struct reference_resolver::impl {
     using endpoint_cache            = ::tbb::concurrent_hash_map<hash_value_type, endpoint_cache_item>;
     using endpoint_accessor         = endpoint_cache::accessor;
     using endpoint_const_accessor   = endpoint_cache::const_accessor;
+    using shared_count              = ::std::shared_ptr< ::std::size_t >;
 
     connector_weak_ptr          connector_;
 
@@ -60,6 +61,8 @@ struct reference_resolver::impl {
             context_type const&                             ctx,
             bool                                            run_sync)
     {
+        using functional::report_exception;
+
         auto cnctr = get_connector();
         locator_prx loc;
         {
@@ -71,7 +74,7 @@ struct reference_resolver::impl {
 
         if (!loc && !options.locator_ref.object_id.empty()) {
             #if DEBUG_OUTPUT >= 1
-            ::std::cerr << "Connecting to locator "
+            ::std::cerr <<::getpid() << " Connecting to locator "
                     << options.locator_ref << "\n";
             #endif
             try {
@@ -95,21 +98,13 @@ struct reference_resolver::impl {
                     [exception](::std::exception_ptr ex)
                     {
                         #if DEBUG_OUTPUT >= 1
-                        ::std::cerr << "Exception in checked_cast<locator_proxy>\n";
+                        ::std::cerr <<::getpid() << " Exception in checked_cast<locator_proxy>\n";
                         #endif
-                        if (exception) {
-                            try {
-                                exception(ex);
-                            } catch (...) {}
-                        }
+                        report_exception(exception, ex);
                     }, nullptr, ctx, opts
                 );
             } catch (...) {
-                if (exception) {
-                    try {
-                        exception(::std::current_exception());
-                    } catch (...) {}
-                }
+                report_exception(exception, ::std::current_exception());
             }
         } else {
             try {
@@ -125,6 +120,7 @@ struct reference_resolver::impl {
             context_type const&                             ctx,
             bool                                            run_sync)
     {
+        using functional::report_exception;
         locator_registry_prx reg;
         {
             lock_guard lock{locator_mtx_};
@@ -136,7 +132,7 @@ struct reference_resolver::impl {
                 {
                     if (loc) {
                         #if DEBUG_OUTPUT >= 1
-                        ::std::cerr << "Try to obtain locator registry proxy from locator "
+                        ::std::cerr <<::getpid() << " Try to obtain locator registry proxy from locator "
                                 << *loc << "\n";
                         #endif
                         auto opts = loc->wire_invocation_options();
@@ -162,8 +158,8 @@ struct reference_resolver::impl {
                 #if DEBUG_OUTPUT >= 1
                 [exception](::std::exception_ptr ex)
                 {
-                    ::std::cerr << "Exception in get_locator_registry\n";
-                    exception(ex);
+                    ::std::cerr <<::getpid() << " Exception in get_locator_registry\n";
+                    report_exception(exception, ex);
                 },
                 #else
                 exception,
@@ -183,23 +179,54 @@ struct reference_resolver::impl {
         locator_ = loc;
     }
 
+    // TODO Make the member static and pass connector_ptr as argument
+    static void
+    get_connection(
+            connector_ptr                       connector,
+            endpoint_rotation_ptr               ep_rot,
+            functional::callback<connection_ptr> result,
+            functional::exception_callback      exception,
+            shared_count                        retries,
+            bool                                run_sync)
+    {
+        using functional::report_exception;
+        if (!connector) {
+            report_exception(exception,
+                    errors::connector_destroyed{"Connector was already destroyed"});
+        }
+
+        ++(*retries);
+        connector->get_outgoing_connection_async(
+                ep_rot->next(), result,
+                [connector, ep_rot, result, exception, retries, run_sync](::std::exception_ptr ex)
+                {
+                    // Check retry count
+                    if (*retries < ep_rot->size()) {
+                        // Rethrow the exception
+                        try {
+                            ::std::rethrow_exception(ex);
+                        } catch (errors::connection_refused const& ex) {
+                            // Retry if the exception is connection_refused
+                            // and retry count doesn't exceed retry count
+                            get_connection(connector, ep_rot, result,
+                                    exception, retries, run_sync);
+                        } catch (...) {
+                            // Other exceptions are not retryable at this level
+                            report_exception(exception, ::std::current_exception());
+                        }
+                    }
+                },
+                run_sync);
+    }
     void
-    get_connection(endpoint_rotation_ptr ep_rot,
+    get_connection(endpoint_rotation_ptr        ep_rot,
             functional::callback<connection_ptr> result,
             functional::exception_callback      exception,
             bool                                run_sync)
+
     {
-        try {
-            auto cnctr = get_connector();
-            cnctr->get_outgoing_connection_async(
-                    ep_rot->next(), result, exception, run_sync);
-        } catch (...) {
-            if (exception) {
-                try {
-                    exception(::std::current_exception());
-                } catch (...) {}
-            }
-        }
+        auto retries = ::std::make_shared<::std::size_t>(0);
+        get_connection(connector_.lock(), ep_rot, result, exception, retries, run_sync);
     }
     bool
     get_connection(endpoint_const_accessor const& eps,
@@ -208,6 +235,7 @@ struct reference_resolver::impl {
             bool                                run_sync )
     {
         if (!eps.empty() && eps->second) {
+            auto retries = ::std::make_shared<::std::size_t>(0);
             get_connection(eps->second, result, exception, run_sync);
             return true;
         }
@@ -276,13 +304,14 @@ struct reference_resolver::impl {
             bool                                run_sync
         )
     {
+        using functional::report_exception;
         if (!cache_lookup(ref, result, exception, run_sync)) {
             // Don't check endpoints - they are checked by lookup function
             get_locator_async(
             [this, ref, result, exception, run_sync](locator_prx loc)
             {
                 if (!loc) {
-                    exception( ::std::make_exception_ptr( errors::no_locator{} ) );
+                    report_exception( exception, errors::no_locator{} );
                     return;
                 }
                 auto opts = loc->wire_invocation_options();
@@ -312,8 +341,7 @@ struct reference_resolver::impl {
                             } else {
                                 // This is an error situation - locator returned
                                 // a proxy containing only object id
-                                exception(
-                                    ::std::make_exception_ptr( object_not_found{ ref.object_id } ) );
+                                report_exception( exception, object_not_found{ ref.object_id } );
                             }
                         } else {
                             auto eps = make_enpoint_rotation(objref);

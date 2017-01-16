@@ -22,6 +22,7 @@
 #include <wire/core/reference_fwd.hpp>
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/locator_fwd.hpp>
+#include <wire/core/connection_observer_fwd.hpp>
 #include <wire/core/detail/configuration_options_fwd.hpp>
 
 #include <wire/core/functional.hpp>
@@ -45,6 +46,7 @@ class connector : public ::std::enable_shared_from_this<connector> {
 public:
     using args_type             = ::std::vector<::std::string>;
     using connection_callback   = ::std::function< void(connection_ptr) >;
+    using local_servant         = ::std::pair<object_ptr, adapter_ptr>;
 public:
     //@{
     /** @name Connector creation functions */
@@ -166,7 +168,7 @@ public:
     /** @name References */
     bool
     is_local(reference const& ref) const;
-    object_ptr
+    local_servant
     find_local_servant(reference const& ref) const;
 
     object_prx
@@ -310,7 +312,14 @@ public:
 
         return promise->get_future();
     }
+    //@}
 
+    //@{
+    /** @name Connection observers */
+    void
+    add_observer(connection_observer_ptr observer);
+    void
+    remove_observer(connection_observer_ptr observer);
     //@}
 private:
     connector(connector const&) = delete;

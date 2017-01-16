@@ -34,7 +34,7 @@ session::start()
         if (limit_requests_)
             ++requests_;
         std::vector<char> b;
-
+        ::std::cerr << "[SPARRING] Send validate message\n";
         encoding::write(std::back_inserter(b),
                 encoding::message{ encoding::message::validate, 0 });
         std::copy(b.begin(), b.end(), data_);
