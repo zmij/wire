@@ -13,13 +13,24 @@ endif()
 
 # Add your package dependencies for test here
 
-include_directories(${GTEST_INCLUDE_DIRS})
+wire2cpp(
+    bus_test_interface.wire
+    HEADER_DIR include/test
+    INCLUDE_ROOT test
+    SOURCES wired_SRCS
+    OPTIONS --dont-use-hashed-ids
+    OPTIONS --generate-forwards
+)
+
+include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR}/include)
 
 set(
     test_bus_SRCS
     # Add your sources here
     bus_test_main.cpp
     bus_inproc_test.cpp
+    bus_sparring_test.cpp
+    ${wired_SRCS}
 )
 add_executable(test-wire-bus ${test_bus_SRCS})
 target_link_libraries(

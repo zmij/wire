@@ -1055,7 +1055,11 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
             ::std::ostringstream os;
             os << ::getpid() << " Dispatch request #" << req.number << " "
                     << req.operation.operation
-                    << " to " << req.operation.target.identity << "\n";
+                    << " to ";
+            if (req.mode & request::multi_target)
+                os << "multiple targets\n";
+            else
+                os << req.operation.target.identity << "\n";
             ::std::cerr << os.str();
             #endif
             auto peer_ep = remote_endpoint();
@@ -1336,7 +1340,7 @@ connection::send(encoding::multiple_targets const& targets,
 }
 
 void
-connection::forward(encoding::multiple_targets const&,
+connection::forward(encoding::multiple_targets const& targets,
         encoding::operation_specs::operation_id const& op,
         context_type const& ctx,
         invocation_options const& opts,
@@ -1345,7 +1349,8 @@ connection::forward(encoding::multiple_targets const&,
         functional::exception_callback exception,
         functional::callback< bool > sent)
 {
-    ;
+    assert(pimpl_.get() && "Connection implementation is not set");
+    pimpl_->forward(targets, op, ctx, opts, req, reply, exception, sent);
 }
 
 

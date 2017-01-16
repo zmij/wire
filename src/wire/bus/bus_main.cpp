@@ -71,7 +71,7 @@ try {
     util::service_runner srv{io_svc, [&](){ bus_svc.stop(); }};
 
     #if DEBUG_OUTPUT >= 1
-    ::std::cerr << "Running locator service with " << thread_count << " threads\n";
+    ::std::cerr << "Running bus service with " << thread_count << " threads\n";
     #endif
     srv.run(thread_count);
     return 0;

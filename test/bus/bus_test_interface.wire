@@ -1,0 +1,26 @@
+/*
+ * bus_test_interface.wire
+ *
+ *  Created on: Jan 16, 2017
+ *      Author: zmij
+ */
+
+#ifndef BUS_BUS_TEST_INTERFACE_WIRE_
+#define BUS_BUS_TEST_INTERFACE_WIRE_
+
+#include <wire/sugar.wire>
+
+namespace wire {
+namespace test {
+
+interface events {
+    [[sync]]
+    void
+    event() const;
+};
+
+}  /* namespace test */
+}  /* namespace wire */
+
+
+#endif /* BUS_BUS_TEST_INTERFACE_WIRE_ */
