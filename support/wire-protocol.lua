@@ -15,7 +15,7 @@ local debug_level = {
 -- set it to debug_level.LEVEL_2 to enable really verbose printing
 -- set it to debug_level.DISABLED to disable debug printing
 -- note: this will be overridden by user's preference settings
-local DEBUG = debug_level.LEVEL_1
+local DEBUG = debug_level.LEVEL_2
 
 -- a table of our default settings - these can be changed by changing
 -- the preferences through the GUI or command-line; the Lua-side of that
@@ -74,8 +74,8 @@ local flagstype = {
 local msgtype_valstr = makeValString(flagstype)
 
 local reqmode = {
-    normal    = 0x01,
-    one_way   = 0x02
+    normal    = 0x00,
+    one_way   = 0x01
 }
 local reqmode_valstr = makeValString(reqmode)
 
@@ -111,10 +111,11 @@ local hdr_fields =
     request_tgt   = ProtoField.string("wire.request.target", "Request Target", "Wire request target"),
     request_fct   = ProtoField.string("wire.request.facet", "Request Facet", "Wire request facet"),
     request_op    = ProtoField.string("wire.request.op", "Request Operation", "Wire request operation"),
-    request_mode  = ProtoField.uint8("wire.request.mode", "Request Mode", base.HEX, reqmode_valstr, 0x3),
-    request_multi = ProtoField.bool("wire.request.multi_target", "Request Multi-Target", base.HEX, nil, 0x4),
+    request_mode  = ProtoField.uint8("wire.request.mode", "Request Mode", base.HEX, reqmode_valstr, 0x1),
+    request_multi = ProtoField.bool("wire.request.multi_target", "Request Multi-Target", base.HEX, nil, 0x2),
     request_noctx = ProtoField.bool("wire.request.no_context", "Request Without Context", base.HEX, nil, 0x10),
     request_nobody= ProtoField.bool("wire.request.no_body", "Request Without Body", base.HEX, nil, 0x20),
+    request_mt    = ProtoField.string("wire.request.targets", "Targets", "Wire request targets"),
 
     reply         = ProtoField.string("wire.reply", "Reply", "Wire reply"),
     reply_no      = ProtoField.string("wire.reply.number", "Number", "Reply number"),
@@ -145,7 +146,7 @@ local WIRE_MAX_HEADER_SIZE = 18
 
 -- some forward "declarations" of helper functions we use in the dissector
 local checkWireHeader, dissectWire, dissectRequest, dissectReply
-local read_uint, read_string, read_uuid, read_identity, read_operation
+local read_uint, read_string, read_uuid, read_identity, read_invocation_target, read_operation, read_sequence
 
 -- this holds the plain "data" Dissector for opaque message contents
 local data = Dissector.get("data")
@@ -319,10 +320,7 @@ dissectRequest = function(tvbuf, pktinfo, root, offset)
         dprint("Failed to read request target")
         return 0
     end
-    dprint2("Request target: " .. identity.value)
     consumed = consumed + n
-
-    inf = inf .. " " .. identity.value
 
     -- read facet
     local n, facet = read_string(tvbuf, offset + consumed)
@@ -343,14 +341,32 @@ dissectRequest = function(tvbuf, pktinfo, root, offset)
     end
     consumed = consumed + n
 
-    inf = inf .. "::" .. op.value
-    pktinfo.cols.info:append(" Request" .. inf)
-    root:append_text(" Request" .. inf)
-
-    local mode = tvbuf:range(offset + consumed, 1)
+    local mode = tvbuf:range(offset + consumed, 1):uint()
     consumed = consumed + 1
 
     -- TODO Read context
+
+    local multitarget = false
+    local targets = {}
+    -- Read multitarget
+    if bit.band(mode, 0x02) > 0 then
+        dprint2("Read multitarget")
+        local n = 0;
+        n, targets = read_sequence(tvbuf, offset + consumed, read_invocation_target)
+        consumed = consumed + n
+        multitarget = true
+    end
+
+    if multitarget == false then
+        dprint2("Request target: " .. identity.value)
+        inf = inf .. " " .. identity.value
+    else
+        inf = inf .. " <multiple targets>"
+    end
+
+    inf = inf .. "::" .. op.value
+    pktinfo.cols.info:append(" Request" .. inf)
+    root:append_text(" Request" .. inf)
 
     local req_tree = root:add(hdr_fields.request, tvbuf:range(offset, consumed), inf)
     req_tree:add(hdr_fields.request_no, tvbuf:range(offset, num_sz), req_no)
@@ -364,6 +380,20 @@ dissectRequest = function(tvbuf, pktinfo, root, offset)
     req_tree:add(hdr_fields.request_multi, tvbuf:range(op.offset + op.size, 1))
     req_tree:add(hdr_fields.request_noctx, tvbuf:range(op.offset + op.size, 1))
     req_tree:add(hdr_fields.request_nobody, tvbuf:range(op.offset + op.size, 1))
+
+    if (multitarget == true) then
+        dprint2("Targets offset " .. targets.offset .. " size " .. targets.size .. " count " .. #targets)
+        local mt_tree = req_tree:add(hdr_fields.request_mt, tvbuf:range(targets.offset, targets.size), "Count " .. #targets)
+        for i, tgt in ipairs(targets) do
+            local inf = tgt.identity.value
+            if tgt.facet.value ~= nil then
+                inf = inf .. " [" .. tgt.facet.value .. "]"
+            end
+            dprint2("Target " .. inf)
+            mt_tree:add(hdr_fields.request_tgt, tvbuf:range(tgt.offset, tgt.size),
+                    inf)
+        end
+    end
 
     return consumed
 end
@@ -418,13 +448,13 @@ end
 --  Read string from buffer
 --  Return number of bytes consumed and string together with sizes and offsets
 read_string = function(tvbuf, offset)
-    dprint2("Read string")
+    --dprint2("Read string")
     local n, sz = read_uint(tvbuf, offset, 8)
     if n == 0 then
         dprint2("Failed to read string size")
         return 0
     end
-    dprint2("String size " .. sz)
+    --dprint2("String size " .. sz)
     local str = {}
     if sz > 0 then
         str = {
@@ -433,7 +463,7 @@ read_string = function(tvbuf, offset)
             size_len  = n,
             value     = tvbuf:range(offset + n, sz):string()
         }
-        dprint2("Value is " .. str.value)
+        --dprint2("Value is " .. str.value)
     else
         str = {
             offset    = offset,
@@ -441,7 +471,7 @@ read_string = function(tvbuf, offset)
             size_len  = n,
             value     = nil
         }
-        dprint2("Value is nil")
+        --dprint2("Value is nil")
     end
     return n + sz, str
 end
@@ -450,7 +480,7 @@ end
 --  Read uuid from buffer
 --
 read_uuid = function(tvbuf, offset)
-    dprint2("Read uuid")
+    --dprint2("Read uuid")
     local uuid_str = ""
     for i=0,15 do
         if i == 4 or i == 6 or i == 8 or i == 10 then
@@ -481,12 +511,13 @@ read_identity = function(tvbuf, offset)
     if identity.category.value ~= nil then
         identity.value = identity.category.value .. "/"
     else
-        identity.value = ""
+        identity.value = nil
     end
     consumed = consumed + n
     local type = tvbuf:range(offset + consumed, 1):uint()
     consumed = consumed + 1
     if type == 0 then -- id is string
+        dprint2("Id is string")
         local n, id = read_string(tvbuf, offset + consumed)
         if n == 0 then
             dprint("Failed to read identity:id string from buffer")
@@ -496,8 +527,13 @@ read_identity = function(tvbuf, offset)
         identity.id = id
         identity.id_size = n
 
-        identity.value = identity.value .. id.value
+        if identity.value ~= nil then
+            identity.value = identity.value .. id.value
+        else
+            identity.value = id.value
+        end
     elseif type == 1 then  -- id is uuid
+        dprint2("Id is uuid")
         local n, id = read_uuid(tvbuf, offset + consumed)
         if n == 0 then
             dprint("Failed to read identity:id uuid from buffer")
@@ -507,13 +543,67 @@ read_identity = function(tvbuf, offset)
         identity.id = id
         identity.id_size = n
 
-        identity.value = identity.value .. id
+        if identity.value ~= nil then
+            identity.value = identity.value .. id
+        else
+            identity.value = id
+        end
     else -- id is wildcard
+        dprint2("Id is wildcard")
         consumed = consumed + 1
         identity.value = identity.value .. "*"
     end
+    if identity.value == nil then
+        dprint2("Identity value is nil")
+        identity.value = "<none>"
+    end
     identity.size = consumed
     return consumed, identity
+end
+
+--------------------------------------------------------------------------------
+--  Read a sequence of elements
+read_sequence = function(tvbuf, offset, elem_func)
+    local seq = {
+        offset = offset,
+    }
+    local n, sz = read_uint(tvbuf, offset, 8)
+    if n == 0 then
+        dprint("Failed to read sequence size")
+        return 0
+    end
+    if sz > 0 then
+        dprint2("Read sequence size " .. sz)
+        for i = 1, sz do
+            local c, elem = elem_func(tvbuf, offset + n)
+            if c == 0 then
+                dprint("Failed to read sequence element")
+                return 0
+            end
+            seq[i] = elem
+            n = n + c
+        end
+    end
+    seq.size = n
+    return n, seq
+end
+
+--------------------------------------------------------------------------------
+--  Read identity/facet pair
+read_invocation_target = function(tvbuf, offset)
+    dprint2("Read target identity")
+    local n, id = read_identity(tvbuf, offset)
+    if n == 0 then
+        dprint("Failed to read identity")
+        return 0
+    end
+    dprint2("Read target facet")
+    local s, fct = read_string(tvbuf, offset)
+    if s == 0 then
+        dprint("Failed to read facet")
+        return 0
+    end
+    return n + s, { identity = id, facet = fct, offset = id.offset, size = id.size + fct.size }
 end
 
 --------------------------------------------------------------------------------
