@@ -147,8 +147,31 @@ registry_impl::get_bus(::wire::core::identity const& id,
             auto adapter = get_adapter();
             auto prx = adapter->create_direct_proxy(id);
             __resp(core::unchecked_cast< bus::bus_proxy >(prx));
+        } else {
+            throw bus::no_bus{id};
         }
-        throw bus::no_bus{id};
+    } catch (...) {
+        __exception(::std::current_exception());
+    }
+}
+
+void
+registry_impl::get_or_create_bus(::wire::core::identity const& id,
+        get_or_create_bus_return_callback __resp,
+        ::wire::core::functional::exception_callback __exception,
+        ::wire::core::current const& curr)
+{
+    try {
+        if (publisher_->bus_exists(id)) {
+            auto adapter = get_adapter();
+            auto prx = adapter->create_direct_proxy(id);
+            __resp(core::unchecked_cast< bus::bus_proxy >(prx));
+        } else {
+            publisher_->add_bus(id);
+            auto adapter = get_adapter();
+            auto prx = adapter->create_direct_proxy(id);
+            __resp(core::unchecked_cast< bus::bus_proxy >(prx));
+        }
     } catch (...) {
         __exception(::std::current_exception());
     }

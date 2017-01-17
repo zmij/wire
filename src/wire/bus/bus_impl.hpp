@@ -75,6 +75,11 @@ public:
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) override;
     void
+    get_or_create_bus(::wire::core::identity const& id,
+            get_or_create_bus_return_callback __resp,
+            ::wire::core::functional::exception_callback __exception,
+            ::wire::core::current const& = ::wire::core::no_current) override;
+    void
     remove_bus(::wire::core::identity const& id,
             ::wire::core::functional::void_callback __resp,
             ::wire::core::functional::exception_callback __exception,

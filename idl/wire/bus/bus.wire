@@ -64,6 +64,9 @@ interface bus_registry {
     bus*
     get_bus(core::identity id) throw (no_bus);
 
+    bus*
+    get_or_create_bus(core::identity id);
+
     void
     remove_bus(core::identity id) throw (no_bus);
 };
