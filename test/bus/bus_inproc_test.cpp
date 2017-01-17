@@ -17,7 +17,10 @@
 
 #include "bus_test_intf_impl.hpp"
 
+#include <mutex>
 #include <atomic>
+#include <condition_variable>
+#include <thread>
 
 namespace wire {
 namespace test {
@@ -68,9 +71,12 @@ TEST(BusInProc, StartService)
         << "Bus publisher throws on all non-void wire calls";
 }
 
-TEST(BusInProc, DISABLED_ForwardInvocations)
+TEST(BusInProc, ForwardInvocations)
 {
-    const int num_subscribers = 2;
+    using mutex_type = ::std::mutex;
+    using lock_type = ::std::unique_lock<mutex_type>;
+
+    const int num_subscribers = 20;
 
     core::connector::args_type args{
         "--wire.locator.endpoints=tcp://127.0.0.1:0",
@@ -82,7 +88,11 @@ TEST(BusInProc, DISABLED_ForwardInvocations)
     };
 
     auto io_svc = ::std::make_shared< asio_config::io_service >();
+    asio_config::io_service::work work(*io_svc);
+
     auto cnctr = core::connector::create_connector(io_svc, args);
+
+    ::std::thread t{ [&](){ io_svc->run(); } };
 
     svc::locator_service loc_svc{};
     loc_svc.start(cnctr);
@@ -94,7 +104,15 @@ TEST(BusInProc, DISABLED_ForwardInvocations)
     adapter->activate();
 
     ::std::atomic<int> ping_cnt{0};
-    auto ping_cb = [&ping_cnt](){ ++ping_cnt; };
+    ::std::condition_variable cond;
+    mutex_type mtx;
+    auto ping_cb = [&]()
+    {
+        if (++ping_cnt >= num_subscribers) {
+            lock_type lock{mtx};
+            cond.notify_all();
+        }
+    };
 
     ::std::vector<core::object_prx> subscribers;
     for (auto i = 0; i < num_subscribers; ++i) {
@@ -120,8 +138,12 @@ TEST(BusInProc, DISABLED_ForwardInvocations)
     auto evts = core::unchecked_cast<events_proxy>(pub);
     EXPECT_NO_THROW(evts->event());
 
-    sleep(1);
+    lock_type lock{mtx};
+    cond.wait_for(lock, ::std::chrono::seconds{1});
     EXPECT_EQ(num_subscribers, ping_cnt);
+
+    io_svc->stop();
+    t.join();
 }
 
 } // namespace test

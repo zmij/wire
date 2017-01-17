@@ -24,6 +24,7 @@
 #include "sparring/sparring_test.hpp"
 #include "bus_test_intf_impl.hpp"
 #include <atomic>
+#include <condition_variable>
 
 namespace wire {
 namespace test {
@@ -37,12 +38,16 @@ protected:
     {
         ::wire::core::connector::args_type args{
             "--wire.locator.endpoints=tcp://127.0.0.1:0",
-            "--test.endpoints=tcp://127.0.0.1:0"
+            "--test.endpoints=tcp://127.0.0.1:0",
+            "--test1.endpoints=tcp://127.0.0.1:0"
         };
         connector_ = core::connector::create_connector(io_svc, args);
         locator_service_.start(connector_);
+
         adapter_ = connector_->create_adapter("test");
         adapter_->activate();
+        adapter1_ = connector_->create_adapter("test1");
+        adapter1_->activate();
 
         io_thread_ = ::std::make_shared< ::std::thread >( [&](){ io_svc->run(); });
 
@@ -87,6 +92,7 @@ protected:
 
     core::connector_ptr     connector_;
     core::adapter_ptr       adapter_;
+    core::adapter_ptr       adapter1_;
     svc::locator_service    locator_service_;
     thread_ptr              io_thread_;
 
@@ -113,7 +119,10 @@ TEST_F(RemoteBus, BusSetup)
 
 TEST_F(RemoteBus, BusForward)
 {
-    const int num_subscribers = 2;
+    using mutex_type = ::std::mutex;
+    using lock_type = ::std::unique_lock<mutex_type>;
+
+    const int num_subscribers = 20;
     ASSERT_TRUE(bus_reg_.get()) << "Nonempty bus registry proxy";
     ASSERT_NO_THROW(bus_reg_->wire_ping()) << "Bus registry exists";
 
@@ -125,12 +134,25 @@ TEST_F(RemoteBus, BusForward)
     ASSERT_TRUE(bus.get());
 
     ::std::atomic<int> ping_cnt{0};
-    auto ping_cb = [&](){ ++ping_cnt; };
+    ::std::condition_variable cond;
+    mutex_type mtx;
+    auto ping_cb = [&]()
+    {
+        if (++ping_cnt >= num_subscribers) {
+            lock_type lock{mtx};
+            cond.notify_all();
+        }
+    };
 
     ::std::vector<core::object_prx> subscribers;
-    for (auto i = 0; i < num_subscribers; ++i) {
+    for (auto i = 0; i < num_subscribers / 2; ++i) {
         auto obj = adapter_->add_object( ::std::make_shared<subscriber>(ping_cb) );
         obj = adapter_->create_direct_proxy(obj->wire_identity());
+        subscribers.push_back(obj);
+    }
+    for (auto i = 0; i < num_subscribers / 2; ++i) {
+        auto obj = adapter1_->add_object( ::std::make_shared<subscriber>(ping_cb) );
+        obj = adapter1_->create_direct_proxy(obj->wire_identity());
         subscribers.push_back(obj);
     }
 
@@ -143,7 +165,8 @@ TEST_F(RemoteBus, BusForward)
     auto evts = core::unchecked_cast<events_proxy>(pub)->wire_one_way();
     EXPECT_NO_THROW(evts->event());
 
-    sleep(1);
+    lock_type lock{mtx};
+    cond.wait_for(lock, ::std::chrono::seconds{1});
     EXPECT_EQ(num_subscribers, ping_cnt);
 }
 
