@@ -138,7 +138,7 @@ TEST_F(RemoteBus, BusForward)
     mutex_type mtx;
     auto ping_cb = [&]()
     {
-        if (++ping_cnt >= num_subscribers) {
+        if (++ping_cnt >= num_subscribers * 2) {
             lock_type lock{mtx};
             cond.notify_all();
         }
@@ -164,10 +164,11 @@ TEST_F(RemoteBus, BusForward)
     ASSERT_TRUE(pub.get());
     auto evts = core::unchecked_cast<events_proxy>(pub)->wire_one_way();
     EXPECT_NO_THROW(evts->event());
+    EXPECT_NO_THROW(evts->data_event(42));
 
     lock_type lock{mtx};
     cond.wait_for(lock, ::std::chrono::seconds{1});
-    EXPECT_EQ(num_subscribers, ping_cnt);
+    EXPECT_EQ(num_subscribers * 2, ping_cnt);
 }
 
 }  /* namespace test */

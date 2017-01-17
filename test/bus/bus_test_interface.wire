@@ -17,6 +17,10 @@ interface events {
     [[sync]]
     void
     event() const;
+
+    [[sync]]
+    void
+    data_event(int32 i) const;
 };
 
 }  /* namespace test */

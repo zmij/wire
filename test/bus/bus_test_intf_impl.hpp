@@ -23,6 +23,11 @@ public:
     {
         if (cb_) cb_();
     }
+    void
+    data_event(::std::int32_t i, core::current const&) const override
+    {
+        if (cb_) cb_();
+    }
 private:
     core::functional::void_callback cb_;
 };
