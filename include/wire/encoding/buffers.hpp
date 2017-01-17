@@ -29,7 +29,8 @@ public:
     using buffer_type               = detail::buffer_sequence::buffer_type;
     /** Sequence of internal buffers */
     using buffer_sequence_type      = detail::buffer_sequence::buffer_sequence_type;
-    using asio_buffers              = ::std::vector< asio_ns::const_buffer >;
+    using const_buffer              = asio_ns::const_buffer;
+    using asio_buffers              = ::std::vector< const_buffer >;
     //@{
     /**
      * @name Container concept

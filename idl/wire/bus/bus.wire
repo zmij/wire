@@ -1,0 +1,75 @@
+/*
+ * bus.wire
+ *
+ *  Created on: 7 окт. 2016 г.
+ *      Author: sergey.fedorov
+ */
+
+#ifndef WIRE_BUS_BUS_WIRE_
+#define WIRE_BUS_BUS_WIRE_
+
+#include <wire/sugar.wire>
+#include <wire/core/object.wire>
+#include <wire/core/identity.wire>
+
+/**
+ * Message decoupling service.
+ *
+ * Registry interface sits on the same adapter as bus objects
+ * (actually a default servant for all). Bus can have any identity
+ * except that of the registry. The registry identity can be configured,
+ * the default value is wire/bus.registry.
+ *
+ * Publisher default servant sits on a different adapter to
+ * avoid identity clashes. Publishers have the same identity as
+ * the corresponding bus.
+ */
+
+namespace wire {
+namespace bus {
+
+exception bus_exists {
+    core::identity  id;
+};
+exception no_bus {
+    core::identity  id;
+};
+
+interface bus {
+    /**
+     * Get object for publishing
+     * @return
+     */
+    core::object*
+    get_publisher();
+
+    /**
+     * Subscribe object for events
+     * @param
+     */
+    void
+    subscribe(core::object* subscriber);
+    /**
+     * Unsubscribe object from events
+     * @param subscriber
+     */
+    void
+    unsubscribe(core::object* subscriber);
+};
+
+interface bus_registry {
+    bus*
+    create_bus(core::identity id) throw (bus_exists);
+
+    bus*
+    get_bus(core::identity id) throw (no_bus);
+
+    void
+    remove_bus(core::identity id) throw (no_bus);
+};
+
+}  /* namespace bus */
+}  /* namespace wire */
+
+
+#endif /* WIRE_BUS_BUS_WIRE_ */

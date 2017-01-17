@@ -676,6 +676,108 @@ connection_implementation::invoke(encoding::invocation_target const& target,
 }
 
 void
+connection_implementation::send(encoding::multiple_targets const& targets,
+        encoding::operation_specs::operation_id const& op,
+        context_type const& ctx,
+        invocation_options const& opts,
+        encoding::outgoing&& params,
+        functional::exception_callback exception,
+        functional::callback< bool > sent)
+{
+    if (targets.empty()) {
+        throw errors::runtime_error{"Empty target list"};
+    } else if (targets.size() == 1) {
+        #if DEBUG_OUTPUT >= 1
+        ::std::cerr << "Send single invocation via invoke\n";
+        #endif
+        invoke(*targets.begin(), op, ctx,
+                opts | invocation_flags::one_way,
+                ::std::move(params), nullptr, exception, sent);
+    } else {
+        using encoding::request;
+        encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(
+                get_connector(),
+                encoding::message::request);
+        request r{
+            ++request_no_,
+            encoding::operation_specs{ encoding::invocation_target{}, op },
+            request::multi_target | request::one_way
+        };
+        if (ctx.empty())
+            r.mode |= request::no_context;
+
+        write(::std::back_inserter(*out), r);
+        if (!ctx.empty())
+            write(::std::back_inserter(*out), ctx);
+        write(::std::back_inserter(*out), targets);
+
+        params.close_all_encaps();
+        out->insert_encapsulation(::std::move(params));
+
+        functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
+        process_event(events::send_request{ out, write_cb });
+    }
+}
+
+void
+connection_implementation::forward(encoding::multiple_targets const& targets,
+        encoding::operation_specs::operation_id const& op,
+        context_type const& ctx,
+        invocation_options const& opts,
+        detail::dispatch_request const& req,
+        encoding::reply_callback reply,
+        functional::exception_callback exception,
+        functional::callback< bool > sent)
+{
+    using namespace encoding;
+    if (targets.empty()) {
+        throw errors::runtime_error{"Empty invocation target list"};
+    } else {
+        request::request_mode mode{};
+        if (targets.size() > 1) {
+            mode = request::multi_target | request::one_way;
+        }
+        if (opts.is_one_way()) {
+            mode |= request::one_way;
+        }
+        outgoing_ptr out = ::std::make_shared<outgoing>(
+                        get_connector(),
+                        message::request);
+        invocation_target tgt = targets.size() == 1 ?
+                *targets.begin() : invocation_target{};
+        request r{
+            ++request_no_,
+            encoding::operation_specs{ tgt, op },
+            mode
+        };
+        if (ctx.empty())
+            r.mode |= request::no_context;
+
+        write(::std::back_inserter(*out), r);
+        if (!ctx.empty())
+            write(::std::back_inserter(*out), ctx);
+        if (targets.size() > 1)
+            write(::std::back_inserter(*out), targets);
+        auto encaps = out->begin_encapsulation();
+        ::std::copy(req.encaps_start, req.encaps_end,
+                ::std::back_inserter(*out));
+        encaps.end_encaps();
+
+        if (!(r.mode & request::one_way)) {
+            time_point expires = clock_type::now() + expire_duration{opts.timeout};
+            pending_replies_.insert(::std::make_pair( r.number,
+                    pending_reply{ encoding::invocation_target{}, op,
+                        reply, exception } ));
+            //}
+            expiration_queue_.push(reply_expiration{ r.number, expires });
+        }
+
+        functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
+        process_event(events::send_request{ out, write_cb });
+    }
+}
+
+void
 connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
 {
     using namespace encoding;
@@ -758,11 +860,11 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                         read(b, encaps->end(), op);
                         encaps->read_indirection_table(b);
                         auto ex = ::std::make_exception_ptr(
-                                errors::not_found{
-                                    static_cast< errors::not_found::subject >(
-                                            rep.status - reply::no_object ),
-                                    op.target.identity,
-                                    op.target.facet,
+                                    errors::not_found{
+                                        static_cast< errors::not_found::subject >(
+                                                rep.status - reply::no_object ),
+                                        op.target.identity,
+                                        op.target.facet,
                                     op.operation
                                 });
                         observer_.invocation_error(p_rep.target, p_rep.operation, peer_ep, ex);
@@ -851,7 +953,7 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
 
 void
 connection_implementation::send_not_found(
-        uint32_t req_num, errors::not_found::subject subj,
+        request_number req_num, errors::not_found::subject subj,
         encoding::operation_specs const& op)
 {
     using namespace encoding;
@@ -869,7 +971,24 @@ connection_implementation::send_not_found(
 }
 
 void
-connection_implementation::send_exception(uint32_t req_num, errors::user_exception const& e)
+connection_implementation::send_exception(request_number req_num, ::std::exception_ptr ex,
+        encoding::operation_specs const& op)
+{
+    try {
+        ::std::rethrow_exception(ex);
+    } catch (errors::not_found const& e) {
+        send_not_found(req_num, e.subj(), op);
+    } catch (errors::user_exception const& e) {
+        send_exception(req_num, e);
+    } catch (::std::exception const& e) {
+        send_exception(req_num, e);
+    } catch(...) {
+        send_unknown_exception(req_num);
+    }
+}
+
+void
+connection_implementation::send_exception(request_number req_num, errors::user_exception const& e)
 {
     using namespace encoding;
     outgoing_ptr out =
@@ -885,7 +1004,7 @@ connection_implementation::send_exception(uint32_t req_num, errors::user_excepti
 }
 
 void
-connection_implementation::send_exception(uint32_t req_num, ::std::exception const& e)
+connection_implementation::send_exception(request_number req_num, ::std::exception const& e)
 {
     using namespace encoding;
     outgoing_ptr out =
@@ -903,7 +1022,7 @@ connection_implementation::send_exception(uint32_t req_num, ::std::exception con
 }
 
 void
-connection_implementation::send_unknown_exception(uint32_t req_num)
+connection_implementation::send_unknown_exception(request_number req_num)
 {
     using namespace encoding;
     outgoing_ptr out =
@@ -932,13 +1051,15 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
         //Find invocation by req.operation.identity
         adapter_ptr adp = adapter_.lock();
         if (adp) {
-            // TODO Refactor upcall invocation to the adapter
-            // TODO Use facet
             #if DEBUG_OUTPUT >= 3
             ::std::ostringstream os;
             os << ::getpid() << " Dispatch request #" << req.number << " "
                     << req.operation.operation
-                    << " to " << req.operation.target.identity << "\n";
+                    << " to ";
+            if (req.mode & request::multi_target)
+                os << "multiple targets\n";
+            else
+                os << req.operation.target.identity << "\n";
             ::std::cerr << os.str();
             #endif
             auto peer_ep = remote_endpoint();
@@ -950,41 +1071,46 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                 peer_ep,
                 adp
             };
-            if (!(req.mode && request::no_context)) {
+            if (!(req.mode & request::no_context)) {
                 auto ctx_ptr = ::std::make_shared<context_type>();
                 read(b, e, *ctx_ptr);
                 curr.context = ctx_ptr;
             }
-            auto disp = adp->find_object(req.operation.target.identity);
-            if (disp) {
-                incoming::encaps_guard encaps{ buffer->begin_encapsulation(b) };
-                auto const& en = encaps.encaps();
-                auto _this = shared_from_this();
-                if (req.mode & request::one_way) {
-                    detail::dispatch_request r {
+
+            ::std::shared_ptr<encoding::multiple_targets> targets;
+            if (req.mode & request::multi_target) {
+                targets = ::std::make_shared< encoding::multiple_targets >();
+                read(b, e, *targets);
+            }
+
+            incoming::encaps_guard encaps{ buffer->begin_encapsulation(b) };
+            auto const& en = encaps.encaps();
+            detail::dispatch_request r;
+            if (req.mode & request::one_way) {
+                r = detail::dispatch_request{
                         buffer, en.begin(), en.end(), en.size(),
                         detail::dispatch_request::ignore_result,
                         detail::dispatch_request::ignore_exception
                     };
-                    disp->__dispatch(r, curr);
-                } else {
-                    auto fpg = ::std::make_shared< invocation_foolproof_guard >(
-                        [_this, req]() mutable {
-                            #if DEBUG_OUTPUT >= 3
-                            ::std::ostringstream os;
-                            os << ::getpid() << " Invocation #" << req.number
-                                    << " to " << req.operation.target.identity
-                                    << " operation " << req.operation.operation
-                                    << " failed to respond\n";
-                            ::std::cerr << os.str();
-                            #endif
-                            _this->observer_.request_no_response(
-                                    req.operation.target, req.operation.operation,
-                                    _this->remote_endpoint());
-                            _this->send_not_found(req.number, errors::not_found::object,
-                                    req.operation);
-                        });
-                    detail::dispatch_request r{
+            } else {
+                auto _this = shared_from_this();
+                auto fpg = ::std::make_shared< invocation_foolproof_guard >(
+                    [_this, req]() mutable {
+                        #if DEBUG_OUTPUT >= 3
+                        ::std::ostringstream os;
+                        os << ::getpid() << " Invocation #" << req.number
+                                << " to " << req.operation.target.identity
+                                << " operation " << req.operation.operation
+                                << " failed to respond\n";
+                        ::std::cerr << os.str();
+                        #endif
+                        _this->observer_.request_no_response(
+                                req.operation.target, req.operation.operation,
+                                _this->remote_endpoint());
+                        _this->send_not_found(req.number, errors::not_found::object,
+                                req.operation);
+                    });
+                r = detail::dispatch_request{
                         buffer, en.begin(), en.end(), en.size(),
                         [_this, req, fpg](outgoing&& res) mutable {
                             if (fpg->respond()) {
@@ -1045,9 +1171,15 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                     _this->remote_endpoint());
                             }
                         }
-                    };
-                    disp->__dispatch(r, curr);
+                };
+            }
+            if (targets) {
+                for (auto const& tgt : *targets) {
+                    curr.operation.target = tgt;
+                    adp->dispatch(r, curr);
                 }
+                return;
+            } else if (adp->dispatch(r, curr)) {
                 return;
             } else {
                 #if DEBUG_OUTPUT >= 3
@@ -1193,6 +1325,34 @@ connection::invoke(encoding::invocation_target const& target,
     assert(pimpl_.get() && "Connection implementation is not set");
     pimpl_->invoke(target, op, ctx, opts, ::std::move(params), reply, exception, sent);
 }
+
+void
+connection::send(encoding::multiple_targets const& targets,
+            encoding::operation_specs::operation_id const& op,
+            context_type const& ctx,
+            invocation_options const& opts,
+            encoding::outgoing&& params,
+            functional::exception_callback exception,
+            functional::callback< bool > sent)
+{
+    assert(pimpl_.get() && "Connection implementation is not set");
+    pimpl_->send(targets, op, ctx, opts, ::std::move(params), exception, sent);
+}
+
+void
+connection::forward(encoding::multiple_targets const& targets,
+        encoding::operation_specs::operation_id const& op,
+        context_type const& ctx,
+        invocation_options const& opts,
+        detail::dispatch_request const& req,
+        encoding::reply_callback reply,
+        functional::exception_callback exception,
+        functional::callback< bool > sent)
+{
+    assert(pimpl_.get() && "Connection implementation is not set");
+    pimpl_->forward(targets, op, ctx, opts, req, reply, exception, sent);
+}
+
 
 endpoint
 connection::local_endpoint() const

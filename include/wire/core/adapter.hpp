@@ -19,6 +19,8 @@
 #include <wire/core/endpoint.hpp>
 #include <wire/core/detail/configuration_options_fwd.hpp>
 #include <wire/core/connection_observer_fwd.hpp>
+#include <wire/core/detail/dispatch_request_fwd.hpp>
+#include <wire/core/current_fwd.hpp>
 
 #include <string>
 
@@ -203,6 +205,9 @@ public:
      */
     object_ptr
     find_object(identity const&, ::std::string const& facet = ::std::string{}) const;
+
+    bool
+    dispatch(detail::dispatch_request const& disp, current const& curr);
 
     bool
     is_local_endpoint(endpoint const&) const;

@@ -303,6 +303,12 @@ struct invocation_target {
     {
         return !(*this == rhs);
     }
+    bool
+    operator < (invocation_target const& rhs) const
+    {
+        return identity < rhs.identity ||
+                (identity == rhs.identity && facet < rhs.facet);
+    }
 };
 
 template < typename OutputIterator >
@@ -396,9 +402,9 @@ wire_read(InputIterator& begin, InputIterator end, operation_specs& v)
 struct request {
     using request_number    = ::std::uint64_t;
     enum request_mode {
-        normal          = 0x01,
-        one_way         = 0x02,
-        multi_target    = 0x04,
+        normal          = 0x00,
+        one_way         = 0x01,
+        multi_target    = 0x02,
         no_context      = 0x10,
         no_body         = 0x20,
     };

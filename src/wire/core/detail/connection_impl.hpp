@@ -609,14 +609,17 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     dispatch_incoming_request(encoding::incoming_ptr);
 
     void
-    send_not_found(uint32_t req_num, errors::not_found::subject,
+    send_not_found(request_number req_num, errors::not_found::subject,
             encoding::operation_specs const&);
     void
-    send_exception(uint32_t req_num, errors::user_exception const&);
+    send_exception(request_number req_num, ::std::exception_ptr ex,
+            encoding::operation_specs const&);
     void
-    send_exception(uint32_t req_num, ::std::exception const&);
+    send_exception(request_number req_num, errors::user_exception const&);
     void
-    send_unknown_exception(uint32_t req_num);
+    send_exception(request_number req_num, ::std::exception const&);
+    void
+    send_unknown_exception(request_number req_num);
 
     void
     invoke(encoding::invocation_target const&,
@@ -624,6 +627,24 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
             context_type const& ctx,
             invocation_options const& opts,
             encoding::outgoing&&,
+            encoding::reply_callback reply,
+            functional::exception_callback exception,
+            functional::callback< bool > sent);
+    void
+    send(encoding::multiple_targets const&,
+            encoding::operation_specs::operation_id const& op,
+            context_type const& ctx,
+            invocation_options const& opts,
+            encoding::outgoing&&,
+            functional::exception_callback exception,
+            functional::callback< bool > sent);
+
+    void
+    forward(encoding::multiple_targets const&,
+            encoding::operation_specs::operation_id const& op,
+            context_type const& ctx,
+            invocation_options const& opts,
+            detail::dispatch_request const& req,
             encoding::reply_callback reply,
             functional::exception_callback exception,
             functional::callback< bool > sent);
@@ -689,6 +710,9 @@ private:
     }
     virtual void
     do_write_async(encoding::outgoing_ptr, asio_config::asio_rw_callback) = 0;
+    virtual void
+    do_write_async(encoding::outgoing::const_buffer head,
+            encoding::outgoing::asio_buffers body, asio_config::asio_rw_callback) = 0;
     virtual void
     do_read_async(incoming_buffer_ptr, asio_config::asio_rw_callback) = 0;
 public:
@@ -822,11 +846,20 @@ private:
         transport_.async_write( buffer->to_buffers(), cb );
     }
     void
+    do_write_async(encoding::outgoing::const_buffer head,
+                encoding::outgoing::asio_buffers body,
+                asio_config::asio_rw_callback cb) override
+    {
+        encoding::outgoing::asio_buffers out;
+        out.push_back(head);
+        ::std::copy(body.begin(), body.end(), ::std::back_inserter(out));
+        transport_.async_write( out, cb );
+    }
+    void
     do_read_async(incoming_buffer_ptr buffer, asio_config::asio_rw_callback cb) override
     {
         transport_.async_read( asio_ns::buffer(*buffer), cb );
     }
-
     endpoint        configured_endpoint_;
     optional_endpoint mutable   remote_endpoint_;
     optional_endpoint mutable   local_endpoint_;
@@ -891,6 +924,11 @@ private:
     }
     void
     do_write_async(encoding::outgoing_ptr buffer, asio_config::asio_rw_callback cb) override
+    {
+    }
+    void
+    do_write_async(encoding::outgoing::const_buffer head,
+                encoding::outgoing::asio_buffers body, asio_config::asio_rw_callback) override
     {
     }
     void

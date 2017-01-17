@@ -22,6 +22,8 @@
 #include <wire/core/functional.hpp>
 #include <wire/core/connection_observer_fwd.hpp>
 
+#include <wire/core/detail/dispatch_request_fwd.hpp>
+
 #include <pushkin/meta/function_traits.hpp>
 
 #include <wire/encoding/buffers.hpp>
@@ -146,11 +148,11 @@ public:
             functional::void_callback        response,
             functional::exception_callback   exception,
             functional::callback< bool >     sent,
-            Args const& ... args)
+            Args&& ... args)
     {
         using encoding::incoming;
         encoding::outgoing out{ get_connector() };
-        write(::std::back_inserter(out), args ...);
+        write(::std::back_inserter(out), ::std::forward<Args>(args) ...);
         invoke(target, op, ctx, opts, ::std::move(out),
             [response, exception](incoming::const_iterator, incoming::const_iterator){
                 if (response) {
@@ -175,6 +177,41 @@ public:
             invocation_options const&,
             encoding::outgoing&&,
             encoding::reply_callback,
+            functional::exception_callback exception,
+            functional::callback< bool > sent);
+
+    template < typename ... Args >
+    void
+    send(encoding::multiple_targets const& targets,
+            encoding::operation_specs::operation_id const& op,
+            context_type const& ctx,
+            invocation_options const& opts,
+            functional::exception_callback exception,
+            functional::callback< bool > sent,
+            Args&& ... args)
+    {
+        using encoding::incoming;
+        encoding::outgoing out{ get_connector() };
+        write(::std::back_inserter(out), ::std::forward<Args>(args) ...);
+        send(targets, op, ctx, opts, ::std::move(out), exception, sent);
+    }
+
+    void
+    send(encoding::multiple_targets const&,
+            encoding::operation_specs::operation_id const& op,
+            context_type const& ctx,
+            invocation_options const&,
+            encoding::outgoing&&,
+            functional::exception_callback exception,
+            functional::callback< bool > sent);
+
+    void
+    forward(encoding::multiple_targets const&,
+            encoding::operation_specs::operation_id const& op,
+            context_type const& ctx,
+            invocation_options const& opts,
+            detail::dispatch_request const& req,
+            encoding::reply_callback reply,
             functional::exception_callback exception,
             functional::callback< bool > sent);
 

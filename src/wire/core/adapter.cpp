@@ -13,6 +13,7 @@
 #include <wire/core/locator.hpp>
 
 #include <wire/core/detail/configuration_options.hpp>
+#include <wire/errors/not_found.hpp>
 
 #include <tbb/concurrent_hash_map.h>
 #include <tbb/concurrent_unordered_set.h>
@@ -371,6 +372,17 @@ struct adapter::impl {
 
         return object_ptr{};
     }
+
+    bool
+    dispatch(detail::dispatch_request const& req, current const& curr)
+    {
+        auto obj = find_object(curr.operation.target.identity,
+                curr.operation.target.facet);
+        if (!obj)
+            return false;
+        obj->__dispatch(req, curr);
+        return true;
+    }
 };
 
 adapter_ptr
@@ -513,19 +525,25 @@ adapter::add_default_servant(::std::string const& category, object_ptr disp)
 void
 adapter::add_object_locator(object_locator_ptr loc)
 {
-
+    pimpl_->add_locator(DEFAULT_CATEGORY, loc);
 }
 
 void
 adapter::add_object_locator(::std::string const& category, object_locator_ptr loc)
 {
-
+    pimpl_->add_locator(category, loc);
 }
 
 object_ptr
 adapter::find_object(identity const& id, ::std::string const& facet) const
 {
     return pimpl_->find_object(id, facet);
+}
+
+bool
+adapter::dispatch(detail::dispatch_request const& req, current const& curr)
+{
+    return pimpl_->dispatch(req, curr);
 }
 
 void
