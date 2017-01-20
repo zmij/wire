@@ -68,6 +68,13 @@ write_name(::std::ostream& os, ast::qname const& qn, ast::qname const& current_s
     }
 }
 
+void
+write_offset(::std::ostream& os, int space_number)
+{
+    if (space_number > 0)
+        os << ::std::setw( space_number ) << ::std::setfill(' ') << " ";
+}
+
 }  /* namespace  */
 
 void
@@ -296,9 +303,7 @@ void
 source_stream::write_offset(int temp)
 {
     stream_ << "\n";
-    if (current_offset_ + temp > 0)
-        stream_ << ::std::setw( (current_offset_ + temp) * tab_width_ )
-                << ::std::setfill(' ') << " ";
+    cpp::write_offset(stream_, (current_offset_ + temp) * tab_width_);
 }
 
 void
@@ -441,6 +446,26 @@ code_snippet::modify_offset(int delta)
     current_offset_ += delta;
     if (current_offset_ < 0)
         current_offset_ = 0;
+}
+
+::std::string
+code_snippet::str(int tab_width) const
+{
+    ::std::ostringstream os;
+    if (!lines_.empty()) {
+        auto l = lines_.begin();
+        os << l->second;
+        for (++l; l != lines_.end(); ++l) {
+            cpp::write_offset(os, l->first * tab_width);
+            os << l->second;
+        }
+    }
+    if (!os_.str().empty()) {
+        if (!lines_.empty())
+            cpp::write_offset(os, (current_offset_ + current_mod_) * tab_width);
+        os << os_.str();
+    }
+    return os.str();
 }
 
 code_snippet&

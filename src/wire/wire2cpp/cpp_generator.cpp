@@ -643,36 +643,31 @@ generator::generate_enum(ast::enumeration_ptr enum_)
         [this, enum_](source_stream& ss)
         {
             ss  << off << "::std::ostream&"
-                << off << "operator << (::std::ostream&, " << cpp_name(enum_) << " );"
+                << off << "operator << (::std::ostream&, " << qname(enum_) << " );"
                 << off << "::std::istream&"
-                << off << "operator >> ( ::std::istream&, " << cpp_name(enum_) << "& );"
+                << off << "operator >> ( ::std::istream&, " << qname(enum_) << "& );"
                 << off << "::std::string"
-                << off << "to_string( " << cpp_name(enum_) << " );\n";
+                << off << "to_string( " << qname(enum_) << " );\n";
         });
 
         auto pfx = constant_prefix(qname(enum_));
-        source_ << "// data for " << enum_->name() << " enumeration IO"
+        source_ << off << "// data for " << qname(enum_) << " enumeration IO"
                 << off << "namespace {";
 
-        source_ << mod(+1) << "std::map < " << cpp_name(enum_) << ", ::std::string > const "
+        source_ << mod(+1) << "::std::map < " << qname(enum_) << ", ::std::string > const "
                     << pfx << "TO_STRING {";
         source_.modify_offset(+1);
-        ::std::string enum_pfx = "";
-        if (enum_->constrained()) {
-            ::std::ostringstream os;
-            os << cpp_name(enum_) << "::";
-            enum_pfx = os.str();
-        }
+
         for (auto e : enum_->get_enumerators()) {
-            source_ << off << "{ " << enum_pfx << e.first << ", \"" << e.first << "\" },";
+            source_ << off << "{ " << qname(enum_, e.first) << ", \"" << e.first << "\" },";
         }
         source_ << mod(-1) << "};";
 
-        source_ << off << "std::map < ::std::string, " << cpp_name(enum_) << " > const "
+        source_ << off << "::std::map < ::std::string, " << qname(enum_) << " > const "
                     << pfx << "FROM_STRING {";
         source_.modify_offset(+1);
         for (auto e : enum_->get_enumerators()) {
-            source_ << off << "{ \"" << e.first << "\", " << enum_pfx << e.first << " },";
+            source_ << off << "{ \"" << e.first << "\", " << qname(enum_, e.first) << " },";
         }
         source_ << mod(-1) << "};";
 
@@ -680,7 +675,7 @@ generator::generate_enum(ast::enumeration_ptr enum_)
 
         source_ << off  << "::std::ostream&"
                 << off  << "operator << ( ::std::ostream& os, "
-                           << cpp_name(enum_) << " val )"
+                           << qname(enum_) << " val )"
                 << off      << "{"
                 << mod(+1)  <<  "::std::ostream::sentry s{os};"
                 << off      <<  "if (s) {"
@@ -696,7 +691,7 @@ generator::generate_enum(ast::enumeration_ptr enum_)
 
         source_ << off  << "::std::istream&"
                 << off  << "operator >> ( ::std::istream& is, "
-                                << cpp_name(enum_) << "& val )"
+                                << qname(enum_) << "& val )"
                 << off  << "{"
                 << mod(+1)  <<  "::std::istream::sentry s{is};"
                 << off      <<  "if (s) {"
@@ -714,7 +709,7 @@ generator::generate_enum(ast::enumeration_ptr enum_)
                 << mod(-1)  << "}\n";
 
         source_ << off      << "::std::string"
-                << off      << "to_string( " << cpp_name(enum_) << " val )"
+                << off      << "to_string( " << qname(enum_) << " val )"
                 << off      << "{"
                 << mod(+1)  <<      "auto f = " << pfx << "TO_STRING.find(val);"
                 << off      <<      "if (f == "<< pfx << "TO_STRING.end()) {"

@@ -152,6 +152,14 @@ struct qname {
     search( bool f) const
     { return { f, components.begin(), components.end() }; }
 
+    qname
+    scope() const
+    {
+        qname res{*this};
+        res.components.pop_back();
+        return res;
+    }
+
     static qname
     parse(::std::string const& name);
 };

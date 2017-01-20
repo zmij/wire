@@ -174,6 +174,8 @@ public:
     void
     modify_offset(int delta);
 
+    ::std::string
+    str(int tab_width = 4) const;
 private:
     template < typename T >
     friend code_snippet&
@@ -198,6 +200,17 @@ inline ast::qname
 qname(ast::entity_const_ptr en)
 {
     return en->get_qualified_name();
+}
+
+inline ast::qname
+qname(ast::enumeration_ptr enum_, ::std::string const& enumerator)
+{
+    ast::qname qn = enum_->get_qualified_name();
+    if (!enum_->constrained()) {
+        qn.components.pop_back();
+    }
+    qn.components.push_back(enumerator);
+    return qn;
 }
 
 void
