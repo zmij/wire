@@ -34,11 +34,12 @@ struct observer_container : connection_observer {
     send_bytes(::std::size_t bytes, endpoint const& ep) const noexcept override
     {
         shared_lock lock{mutex_};
+        endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, bytes, ep]()
+                [o, bytes, ep_cp]()
                 {
-                    o->send_bytes(bytes, ep);
+                    o->send_bytes(bytes, ep_cp);
                 }
             );
         }
@@ -48,11 +49,12 @@ struct observer_container : connection_observer {
     receive_bytes(::std::size_t bytes, endpoint const& ep) const noexcept override
     {
         shared_lock lock{mutex_};
+        endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, bytes, ep]()
+                [o, bytes, ep_cp]()
                 {
-                    o->receive_bytes(bytes, ep);
+                    o->receive_bytes(bytes, ep_cp);
                 }
             );
         }
@@ -63,11 +65,12 @@ struct observer_container : connection_observer {
             endpoint const& ep) const noexcept override
     {
         shared_lock lock{mutex_};
+        endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, id, op, ep]()
+                [o, id, op, ep_cp]()
                 {
-                    o->invoke_remote(id, op, ep);
+                    o->invoke_remote(id, op, ep_cp);
                 }
             );
         }
@@ -77,11 +80,12 @@ struct observer_container : connection_observer {
             endpoint const& ep) const noexcept override
     {
         shared_lock lock{mutex_};
+        endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, id, op, ep]()
+                [o, id, op, ep_cp]()
                 {
-                    o->invocation_ok(id, op, ep);
+                    o->invocation_ok(id, op, ep_cp);
                 }
             );
         }
@@ -91,11 +95,12 @@ struct observer_container : connection_observer {
             endpoint const& ep, ::std::exception_ptr ex) const noexcept override
     {
         shared_lock lock{mutex_};
+        endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, id, op, ep, ex]()
+                [o, id, op, ep_cp, ex]()
                 {
-                    o->invocation_error(id, op, ep, ex);
+                    o->invocation_error(id, op, ep_cp, ex);
                 }
             );
         }
@@ -106,11 +111,12 @@ struct observer_container : connection_observer {
             endpoint const& ep) const noexcept override
     {
         shared_lock lock{mutex_};
+        endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, id, op, ep]()
+                [o, id, op, ep_cp]()
                 {
-                    o->receive_request(id, op, ep);
+                    o->receive_request(id, op, ep_cp);
                 }
             );
         }
@@ -120,11 +126,12 @@ struct observer_container : connection_observer {
             endpoint const& ep) const noexcept override
     {
         shared_lock lock{mutex_};
+        endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, id, op, ep]()
+                [o, id, op, ep_cp]()
                 {
-                    o->request_ok(id, op, ep);
+                    o->request_ok(id, op, ep_cp);
                 }
             );
         }
@@ -134,11 +141,12 @@ struct observer_container : connection_observer {
             endpoint const& ep, ::std::exception_ptr ex) const noexcept override
     {
         shared_lock lock{mutex_};
+        endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, id, op, ep, ex]()
+                [o, id, op, ep_cp, ex]()
                 {
-                    o->request_error(id, op, ep, ex);
+                    o->request_error(id, op, ep_cp, ex);
                 }
             );
         }
@@ -148,11 +156,12 @@ struct observer_container : connection_observer {
             endpoint const& ep) const noexcept override
     {
         shared_lock lock{mutex_};
+        endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, id, op, ep]()
+                [o, id, op, ep_cp]()
                 {
-                    o->request_no_response(id, op, ep);
+                    o->request_no_response(id, op, ep_cp);
                 }
             );
         }
@@ -162,11 +171,12 @@ struct observer_container : connection_observer {
             endpoint const& ep) const noexcept override
     {
         shared_lock lock{mutex_};
+        endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, id, op, ep]()
+                [o, id, op, ep_cp]()
                 {
-                    o->request_double_response(id, op, ep);
+                    o->request_double_response(id, op, ep_cp);
                 }
             );
         }
@@ -176,11 +186,12 @@ struct observer_container : connection_observer {
     connect(endpoint const& ep) const noexcept override
     {
         shared_lock lock{mutex_};
+        endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, ep]()
+                [o, ep_cp]()
                 {
-                    o->connect(ep);
+                    o->connect(ep_cp);
                 }
             );
         }
@@ -189,11 +200,12 @@ struct observer_container : connection_observer {
     connection_failure(endpoint const& ep, ::std::exception_ptr ex) const noexcept override
     {
         shared_lock lock{mutex_};
+        endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, ep, ex]()
+                [o, ep_cp, ex]()
                 {
-                    o->connection_failure(ep, ex);
+                    o->connection_failure(ep_cp, ex);
                 }
             );
         }
@@ -202,11 +214,12 @@ struct observer_container : connection_observer {
     disconnect(endpoint const& ep) const noexcept override
     {
         shared_lock lock{mutex_};
+        endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, ep]()
+                [o, ep_cp]()
                 {
-                    o->disconnect(ep);
+                    o->disconnect(ep_cp);
                 }
             );
         }
