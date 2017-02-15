@@ -88,6 +88,8 @@ ast::qname const invocation_flags       { "::wire::core::invocation_flags" };
 ast::qname const wire_seg_head          { "::wire::encoding::segment_header" };
 ast::qname const wire_seg_head_no_flags { "::wire::encoding::segment_header::none" };
 ast::qname const wire_seg_head_last     { "::wire::encoding::segment_header::last_segment" };
+
+ast::qname const wire_exception_init    { "::wire::errors::user_exception_factory_init" };
 }  /* namespace  */
 
 struct tmp_pop_scope {
@@ -1034,8 +1036,9 @@ generator::generate_type_id_funcs(ast::entity_ptr elem)
     source_ << off << "::std::string const&"
             << off << eqn << "::wire_static_type_id()"
             << off << "{"
-            << mod(+1) << "return " << pfx << "TYPE_ID;"
-            << mod(-1) << "}\n";
+            << mod(+1)  << "static ::std::string const type_id_ =\"" << eqn_str << "\";"
+            << off      << "return type_id_;"
+            << mod(-1)  << "}\n";
 
     source_ << off << hash_value_type_name
             << off << eqn << "::wire_static_type_id_hash()"
@@ -1225,6 +1228,12 @@ generator::generate_exception(ast::exception_ptr exc)
     source_ << off << "//" << ::std::setw(77) << ::std::setfill('-') << "-"
             << off << "//    Exception " << abs_name << qname(exc)
             << off << "//" << ::std::setw(77) << ::std::setfill('-') << "-";
+    //------------------------------------------------------------------------
+    //  Factory initializer for the exception
+    //------------------------------------------------------------------------
+    source_ << off << "// Factory initializer"
+            << off << cpp_name(exc) << "::factory_init_type "
+            << cpp_name(exc) << "::_factory_init_;\n";
 
     auto parent_name = exc->get_parent() ?
             qname(exc->get_parent()) : root_exception;
@@ -1325,7 +1334,11 @@ generator::generate_exception(ast::exception_ptr exc)
         }
         header_ << off(-1)  << "protected:"
                 << off      << "void"
-                << off      << "stream_message(::std::ostream& os) const override;";
+                << off      << "stream_message(::std::ostream& os) const override;"
+                << off(-1)  << "private:"
+                << off      << "using factory_init_type = " << wire_exception_init << "<" << cpp_name(exc) << ">;"
+                << off      << "static factory_init_type _factory_init_;";
+
         source_ << off      << "void"
                 << off      << cpp_name(exc) << "::stream_message(::std::ostream& os) const"
                 << off      << "{"
@@ -1349,16 +1362,6 @@ generator::generate_exception(ast::exception_ptr exc)
                 << cpp_name(exc) << ">;"
             << off << "using " << cpp_name(exc) << "_weak_ptr = ::std::weak_ptr<"
                 << cpp_name(exc) << ">;\n";
-
-    // Source
-    //------------------------------------------------------------------------
-    //  Factory initializer for the exception
-    //------------------------------------------------------------------------
-    source_ << off << "namespace {"
-            << mod(+1) << "::wire::errors::user_exception_factory_init< "
-            << qname(exc) << " > const "
-            << constant_prefix(qname(exc)) << "_factory_init;"
-            << mod(-1) << "}";
 }
 
 void

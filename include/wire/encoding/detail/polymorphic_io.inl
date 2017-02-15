@@ -40,11 +40,11 @@ object_factory<T>::add_factory(::std::string const& type_id, hash_value_type has
     ::std::lock_guard<::std::mutex> lock{_mtx};
 
     if (id_to_factory_.count(type_id))
-        throw errors::logic_error{ "A factory for exception ", type_id, " is already registered" };
+        throw errors::logic_error{ "A factory for exception <", type_id, "> is already registered" };
 
     if (hash_to_factory_.count(hash)) {
-        throw errors::logic_error{"A factory for exception ", type_id,
-            " with hash ", hash, " is already registered"};
+        throw errors::logic_error{"A factory for exception <", type_id,
+            "> with hash ", hash, " is already registered"};
     }
     id_to_factory_.emplace(type_id, func);
     hash_to_factory_.emplace(hash, func);

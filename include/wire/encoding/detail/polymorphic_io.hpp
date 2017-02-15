@@ -15,6 +15,8 @@
 #include <wire/encoding/segment.hpp>
 #include <wire/encoding/buffers.hpp>
 
+#include <pushkin/util/demangle.hpp>
+
 namespace wire {
 namespace encoding {
 namespace detail {
@@ -87,12 +89,17 @@ struct object_factory_init {
 
     object_factory_init()
     {
-        registry_type::instance().add_factory(
-            T::wire_static_type_id(),
-            T::wire_static_type_id_hash(),
-            []()
-            { return ::std::make_shared< T >(); }
-        );
+        try {
+            registry_type::instance().add_factory(
+                T::wire_static_type_id(),
+                T::wire_static_type_id_hash(),
+                []()
+                { return ::std::make_shared< T >(); }
+            );
+        } catch (errors::logic_error const& e) {
+            throw errors::logic_error{e.what() +
+                ::std::string{ " (class "} + ::psst::util::demangle<T>() + ")"};
+        }
     }
 };
 
