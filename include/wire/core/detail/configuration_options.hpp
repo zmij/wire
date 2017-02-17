@@ -57,6 +57,10 @@ struct connector_options {
      */
     bool            enable_connection_timeouts{false};
     //@}
+    //@{
+    /** @name Request management */
+    ::std::size_t   request_timeout{5000};
+    //@}
 
     connector_options() {}
     connector_options(::std::string const& name) : name(name) {}

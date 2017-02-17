@@ -34,7 +34,7 @@ public:
     using interface_type = object;
 public:
     explicit
-    object_proxy(reference_ptr ref, invocation_options const& ops = invocation_options{});
+    object_proxy(reference_ptr ref, invocation_options const& ops = invocation_options::unspecified);
 
     virtual ~object_proxy() = default;
 

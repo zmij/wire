@@ -188,16 +188,21 @@ struct connector::impl {
         ((name + ".cm.timeout").c_str(),
                 po::value<int32_t>(&options_.connection_idle_timeout)->default_value(30000),
                 "Connection timeout, in milliseconds")
+        ((name + ".cm.request_timeout").c_str(),
+                po::value<::std::size_t>(&options_.request_timeout)->default_value(5000),
+                "Request timeout, in milliseconds")
         ;
 
         cmd_line_options_.add(cfg_opts)
                 .add(connector_options)
                 .add(server_ssl_opts)
-                .add(client_ssl_opts);
+                .add(client_ssl_opts)
+                .add(connection_mgmt_opts);
         cfg_file_options_
                 .add(connector_options)
                 .add(server_ssl_opts)
-                .add(client_ssl_opts);
+                .add(client_ssl_opts)
+                .add(connection_mgmt_opts);
     }
 
     void

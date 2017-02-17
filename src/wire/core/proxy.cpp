@@ -8,6 +8,8 @@
 #include <wire/core/proxy.hpp>
 #include <wire/core/reference.hpp>
 #include <wire/core/connection.hpp>
+#include <wire/core/connector.hpp>
+#include <wire/core/detail/configuration_options.hpp>
 #include <wire/core/object.hpp>
 #include <wire/core/invocation.hpp>
 
@@ -33,6 +35,11 @@ object_proxy::object_proxy(reference_ptr ref, invocation_options const& opts)
 {
     if (!ref_)
         throw errors::runtime_error{ "Reference pointer is empty" };
+    if (opts_ == invocation_options::unspecified) {
+        opts_ = invocation_options(
+            invocation_flags::none,
+            ref->get_connector()->options().request_timeout);
+    }
 }
 
 bool
