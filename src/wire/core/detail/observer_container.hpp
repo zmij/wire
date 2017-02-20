@@ -77,30 +77,31 @@ struct observer_container : connection_observer {
     }
     void
     invocation_ok(invocation_target const& id, operation_id const& op,
-            endpoint const& ep) const noexcept override
+            endpoint const& ep, duration_type et) const noexcept override
     {
         shared_lock lock{mutex_};
         endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, id, op, ep_cp]()
+                [o, id, op, ep_cp, et]()
                 {
-                    o->invocation_ok(id, op, ep_cp);
+                    o->invocation_ok(id, op, ep_cp, et);
                 }
             );
         }
     }
     void
     invocation_error(invocation_target const& id, operation_id const& op,
-            endpoint const& ep, ::std::exception_ptr ex) const noexcept override
+            endpoint const& ep, bool sent,
+            ::std::exception_ptr ex, duration_type et) const noexcept override
     {
         shared_lock lock{mutex_};
         endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, id, op, ep_cp, ex]()
+                [o, id, op, ep_cp, sent, ex, et]()
                 {
-                    o->invocation_error(id, op, ep_cp, ex);
+                    o->invocation_error(id, op, ep_cp, sent, ex, et);
                 }
             );
         }
@@ -123,45 +124,47 @@ struct observer_container : connection_observer {
     }
     void
     request_ok(invocation_target const& id, operation_id const& op,
-            endpoint const& ep) const noexcept override
+            endpoint const& ep,
+            duration_type et) const noexcept override
     {
         shared_lock lock{mutex_};
         endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, id, op, ep_cp]()
+                [o, id, op, ep_cp, et]()
                 {
-                    o->request_ok(id, op, ep_cp);
+                    o->request_ok(id, op, ep_cp, et);
                 }
             );
         }
     }
     void
     request_error(invocation_target const& id, operation_id const& op,
-            endpoint const& ep, ::std::exception_ptr ex) const noexcept override
+            endpoint const& ep, ::std::exception_ptr ex,
+            duration_type et) const noexcept override
     {
         shared_lock lock{mutex_};
         endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, id, op, ep_cp, ex]()
+                [o, id, op, ep_cp, ex, et]()
                 {
-                    o->request_error(id, op, ep_cp, ex);
+                    o->request_error(id, op, ep_cp, ex, et);
                 }
             );
         }
     }
     void
     request_no_response(invocation_target const& id, operation_id const& op,
-            endpoint const& ep) const noexcept override
+            endpoint const& ep, duration_type et) const noexcept override
     {
         shared_lock lock{mutex_};
         endpoint ep_cp{ep};
         for (auto o : observers_) {
             io_svc_->post(
-                [o, id, op, ep_cp]()
+                [o, id, op, ep_cp, et]()
                 {
-                    o->request_no_response(id, op, ep_cp);
+                    o->request_no_response(id, op, ep_cp, et);
                 }
             );
         }

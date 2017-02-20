@@ -14,6 +14,7 @@
 #include <wire/encoding/message.hpp>
 
 #include <exception>
+#include <chrono>
 
 namespace wire {
 namespace core {
@@ -23,7 +24,8 @@ namespace core {
  */
 struct connection_observer {
     using invocation_target = encoding::invocation_target;
-    using operation_id = encoding::operation_specs::operation_id;
+    using operation_id      = encoding::operation_specs::operation_id;
+    using duration_type     = ::std::chrono::system_clock::duration;
     virtual ~connection_observer() {}
     /**
      * Invoked when a connection writes bytes to it's peer
@@ -57,7 +59,7 @@ struct connection_observer {
      */
     virtual void
     invocation_ok(invocation_target const& id, operation_id const& op,
-            endpoint const& ep) const noexcept {}
+            endpoint const& ep, duration_type elapsed_time) const noexcept {}
     /**
      * Invocation completed with an error
      * @param id
@@ -67,7 +69,8 @@ struct connection_observer {
      */
     virtual void
     invocation_error(invocation_target const& id, operation_id const& op,
-            endpoint const& ep, ::std::exception_ptr ex) const noexcept {}
+            endpoint const& ep, bool sent,
+            ::std::exception_ptr ex, duration_type elapsed_time) const noexcept {}
     /**
      * Received a request from remote client
      * @param id
@@ -85,7 +88,8 @@ struct connection_observer {
      */
     virtual void
     request_ok(invocation_target const& id, operation_id const& op,
-            endpoint const& ep) const noexcept {};
+            endpoint const& ep,
+            duration_type elapsed_time) const noexcept {};
     /**
      * Request processing raised an exception
      * @param id
@@ -95,7 +99,8 @@ struct connection_observer {
      */
     virtual void
     request_error(invocation_target const& id, operation_id const& op,
-            endpoint const& ep, ::std::exception_ptr ex) const noexcept {}
+            endpoint const& ep, ::std::exception_ptr ex,
+            duration_type elapsed_time) const noexcept {}
     /**
      * Upcall to a servant yielded neither result nor exception.
      * This is a sign that there is a bug in servant's code.
@@ -105,7 +110,8 @@ struct connection_observer {
      */
     virtual void
     request_no_response(invocation_target const& id, operation_id const& op,
-            endpoint const& ep) const noexcept {}
+            endpoint const& ep,
+            duration_type elapsed_time) const noexcept {}
     /**
      * Upcall to a servant yielded in more than one responses (either normal
      * or exception).

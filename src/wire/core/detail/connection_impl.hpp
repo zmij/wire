@@ -421,7 +421,8 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         connection_fsm {
     using clock_type            = ::std::chrono::system_clock;
     using time_point            = ::std::chrono::time_point< clock_type >;
-    using expire_duration       = ::std::chrono::duration< ::std::int64_t, ::std::milli >;
+    using expire_duration       = ::std::chrono::milliseconds;
+    using duration_type         = clock_type::duration;
     using request_number        = encoding::request::request_number;
     using atomic_counter        = ::std::atomic< request_number >;
 
@@ -430,6 +431,8 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         encoding::operation_specs::operation_id operation;
         encoding::reply_callback                reply;
         functional::exception_callback          error;
+        time_point                              start;
+        bool                                    sent;
     };
     struct reply_expiration {
         request_number                  number;
@@ -648,6 +651,15 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
             encoding::reply_callback reply,
             functional::exception_callback exception,
             functional::callback< bool > sent);
+
+    /**
+     * Request sent callback
+     * @param r_no
+     * @param sent
+     * @param one_way
+     */
+    void
+    request_sent(request_number r_no, functional::callback< bool > sent, bool one_way);
 
     template < typename Handler >
     void

@@ -211,8 +211,9 @@ connection_implementation::request_error(request_number r_no,
         ::std::cerr << os.str();
         #endif
         auto const& p_rep = acc->second;
+        auto elapsed = clock_type::now() - p_rep.start;
         observer_.invocation_error(p_rep.target, p_rep.operation,
-                remote_endpoint(), ex);
+                remote_endpoint(), p_rep.sent, ex, elapsed);
         if (p_rep.error) {
             auto err_handler = p_rep.error;
             io_service_->post(
@@ -597,6 +598,27 @@ connection_implementation::dispatch_incoming(encoding::incoming_ptr incoming)
 }
 
 void
+connection_implementation::request_sent(request_number r_no,
+        functional::callback< bool > sent, bool one_way)
+{
+    #if DEBUG_OUTPUT >= 3
+    ::std::ostringstream os;
+    os << ::getpid() << " Invocation #" << r_no << " has been sent\n";
+    ::std::cerr << os.str();
+    #endif
+    pending_replies_type::accessor acc;
+    if (pending_replies_.find(acc, r_no)) {
+        if (one_way) {
+            pending_replies_.erase(acc);
+        } else {
+            acc->second.sent = true;
+        }
+    }
+    if (sent)
+        sent(true);
+}
+
+void
 connection_implementation::invoke(encoding::invocation_target const& target,
         encoding::operation_specs::operation_id const& op,
         context_type const& ctx,
@@ -635,35 +657,15 @@ connection_implementation::invoke(encoding::invocation_target const& target,
     out->insert_encapsulation(::std::move(params));
     time_point expires = clock_type::now() + expire_duration{opts.timeout};
     pending_replies_.insert(::std::make_pair( r.number,
-            pending_reply{ target, op, reply, exception } ));
+            pending_reply{ target, op, reply, exception, clock_type::now(), false } ));
     expiration_queue_.push(reply_expiration{ r.number, expires });
     auto _this = shared_from_this();
     auto r_no = r.number;
-    functional::void_callback write_cb = functional::void_callback{};
-    if (opts.is_one_way()) {
-        write_cb = sent ?
-            functional::void_callback{[_this, sent, r_no]()
-            {
-                sent(true);
-                _this->pending_replies_.erase(r_no);
-            }} :
-            functional::void_callback{[_this, r_no]()
-            {
-                _this->pending_replies_.erase(r_no);
-            }};
-    } else {
-        write_cb = sent ? [sent](){sent(true);} :
-            #if DEBUG_OUTPUT >= 3
-                functional::void_callback{[r_no]()
-                {
-                    ::std::ostringstream os;
-                    os << ::getpid() << " Invocation #" << r_no << " has been sent\n";
-                    ::std::cerr << os.str();
-                }};
-            #else
-                functional::void_callback{};
-            #endif
-    }
+    bool one_way = opts.is_one_way();
+    functional::void_callback write_cb = [_this, r_no, sent, one_way]()
+        {
+            _this->request_sent(r_no, sent, one_way);
+        };
     process_event(events::send_request{ out, write_cb });
 
     if (opts.is_sync()) {
@@ -714,7 +716,12 @@ connection_implementation::send(encoding::multiple_targets const& targets,
         params.close_all_encaps();
         out->insert_encapsulation(::std::move(params));
 
-        functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
+        auto _this = shared_from_this();
+        auto r_no = r.number;
+        functional::void_callback write_cb = [_this, r_no, sent]()
+            {
+                _this->request_sent(r_no, sent, true);
+            };
         process_event(events::send_request{ out, write_cb });
     }
 }
@@ -767,12 +774,18 @@ connection_implementation::forward(encoding::multiple_targets const& targets,
             time_point expires = clock_type::now() + expire_duration{opts.timeout};
             pending_replies_.insert(::std::make_pair( r.number,
                     pending_reply{ encoding::invocation_target{}, op,
-                        reply, exception } ));
+                        reply, exception, clock_type::now(), false } ));
             //}
             expiration_queue_.push(reply_expiration{ r.number, expires });
         }
 
-        functional::void_callback write_cb = sent ? [sent](){sent(true);} : functional::void_callback{};
+        auto _this = shared_from_this();
+        auto r_no = r.number;
+        bool one_way = r.mode & request::one_way;
+        functional::void_callback write_cb = [_this, r_no, sent, one_way]()
+            {
+                _this->request_sent(r_no, sent, one_way);
+            };
         process_event(events::send_request{ out, write_cb });
     }
 }
@@ -786,15 +799,16 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
         incoming::const_iterator b = buffer->begin();
         incoming::const_iterator e = buffer->end();
         read(b, e, rep);
-        pending_replies_type::accessor acc;
         #if DEBUG_OUTPUT >= 3
         ::std::ostringstream os;
         os << ::getpid() << " Dispatch reply #" << rep.number << "\n";
         ::std::cerr << os.str();
         #endif
         auto peer_ep = remote_endpoint();
+        pending_replies_type::accessor acc;
         if (pending_replies_.find(acc, rep.number)) {
             auto const& p_rep = acc->second;
+            auto elapsed = clock_type::now() - p_rep.start;
             switch (rep.status) {
                 case reply::success:{
                     #if DEBUG_OUTPUT >= 3
@@ -812,7 +826,8 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                                 << " size " << encaps.size() << "\n";
                         ::std::cerr << os.str();
                         #endif
-                        observer_.invocation_ok(p_rep.target, p_rep.operation, peer_ep);
+                        observer_.invocation_ok(p_rep.target, p_rep.operation,
+                                peer_ep, elapsed);
                         try {
                             p_rep.reply(encaps->begin(), encaps->end());
                         } catch (...) {
@@ -827,7 +842,8 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                     os << ::getpid() << " Reply #" << rep.number << " status is success without body\n";
                     ::std::cerr << os.str();
                     #endif
-                    observer_.invocation_ok(p_rep.target, p_rep.operation, peer_ep);
+                    observer_.invocation_ok(p_rep.target, p_rep.operation,
+                            peer_ep, elapsed);
                     if (p_rep.reply) {
                         try {
                             p_rep.reply( incoming::const_iterator{}, incoming::const_iterator{} );
@@ -867,7 +883,8 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                                         op.target.facet,
                                     op.operation
                                 });
-                        observer_.invocation_error(p_rep.target, p_rep.operation, peer_ep, ex);
+                        observer_.invocation_error(p_rep.target, p_rep.operation,
+                                peer_ep, p_rep.sent, ex, elapsed);
                         try {
                             p_rep.error(ex);
                         } catch (...) {
@@ -898,7 +915,8 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                         read(b, encaps->end(), exc);
                         encaps->read_indirection_table(b);
                         auto ex = exc->make_exception_ptr();
-                        observer_.invocation_error(p_rep.target, p_rep.operation, peer_ep, ex);
+                        observer_.invocation_error(p_rep.target, p_rep.operation,
+                                peer_ep, p_rep.sent, ex, elapsed);
                         try {
                             p_rep.error(ex);
                         } catch (...) {
@@ -911,7 +929,8 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                     if (p_rep.error) {
                         auto ex = ::std::make_exception_ptr(
                                 errors::unmarshal_error{ "Unhandled reply status" } );
-                        observer_.invocation_error(p_rep.target, p_rep.operation, peer_ep, ex);
+                        observer_.invocation_error(p_rep.target, p_rep.operation,
+                                peer_ep, p_rep.sent, ex, elapsed);
                         try {
                             p_rep.error(ex);
                         } catch (...) {
@@ -1062,6 +1081,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                 os << req.operation.target.identity << "\n";
             ::std::cerr << os.str();
             #endif
+            time_point req_start = clock_type::now();
             auto peer_ep = remote_endpoint();
             observer_.receive_request(req.operation.target,
                     req.operation.operation, peer_ep);
@@ -1095,7 +1115,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
             } else {
                 auto _this = shared_from_this();
                 auto fpg = ::std::make_shared< invocation_foolproof_guard >(
-                    [_this, req]() mutable {
+                    [_this, req, req_start]() mutable {
                         #if DEBUG_OUTPUT >= 3
                         ::std::ostringstream os;
                         os << ::getpid() << " Invocation #" << req.number
@@ -1106,13 +1126,14 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                         #endif
                         _this->observer_.request_no_response(
                                 req.operation.target, req.operation.operation,
-                                _this->remote_endpoint());
+                                _this->remote_endpoint(),
+                                clock_type::now() - req_start);
                         _this->send_not_found(req.number, errors::not_found::object,
                                 req.operation);
                     });
                 r = detail::dispatch_request{
                         buffer, en.begin(), en.end(), en.size(),
-                        [_this, req, fpg](outgoing&& res) mutable {
+                        [_this, req, fpg, req_start](outgoing&& res) mutable {
                             if (fpg->respond()) {
                                 #if DEBUG_OUTPUT >= 3
                                 ::std::ostringstream os;
@@ -1122,7 +1143,8 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                 #endif
                                 _this->observer_.request_ok(
                                     req.operation.target, req.operation.operation,
-                                    _this->remote_endpoint());
+                                    _this->remote_endpoint(),
+                                    clock_type::now() - req_start);
                                 outgoing_ptr out =
                                         ::std::make_shared<outgoing>(_this->get_connector(), message::reply);
                                 reply rep {
@@ -1142,7 +1164,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                     _this->remote_endpoint());
                             }
                         },
-                        [_this, req, fpg](::std::exception_ptr ex) mutable {
+                        [_this, req, fpg, req_start](::std::exception_ptr ex) mutable {
                             if (fpg->respond()) {
                                 #if DEBUG_OUTPUT >= 3
                                 ::std::ostringstream os;
@@ -1152,7 +1174,8 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                 #endif
                                 _this->observer_.request_error(
                                     req.operation.target, req.operation.operation,
-                                    _this->remote_endpoint(), ex);
+                                    _this->remote_endpoint(), ex,
+                                    clock_type::now() - req_start);
                                 try {
                                     ::std::rethrow_exception(ex);
                                 } catch (errors::not_found const& e) {
