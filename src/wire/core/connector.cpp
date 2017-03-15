@@ -50,6 +50,9 @@ struct connector::impl {
 
     using adapter_list          = ::std::list<adapter_ptr>;
 
+    using locator_map           = ::tbb::concurrent_hash_map<reference_data,
+                                            detail::reference_resolver>;
+
     connector_weak_ptr          owner_;
     asio_config::io_service_ptr io_service_;
 
@@ -81,7 +84,8 @@ struct connector::impl {
 
     //@{
     /** @name Locator */
-    detail::reference_resolver  resolver_;
+    detail::reference_resolver  default_resolver_;
+    locator_map                 locators_;
     //@}
 
     //@{
@@ -111,7 +115,7 @@ struct connector::impl {
     set_owner(connector_ptr cnctr)
     {
         owner_ = cnctr;
-        resolver_.set_owner(cnctr);
+        default_resolver_.set_owner(cnctr);
     }
 
     void
@@ -134,7 +138,7 @@ struct connector::impl {
 
         po::options_description cfg_opts("Configuration file");
         cfg_opts.add_options()
-        ((name + ".config_file").c_str(),
+        ((name + ".config_file,c").c_str(),
                     po::value<::std::string>(&options_.config_file),
                     "Configuration file")
         ;
@@ -382,7 +386,7 @@ struct connector::impl {
     void
     set_locator(locator_prx loc)
     {
-        resolver_.set_locator(loc);
+        default_resolver_.set_locator(loc);
     }
     void
     get_locator_async(functional::callback< locator_prx >  result,
@@ -390,7 +394,7 @@ struct connector::impl {
             context_type const&                             ctx,
             bool                                            run_sync)
     {
-        resolver_.get_locator_async(result, exception, ctx, run_sync);
+        default_resolver_.get_locator_async(result, exception, ctx, run_sync);
     }
 
     void
@@ -400,7 +404,7 @@ struct connector::impl {
             context_type const&                             ctx,
             bool                                            run_sync)
     {
-        resolver_.get_locator_registry_async(result, exception, ctx, run_sync);
+        default_resolver_.get_locator_registry_async(result, exception, ctx, run_sync);
     }
 
     void
@@ -409,7 +413,17 @@ struct connector::impl {
         functional::exception_callback      exception,
         bool                                run_sync)
     {
-        resolver_.resolve_reference_async(ref, result, exception, run_sync);
+        if (!ref.locator || ref.locator->wire_get_reference()->data() == options_.locator_ref) {
+            // Use default locator
+            default_resolver_.resolve_reference_async(ref, result, exception, run_sync);
+        } else {
+            auto const& loc_ref = ref.locator->wire_get_reference()->data();
+            locator_map::accessor acc;
+            if (!locators_.find(acc, loc_ref)) {
+                locators_.emplace(acc, loc_ref, detail::reference_resolver(owner_.lock(), loc_ref));
+            }
+            acc->second.resolve_reference_async(ref, result, exception, run_sync);
+        }
     }
 
     adapter_ptr

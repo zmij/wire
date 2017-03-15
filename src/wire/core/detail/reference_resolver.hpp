@@ -23,7 +23,16 @@ namespace detail {
 class reference_resolver {
 public:
     reference_resolver();
+    reference_resolver(connector_ptr c, reference_data loc_ref);
     ~reference_resolver();
+
+    reference_resolver(reference_resolver const&) = delete;
+    reference_resolver(reference_resolver&&);
+    reference_resolver&
+    operator =(reference_resolver const&) = delete;
+    reference_resolver&
+    operator =(reference_resolver&&) = default;
+
 
     void
     set_owner(connector_ptr c);

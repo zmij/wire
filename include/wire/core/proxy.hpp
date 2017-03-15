@@ -13,6 +13,7 @@
 #include <wire/core/connection_fwd.hpp>
 #include <wire/core/connector_fwd.hpp>
 #include <wire/core/object_fwd.hpp>
+#include <wire/core/locator_fwd.hpp>
 #include <wire/core/reference.hpp>
 
 #include <wire/core/context.hpp>
@@ -255,6 +256,10 @@ public:
     object_prx
     wire_with_endpoints(endpoint_list const& eps) const;
     object_prx
+    wire_with_locator(locator_prx) const;
+    object_prx
+    wire_with_locator(reference_data ref) const;
+    object_prx
     wire_one_way() const;
     object_prx
     wire_timeout(invocation_options::timeout_type t) const;
@@ -273,6 +278,10 @@ using object_seq = ::std::vector< object_prx >;
 
 ::std::ostream&
 operator << (::std::ostream& os, object_proxy const& val);
+
+template < typename TargetPrx, typename SourcePrx>
+::std::shared_ptr< TargetPrx >
+unchecked_cast(::std::shared_ptr< SourcePrx > v);
 
 template < typename Prx, typename ... Bases >
 class proxy : public virtual Bases ... {
@@ -308,7 +317,7 @@ public:
         auto const& ref = this->wire_get_reference()->data();
         return ::std::make_shared< proxy_type >(
             reference::create_reference(this->wire_get_connector(),
-                    { id, ref.facet, ref.adapter, ref.endpoints }),
+                    { id, ref.facet, ref.adapter, ref.endpoints, ref.locator }),
                     this->wire_invocation_options());
     }
     proxy_ptr_type
@@ -317,8 +326,26 @@ public:
         auto const& ref = this->wire_get_reference()->data();
         return ::std::make_shared< proxy_type >(
             reference::create_reference(this->wire_get_connector(),
-                    { ref.object_id, ref.facet, ref.adapter, eps}),
+                    { ref.object_id, ref.facet, ref.adapter, eps, ref.locator}),
                     this->wire_invocation_options());
+    }
+    proxy_ptr_type
+    wire_with_locator(locator_prx loc_prx) const
+    {
+        auto const& ref = this->wire_get_reference()->data();
+        return ::std::make_shared< proxy_type >(
+                reference::create_reference(this->wire_get_connector(),
+                        { ref.object_id, ref.facet,
+                                ref.adapter, ref.endpoints, loc_prx}),
+                        this->wire_invocation_options());
+    }
+    proxy_ptr_type
+    wire_with_locator(reference_data loc_ref) const
+    {
+        auto loc_prx = ::std::make_shared< locator_proxy >(
+                reference::create_reference(this->wire_get_connector(),
+                        loc_ref));
+        return wire_with_locator(loc_prx);
     }
     proxy_ptr_type
     wire_one_way() const

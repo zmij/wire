@@ -12,6 +12,7 @@
 #include <wire/core/detail/configuration_options.hpp>
 #include <wire/core/object.hpp>
 #include <wire/core/invocation.hpp>
+#include <wire/core/locator.hpp>
 
 namespace wire {
 namespace core {
@@ -208,6 +209,25 @@ object_proxy::wire_with_endpoints(endpoint_list const& eps) const
     return ::std::make_shared< object_proxy >(
             reference::create_reference(wire_get_connector(),
                     { ref.object_id, ref.facet, ref.adapter, eps}), opts_);
+}
+
+object_prx
+object_proxy::wire_with_locator(locator_prx loc_prx) const
+{
+    auto const& ref = ref_->data();
+    return ::std::make_shared< object_proxy >(
+            reference::create_reference(wire_get_connector(),
+                    { ref.object_id, ref.facet, ref.adapter, ref.endpoints, loc_prx}),
+                    opts_);
+}
+
+object_prx
+object_proxy::wire_with_locator(reference_data loc_ref) const
+{
+    auto loc_prx = ::std::make_shared< locator_proxy >(
+            reference::create_reference(this->wire_get_connector(),
+                    loc_ref));
+    return wire_with_locator(loc_prx);
 }
 
 object_prx

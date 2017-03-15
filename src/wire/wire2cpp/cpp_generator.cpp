@@ -994,7 +994,7 @@ generator::generate_io(ast::structure_ptr struct_)
             source_.modify_offset(+1);
             for (auto dm = data_members.begin(); dm != data_members.end(); ++dm) {
                 if (dm != data_members.begin())
-                    source_ << " << \" \"" << off;
+                    source_ << " << \", \"" << off;
                 source_ << "<< val." << cpp_name((*dm));
             }
             source_.modify_offset(-1);

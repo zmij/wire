@@ -123,6 +123,24 @@ reference::io_service() const
     return get_connector()->io_service();
 }
 
+locator_prx
+reference::get_locator() const
+{
+    return ref_.locator;
+}
+
+void
+reference::set_locator(locator_prx lctr)
+{
+    ref_.locator = lctr;
+}
+
+void
+reference::set_locator(reference_data const& loc_ref)
+{
+    ref_.locator = unchecked_cast<locator_proxy>(get_connector()->make_proxy(loc_ref));
+}
+
 //----------------------------------------------------------------------------
 //      Fixed reference implementation
 //----------------------------------------------------------------------------

@@ -40,10 +40,21 @@ struct reference_resolver::impl {
     connector_weak_ptr          connector_;
 
     mutex_type                  locator_mtx_;
+
+    reference_data              locator_ref_;
+
     locator_prx                 locator_;
     locator_registry_prx        locator_reg_;
 
     endpoint_cache              endpoints_;
+
+    void
+    set_owner(connector_ptr c)
+    {
+        connector_ = c;
+        auto const& options = c->options();
+        locator_ref_ = options.locator_ref;
+    }
 
     connector_ptr
     get_connector()
@@ -70,17 +81,20 @@ struct reference_resolver::impl {
             loc = locator_;
         }
 
-        auto const& options = cnctr->options();
+        if (locator_ref_.object_id.empty()) {
+            auto const& options = cnctr->options();
+            locator_ref_ = options.locator_ref;
+        }
 
-        if (!loc && !options.locator_ref.object_id.empty()) {
+        if (!loc && !locator_ref_.object_id.empty()) {
             #if DEBUG_OUTPUT >= 1
             ::std::cerr <<::getpid() << " Connecting to locator "
-                    << options.locator_ref << "\n";
+                    << locator_ref_ << "\n";
             #endif
             try {
-                if (options.locator_ref.endpoints.empty())
+                if (locator_ref_.endpoints.empty())
                     throw errors::runtime_error{ "Locator reference must have endpoints" };
-                object_prx prx = cnctr->make_proxy(options.locator_ref);
+                object_prx prx = cnctr->make_proxy(locator_ref_);
                 auto opts = prx->wire_invocation_options();
                 if (run_sync)
                     opts.flags |= invocation_flags::sync;
@@ -176,7 +190,8 @@ struct reference_resolver::impl {
     set_locator(locator_prx loc)
     {
         lock_guard lock{locator_mtx_};
-        locator_ = loc;
+        locator_ref_    = loc->wire_get_reference()->data();
+        locator_        = loc;
     }
 
     // TODO Make the member static and pass connector_ptr as argument
@@ -367,12 +382,25 @@ reference_resolver::reference_resolver()
 {
 }
 
+reference_resolver::reference_resolver(connector_ptr cnctr, reference_data loc_ref)
+    : pimpl_{ util::make_unique<impl>() }
+{
+    pimpl_->connector_      = cnctr;
+    pimpl_->locator_ref_    = loc_ref;
+}
+
+reference_resolver::reference_resolver(reference_resolver&& rhs)
+    : pimpl_{ ::std::move(rhs.pimpl_) }
+{
+}
+
+
 reference_resolver::~reference_resolver() = default;
 
 void
 reference_resolver::set_owner(connector_ptr c)
 {
-    pimpl_->connector_ = c;
+    pimpl_->set_owner(c);
 }
 
 void

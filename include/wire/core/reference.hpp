@@ -19,6 +19,7 @@
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/adapter_fwd.hpp>
 #include <wire/core/proxy_fwd.hpp>
+#include <wire/core/locator_fwd.hpp>
 #include <wire/core/functional.hpp>
 
 #include <wire/encoding/detail/optional_io.hpp>
@@ -38,6 +39,9 @@ struct reference_data {
     ::std::string           facet;
     optional_identity       adapter;
     endpoint_list           endpoints; // TODO Replace with endpoint_set
+
+    locator_prx             locator;
+    // TODO router proxy
 
     bool
     valid() const
@@ -150,6 +154,14 @@ public:
     get_connection_async( connection_callback on_get,
             functional::exception_callback on_error,
             bool sync = false) const  = 0;
+
+    locator_prx
+    get_locator() const;
+
+    void
+    set_locator(locator_prx);
+    void
+    set_locator(reference_data const& loc_ref);
 protected:
     template < typename T >
     ::std::shared_ptr<T>
