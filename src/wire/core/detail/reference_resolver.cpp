@@ -250,6 +250,9 @@ struct reference_resolver::impl {
             bool                                run_sync )
     {
         if (!eps.empty() && eps->second && !eps->second.stale()) {
+            endpoint_rotation_ptr ep_rot = eps->second;
+            if (!ep_rot)
+                return false;
             auto retries = ::std::make_shared<::std::size_t>(0);
             get_connection(eps->second, result, exception, run_sync);
             return true;
