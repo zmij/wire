@@ -48,7 +48,14 @@ set(
     program_options
     filesystem
 )
+
+option(WITH_BOOST_FIBER "Build wire with boost::fiber support" OFF)
+
 set(BOOST_VERSION 1.58) # We want endian library.
+if (WITH_BOOST_FIBER)
+set(BOOST_VERSION 1.61) # Boost.Fiber was introduced in version 1.61
+list(APPEND BOOST_COMPONENTS fiber)
+endif()
 
 find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 find_package(Threads REQUIRED)
@@ -85,18 +92,18 @@ wire_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/idl
 )
 set(WIRE_IDL_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/idl)
-add_definitions("-std=c++11")
+add_definitions("-std=c++14")
 add_definitions(-Wall -Werror -pedantic
     -Wno-unused-local-typedefs
     -Wno-unused-parameter
     -Wno-unused-function
     -Wno-unknown-pragmas
+    -Wno-unused-variable # GCC with C++ 14 fails to compile some ASIO headers
 )
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 add_definitions(
     -Wno-unused-local-typedef
     -Wno-mismatched-tags
-    -Wno-unused-variable
     -Wno-gnu-zero-variadic-macro-arguments
     -Wno-unsequenced
     -Wno-keyword-macro
@@ -111,6 +118,9 @@ add_definitions(-DDEBUG_OUTPUT=${WIRE_DEBUG_LEVEL})
 endif()
 
 set(${LIB_NAME}_LIB ${lib_name})
+if(WITH_BOOST_FIBER)
+set(${LIB_NAME}_FIBER_LIB ${lib_name}-fiber)
+endif()
 set(${LIB_NAME}_UTIL_LIB ${lib_name}-util)
 set(${LIB_NAME}_IFACES_LIB ${lib_name}-ifaces)
 set(${LIB_NAME}_IDL_LIB ${lib_name}-idl)

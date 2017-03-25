@@ -11,6 +11,7 @@
 #include <memory>
 
 #include <wire/asio_config.hpp>
+#include <wire/future_config.hpp>
 
 #include <wire/core/endpoint.hpp>
 #include <wire/core/identity.hpp>
@@ -188,7 +189,7 @@ public:
     connection_ptr
     get_outgoing_connection(endpoint const&);
 
-    template < template <typename> class _Promise = ::std::promise >
+    template < template <typename> class _Promise = promise >
     auto
     get_outgoing_connection_async(endpoint const& ep, bool sync = false)
         -> decltype(::std::declval<_Promise<connection_ptr>>().get_future())
@@ -221,7 +222,7 @@ public:
         functional::exception_callback      exception   = nullptr,
         bool                                run_sync    = false
     ) const;
-    template < template <typename> class _Promise = ::std::promise >
+    template < template <typename> class _Promise = promise >
     auto
     resolve_connection_async(reference_data const& ref,
         bool                                run_sync    = false) const
@@ -256,7 +257,7 @@ public:
         context_type const&                             = no_context,
         bool                                run_sync    = false
     ) const;
-    template < template <typename> class _Promise = ::std::promise >
+    template < template <typename> class _Promise = promise >
     auto
     get_locator_async(
         context_type const&                 ctx         = no_context,
@@ -290,7 +291,7 @@ public:
         context_type const&                             = no_context,
         bool                                run_sync    = false
     ) const;
-    template < template <typename> class _Promise = ::std::promise >
+    template < template <typename> class _Promise = promise >
     auto
     get_locator_registry_async(
         context_type const&                 ctx         = no_context,

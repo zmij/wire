@@ -63,6 +63,8 @@ ast::qname const root_interface         { "::wire::core::object" };
 ast::qname const root_exception         { "::wire::errors::user_exception" };
 ast::qname const connection_failed      { "::wire::errors::connection_failed" };
 
+ast::qname const wire_promise           { "::wire::promise" };
+
 ast::qname const hash_value_type_name   { "::wire::hash_value_type" };
 ast::qname const input_iterator_name    { "::wire::encoding::incoming::const_iterator" };
 ast::qname const wire_outgoing          { "::wire::encoding::outgoing" };
@@ -463,7 +465,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
             << off      <<          invocation_opts << " _opts                 = " << invocation_opts << "::unspecified);";
     header_.modify_offset(-2);
 
-    header_ << off      << "template < template< typename > class _Promise = ::std::promise >"
+    header_ << off      << "template < template< typename > class _Promise = " << wire_promise << " >"
             << off      << "auto"
             << off      << cpp_name(func) << "_async(" << call_params << " "
             << off      <<          wire_context << " const& _ctx                  = " << wire_no_context << ","

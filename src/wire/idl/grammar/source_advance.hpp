@@ -9,9 +9,19 @@
 #define WIRE_IDL_GRAMMAR_SOURCE_ADVANCE_HPP_
 
 #include <wire/idl/source_location.hpp>
+
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/phoenix.hpp>
 #include <boost/spirit/repository/include/qi_iter_pos.hpp>
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 namespace wire {
 namespace idl {

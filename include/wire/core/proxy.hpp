@@ -8,6 +8,8 @@
 #ifndef WIRE_CORE_PROXY_HPP_
 #define WIRE_CORE_PROXY_HPP_
 
+#include <wire/future_config.hpp>
+
 #include <wire/core/identity_fwd.hpp>
 #include <wire/core/proxy_fwd.hpp>
 #include <wire/core/connection_fwd.hpp>
@@ -22,7 +24,6 @@
 #include <wire/encoding/wire_io.hpp>
 #include <wire/encoding/buffers.hpp>
 
-#include <future>
 #include <functional>
 #include <exception>
 #include <vector>
@@ -98,7 +99,7 @@ public:
             invocation_options              opts        = invocation_options::unspecified
     );
 
-    template < template< typename > class _Promise = ::std::promise >
+    template < template< typename > class _Promise = promise >
     auto
     wire_is_a_async(::std::string const&    type_id,
             context_type const&             ctx     = no_context,
@@ -135,7 +136,7 @@ public:
             invocation_options              opts        = invocation_options::unspecified
     );
 
-    template< template< typename > class _Promise = ::std::promise >
+    template< template< typename > class _Promise = promise >
     auto
     wire_ping_async(context_type const&     ctx     = no_context,
             invocation_options const&       opts    = invocation_options::unspecified  )
@@ -191,7 +192,7 @@ public:
         invocation_options                          opts        = invocation_options::unspecified
     );
 
-    template < template< typename > class _Promise = ::std::promise >
+    template < template< typename > class _Promise = promise >
     auto
     wire_type_async(context_type const& ctx = no_context,
             invocation_options const&       opts    = invocation_options::unspecified  )
@@ -226,7 +227,7 @@ public:
         invocation_options                              opts        = invocation_options::unspecified
     );
 
-    template < template< typename > class _Promise = ::std::promise >
+    template < template< typename > class _Promise = promise >
     auto
     wire_types_async(context_type const&     ctx     = no_context,
             invocation_options const&        opts    = invocation_options::unspecified  )
@@ -411,7 +412,7 @@ checked_cast_async(::std::shared_ptr<SourcePrx>                 v,
 }
 
 template < typename TargetPrx, typename SourcePrx,
-    template <typename> class _Promise = ::std::promise >
+    template <typename> class _Promise = promise >
 auto
 checked_cast_async(::std::shared_ptr<SourcePrx>                 v,
         context_type const& ctx           = no_context,

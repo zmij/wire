@@ -90,3 +90,36 @@ install (
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
 )
+
+if(WITH_BOOST_FIBER)
+#-----------------------------------------------------------------------------
+#   Wire core library built with fibers
+#-----------------------------------------------------------------------------
+add_library(${WIRE_FIBER_LIB} SHARED ${wire_lib_SRCS})
+set_target_properties(
+    ${WIRE_FIBER_LIB} PROPERTIES
+    VERSION ${PROJECT_VERSION}
+    SOVERSION 1
+    LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
+)
+target_compile_definitions(${WIRE_FIBER_LIB} PRIVATE WITH_BOOST_FIBERS)
+target_link_libraries(
+    ${WIRE_FIBER_LIB}
+    ${WIRE_UTIL_LIB}
+    ${WIRE_IFACES_LIB}
+    ${Boost_THREAD_LIBRARIES}
+    ${Boost_PROGRAM_OPTIONS_LIBRARIES}
+    ${Boost_SYSTEM_LIBRARIES}
+    ${Boost_FIBER_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+    ${TBB_LIBRARY}
+)
+#-----------------------------------------------------------------------------
+install (
+    TARGETS ${WIRE_FIBER_LIB}
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+
+endif()

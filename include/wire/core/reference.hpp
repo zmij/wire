@@ -9,6 +9,7 @@
 #define WIRE_CORE_REFERENCE_HPP_
 
 #include <wire/asio_config.hpp>
+#include <wire/future_config.hpp>
 
 #include <wire/core/identity.hpp>
 #include <wire/core/endpoint.hpp>
@@ -23,8 +24,6 @@
 #include <wire/core/functional.hpp>
 
 #include <wire/encoding/detail/optional_io.hpp>
-
-#include <future>
 
 namespace wire {
 namespace core {
@@ -130,7 +129,7 @@ public:
     connection_ptr
     get_connection() const;
 
-    template < template < typename  > class _Promise = ::std::promise >
+    template < template < typename  > class _Promise = promise >
     auto
     get_connection_async(bool sync = false) const
         -> decltype(::std::declval< _Promise< connection_ptr > >().get_future() )
