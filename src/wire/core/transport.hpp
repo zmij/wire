@@ -8,7 +8,7 @@
 #ifndef WIRE_CORE_TRANSPORT_HPP_
 #define WIRE_CORE_TRANSPORT_HPP_
 
-#include <wire/asio_config.hpp>
+#include <wire/asio_ssl_config.hpp>
 #include <wire/core/endpoint.hpp>
 #include <wire/core/detail/ssl_options.hpp>
 
