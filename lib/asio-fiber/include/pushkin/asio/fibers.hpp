@@ -1,0 +1,15 @@
+/*
+ * fibers.hpp
+ *
+ *  Created on: Mar 26, 2017
+ *      Author: zmij
+ */
+
+#ifndef PUSHKIN_ASIO_FIBER_INCLUDE_PUSHKIN_ASIO_FIBERS_HPP_
+#define PUSHKIN_ASIO_FIBER_INCLUDE_PUSHKIN_ASIO_FIBERS_HPP_
+
+
+
+
+
+#endif /* PUSHKIN_ASIO_FIBER_INCLUDE_PUSHKIN_ASIO_FIBERS_HPP_ */
