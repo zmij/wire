@@ -70,3 +70,38 @@ add_test(
     NAME test-wire-connector
     COMMAND test-wire-connector --sparring-partner $<TARGET_FILE:ping-pong-sparring> ${TEST_ARGS}
 )
+
+if(WITH_BOOST_FIBER)
+#-----------------------------------------------------------------------------
+#   Test wire core library built with fibers
+#-----------------------------------------------------------------------------
+set(
+    test_fiber_connector_SRCS
+    connector_test_main.cpp
+    ping_pong_fiber_test.cpp
+    ${wired_SRCS}
+)
+add_executable(test-wire-fiber-connector ${test_fiber_connector_SRCS})
+target_link_libraries(
+    test-wire-fiber-connector
+    ${GTEST_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${WIRE_FIBER_LIB}
+    sparring-test
+)
+target_compile_definitions(test-wire-fiber-connector PRIVATE WITH_BOOST_FIBERS)
+
+if (GTEST_XML_OUTPUT)
+    set (
+        TEST_ARGS
+        --gtest_output=xml:test-wire-fiber-connector-detail.xml
+    )
+endif()
+
+add_test(
+    NAME test-wire-fiber-connector
+    COMMAND test-wire-fiber-connector --sparring-partner $<TARGET_FILE:ping-pong-sparring> ${TEST_ARGS}
+)
+
+endif()
+

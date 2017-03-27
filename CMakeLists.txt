@@ -27,6 +27,7 @@ endif()
 option(BUILD_TESTS "Build tests for ${lib_name} library" ON)
 option(COMPILE_TESTS "Test compile generated sources" OFF)
 option(DEBUG_OUTPUT "Generate debug output" OFF)
+option(WITH_BOOST_FIBER "Build wire with boost::fiber support" OFF)
 
 set( CMAKE_MODULE_PATH
     ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"
@@ -49,12 +50,10 @@ set(
     filesystem
 )
 
-option(WITH_BOOST_FIBER "Build wire with boost::fiber support" OFF)
-
 set(BOOST_VERSION 1.58) # We want endian library.
 if (WITH_BOOST_FIBER)
 set(BOOST_VERSION 1.61) # Boost.Fiber was introduced in version 1.61
-list(APPEND BOOST_COMPONENTS fiber)
+list(APPEND BOOST_COMPONENTS context fiber)
 endif()
 
 find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
@@ -78,6 +77,10 @@ endif()
 
 if (NOT AFSM_FOUND)
     set(_AFSM_SUBTREE ON)
+endif()
+
+if (NOT PUSHKIN_ASIO_FIBERS_INCLUDE_DIRECTORIES)
+    set(_PUSHKIN_ASIO_FIBERS_SUBTREE ON)
 endif()
 
 include_directories(
@@ -146,6 +149,10 @@ if (_AFSM_SUBTREE)
     add_subdirectory(lib/afsm)
 endif()
 
+if (_PUSHKIN_ASIO_FIBERS_SUBTREE)
+    add_subdirectory(lib/asio-fiber)
+endif()
+
 if (NOT BOOST_PROCESS_INCLUDE_DIRS)
     message(STATUS "Use bundled boost::process")
     set(_BP_BUILD_TESTS ${BUILD_TESTS})
@@ -162,6 +169,7 @@ include_directories(
     ${TIP_IRI_INCLUDE_DIRS}
     ${METAPUSHKIN_INCLUDE_DIRS}
     ${AFSM_INCLUDE_DIRS}
+    ${PUSHKIN_ASIO_FIBERS_INCLUDE_DIRECTORIES}
 )
 
 # Add subdirectories here

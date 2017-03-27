@@ -157,6 +157,11 @@ struct connection_fsm_def :
         operator()(events::connected const& evt, FSM& fsm,
                 connecting& from, wait_validate& to)
         {
+            #if DEBUG_OUTPUT >= 4
+            ::std::ostringstream os;
+            os <<::getpid() << " on_connected action (connected)\n";
+            ::std::cerr << os.str();
+            #endif
             ::std::swap(to.success, from.success);
             ::std::swap(to.fail, from.fail);
         }
@@ -165,6 +170,11 @@ struct connection_fsm_def :
         operator()(events::receive_validate const& evt, FSM& fsm,
                 wait_validate& from, online& to)
         {
+            #if DEBUG_OUTPUT >= 4
+            ::std::ostringstream os;
+            os <<::getpid() << " on_connected action (receive_validate)\n";
+            ::std::cerr << os.str();
+            #endif
         }
     };
     struct send_validate {
@@ -277,6 +287,11 @@ struct connection_fsm_def :
         void
         on_enter(Event const&, FSM& fsm)
         {
+            #if DEBUG_OUTPUT >= 4
+            ::std::ostringstream os;
+            os <<::getpid() << " wait validate enter\n";
+            ::std::cerr << os.str();
+            #endif
             fsm->start_read();
         }
         template < typename FSM >
@@ -705,6 +720,9 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
             {
                 _this->handle_connected(ec);
             });
+        #ifdef WITH_BOOST_FIBERS
+        ::boost::this_fiber::yield();
+        #endif
     }
 
     virtual void

@@ -110,6 +110,7 @@ target_link_libraries(
     ${Boost_THREAD_LIBRARIES}
     ${Boost_PROGRAM_OPTIONS_LIBRARIES}
     ${Boost_SYSTEM_LIBRARIES}
+    ${Boost_CONTEXT_LIBRARIES}
     ${Boost_FIBER_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     ${TBB_LIBRARY}

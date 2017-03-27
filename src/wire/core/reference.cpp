@@ -172,8 +172,10 @@ fixed_reference::get_connection_async( connection_callback on_get,
 {
     connection_ptr conn = connection_.lock();
     if (!conn) {
-        lock_guard lock{mutex_};
-        conn = connection_.lock();
+        {
+            lock_guard lock{mutex_};
+            conn = connection_.lock();
+        }
         if (conn) {
             try {
                 on_get(conn);
@@ -189,10 +191,14 @@ fixed_reference::get_connection_async( connection_callback on_get,
             *current_++,
             [_this, on_get, on_error](connection_ptr c)
             {
-                auto conn = _this->connection_.lock();
-                if (!conn || conn != c) {
-                    _this->connection_ = c;
-                    conn = c;
+                connection_ptr conn;
+                {
+                    lock_guard lock{_this->mutex_};
+                    conn = _this->connection_.lock();
+                    if (!conn || conn != c) {
+                        _this->connection_ = c;
+                        conn = c;
+                    }
                 }
                 try {
                     on_get(conn);

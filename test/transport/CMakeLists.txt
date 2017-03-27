@@ -57,3 +57,36 @@ add_test(
     COMMAND test-wire-transport --sparring-partner $<TARGET_FILE:transport-sparring> ${TEST_ARGS}
 )
 
+if (WITH_BOOST_FIBER)
+#-----------------------------------------------------------------------------
+#   Test fiber connections
+set(test_fiber_transport_SRCS
+    transport_test_main.cpp
+    tcp_fiber_transport_test.cpp
+)
+add_executable(test-wire-fiber-transport ${test_fiber_transport_SRCS})
+target_link_libraries(test-wire-fiber-transport
+    ${GTEST_LIBRARIES}
+    ${Boost_PROGRAM_OPTIONS_LIBRARIES}
+    ${Boost_IOSTREAMS_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${WIRE_FIBER_LIB}
+    sparring-test
+)
+target_compile_definitions(test-wire-fiber-transport PRIVATE WITH_BOOST_FIBERS)
+
+if (GTEST_XML_OUTPUT)
+    set (
+        TEST_ARGS
+        --gtest_output=xml:test-wire-fiber-transport-detail.xml
+    )
+endif()
+
+add_test(
+    NAME test-wire-fiber-transport
+    COMMAND test-wire-fiber-transport --sparring-partner $<TARGET_FILE:transport-sparring> ${TEST_ARGS}
+)
+
+#-----------------------------------------------------------------------------
+endif()
+

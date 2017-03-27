@@ -10,6 +10,7 @@
 
 #ifdef WITH_BOOST_FIBERS
 #include <boost/fiber/future.hpp>
+#include <boost/fiber/fiber.hpp>
 #else
 #include <future>
 #endif
@@ -19,6 +20,7 @@ namespace wire {
 #ifdef WITH_BOOST_FIBERS
 template < typename _Res >
 using promise = ::boost::fibers::promise< _Res >;
+using fiber = ::boost::fibers::fiber;
 #else
 template < typename _Res >
 using promise = ::std::promise< _Res >;
