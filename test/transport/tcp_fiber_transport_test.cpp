@@ -6,9 +6,8 @@
  */
 
 #include <gtest/gtest.h>
+#include <pushkin/asio/fiber/shared_work.hpp>
 #include <wire/core/transport.hpp>
-#include <pushkin/asio/fiber/round_robin.hpp>
-
 #include "sparring/sparring_test.hpp"
 
 namespace wire {
@@ -20,7 +19,7 @@ protected:
     void
     SetUp() override
     {
-        ::boost::fibers::use_scheduling_algorithm< ::psst::asio::fiber::round_robin >( io_svc );
+        ::boost::fibers::use_scheduling_algorithm< ::psst::asio::fiber::shared_work >( io_svc );
         StartPartner();
     }
     void
