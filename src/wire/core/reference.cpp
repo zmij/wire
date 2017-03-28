@@ -172,9 +172,15 @@ fixed_reference::get_connection_async( connection_callback on_get,
 {
     connection_ptr conn = connection_.lock();
     if (!conn) {
+        connector_ptr cntr = get_connector();
+        endpoint ep;
         {
             lock_guard lock{mutex_};
             conn = connection_.lock();
+            if (current_ == ref_.endpoints.end()) {
+                current_ = ref_.endpoints.begin();
+            }
+            ep = *current_++;
         }
         if (conn) {
             try {
@@ -182,13 +188,9 @@ fixed_reference::get_connection_async( connection_callback on_get,
             } catch (...) {}
             return;
         }
-        connector_ptr cntr = get_connector();
-        if (current_ == ref_.endpoints.end()) {
-            current_ = ref_.endpoints.begin();
-        }
         auto _this = shared_this<fixed_reference>();
         cntr->get_outgoing_connection_async(
-            *current_++,
+            ep,
             [_this, on_get, on_error](connection_ptr c)
             {
                 connection_ptr conn;
