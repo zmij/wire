@@ -5,8 +5,8 @@
  *      Author: zmij
  */
 
-#ifndef PUSHKIN_ASIO_FIBER_INCLUDE_PUSHKIN_ASIO_ASIO_CONFIG_HPP_
-#define PUSHKIN_ASIO_FIBER_INCLUDE_PUSHKIN_ASIO_ASIO_CONFIG_HPP_
+#ifndef PUSHKIN_ASIO_ASIO_CONFIG_HPP_
+#define PUSHKIN_ASIO_ASIO_CONFIG_HPP_
 
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -40,4 +40,4 @@ using local_socket      = ::asio_ns::local::stream_protocol;
 } /* namespace psst */
 
 
-#endif /* PUSHKIN_ASIO_FIBER_INCLUDE_PUSHKIN_ASIO_ASIO_CONFIG_HPP_ */
+#endif /* PUSHKIN_ASIO_ASIO_CONFIG_HPP_ */

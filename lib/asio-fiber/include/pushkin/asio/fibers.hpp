@@ -5,11 +5,11 @@
  *      Author: zmij
  */
 
-#ifndef PUSHKIN_ASIO_FIBER_INCLUDE_PUSHKIN_ASIO_FIBERS_HPP_
-#define PUSHKIN_ASIO_FIBER_INCLUDE_PUSHKIN_ASIO_FIBERS_HPP_
+#ifndef PUSHKIN_ASIO_FIBERS_HPP_
+#define PUSHKIN_ASIO_FIBERS_HPP_
 
+#include <pushkin/asio/fiber/yield.hpp>
+#include <pushkin/asio/fiber/round_robin.hpp>
+#include <pushkin/asio/fiber/shared_work.hpp>
 
-
-
-
-#endif /* PUSHKIN_ASIO_FIBER_INCLUDE_PUSHKIN_ASIO_FIBERS_HPP_ */
+#endif /* PUSHKIN_ASIO_FIBERS_HPP_ */

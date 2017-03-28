@@ -5,8 +5,8 @@
  *      Author: zmij
  */
 
-#ifndef WIRE_UTIL_FIBER_ROUND_ROBIN_HPP_
-#define WIRE_UTIL_FIBER_ROUND_ROBIN_HPP_
+#ifndef PUSHKIN_ASIO_FIBER_ROUND_ROBIN_HPP_
+#define PUSHKIN_ASIO_FIBER_ROUND_ROBIN_HPP_
 
 #include <pushkin/asio/asio_config.hpp>
 
@@ -21,8 +21,6 @@
 namespace psst {
 namespace asio {
 namespace fiber {
-
-namespace this_fiber = ::boost::this_fiber;
 
 class round_robin : public ::boost::fibers::algo::algorithm {
     using time_point            = ::std::chrono::steady_clock::time_point;
@@ -81,22 +79,17 @@ public:
         [this]() mutable
         {
             while (!io_svc_->stopped()) {
-                ::std::cerr << "Run the loop\n";
                 if (has_ready_fibers()) {
-                    ::std::cerr << "io_svc_->poll()\n";
                     while (io_svc_->poll());
 
-                    ::std::cerr << "Lock the loop\n";
                     lock_type lock{mtx_};
                     cnd_.wait_for(lock, ::std::chrono::milliseconds{10});
                 } else {
-                    ::std::cerr << "io_svc_->run_one()\n";
                     if (!io_svc_->run_one()) {
                         break;
                     }
                 }
             }
-            ::std::cerr << "Exit lambda\n";
         });
     }
 
@@ -138,7 +131,7 @@ public:
             suspend_timer_.async_wait(
                 []( error_code const& )
                 {
-                    this_fiber::yield();
+                    ::boost::this_fiber::yield();
                 });
         }
         cnd_.notify_one();
@@ -149,7 +142,7 @@ public:
     {
         suspend_timer_.async_wait([]( error_code const& )
                 {
-                    this_fiber::yield();
+                    ::boost::this_fiber::yield();
                 });
         suspend_timer_.expires_at(::std::chrono::steady_clock::now());
     }
@@ -162,4 +155,4 @@ io_service::id round_robin::service::id;
 } /* namespace psst */
 
 
-#endif /* WIRE_UTIL_FIBER_ROUND_ROBIN_HPP_ */
+#endif /* PUSHKIN_ASIO_FIBER_ROUND_ROBIN_HPP_ */
