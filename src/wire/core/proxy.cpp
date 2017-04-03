@@ -87,14 +87,6 @@ object_proxy::wire_get_connector() const
     return wire_get_reference()->get_connector();
 }
 
-bool
-object_proxy::wire_is_a(::std::string const& type_id, context_type const& ctx)
-{
-    auto future = wire_is_a_async(type_id, ctx,
-            wire_invocation_options() | invocation_flags::sync);
-    return future.get();
-}
-
 void
 object_proxy::wire_is_a_async(::std::string const&  type_id,
         functional::callback< bool >                response,
@@ -113,14 +105,6 @@ object_proxy::wire_is_a_async(::std::string const&  type_id,
 }
 
 void
-object_proxy::wire_ping(context_type const& ctx)
-{
-    auto future = wire_ping_async(ctx,
-            wire_invocation_options() | invocation_flags::sync);
-    future.get();
-}
-
-void
 object_proxy::wire_ping_async(
         functional::void_callback         response,
         functional::exception_callback    exception,
@@ -134,14 +118,6 @@ object_proxy::wire_ping_async(
             WIRE_CORE_OBJECT_wire_ping_hash, ctx,
             &object::wire_ping,
             response, exception, sent)(opts);
-}
-
-::std::string
-object_proxy::wire_type(context_type const& ctx)
-{
-    auto future = wire_type_async(ctx,
-            wire_invocation_options() | invocation_flags::sync);
-    return future.get();
 }
 
 void
@@ -158,14 +134,6 @@ object_proxy::wire_type_async(
             WIRE_CORE_OBJECT_wire_type_hash, ctx,
             &object::wire_type,
             response, exception, sent)(opts);
-}
-
-::std::vector< ::std::string >
-object_proxy::wire_types(context_type const& ctx)
-{
-    auto future = wire_types_async(ctx,
-            wire_invocation_options() | invocation_flags::sync);
-    return future.get();
 }
 
 void

@@ -63,6 +63,13 @@ find_package(TBB REQUIRED)
 find_package(Readline)
 find_package(AFSM)
 
+if (WITH_BOOST_FIBER)
+set(FIBER_LIBRARIES
+    ${Boost_CONTEXT_LIBRARIES}
+    ${Boost_FIBER_LIBRARIES}
+)
+endif()
+
 if (Readline_INCLUDE_DIR)
     option(BUILD_CMD_UTILS "Build command line utils" ON)
 endif()
@@ -121,9 +128,6 @@ add_definitions(-DDEBUG_OUTPUT=${WIRE_DEBUG_LEVEL})
 endif()
 
 set(${LIB_NAME}_LIB ${lib_name})
-if(WITH_BOOST_FIBER)
-set(${LIB_NAME}_FIBER_LIB ${lib_name}-fiber)
-endif()
 set(${LIB_NAME}_UTIL_LIB ${lib_name}-util)
 set(${LIB_NAME}_IFACES_LIB ${lib_name}-ifaces)
 set(${LIB_NAME}_IDL_LIB ${lib_name}-idl)

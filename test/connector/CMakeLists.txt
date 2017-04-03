@@ -86,7 +86,8 @@ target_link_libraries(
     test-wire-fiber-connector
     ${GTEST_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
-    ${WIRE_FIBER_LIB}
+    ${WIRE_LIB}
+    ${FIBER_LIBRARIES}
     sparring-test
 )
 target_compile_definitions(test-wire-fiber-connector PRIVATE WITH_BOOST_FIBERS)

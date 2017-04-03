@@ -86,6 +86,7 @@ ast::qname const wire_context           { "::wire::core::context_type" };
 ast::qname const wire_no_context        { "::wire::core::no_context" };
 ast::qname const invocation_opts        { "::wire::core::invocation_options" };
 ast::qname const invocation_flags       { "::wire::core::invocation_flags" };
+ast::qname const promise_inv_flags      { "::wire::core::promise_invocation_flags" };
 
 ast::qname const wire_seg_head          { "::wire::encoding::segment_header" };
 ast::qname const wire_seg_head_no_flags { "::wire::encoding::segment_header::none" };
@@ -441,9 +442,26 @@ generator::generate_invocation_function_member(ast::function_ptr func)
         call_params << arg_type(p.first) << " " << p.second << "," << off;
     }
 
-    header_ << off << mapped_type{func->get_return_type(), func->get_annotations()}
+    // Sync invocation
+    header_ << off << "/**"
+            << off << " * Synchronous invocation of " << cpp_name(func)
+            << off << " * Depending on the promise class will either throttle the I/O service (for ::std::promise)"
+            << off << " * or just start an async operation (e.g. ::boost::fiber::promise)."
+            << off << " */"
+            << off << "template < template< typename > class _Promise = " << wire_promise << " >"
+            << off << mapped_type{func->get_return_type(), func->get_annotations()}
             << off << cpp_name(func) << "(" << call_params << " "
-            << wire_context << " const& = " << wire_no_context << ");";
+            << wire_context << " const& __ctx = " << wire_no_context << ")"
+            << off << "{"
+            << mod(+1) << "auto future = " << cpp_name(func) << "_async<_Promise>(";
+    for (auto const& p : params) {
+        header_ << p.second << ", ";
+    }
+    header_ << "__ctx, "
+            << off(+2)    << "wire_invocation_options() | "
+                << promise_inv_flags << "<_Promise>::value);"
+            << off << "return future.get();"
+            << mod(-1) << "}\n";
 
     code_snippet result_callback{ header_.current_scope() };
     if (func->is_void()) {
@@ -456,16 +474,23 @@ generator::generate_invocation_function_member(ast::function_ptr func)
                 << " ) >;";
     }
 
-    header_ << off      << "void"
+    header_ << off << "/**"
+            << off << " * Asynchronous invocation of " << cpp_name(func) << " actual implementation"
+            << off << " * Starts async operation and passes completion callbacks"
+            << off << " */"
+            << off      << "void"
             << off      << cpp_name(func) << "_async(" << call_params << " "
             <<                      result_callback << " _response,"
             << mod(+2)  <<          wire_exception_callback << " _exception = nullptr,"
             << off      <<          wire_callback << "< bool > _sent        = nullptr,"
             << off      <<          wire_context    << " const&                       = " << wire_no_context << ","
-            << off      <<          invocation_opts << " _opts                 = " << invocation_opts << "::unspecified);";
+            << off      <<          invocation_opts << " _opts                  = " << invocation_opts << "::unspecified);";
     header_.modify_offset(-2);
 
-    header_ << off      << "template < template< typename > class _Promise = " << wire_promise << " >"
+    header_ << off << "/**"
+            << off << " * Async/sync transition helper function"
+            << off << " */"
+            << off      << "template < template< typename > class _Promise = " << wire_promise << " >"
             << off      << "auto"
             << off      << cpp_name(func) << "_async(" << call_params << " "
             << off      <<          wire_context << " const& _ctx                  = " << wire_no_context << ","
@@ -528,24 +553,6 @@ generator::generate_invocation_function_member(ast::function_ptr func)
 
     {
         // Sources
-        {
-            offset_guard _f{source_};
-            // Sync invocation
-            source_ << off << mapped_type{func->get_return_type(), func->get_annotations()}
-                    << off << qname(func->owner()) << "_proxy::" << cpp_name(func) << "("
-                    << mod(+3) << call_params << " "
-                    << wire_context << " const& __ctx)"
-                    << mod(-3) << "{"
-                    << mod(+1) << "auto future = " << cpp_name(func) << "_async(";
-            for (auto const& p : params) {
-                source_ << p.second << ", ";
-            }
-            source_ << "__ctx, "
-                    << off(+2)    << "wire_invocation_options() | "
-                        << invocation_flags << "::sync);"
-                    << off << "return future.get();"
-                    << mod(-1) << "}\n";
-        }
         {
             // Async invocation
             offset_guard _f{source_};

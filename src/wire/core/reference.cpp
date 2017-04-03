@@ -101,13 +101,6 @@ reference::get_local_object() const
     return {obj, adapter_cache_.lock()};
 }
 
-connection_ptr
-reference::get_connection() const
-{
-    auto future = get_connection_async(true);
-    return future.get();
-}
-
 connector_ptr
 reference::get_connector() const
 {

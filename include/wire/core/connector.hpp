@@ -29,6 +29,8 @@
 #include <wire/core/functional.hpp>
 #include <wire/core/context.hpp>
 
+#include <wire/core/detail/future_traits.hpp>
+
 #include <future>
 
 namespace boost {
@@ -186,8 +188,14 @@ public:
      * @param
      * @return
      */
+    template < template <typename> class _Promise = promise >
     connection_ptr
-    get_outgoing_connection(endpoint const&);
+    get_outgoing_connection(endpoint const& ep)
+    {
+        auto future = get_outgoing_connection_async< _Promise >(
+                ep, detail::promise_want_io_throttle<_Promise>::value );
+        return future.get();
+    }
 
     template < template <typename> class _Promise = promise >
     auto
@@ -214,14 +222,22 @@ public:
             functional::exception_callback  on_error,
             bool sync = false);
 
+    template < template <typename> class _Promise = promise >
     connection_ptr
-    resolve_connection(reference_data const&) const;
+    resolve_connection(reference_data const& ref) const
+    {
+        auto future = resolve_connection_async<_Promise>(
+                ref, detail::promise_want_io_throttle<_Promise>::value );
+        return future.get();
+    }
+
     void
     resolve_connection_async(reference_data const& ref,
         functional::callback<connection_ptr> result,
         functional::exception_callback      exception   = nullptr,
         bool                                run_sync    = false
     ) const;
+
     template < template <typename> class _Promise = promise >
     auto
     resolve_connection_async(reference_data const& ref,
@@ -248,8 +264,14 @@ public:
 
     //@{
     /** @name Locator */
+    template < template <typename> class _Promise = promise >
     locator_prx
-    get_locator(context_type const& = no_context) const;
+    get_locator(context_type const& ctx = no_context) const
+    {
+        auto future = get_locator_async<_Promise>(
+                ctx, detail::promise_want_io_throttle<_Promise>::value);
+        return future.get();
+    }
     void
     get_locator_async(
         functional::callback<locator_prx>   result,
@@ -257,6 +279,7 @@ public:
         context_type const&                             = no_context,
         bool                                run_sync    = false
     ) const;
+
     template < template <typename> class _Promise = promise >
     auto
     get_locator_async(
@@ -282,8 +305,16 @@ public:
     void
     set_locator(locator_prx);
 
+
+    template < template <typename> class _Promise = promise >
     locator_registry_prx
-    get_locator_registry(context_type const& = no_context) const;
+    get_locator_registry(context_type const& ctx = no_context) const
+    {
+        auto future = get_locator_registry_async<_Promise>(
+                ctx, detail::promise_want_io_throttle<_Promise>::value);
+        return future.get();
+    }
+
     void
     get_locator_registry_async(
         functional::callback<locator_registry_prx> result,
@@ -291,6 +322,7 @@ public:
         context_type const&                             = no_context,
         bool                                run_sync    = false
     ) const;
+
     template < template <typename> class _Promise = promise >
     auto
     get_locator_registry_async(
