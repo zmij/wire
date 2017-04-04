@@ -101,13 +101,6 @@ reference::get_local_object() const
     return {obj, adapter_cache_.lock()};
 }
 
-connection_ptr
-reference::get_connection() const
-{
-    auto future = get_connection_async(true);
-    return future.get();
-}
-
 connector_ptr
 reference::get_connector() const
 {
@@ -172,27 +165,35 @@ fixed_reference::get_connection_async( connection_callback on_get,
 {
     connection_ptr conn = connection_.lock();
     if (!conn) {
-        lock_guard lock{mutex_};
-        conn = connection_.lock();
+        connector_ptr cntr = get_connector();
+        endpoint ep;
+        {
+            lock_guard lock{mutex_};
+            conn = connection_.lock();
+            if (current_ == ref_.endpoints.end()) {
+                current_ = ref_.endpoints.begin();
+            }
+            ep = *current_++;
+        }
         if (conn) {
             try {
                 on_get(conn);
             } catch (...) {}
             return;
         }
-        connector_ptr cntr = get_connector();
-        if (current_ == ref_.endpoints.end()) {
-            current_ = ref_.endpoints.begin();
-        }
         auto _this = shared_this<fixed_reference>();
         cntr->get_outgoing_connection_async(
-            *current_++,
+            ep,
             [_this, on_get, on_error](connection_ptr c)
             {
-                auto conn = _this->connection_.lock();
-                if (!conn || conn != c) {
-                    _this->connection_ = c;
-                    conn = c;
+                connection_ptr conn;
+                {
+                    lock_guard lock{_this->mutex_};
+                    conn = _this->connection_.lock();
+                    if (!conn || conn != c) {
+                        _this->connection_ = c;
+                        conn = c;
+                    }
                 }
                 try {
                     on_get(conn);

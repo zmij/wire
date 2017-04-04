@@ -9,7 +9,6 @@
 #define WIRE_ASIO_CONFIG_HPP_
 
 #include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
 #include <boost/asio/use_future.hpp>
 #include <boost/asio/system_timer.hpp>
 #include <boost/asio/error.hpp>
@@ -37,9 +36,6 @@ using address_v6        = asio_ns::ip::address_v6;
 using error_code        = ::boost::system::error_code;
 using asio_callback     = ::std::function< void(error_code const&) >;
 using asio_rw_callback  = ::std::function< void(error_code const&, std::size_t) >;
-
-using ssl_context       = asio_ns::ssl::context;
-using ssl_context_ptr   = ::std::shared_ptr< ssl_context >;
 
 using system_timer      = asio_ns::system_timer;
 

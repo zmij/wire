@@ -97,7 +97,7 @@ struct conection_fsm_observer : ::afsm::detail::null_observer {
                 << cut_type_name(demangle<Event>()) << "\n";
         ::std::cerr << os.str();
     }
-    #endif
+    #endif /* DEBUG_OUTPUT >= 4 */
     template < typename FSM, typename Event >
     void
     reject_event(FSM const&, Event const&) const noexcept

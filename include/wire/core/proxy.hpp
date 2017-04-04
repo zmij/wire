@@ -8,6 +8,8 @@
 #ifndef WIRE_CORE_PROXY_HPP_
 #define WIRE_CORE_PROXY_HPP_
 
+#include <wire/future_config.hpp>
+
 #include <wire/core/identity_fwd.hpp>
 #include <wire/core/proxy_fwd.hpp>
 #include <wire/core/connection_fwd.hpp>
@@ -19,10 +21,11 @@
 #include <wire/core/context.hpp>
 #include <wire/core/functional.hpp>
 
+#include <wire/core/detail/future_traits.hpp>
+
 #include <wire/encoding/wire_io.hpp>
 #include <wire/encoding/buffers.hpp>
 
-#include <future>
 #include <functional>
 #include <exception>
 #include <vector>
@@ -85,8 +88,14 @@ public:
     wire_function_name(::std::uint32_t hash);
 public:
 
+    template < template< typename > class _Promise = promise >
     bool
-    wire_is_a(::std::string const&, context_type const& = no_context);
+    wire_is_a(::std::string const& type_id, context_type const& ctx = no_context)
+    {
+        auto future = wire_is_a_async<_Promise>(type_id, ctx,
+                wire_invocation_options() | promise_invocation_flags<_Promise>::value);
+        return future.get();
+    }
 
     void
     wire_is_a_async(
@@ -98,7 +107,7 @@ public:
             invocation_options              opts        = invocation_options::unspecified
     );
 
-    template < template< typename > class _Promise = ::std::promise >
+    template < template< typename > class _Promise = promise >
     auto
     wire_is_a_async(::std::string const&    type_id,
             context_type const&             ctx     = no_context,
@@ -123,8 +132,14 @@ public:
         return promise->get_future();
     }
 
+    template < template< typename > class _Promise = promise >
     void
-    wire_ping(context_type const& = no_context);
+    wire_ping(context_type const& ctx = no_context)
+    {
+        auto future = wire_ping_async<_Promise>(ctx,
+                wire_invocation_options() | promise_invocation_flags<_Promise>::value);
+        return future.get();
+    }
 
     void
     wire_ping_async(
@@ -135,7 +150,7 @@ public:
             invocation_options              opts        = invocation_options::unspecified
     );
 
-    template< template< typename > class _Promise = ::std::promise >
+    template< template< typename > class _Promise = promise >
     auto
     wire_ping_async(context_type const&     ctx     = no_context,
             invocation_options const&       opts    = invocation_options::unspecified  )
@@ -179,8 +194,14 @@ public:
         return promise->get_future();
     }
 
+    template < template< typename > class _Promise = promise >
     ::std::string
-    wire_type(context_type const& = no_context);
+    wire_type(context_type const& ctx = no_context)
+    {
+        auto future = wire_type_async<_Promise>(ctx,
+                wire_invocation_options() | promise_invocation_flags<_Promise>::value);
+        return future.get();
+    }
 
     void
     wire_type_async(
@@ -191,7 +212,7 @@ public:
         invocation_options                          opts        = invocation_options::unspecified
     );
 
-    template < template< typename > class _Promise = ::std::promise >
+    template < template< typename > class _Promise = promise >
     auto
     wire_type_async(context_type const& ctx = no_context,
             invocation_options const&       opts    = invocation_options::unspecified  )
@@ -214,8 +235,14 @@ public:
         return promise->get_future();
     }
 
+    template < template< typename > class _Promise = promise >
     ::std::vector< ::std::string >
-    wire_types(context_type const& = no_context);
+    wire_types(context_type const& ctx = no_context)
+    {
+        auto future = wire_types_async<_Promise>(ctx,
+                wire_invocation_options() | promise_invocation_flags<_Promise>::value);
+        return future.get();
+    }
 
     void
     wire_types_async(
@@ -226,7 +253,7 @@ public:
         invocation_options                              opts        = invocation_options::unspecified
     );
 
-    template < template< typename > class _Promise = ::std::promise >
+    template < template< typename > class _Promise = promise >
     auto
     wire_types_async(context_type const&     ctx     = no_context,
             invocation_options const&        opts    = invocation_options::unspecified  )
@@ -411,7 +438,7 @@ checked_cast_async(::std::shared_ptr<SourcePrx>                 v,
 }
 
 template < typename TargetPrx, typename SourcePrx,
-    template <typename> class _Promise = ::std::promise >
+    template <typename> class _Promise = promise >
 auto
 checked_cast_async(::std::shared_ptr<SourcePrx>                 v,
         context_type const& ctx           = no_context,
@@ -436,12 +463,13 @@ checked_cast_async(::std::shared_ptr<SourcePrx>                 v,
     return promise->get_future();
 }
 
-template < typename TargetPrx, typename SourcePrx >
+template < typename TargetPrx, typename SourcePrx,
+            template <typename> class _Promise = promise >
 ::std::shared_ptr< TargetPrx >
 checked_cast(::std::shared_ptr< SourcePrx > v, context_type const& ctx = no_context)
 {
-    auto future = checked_cast_async<TargetPrx>(v, ctx,
-            v->wire_invocation_options() | invocation_flags::sync);
+    auto future = checked_cast_async<TargetPrx, SourcePrx, _Promise>(v, ctx,
+            v->wire_invocation_options() | promise_invocation_flags<_Promise>::value);
     return future.get();
 }
 

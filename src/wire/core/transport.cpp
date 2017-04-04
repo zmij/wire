@@ -151,16 +151,7 @@ tcp_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
     ep.check(traits::value);
     traits::endpoint_data const& tcp_data = ep.get< traits::endpoint_data >();
     resolver_type::query query( tcp_data.host, std::to_string(tcp_data.port) );
-//    try {
-//        resolver_type::iterator iter = resolver_.resolve(query);
-//        asio_ns::async_connect(socket_, iter, std::bind( &tcp_transport::handle_connect, this,
-//                    std::placeholders::_1, cb));
-//    } catch (std::exception const& e) {
-//        // FIXME connection_failed class
-//        ::std::cerr << "TCP connection error " << e.what() << "\n";
-//        throw errors::connection_failed(e.what());
-//    }
-    resolver_.async_resolve(query,
+    ::psst::asio::async_resolve(resolver_, query,
             ::std::bind( &tcp_transport::handle_resolve, this,
                     std::placeholders::_1, std::placeholders::_2, cb));
 }
@@ -180,7 +171,7 @@ tcp_transport::handle_resolve(asio_config::error_code const& ec,
         asio_config::asio_callback cb)
 {
     if (!ec) {
-        asio_ns::async_connect(socket_, endpoint_iterator,
+        ::psst::asio::async_connect(socket_, endpoint_iterator,
             std::bind( &tcp_transport::handle_connect, this,
                     std::placeholders::_1, cb));
     } else if (cb) {
@@ -260,8 +251,8 @@ ssl_transport::connect_async(endpoint const& ep, asio_config::asio_callback cb)
     socket_.set_verify_mode(verify_mode_);
     asio_config::tcp::resolver::query query( ssl_data.host,
             std::to_string(ssl_data.port) );
-    resolver_.async_resolve(query,
-            std::bind( &ssl_transport::handle_resolve, this,
+    ::psst::asio::async_resolve(resolver_, query,
+            ::std::bind( &ssl_transport::handle_resolve, this,
                     std::placeholders::_1, std::placeholders::_2, cb));
 }
 
@@ -269,10 +260,9 @@ void
 ssl_transport::start(asio_config::asio_callback cb)
 {
     socket_.set_verify_mode(verify_mode_);
-    socket_.async_handshake(
-        asio_ns::ssl::stream_base::server,
+    ::psst::asio::async_handshake(socket_, asio_ns::ssl::stream_base::server,
         std::bind(&ssl_transport::handle_handshake, this,
-                std::placeholders::_1, cb));
+            std::placeholders::_1, cb));
 }
 
 void
@@ -287,7 +277,7 @@ ssl_transport::handle_resolve(asio_config::error_code const& ec,
         asio_config::asio_callback cb)
 {
     if (!ec) {
-        asio_ns::async_connect(socket_.lowest_layer(), endpoint_iterator,
+        ::psst::asio::async_connect(socket_.lowest_layer(), endpoint_iterator,
             std::bind( &ssl_transport::handle_connect, this,
                     std::placeholders::_1, cb));
     } else if (cb) {
@@ -300,7 +290,7 @@ ssl_transport::handle_connect(asio_config::error_code const& ec,
         asio_config::asio_callback cb)
 {
     if (!ec) {
-        socket_.async_handshake(asio_ns::ssl::stream_base::client,
+        ::psst::asio::async_handshake(socket_, asio_ns::ssl::stream_base::client,
             std::bind(&ssl_transport::handle_handshake, this,
                 std::placeholders::_1, cb));
     } else if (cb) {
@@ -389,6 +379,7 @@ transport_listener< void, transport_type::udp >::local_endpoint() const
     return traits::get_endpoint_data(socket_.local_endpoint());
 }
 
+#ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
 //----------------------------------------------------------------------------
 //    UNIX socket transport
 //----------------------------------------------------------------------------
@@ -404,7 +395,7 @@ socket_transport::connect_async(endpoint const& ep, asio_config::asio_callback c
     ep.check(traits::value);
     traits::endpoint_data const& socket_data = ep.get< traits::endpoint_data >();
 
-    socket_.async_connect( endpoint_type{ socket_data.path },
+    ::psst::asio::async_connect(socket_, endpoint_type{ socket_data.path },
             std::bind(&socket_transport::handle_connect, this,
                     std::placeholders::_1, cb));
 }
@@ -420,6 +411,7 @@ socket_transport::handle_connect(asio_config::error_code const& ec, asio_config:
 {
     if (cb) cb(ec);
 }
+#endif /* BOOST_ASIO_HAS_LOCAL_SOCKETS */
 
 }  // namespace core
 }  // namespace wire

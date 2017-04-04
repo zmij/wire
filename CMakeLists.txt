@@ -27,6 +27,7 @@ endif()
 option(BUILD_TESTS "Build tests for ${lib_name} library" ON)
 option(COMPILE_TESTS "Test compile generated sources" OFF)
 option(DEBUG_OUTPUT "Generate debug output" OFF)
+option(WITH_BOOST_FIBER "Build wire with boost::fiber support" OFF)
 
 set( CMAKE_MODULE_PATH
     ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"
@@ -48,7 +49,12 @@ set(
     program_options
     filesystem
 )
+
 set(BOOST_VERSION 1.58) # We want endian library.
+if (WITH_BOOST_FIBER)
+set(BOOST_VERSION 1.61) # Boost.Fiber was introduced in version 1.61
+list(APPEND BOOST_COMPONENTS context fiber)
+endif()
 
 find_package(Boost ${BOOST_VERSION} COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
 find_package(Threads REQUIRED)
@@ -56,6 +62,13 @@ find_package(OpenSSL REQUIRED)
 find_package(TBB REQUIRED)
 find_package(Readline)
 find_package(AFSM)
+
+if (WITH_BOOST_FIBER)
+set(FIBER_LIBRARIES
+    ${Boost_CONTEXT_LIBRARIES}
+    ${Boost_FIBER_LIBRARIES}
+)
+endif()
 
 if (Readline_INCLUDE_DIR)
     option(BUILD_CMD_UTILS "Build command line utils" ON)
@@ -73,6 +86,10 @@ if (NOT AFSM_FOUND)
     set(_AFSM_SUBTREE ON)
 endif()
 
+if (NOT PUSHKIN_ASIO_FIBERS_INCLUDE_DIRECTORIES)
+    set(_PUSHKIN_ASIO_FIBERS_SUBTREE ON)
+endif()
+
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -85,18 +102,18 @@ wire_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/idl
 )
 set(WIRE_IDL_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/idl)
-add_definitions("-std=c++11")
+add_definitions("-std=c++14")
 add_definitions(-Wall -Werror -pedantic
     -Wno-unused-local-typedefs
     -Wno-unused-parameter
     -Wno-unused-function
     -Wno-unknown-pragmas
+    -Wno-unused-variable # GCC with C++ 14 fails to compile some ASIO headers
 )
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 add_definitions(
     -Wno-unused-local-typedef
     -Wno-mismatched-tags
-    -Wno-unused-variable
     -Wno-gnu-zero-variadic-macro-arguments
     -Wno-unsequenced
     -Wno-keyword-macro
@@ -136,6 +153,10 @@ if (_AFSM_SUBTREE)
     add_subdirectory(lib/afsm)
 endif()
 
+if (_PUSHKIN_ASIO_FIBERS_SUBTREE)
+    add_subdirectory(lib/asio-fiber)
+endif()
+
 if (NOT BOOST_PROCESS_INCLUDE_DIRS)
     message(STATUS "Use bundled boost::process")
     set(_BP_BUILD_TESTS ${BUILD_TESTS})
@@ -152,6 +173,7 @@ include_directories(
     ${TIP_IRI_INCLUDE_DIRS}
     ${METAPUSHKIN_INCLUDE_DIRS}
     ${AFSM_INCLUDE_DIRS}
+    ${PUSHKIN_ASIO_FIBERS_INCLUDE_DIRECTORIES}
 )
 
 # Add subdirectories here

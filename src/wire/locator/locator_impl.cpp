@@ -64,6 +64,8 @@ struct locator::impl {
     proxy_map                   objects_;
     proxy_map                   adapters_;
 
+    impl(core::locator_registry_prx reg) : reg_{reg} {}
+
     core::object_prx
     find_object(core::identity const& id)
     {

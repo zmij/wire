@@ -880,13 +880,6 @@ connector::make_proxy(reference_data const& ref) const
     return pimpl_->make_proxy(ref);
 }
 
-connection_ptr
-connector::get_outgoing_connection(endpoint const& ep)
-{
-    auto future = get_outgoing_connection_async(ep, true);
-    return future.get();
-}
-
 void
 connector::get_outgoing_connection_async(endpoint const& ep,
         connection_callback             on_get,
@@ -894,13 +887,6 @@ connector::get_outgoing_connection_async(endpoint const& ep,
         bool sync)
 {
     pimpl_->get_outgoing(ep, on_get, on_error, sync);
-}
-
-connection_ptr
-connector::resolve_connection(reference_data const& ref) const
-{
-    auto future = resolve_connection_async(ref, true);
-    return future.get();
 }
 
 void
@@ -919,13 +905,6 @@ connector::set_locator(locator_prx loc)
     pimpl_->set_locator(loc);
 }
 
-locator_prx
-connector::get_locator(context_type const& ctx) const
-{
-    auto future = get_locator_async(ctx, true);
-    return future.get();
-}
-
 void
 connector::get_locator_async(
         functional::callback<locator_prx>   result,
@@ -934,13 +913,6 @@ connector::get_locator_async(
         bool                                run_sync) const
 {
     pimpl_->get_locator_async(result, exception, ctx, run_sync);
-}
-
-locator_registry_prx
-connector::get_locator_registry(context_type const& ctx) const
-{
-    auto future = get_locator_registry_async(ctx, true);
-    return future.get();
 }
 
 void

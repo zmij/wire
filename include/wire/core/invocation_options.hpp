@@ -9,6 +9,7 @@
 #define WIRE_CORE_INVOCATION_OPTIONS_HPP_
 
 #include <functional>
+#include <future>
 
 namespace wire {
 namespace core {
@@ -143,6 +144,14 @@ operator - (invocation_options const& lhs, invocation_options::timeout_type t)
 {
     return invocation_options{ lhs.flags, lhs.timeout - t };
 }
+
+template <template<typename> class _Promise>
+struct promise_invocation_flags :
+        ::std::integral_constant<invocation_flags, invocation_flags::none> {};
+
+template <>
+struct promise_invocation_flags<::std::promise> :
+        ::std::integral_constant<invocation_flags, invocation_flags::sync> {};
 
 namespace functional {
 using invocation_function   = ::std::function< void(invocation_options const&) >;

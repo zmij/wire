@@ -388,6 +388,11 @@ connection_implementation::handle_write(asio_config::error_code const& ec, ::std
 void
 connection_implementation::start_read()
 {
+    #if DEBUG_OUTPUT >= 4
+    ::std::ostringstream os;
+    os <<::getpid() << " Start read\n";
+    ::std::cerr << os.str();
+    #endif
     if (!is_terminated() && is_open()) {
         incoming_buffer_ptr buffer = ::std::make_shared< incoming_buffer >();
         read_async(buffer);

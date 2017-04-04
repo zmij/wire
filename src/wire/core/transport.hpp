@@ -8,9 +8,12 @@
 #ifndef WIRE_CORE_TRANSPORT_HPP_
 #define WIRE_CORE_TRANSPORT_HPP_
 
-#include <wire/asio_config.hpp>
+#include <wire/asio_ssl_config.hpp>
+#include <wire/future_config.hpp>
 #include <wire/core/endpoint.hpp>
 #include <wire/core/detail/ssl_options.hpp>
+
+#include <pushkin/asio/async_ssl_ops.hpp>
 
 #include <memory>
 #include <future>
@@ -149,6 +152,25 @@ struct tcp_transport {
     connect(endpoint const& ep);
     void
     connect_async(endpoint const& ep, asio_config::asio_callback);
+    template < template < typename > class _Promise = promise >
+    auto
+    connect_async(endpoint const& ep)
+        -> decltype(::std::declval<_Promise<void>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<void> >();
+        connect_async(ep,
+            [promise](asio_config::error_code const& ec)
+            {
+                if (!ec) {
+                    promise->set_value();
+                } else {
+                    promise->set_exception(
+                        ::std::make_exception_ptr(::boost::system::system_error{ec}) );
+                }
+            });
+
+        return promise->get_future();
+    }
     void
     close();
 
@@ -159,13 +181,33 @@ struct tcp_transport {
     }
 
     template<typename BufferType, typename HandlerType>
-    void async_write(BufferType const& buffer, HandlerType const& handler)
+    void
+    async_write(BufferType const& buffer, HandlerType handler)
     {
         if (socket_.is_open()) {
-            asio_ns::async_write(socket_, buffer, handler);
+            ::psst::asio::async_write(socket_, buffer, ::std::move(handler));
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
+    }
+
+    template < typename BufferType, template < typename > class _Promise = promise >
+    auto
+    async_write(BufferType const& buffer)
+        -> decltype(::std::declval<_Promise<::std::size_t>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<::std::size_t> >();
+        async_write(buffer,
+            [promise](asio_config::error_code const& ec, ::std::size_t bytes)
+            {
+                if (!ec) {
+                    promise->set_value(bytes);
+                } else {
+                    promise->set_exception(
+                        ::std::make_exception_ptr(::boost::system::system_error{ec}) );
+                }
+            });
+        return promise->get_future();
     }
 
     template < typename BufferType, typename HandlerType >
@@ -173,11 +215,30 @@ struct tcp_transport {
     async_read(BufferType&& buffer, HandlerType handler)
     {
         if (socket_.is_open()) {
-            asio_ns::async_read(socket_, std::forward< BufferType&& >(buffer),
-                    asio_ns::transfer_at_least(1), handler);
+            ::psst::asio::async_read(socket_, ::std::forward<BufferType>(buffer),
+                    ::std::move(handler));
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
+    }
+
+    template < typename BufferType, template < typename > class _Promise = promise >
+    auto
+    async_read(BufferType&& buffer)
+        -> decltype(::std::declval<_Promise<::std::size_t>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<::std::size_t> >();
+        async_read(::std::forward<BufferType>(buffer),
+            [promise](asio_config::error_code const& ec, ::std::size_t bytes)
+            {
+                if (!ec) {
+                    promise->set_value(bytes);
+                } else {
+                    promise->set_exception(
+                        ::std::make_exception_ptr(::boost::system::system_error{ec}) );
+                }
+            });
+        return promise->get_future();
     }
 
     listen_socket_type&
@@ -280,10 +341,29 @@ struct ssl_transport {
     void async_write(BufferType const& buffer, HandlerType handler)
     {
         if (socket_.lowest_layer().is_open()) {
-            asio_ns::async_write(socket_, buffer, handler);
+            ::psst::asio::async_write(socket_, buffer, ::std::move(handler));
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
+    }
+
+    template < typename BufferType, template < typename > class _Promise = promise >
+    auto
+    async_write(BufferType const& buffer)
+        -> decltype(::std::declval<_Promise<::std::size_t>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<::std::size_t> >();
+        async_write(buffer,
+            [promise](asio_config::error_code const& ec, ::std::size_t bytes)
+            {
+                if (!ec) {
+                    promise->set_value(bytes);
+                } else {
+                    promise->set_exception(
+                        ::std::make_exception_ptr(::boost::system::system_error{ec}) );
+                }
+            });
+        return promise->get_future();
     }
 
     template < typename BufferType, typename HandlerType >
@@ -291,11 +371,30 @@ struct ssl_transport {
     async_read(BufferType&& buffer, HandlerType handler)
     {
         if (socket_.lowest_layer().is_open()) {
-            asio_ns::async_read(socket_, buffer,
-                    asio_ns::transfer_at_least(1), handler);
+            ::psst::asio::async_read(socket_, ::std::forward<BufferType>(buffer),
+                    ::std::move(handler));
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
+    }
+
+    template < typename BufferType, template < typename > class _Promise = promise >
+    auto
+    async_read(BufferType&& buffer)
+        -> decltype(::std::declval<_Promise<::std::size_t>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<::std::size_t> >();
+        async_read(::std::forward<BufferType>(buffer),
+            [promise](asio_config::error_code const& ec, ::std::size_t bytes)
+            {
+                if (!ec) {
+                    promise->set_value(bytes);
+                } else {
+                    promise->set_exception(
+                        ::std::make_exception_ptr(::boost::system::system_error{ec}) );
+                }
+            });
+        return promise->get_future();
     }
 
     listen_socket_type&
@@ -447,6 +546,7 @@ protected:
     socket_type     socket_;
 };
 
+#ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
 struct socket_transport {
     using traits = transport_type_traits< transport_type::socket >;
     using socket_type = traits::socket_type;
@@ -476,10 +576,29 @@ struct socket_transport {
     void async_write(BufferType const& buffer, HandlerType handler)
     {
         if (socket_.is_open()) {
-            asio_ns::async_write(socket_, buffer, handler);
+            ::psst::asio::async_write(socket_, buffer, ::std::move(handler));
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
+    }
+
+    template < typename BufferType, template < typename > class _Promise = promise >
+    auto
+    async_write(BufferType const& buffer)
+        -> decltype(::std::declval<_Promise<::std::size_t>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<::std::size_t> >();
+        async_write(buffer,
+            [promise](asio_config::error_code const& ec, ::std::size_t bytes)
+            {
+                if (!ec) {
+                    promise->set_value(bytes);
+                } else {
+                    promise->set_exception(
+                        ::std::make_exception_ptr(::boost::system::system_error{ec}) );
+                }
+            });
+        return promise->get_future();
     }
 
     template < typename BufferType, typename HandlerType >
@@ -487,19 +606,30 @@ struct socket_transport {
     async_read(BufferType&& buffer, HandlerType handler)
     {
         if (socket_.is_open()) {
-            asio_ns::async_read(socket_, ::std::forward< BufferType >(buffer),
-                    asio_ns::transfer_at_least(1), handler);
+            ::psst::asio::async_read(socket_, ::std::forward< BufferType >(buffer),
+                    ::std::move(handler));
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
     }
 
-    template < typename BufferType >
-    ::std::future< ::std::size_t >
-    async_read( BufferType&& buffer )
+    template < typename BufferType, template < typename > class _Promise = promise >
+    auto
+    async_read(BufferType&& buffer)
+        -> decltype(::std::declval<_Promise<::std::size_t>>().get_future())
     {
-        return asio_ns::async_read(socket_, std::forward< BufferType&& >(buffer),
-                asio_ns::transfer_at_least(1), asio_config::use_future);
+        auto promise = ::std::make_shared< _Promise<::std::size_t> >();
+        async_read(::std::forward<BufferType>(buffer),
+            [promise](asio_config::error_code const& ec, ::std::size_t bytes)
+            {
+                if (!ec) {
+                    promise->set_value(bytes);
+                } else {
+                    promise->set_exception(
+                        ::std::make_exception_ptr(::boost::system::system_error{ec}) );
+                }
+            });
+        return promise->get_future();
     }
 
     listen_socket_type&
@@ -548,6 +678,7 @@ private:
 private:
     socket_type socket_;
 };
+#endif /* BOOST_ASIO_HAS_LOCAL_SOCKETS */
 
 template<typename Session, transport_type Type>
 struct transport_listener {

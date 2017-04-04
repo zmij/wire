@@ -8,7 +8,7 @@
 #ifndef TRANSPORT_SSL_SPARRING_HPP_
 #define TRANSPORT_SSL_SPARRING_HPP_
 
-#include <wire/asio_config.hpp>
+#include <wire/asio_ssl_config.hpp>
 
 namespace wire {
 namespace test {
