@@ -5,6 +5,10 @@
  *      Author: zmij
  */
 
+#ifndef WITH_BOOST_FIBERS
+#define WITH_BOOST_FIBERS
+#endif
+
 #include <gtest/gtest.h>
 #include <test/ping_pong.hpp>
 #include <wire/core/connector.hpp>
@@ -19,6 +23,78 @@
 namespace wire {
 namespace test {
 
+namespace {
+
+const char* const alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+class thread_catalogue {
+private:
+    std::map<std::thread::id, std::string> names_{};
+    const char* next_{ alpha };
+    std::mutex mtx_{};
+
+public:
+    thread_catalogue() = default;
+
+    std::string lookup() {
+        std::unique_lock<std::mutex> lk( mtx_);
+        auto this_id( std::this_thread::get_id() );
+        auto found = names_.find( this_id );
+        if ( found != names_.end() ) {
+            return found->second;
+        }
+        BOOST_ASSERT( *next_);
+        std::string name(1, *next_++ );
+        names_[ this_id ] = name;
+        return name;
+    }
+};
+
+thread_catalogue thread_names;
+
+class fiber_catalogue {
+private:
+    std::map<boost::fibers::fiber::id, std::string> names_{};
+    unsigned next_{ 0 };
+    boost::fibers::mutex mtx_{};
+
+public:
+    fiber_catalogue() = default;
+
+    std::string lookup() {
+        std::unique_lock<boost::fibers::mutex> lk( mtx_);
+        auto this_id( boost::this_fiber::get_id() );
+        auto found = names_.find( this_id );
+        if ( found != names_.end() ) {
+            return found->second;
+        }
+        std::ostringstream out;
+        // Bake into the fiber's name the thread name on which we first
+        // lookup() its ID, to be able to spot when a fiber hops between
+        // threads.
+        out << thread_names.lookup() << next_++;
+        std::string name( out.str() );
+        names_[ this_id ] = name;
+        return name;
+    }
+};
+
+fiber_catalogue fiber_names;
+
+::std::ostream&
+tag(::std::ostream& out)
+{
+    ::std::ostream::sentry s{out};
+    if (s) {
+        out << thread_names.lookup() << ":"
+                << ::std::setw(4) << fiber_names.lookup() << " ";
+    }
+    return out;
+}
+
+} /* namespace  */
+
+
 namespace this_fiber = ::boost::this_fiber;
 
 class FiberPingPong : public wire::test::sparring::SparringTest {
@@ -27,7 +103,7 @@ protected:
     SetUp() override
     {
         connector_ = core::connector::create_connector(io_svc);
-        ::boost::fibers::use_scheduling_algorithm< ::psst::asio::fiber::shared_work >( io_svc );
+        runner_ = ::psst::asio::fiber::use_shared_work_algorithm( io_svc );
         StartPartner();
     }
 
@@ -47,8 +123,9 @@ protected:
     }
 
 
-    core::connector_ptr connector_;
-    core::object_prx    prx_;
+    core::connector_ptr             connector_;
+    core::object_prx                prx_;
+    ::psst::asio::fiber::runner_ptr runner_;
 };
 
 void
@@ -75,41 +152,39 @@ TEST_F(FiberPingPong, SyncPing)
     ASSERT_TRUE(connector_.get());
     ASSERT_TRUE(prx_.get());
 
-    const auto fiber_cnt    = 10;
+    const auto fiber_cnt    = 20;
     const auto thread_cnt   = 4;
     ::std::atomic<int>  finish_cnt{0};
 
     auto test_f = [&](::boost::fibers::barrier& barrier){
         try {
-            ::std::cout << std::this_thread::get_id() << " " << this_fiber::get_id()
-                    << " Fiber start\n";
-            ::std::cout << "Start sync get connection\n";
+            tag(::std::cout) << " Fiber start\n";
+            tag(::std::cout) << "Start sync get connection\n";
             auto conn = prx_->wire_get_connection();
-            ::std::cout << "End sync get connection\n";
+            tag(::std::cout) << "End sync get connection\n";
             EXPECT_TRUE(conn.get());
 
-            ::std::cout << "Start ping the proxy\n";
+            tag(::std::cout) << "Start ping the proxy\n";
             EXPECT_NO_THROW(prx_->wire_ping());
-            ::std::cout << "End ping the proxy\n";
+            tag(::std::cout) << "End ping the proxy\n";
 
             ::test::ping_pong_prx pp_prx;
-            ::std::cout << "Start checked cast\n";
+            tag(::std::cout) << "Start checked cast\n";
             EXPECT_NO_THROW( pp_prx = core::checked_cast< ::test::ping_pong_proxy >(prx_) );
-            ::std::cout << "End checked cast\n";
+            tag(::std::cout) << "End checked cast\n";
             EXPECT_TRUE(pp_prx.get());
 
             EXPECT_EQ(42, pp_prx->test_int(42));
         } catch (::std::exception const& e) {
-            std::cerr << "Exception while running test " << e.what() << "\n";
+            tag(std::cerr) << "Exception while running test " << e.what() << "\n";
         }
 
-        ::std::cout << "Wait barrier " << ++finish_cnt << "\n";
+        tag(::std::cout) << "Wait barrier " << ++finish_cnt << "\n";
         if (barrier.wait()) {
-            ::std::cout << "Stop the io service\n";
+            tag(::std::cout) << "Stop the io service\n";
             io_svc->stop();
         }
-        ::std::cout << std::this_thread::get_id() << " " << this_fiber::get_id()
-                << " Fiber exit\n";
+        tag(::std::cout) << " Fiber exit\n";
     };
 
     ::std::vector<::std::thread> threads;
@@ -120,13 +195,13 @@ TEST_F(FiberPingPong, SyncPing)
     for (auto i = 0; i < thread_cnt; ++i) {
         threads.emplace_back(
         [&](){
-            ::boost::fibers::use_scheduling_algorithm< ::psst::asio::fiber::shared_work >( io_svc );
+            tag(::std::cout) << " Thread start\n";
+            auto runner = ::psst::asio::fiber::use_shared_work_algorithm( io_svc );
             for (auto i = 0; i < fiber_cnt; ++i) {
                 fiber{ test_f, ::std::ref(b) }.detach();
             }
-            io_svc->run();
-            ::std::cout << std::this_thread::get_id()
-                    << " Thread exit\n";
+            runner->run();
+            tag(::std::cout) << " Thread exit\n";
         });
     }
 

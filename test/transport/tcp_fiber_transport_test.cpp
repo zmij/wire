@@ -14,12 +14,13 @@ namespace wire {
 namespace core {
 namespace test {
 
+
 class TCPFiber : public wire::test::sparring::SparringTest {
 protected:
     void
     SetUp() override
     {
-        ::boost::fibers::use_scheduling_algorithm< ::psst::asio::fiber::shared_work >( io_svc );
+        runner_ = ::psst::asio::fiber::use_shared_work_algorithm( io_svc );
         StartPartner();
     }
     void
@@ -35,7 +36,8 @@ protected:
     {
         endpoint_ = endpoint{ ReadEnpointPort< detail::tcp_endpoint_data >(is) };
     }
-    endpoint        endpoint_;
+    endpoint                        endpoint_;
+    ::psst::asio::fiber::runner_ptr runner_;
 };
 
 TEST_F(TCPFiber, ReadWriteAsync)
@@ -73,7 +75,7 @@ TEST_F(TCPFiber, ReadWriteAsync)
         }
     }.detach();
 
-    io_svc->run();
+    runner_->run();
     EXPECT_TRUE(connected);
     EXPECT_EQ(test_str.size(), written);
     EXPECT_EQ(test_str.size(), received);
