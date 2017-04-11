@@ -144,7 +144,7 @@ struct connection_fsm_def :
         {
             #if DEBUG_OUTPUT >= 4
             ::std::ostringstream os;
-            os <<::getpid() << " connect action\n";
+            root_machine(fsm)->tag(os) << " connect action\n";
             ::std::cerr << os.str();
             #endif
             // Do connect async
@@ -157,9 +157,9 @@ struct connection_fsm_def :
         operator()(events::connected const& evt, FSM& fsm,
                 connecting& from, wait_validate& to)
         {
-            #if DEBUG_OUTPUT >= 4
+            #if DEBUG_OUTPUT >= 3
             ::std::ostringstream os;
-            os <<::getpid() << " on_connected action (connected)\n";
+            root_machine(fsm)->tag(os) << " on_connected action (connected)\n";
             ::std::cerr << os.str();
             #endif
             ::std::swap(to.success, from.success);
@@ -170,9 +170,9 @@ struct connection_fsm_def :
         operator()(events::receive_validate const& evt, FSM& fsm,
                 wait_validate& from, online& to)
         {
-            #if DEBUG_OUTPUT >= 4
+            #if DEBUG_OUTPUT >= 3
             ::std::ostringstream os;
-            os <<::getpid() << " on_connected action (receive_validate)\n";
+            root_machine(fsm)->tag(os) << " on_connected action (receive_validate)\n";
             ::std::cerr << os.str();
             #endif
         }
@@ -289,33 +289,37 @@ struct connection_fsm_def :
         {
             #if DEBUG_OUTPUT >= 4
             ::std::ostringstream os;
-            os <<::getpid() << " wait validate enter\n";
+            root_machine(fsm)->tag(os) << " wait validate enter\n";
             ::std::cerr << os.str();
             #endif
             fsm->start_read();
         }
         template < typename FSM >
         void
-        on_exit( events::receive_validate const&, FSM& )
+        on_exit( events::receive_validate const&, FSM& fsm )
         {
             if (success) {
                 success();
+                #if DEBUG_OUTPUT >= 1
             } else {
                 ::std::ostringstream os;
-                os << ::getpid() << " No success callback in wait_validate\n";
+                root_machine(fsm)->tag(os) << " No success callback in wait_validate\n";
                 ::std::cerr << os.str();
+                #endif
             }
         }
         template < typename FSM >
         void
-        on_exit( events::connection_failure const& evt, FSM& )
+        on_exit( events::connection_failure const& evt, FSM& fsm )
         {
             if (fail) {
                 fail(evt.error);
+                #if DEBUG_OUTPUT >= 1
             } else {
                 ::std::ostringstream os;
-                os << ::getpid() << " No fail callback in wait_validate\n";
+                root_machine(fsm)->tag(os) << " No fail callback in wait_validate\n";
                 ::std::cerr << os.str();
+                #endif
             }
         }
 
@@ -477,6 +481,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     connection_implementation( client_side const&, adapter_ptr adptr,
             functional::void_callback on_close)
         : adapter_{adptr},
+          number_{ ++conn_counter_ },
           connector_{adptr->get_connector()},
           io_service_{adptr->io_service()},
           connection_timer_{*io_service_},
@@ -488,7 +493,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     {
         #if DEBUG_OUTPUT >= 1
         ::std::ostringstream os;
-        os << ::getpid() << " " << this << " Create client connection instance\n";
+        tag(os) << " Create client connection instance\n";
         ::std::cerr << os.str();
         #endif
         #if DEBUG_OUTPUT >= 3
@@ -500,6 +505,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     connection_implementation( server_side const&, adapter_ptr adptr,
             functional::void_callback on_close)
         : adapter_{adptr},
+          number_{ ++conn_counter_ },
           connector_{adptr->get_connector()},
           io_service_{adptr->io_service()},
           connection_timer_{*io_service_},
@@ -511,7 +517,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     {
         #if DEBUG_OUTPUT >= 1
         ::std::ostringstream os;
-        os << ::getpid() << " " << this << " Create server connection instance\n";
+        tag(os) << " Create server connection instance\n";
         ::std::cerr << os.str();
         #endif
         #if DEBUG_OUTPUT >= 3
@@ -527,7 +533,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         request_timer_.cancel();
         #if DEBUG_OUTPUT >= 1
         ::std::ostringstream os;
-        os << ::getpid() << " " << this << " Destroy connection instance\n";
+        tag(os) << " Destroy connection instance\n";
         ::std::cerr << os.str();
         #endif
     }
@@ -706,11 +712,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     {
         #if DEBUG_OUTPUT >= 3
         ::std::ostringstream os;
-        os << ::getpid() << " " << this << " Starting async connection operation\n";
-        ::std::cerr << os.str();
-        os.str("");
-        os << ::getpid() << " " << this << " IO service is "
-                << (io_service_->stopped() ? "stopped" : "running") << "\n";
+        tag(os) << " Starting async connection operation\n";
         ::std::cerr << os.str();
         #endif
         set_connect_timer();
@@ -720,13 +722,18 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
             {
                 _this->handle_connected(ec);
             });
-        #ifdef WITH_BOOST_FIBERS
-        ::boost::this_fiber::yield();
-        #endif
     }
 
     virtual void
     do_close() = 0;
+
+    ::std::ostream&
+    tag(::std::ostream& os) const
+    {
+        os << ::getpid() << " #" << number_ << (mode_ == server ? "s" : "c")
+                << " " << ::std::this_thread::get_id() << " ";
+        return os;
+    }
 private:
     virtual void
     do_connect_async_impl(endpoint const& ep, asio_config::asio_callback cb)
@@ -745,8 +752,10 @@ private:
             encoding::outgoing::asio_buffers body, asio_config::asio_rw_callback) = 0;
     virtual void
     do_read_async(incoming_buffer_ptr, asio_config::asio_rw_callback) = 0;
+
 public:
     adapter_weak_ptr                adapter_;
+    ::std::size_t const             number_;
 protected:
     using carry_buffer_type = ::std::vector<unsigned char>;
     connector_weak_ptr              connector_;
@@ -764,7 +773,11 @@ protected:
     functional::void_callback       on_close_;
 
     observer_container              observer_;
+
+    static ::std::atomic< ::std::size_t >  conn_counter_;
 };
+
+::std::atomic< ::std::size_t >  connection_implementation::conn_counter_{0};
 
 template < typename T >
 struct is_secure : ::std::false_type {};
@@ -934,7 +947,7 @@ private:
     {
         #if DEBUG_OUTPUT >= 1
         ::std::ostringstream os;
-        os <<::getpid() << " Open endpoint " << ep << "\n";
+        tag(os) << " Open endpoint " << ep << "\n";
         ::std::cerr << os.str();
         #endif
         listener_.open(ep, reuse_port);

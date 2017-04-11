@@ -35,7 +35,8 @@ namespace core {
 
 class object_proxy : public ::std::enable_shared_from_this< object_proxy > {
 public:
-    using interface_type = object;
+    using interface_type        = object;
+    using connection_callback   = ::std::function< void(connection_ptr) >;
 public:
     explicit
     object_proxy(reference_ptr ref, invocation_options const& ops = invocation_options::unspecified);
@@ -68,8 +69,46 @@ public:
     wire_invocation_options() const
     { return opts_; }
 
+    void
+    wire_get_connection_async(
+        connection_callback, functional::exception_callback,
+        invocation_options = invocation_options::unspecified ) const;
+
+    template < template< typename > class _Promise = promise >
+    auto
+    wire_get_connection_async(
+            invocation_options const& opts = invocation_options::unspecified) const
+        -> decltype( ::std::declval<_Promise<connection_ptr>>().get_future() )
+    {
+        auto promise = ::std::make_shared<_Promise<connection_ptr>>();
+
+        wire_get_connection_async(
+            [promise](connection_ptr v)
+            {
+                #if DEBUG_OUTPUT >=3
+                ::std::cerr << "Proxy get connection async response\n";
+                #endif
+                promise->set_value(v);
+            },
+            [promise](::std::exception_ptr ex)
+            {
+                #if DEBUG_OUTPUT >=3
+                ::std::cerr << "Proxy get connection async exception\n";
+                #endif
+                promise->set_exception(ex);
+            }, opts);
+
+        return promise->get_future();
+    }
+    template < template< typename > class _Promise = promise >
     connection_ptr
-    wire_get_connection() const;
+    wire_get_connection() const
+    {
+        auto future = wire_get_connection_async<_Promise>(
+                        promise_invocation_flags<_Promise>::value );
+        return future.get();
+    }
+
     connector_ptr
     wire_get_connector() const;
 

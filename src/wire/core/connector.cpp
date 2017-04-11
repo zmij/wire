@@ -509,7 +509,7 @@ struct connector::impl {
             online_adapters_.erase(e);
         }
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr <<::getpid() << " Adapter " << adptr->id() << " is listening to " << eps << "\n";
+        tag(::std::cerr) << " Adapter " << adptr->id() << " is listening to " << eps << "\n";
             #endif
         for (auto e : eps)
             online_adapters_.emplace(e, adptr);
@@ -520,7 +520,7 @@ struct connector::impl {
         endpoint_list eps;
         ep.published_endpoints(eps);
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr <<::getpid() << " Adapter " << adptr->id() << " listening to " << eps << " went offline\n";
+        tag(::std::cerr) << " Adapter " << adptr->id() << " listening to " << eps << " went offline\n";
         #endif
         for (auto const& e : eps) {
             online_adapters_.erase(e);
@@ -589,7 +589,7 @@ struct connector::impl {
         bool new_conn = false;
         connection_ptr conn;
         {
-            connection_const_accessor acc;
+            connection_accessor acc;
             if (outgoing_.find(acc, ep)) {
                 conn = acc->second;
             } else {
@@ -599,27 +599,36 @@ struct connector::impl {
                         {
                             erase_outgoing(ep);
                         });
-                outgoing_.emplace(ep, conn);
-                new_conn = true;
+                new_conn = outgoing_.emplace(acc, ep, conn);
+                conn = acc->second;
             }
         }
         if (new_conn) {
             auto res = ::std::make_shared< ::std::atomic<bool> >(false);
+            #if DEBUG_OUTPUT >= 2
+            ::std::ostringstream os;
+            tag(os) << " Start connection to " << ep << "\n";
+            ::std::cerr << os.str();
+            #endif
             conn->connect_async(ep,
                 [on_get, conn, res, ep]()
                 {
                     #ifdef DEBUG_OUTPUT
-                    ::std::cerr <<::getpid() << " Connected to " << ep << "\n";
+                    tag(::std::cerr) << " Connected to " << ep << "\n";
                     #endif
                     *res = true;
                     try {
                         on_get(conn);
-                    } catch(...) {}
+                    } catch(...) {
+                        #ifdef DEBUG_OUTPUT
+                        ::std::cerr << getpid() << " Exception while setting connection\n";
+                        #endif
+                    }
                 },
                 [this, exception, res, ep](::std::exception_ptr ex)
                 {
                     #if DEBUG_OUTPUT >= 2
-                        ::std::cerr <<::getpid() << " Failed to connect to " << ep << "\n";
+                    tag(::std::cerr) << " Failed to connect to " << ep << "\n";
                     #endif
                     *res = true;
                     try {
@@ -631,9 +640,18 @@ struct connector::impl {
                 util::run_until(io_service_, [res](){ return (bool)*res; });
             }
         } else {
+            #if DEBUG_OUTPUT >= 2
+            ::std::ostringstream os;
+            tag(os) << " Connection to " << ep << " already initiated\n";
+            ::std::cerr << os.str();
+            #endif
             try {
-            on_get(conn);
-            } catch(...) {}
+                on_get(conn);
+            } catch(...) {
+                #ifdef DEBUG_OUTPUT
+                ::std::cerr << getpid() << " Exception while setting connection\n";
+                #endif
+            }
         }
     }
 
@@ -641,18 +659,23 @@ struct connector::impl {
     erase_outgoing(endpoint ep)
     {
         #if DEBUG_OUTPUT >= 1
-        ::std::cerr <<::getpid() << " Outgoing connection to " << ep << " closed\n";
+        tag(::std::cerr) << " Outgoing connection to " << ep << " closed\n";
         #endif
         connection_accessor acc;
         if (outgoing_.find(acc, ep)) {
             #if DEBUG_OUTPUT >= 1
-            ::std::cerr <<::getpid() << " Erase connection to " << ep << "\n";
+            tag(::std::cerr) << " Erase connection to " << ep << "\n";
             #endif
             outgoing_.erase(acc);
         }
     }
 
-    ;
+    static ::std::ostream&
+    tag(::std::ostream& os)
+    {
+        os << ::getpid() << " (connector) ";
+        return os;
+    }
 };
 
 connector_ptr

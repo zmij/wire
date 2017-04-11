@@ -21,28 +21,28 @@ enum class invocation_flags {
     unspecified = 0x10
 };
 
-inline invocation_flags
+constexpr inline invocation_flags
 operator | (invocation_flags lhs, invocation_flags rhs)
 {
     using integral_type = ::std::underlying_type<invocation_flags>::type;
     return static_cast<invocation_flags>( static_cast< integral_type >(lhs) | static_cast< integral_type >(rhs) );
 }
 
-inline invocation_flags
+constexpr inline invocation_flags
 operator & (invocation_flags lhs, invocation_flags rhs)
 {
     using integral_type = ::std::underlying_type<invocation_flags>::type;
     return static_cast<invocation_flags>( static_cast< integral_type >(lhs) & static_cast< integral_type >(rhs) );
 }
 
-inline invocation_flags
+constexpr inline invocation_flags
 operator ^ (invocation_flags lhs, invocation_flags rhs)
 {
     using integral_type = ::std::underlying_type<invocation_flags>::type;
     return static_cast<invocation_flags>( static_cast< integral_type >(lhs) ^ static_cast< integral_type >(rhs) );
 }
 
-inline bool
+constexpr inline bool
 any(invocation_flags v)
 {
     return v != invocation_flags::none;
@@ -62,30 +62,30 @@ struct invocation_options {
     constexpr invocation_options(invocation_flags f, timeout_type t)
         : flags{f}, timeout{t} {}
 
-    bool
+    constexpr bool
     operator == (invocation_options const& rhs) const
     {
         return flags == rhs.flags && timeout == rhs.timeout;
     }
-    bool
+    constexpr bool
     operator != (invocation_options const& rhs) const
     {
         return !(*this == rhs);
     }
 
-    bool
+    constexpr bool
     is_sync() const
     {
         return any(flags & invocation_flags::sync);
     }
 
-    bool
+    constexpr bool
     is_one_way() const
     {
         return any(flags & invocation_flags::one_way);
     }
 
-    invocation_options
+    constexpr invocation_options
     with_timeout(timeout_type t) const
     {
         return invocation_options{ flags, t };
