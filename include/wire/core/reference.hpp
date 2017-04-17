@@ -131,7 +131,8 @@ public:
     connection_ptr
     get_connection() const
     {
-        auto future = get_connection_async<_Promise>( detail::promise_want_io_throttle<_Promise>::value );
+        auto future = get_connection_async<_Promise>(
+                detail::promise_want_io_throttle<_Promise< connection_ptr >>::value );
         return future.get();
     }
 

@@ -459,7 +459,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
     }
     header_ << "__ctx, "
             << off(+2)    << "wire_invocation_options() | "
-                << promise_inv_flags << "<_Promise>::value);"
+                << promise_inv_flags << "<_Promise<" << mapped_type{func->get_return_type(), func->get_annotations()} << ">>::value);"
             << off << "return future.get();"
             << mod(-1) << "}\n";
 

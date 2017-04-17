@@ -193,7 +193,7 @@ public:
     get_outgoing_connection(endpoint const& ep)
     {
         auto future = get_outgoing_connection_async< _Promise >(
-                ep, detail::promise_want_io_throttle<_Promise>::value );
+                ep, detail::promise_want_io_throttle<_Promise<connection_ptr>>::value );
         return future.get();
     }
 
@@ -227,7 +227,7 @@ public:
     resolve_connection(reference_data const& ref) const
     {
         auto future = resolve_connection_async<_Promise>(
-                ref, detail::promise_want_io_throttle<_Promise>::value );
+                ref, detail::promise_want_io_throttle<_Promise<connection_ptr>>::value );
         return future.get();
     }
 
@@ -269,7 +269,7 @@ public:
     get_locator(context_type const& ctx = no_context) const
     {
         auto future = get_locator_async<_Promise>(
-                ctx, detail::promise_want_io_throttle<_Promise>::value);
+                ctx, detail::promise_want_io_throttle<_Promise<locator_prx>>::value);
         return future.get();
     }
     void
@@ -311,7 +311,7 @@ public:
     get_locator_registry(context_type const& ctx = no_context) const
     {
         auto future = get_locator_registry_async<_Promise>(
-                ctx, detail::promise_want_io_throttle<_Promise>::value);
+                ctx, detail::promise_want_io_throttle<_Promise<locator_registry_prx>>::value);
         return future.get();
     }
 

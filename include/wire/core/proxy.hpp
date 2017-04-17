@@ -105,7 +105,7 @@ public:
     wire_get_connection() const
     {
         auto future = wire_get_connection_async<_Promise>(
-                        promise_invocation_flags<_Promise>::value );
+                promise_invocation_flags<_Promise<connection_ptr>>::value );
         return future.get();
     }
 
@@ -132,7 +132,8 @@ public:
     wire_is_a(::std::string const& type_id, context_type const& ctx = no_context)
     {
         auto future = wire_is_a_async<_Promise>(type_id, ctx,
-                wire_invocation_options() | promise_invocation_flags<_Promise>::value);
+            wire_invocation_options()
+            | promise_invocation_flags<_Promise<bool>>::value);
         return future.get();
     }
 
@@ -176,7 +177,8 @@ public:
     wire_ping(context_type const& ctx = no_context)
     {
         auto future = wire_ping_async<_Promise>(ctx,
-                wire_invocation_options() | promise_invocation_flags<_Promise>::value);
+            wire_invocation_options()
+            | promise_invocation_flags<_Promise<void>>::value);
         return future.get();
     }
 
@@ -238,7 +240,8 @@ public:
     wire_type(context_type const& ctx = no_context)
     {
         auto future = wire_type_async<_Promise>(ctx,
-                wire_invocation_options() | promise_invocation_flags<_Promise>::value);
+            wire_invocation_options()
+            | promise_invocation_flags<_Promise<::std::string>>::value);
         return future.get();
     }
 
@@ -279,7 +282,8 @@ public:
     wire_types(context_type const& ctx = no_context)
     {
         auto future = wire_types_async<_Promise>(ctx,
-                wire_invocation_options() | promise_invocation_flags<_Promise>::value);
+            wire_invocation_options()
+            | promise_invocation_flags<_Promise<::std::vector< ::std::string >>>::value);
         return future.get();
     }
 
@@ -508,7 +512,8 @@ template < typename TargetPrx, typename SourcePrx,
 checked_cast(::std::shared_ptr< SourcePrx > v, context_type const& ctx = no_context)
 {
     auto future = checked_cast_async<TargetPrx, SourcePrx, _Promise>(v, ctx,
-            v->wire_invocation_options() | promise_invocation_flags<_Promise>::value);
+        v->wire_invocation_options()
+        | promise_invocation_flags<_Promise<::std::shared_ptr< TargetPrx >>>::value);
     return future.get();
 }
 
