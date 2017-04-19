@@ -119,7 +119,7 @@ struct adapter::impl {
         if (options_.registered || is_replicated()) {
             locator_registry_prx reg;
             try {
-                reg = cnctr->get_locator_registry();
+                reg = cnctr->get_locator_registry(options_.locator_ref);
             } catch (...) {
                 #if DEBUG_OUTPUT >= 1
                 ::std::cerr <<::getpid() << "  Failed to get locator registry on exception\n";

@@ -1229,6 +1229,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
             ::std::cerr << os.str();
             #endif
         }
+        // FIXME If the adapter::dispatch returns false, a no response error occurs
         send_not_found(req.number, errors::not_found::object, req.operation);
     } catch (...) {
         connection_failure( ::std::current_exception() );

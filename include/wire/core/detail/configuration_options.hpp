@@ -75,6 +75,7 @@ struct adapter_options {
     bool            registered;
     bool            replicated;
     ssl_options     adapter_ssl;
+    reference_data  locator_ref         = reference_data{};
 };
 
 }  // namespace detail

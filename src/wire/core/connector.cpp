@@ -334,7 +334,11 @@ struct connector::impl {
         ((name + ".replicated").c_str(),
             po::bool_switch(&aopts.replicated)->default_value(false),
             "Replicated adapter, should register in locator")
+        ((name + ".locator").c_str(),
+                po::value<reference_data>(&aopts.locator_ref)->default_value(options_.locator_ref),
+                "Locator proxy")
         ;
+
 
         po::options_description adapter_ssl_opts(name + " Adapter SSL Options");
         adapter_ssl_opts.add_options()
@@ -405,6 +409,45 @@ struct connector::impl {
             bool                                            run_sync)
     {
         default_resolver_.get_locator_registry_async(result, exception, ctx, run_sync);
+    }
+
+    void
+    get_locator_async(reference_data const& locator_ref,
+            functional::callback< locator_prx >             result,
+            functional::exception_callback                  exception,
+            context_type const&                             ctx,
+            bool                                            run_sync)
+    {
+        if (locator_ref == options_.locator_ref) {
+            default_resolver_.get_locator_async(result, exception, ctx, run_sync);
+        } else {
+            locator_map::accessor acc;
+            if (!locators_.find(acc, locator_ref)) {
+                locators_.emplace(acc, locator_ref,
+                        detail::reference_resolver(owner_.lock(), locator_ref));
+            }
+            acc->second.get_locator_async(result, exception, ctx, run_sync);
+        }
+    }
+
+    void
+    get_locator_registry_async(
+            reference_data const& locator_ref,
+            functional::callback< locator_registry_prx >    result,
+            functional::exception_callback                  exception,
+            context_type const&                             ctx,
+            bool                                            run_sync)
+    {
+        if (locator_ref == options_.locator_ref) {
+            default_resolver_.get_locator_registry_async(result, exception, ctx, run_sync);
+        } else {
+            locator_map::accessor acc;
+            if (!locators_.find(acc, locator_ref)) {
+                locators_.emplace(acc, locator_ref,
+                        detail::reference_resolver(owner_.lock(), locator_ref));
+            }
+            acc->second.get_locator_registry_async(result, exception, ctx, run_sync);
+        }
     }
 
     void
@@ -939,6 +982,17 @@ connector::get_locator_async(
 }
 
 void
+connector::get_locator_async(
+        reference_data const&               loc_ref,
+        functional::callback<locator_prx>   result,
+        functional::exception_callback      exception,
+        context_type const&                 ctx,
+        bool                                run_sync) const
+{
+    pimpl_->get_locator_async(loc_ref, result, exception, ctx, run_sync);
+}
+
+void
 connector::get_locator_registry_async(
         functional::callback<locator_registry_prx>  result,
         functional::exception_callback              exception,
@@ -946,6 +1000,17 @@ connector::get_locator_registry_async(
         bool                                        run_sync) const
 {
     pimpl_->get_locator_registry_async(result, exception, ctx, run_sync);
+}
+
+void
+connector::get_locator_registry_async(
+        reference_data const&                       loc_ref,
+        functional::callback<locator_registry_prx>  result,
+        functional::exception_callback              exception,
+        context_type const&                         ctx,
+        bool                                        run_sync) const
+{
+    pimpl_->get_locator_registry_async(loc_ref, result, exception, ctx, run_sync);
 }
 
 void
