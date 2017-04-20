@@ -80,6 +80,14 @@ public:
     void
     activate(bool postpone_reg = false);
     /**
+     * Stop accepting connections.
+     * Send close to clients, close read ends.
+     * Finish dispatching current requests, then close connections.
+     */
+    void
+    deactivate();
+    //@{
+    /**
      * Register adapter in the locator
      */
     void
@@ -113,13 +121,40 @@ public:
                 detail::promise_want_io_throttle<_Promise<void>>::value);
         future.get();
     }
-    /**
-     * Stop accepting connections.
-     * Send close to clients, close read ends.
-     * Finish dispatching current requests, then close connections.
-     */
+    //@}
+    //@{
     void
-    deactivate();
+    unregister_adapter_async(
+        functional::void_callback       __result,
+        functional::exception_callback  __exception,
+        context_type const&             ctx         = no_context,
+        bool                            run_sync    = false
+    );
+    template < template <typename> class _Promise = promise >
+    auto
+    unregister_adapter_async(
+        context_type const&             ctx         = no_context,
+        bool                            run_sync    = false)
+        -> decltype( ::std::declval<_Promise<void>>().get_future() )
+    {
+        auto promise = ::std::make_shared<_Promise<void>>();
+        unregister_adapter_async(
+            [promise]()
+            { promise->set_value(); },
+            [promise](::std::exception_ptr ex)
+            { promise->set_exception(::std::move(ex)); },
+            ctx, run_sync);
+        return promise->get_future();
+    }
+    template < template <typename> class _Promise = promise >
+    void
+    unregister_adapter(context_type const& ctx = no_context)
+    {
+        auto future = unregister_adapter_async<_Promise>(ctx,
+                detail::promise_want_io_throttle<_Promise<void>>::value);
+        future.get();
+    }
+    //@}
     /**
      * @return State of adapter.
      */

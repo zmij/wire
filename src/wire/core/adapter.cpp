@@ -144,12 +144,18 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
 
                     if (_this->is_replicated()) {
                         reg->add_replicated_adapter_async(prx,
-                            __result, __exception,
-                            nullptr, ctx, opts);
+                            [_this, __result]()
+                            {
+                                _this->registered_ = true;
+                                __result();
+                            }, __exception, nullptr, ctx, opts);
                     } else {
                         reg->add_adapter_async(prx,
-                            __result, __exception,
-                            nullptr, ctx, opts);
+                            [_this, __result]()
+                            {
+                                _this->registered_ = true;
+                                __result();
+                            }, __exception, nullptr, ctx, opts);
                     }
                 } else {
                     functional::report_exception(__exception,
@@ -157,21 +163,14 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
                             "wire.locator is not configured for registering adapter"});
                 }
             };
-        auto on_get_reg_error =
-            [_this, __exception](::std::exception_ptr ex)
-            {
-                functional::report_exception(
-                        __exception, errors::runtime_error{
-                            "wire.locator.registry is not connectible"});
-            };
         if (options_.locator_ref.valid()) {
             // Use locator configured for the adapter
             cnctr->get_locator_registry_async(options_.locator_ref,
-                    on_get_reg, on_get_reg_error, ctx, run_sync);
+                    on_get_reg, __exception, ctx, run_sync);
         } else {
             // Use connector's default adapter
             cnctr->get_locator_registry_async(
-                    on_get_reg, on_get_reg_error, ctx, run_sync);
+                    on_get_reg, __exception, ctx, run_sync);
         }
     }
     template < template <typename> class _Promise = promise >
@@ -192,6 +191,72 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
         return promise->get_future();
     }
 
+    void
+    unregister_adapter_async(
+            functional::void_callback       __result,
+            functional::exception_callback  __exception,
+            context_type const&             ctx         = no_context,
+            bool                            run_sync    = false)
+    {
+        if (!registered_)
+            return __result();
+
+        auto cnctr = connector_.lock();
+        if (!cnctr)
+            return functional::report_exception(__exception,
+                    errors::connector_destroyed{"Connector was already destroyed"});
+        auto _this = shared_from_this();
+        auto on_get_reg =
+            [_this, __result, __exception, ctx, run_sync](locator_registry_prx reg)
+            {
+                if (reg) {
+                    auto prx = _this->adapter_proxy();
+                    invocation_options opts{ run_sync ?
+                            invocation_flags::sync : invocation_flags::none };
+                    reg->remove_adapter_async(
+                        prx,
+                        [_this, __result]()
+                        {
+                            _this->registered_ = false;
+                            __result();
+                        }, __exception, nullptr, ctx, opts);
+                }
+            };
+        if (options_.locator_ref.valid()) {
+            // Use locator configured for the adapter
+            cnctr->get_locator_registry_async(options_.locator_ref,
+                    on_get_reg, __exception, ctx, run_sync);
+        } else {
+            // Use connector's default adapter
+            cnctr->get_locator_registry_async(
+                    on_get_reg, __exception, ctx, run_sync);
+        }
+    }
+    template < template <typename> class _Promise = promise >
+    auto
+    unregister_adapter_async(
+        context_type const& ctx         = no_context,
+        bool                run_sync    = false)
+        -> decltype(::std::declval< _Promise<void> >().get_future())
+    {
+        auto promise = ::std::make_shared<_Promise<void>>();
+        unregister_adapter_async(
+            [promise]()
+            { promise->set_value(); },
+            [promise](::std::exception_ptr ex)
+            { promise->set_exception(::std::move(ex)); },
+            ctx, run_sync
+        );
+        return promise->get_future();
+    }
+
+    void
+    unregister_adapter()
+    {
+        auto future = unregister_adapter_async(no_context, true);
+        future.get();
+    }
+
     bool
     is_local_endpoint(endpoint const& ep)
     {
@@ -203,29 +268,7 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     deactivate()
     {
         lock_guard lock{mtx_};
-        if (registered_) {
-            auto cnctr = connector_.lock();
-            if (cnctr) {
-                try {
-                    auto reg = cnctr->get_locator_registry();
-                    if (reg) {
-                        auto prx = adapter_proxy();
-                        reg->remove_adapter(prx);
-                    }
-                } catch ( ::std::exception const& e) {
-                    #if DEBUG_OUTPUT >= 1
-                    ::std::cerr <<::getpid() << " Error wnen unregistering adapter " << id_<< ": "
-                            << e.what() << "\n";
-                    #endif
-                } catch (...) {
-                    #if DEBUG_OUTPUT >= 1
-                    ::std::cerr <<::getpid() << " Unexpected error when unregistering adapter "
-                            << id_ << "\n";
-                    #endif
-                }
-            }
-            registered_ = false;
-        }
+        unregister_adapter();
         for (auto& c : connections_) {
             c.second->close();
         }
@@ -481,6 +524,16 @@ adapter::register_adapter_async(
         bool                            run_sync)
 {
     pimpl_->register_adapter_async(__result, __exception, ctx, run_sync);
+}
+
+void
+adapter::unregister_adapter_async(
+        functional::void_callback       __result,
+        functional::exception_callback  __exception,
+        context_type const&             ctx,
+        bool                            run_sync)
+{
+    pimpl_->unregister_adapter_async(__result, __exception, ctx, run_sync);
 }
 
 void
