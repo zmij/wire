@@ -116,6 +116,52 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     }
 
     void
+    get_locator_async(
+            functional::callback< locator_prx > __result,
+            functional::exception_callback      __exception,
+            context_type const&                 ctx,
+            bool                                run_sync)
+    {
+        auto cnctr = connector_.lock();
+        if (!cnctr)
+            return functional::report_exception(__exception,
+                    errors::connector_destroyed{"Connector was already destroyed"});
+
+        if (options_.locator_ref.valid()) {
+            // Use locator configured for the adapter
+            cnctr->get_locator_async(options_.locator_ref,
+                    __result, __exception, ctx, run_sync);
+        } else {
+            // Use connector's default adapter
+            cnctr->get_locator_async(
+                    __result, __exception, ctx, run_sync);
+        }
+    }
+
+    void
+    get_locator_registry_async(
+            functional::callback< locator_registry_prx >    __result,
+            functional::exception_callback                  __exception,
+            context_type const&                             ctx,
+            bool                                            run_sync)
+    {
+        auto cnctr = connector_.lock();
+        if (!cnctr)
+            return functional::report_exception(__exception,
+                    errors::connector_destroyed{"Connector was already destroyed"});
+
+        if (options_.locator_ref.valid()) {
+            // Use locator configured for the adapter
+            cnctr->get_locator_registry_async(options_.locator_ref,
+                    __result, __exception, ctx, run_sync);
+        } else {
+            // Use connector's default adapter
+            cnctr->get_locator_registry_async(
+                    __result, __exception, ctx, run_sync);
+        }
+    }
+
+    void
     register_adapter()
     {
         auto future = register_adapter_async(no_context, true);
@@ -129,10 +175,8 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
             context_type const&             ctx         = no_context,
             bool                            run_sync    = false)
     {
-        auto cnctr = connector_.lock();
-        if (!cnctr)
-            return functional::report_exception(__exception,
-                    errors::connector_destroyed{"Connector was already destroyed"});
+        if (registered_)
+            return __result();
         auto _this = shared_from_this();
         auto on_get_reg =
             [_this, __result, __exception, ctx, run_sync](locator_registry_prx reg)
@@ -163,15 +207,7 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
                             "wire.locator is not configured for registering adapter"});
                 }
             };
-        if (options_.locator_ref.valid()) {
-            // Use locator configured for the adapter
-            cnctr->get_locator_registry_async(options_.locator_ref,
-                    on_get_reg, __exception, ctx, run_sync);
-        } else {
-            // Use connector's default adapter
-            cnctr->get_locator_registry_async(
-                    on_get_reg, __exception, ctx, run_sync);
-        }
+        get_locator_registry_async(on_get_reg, __exception, ctx, run_sync);
     }
     template < template <typename> class _Promise = promise >
     auto
@@ -201,10 +237,6 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
         if (!registered_)
             return __result();
 
-        auto cnctr = connector_.lock();
-        if (!cnctr)
-            return functional::report_exception(__exception,
-                    errors::connector_destroyed{"Connector was already destroyed"});
         auto _this = shared_from_this();
         auto on_get_reg =
             [_this, __result, __exception, ctx, run_sync](locator_registry_prx reg)
@@ -222,15 +254,7 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
                         }, __exception, nullptr, ctx, opts);
                 }
             };
-        if (options_.locator_ref.valid()) {
-            // Use locator configured for the adapter
-            cnctr->get_locator_registry_async(options_.locator_ref,
-                    on_get_reg, __exception, ctx, run_sync);
-        } else {
-            // Use connector's default adapter
-            cnctr->get_locator_registry_async(
-                    on_get_reg, __exception, ctx, run_sync);
-        }
+        get_locator_registry_async(on_get_reg, __exception, ctx, run_sync);
     }
     template < template <typename> class _Promise = promise >
     auto
@@ -517,6 +541,32 @@ adapter::activate(bool postpone_reg)
 }
 
 void
+adapter::deactivate()
+{
+    pimpl_->deactivate();
+}
+
+void
+adapter::get_locator_async(
+        functional::callback<locator_prx>   result,
+        functional::exception_callback      exception,
+        context_type const&                 ctx,
+        bool                                run_sync) const
+{
+    pimpl_->get_locator_async(result, exception, ctx, run_sync);
+}
+
+void
+adapter::get_locator_registry_async(
+        functional::callback<locator_registry_prx>  result,
+        functional::exception_callback              exception,
+        context_type const&                         ctx,
+        bool                                        run_sync) const
+{
+    pimpl_->get_locator_registry_async(result, exception, ctx, run_sync);
+}
+
+void
 adapter::register_adapter_async(
         functional::void_callback       __result,
         functional::exception_callback  __exception,
@@ -534,12 +584,6 @@ adapter::unregister_adapter_async(
         bool                            run_sync)
 {
     pimpl_->unregister_adapter_async(__result, __exception, ctx, run_sync);
-}
-
-void
-adapter::deactivate()
-{
-    pimpl_->deactivate();
 }
 
 bool

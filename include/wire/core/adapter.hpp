@@ -20,6 +20,7 @@
 #include <wire/core/endpoint.hpp>
 #include <wire/core/connection_observer_fwd.hpp>
 #include <wire/core/current_fwd.hpp>
+#include <wire/core/locator_fwd.hpp>
 #include <wire/core/detail/configuration_options_fwd.hpp>
 #include <wire/core/detail/dispatch_request_fwd.hpp>
 
@@ -74,6 +75,8 @@ public:
     detail::adapter_options const&
     options() const;
 
+    //@{
+    /** @name Activate/deactivate adapter */
     /**
      * Start accepting connections
      */
@@ -86,9 +89,97 @@ public:
      */
     void
     deactivate();
+    //@}
     //@{
     /**
-     * Register adapter in the locator
+     * @name Get locator configured for the adapter (or the default locator)
+     */
+    void
+    get_locator_async (
+        functional::callback<locator_prx>   result,
+        functional::exception_callback      exception   = nullptr,
+        context_type const&                             = no_context,
+        bool                                run_sync    = false) const;
+
+    template < template <typename> class _Promise = promise >
+    auto
+    get_locator_async(
+        context_type const&                 ctx         = no_context,
+        bool                                run_sync    = false) const
+        -> decltype(::std::declval<_Promise<locator_prx>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<locator_prx> >();
+
+        get_locator_async(
+            [promise](locator_prx res)
+            {
+                promise->set_value(res);
+            },
+            [promise](::std::exception_ptr ex)
+            {
+                promise->set_exception(ex);
+            }, ctx, run_sync
+        );
+
+        return promise->get_future();
+    }
+
+    template < template <typename> class _Promise = promise >
+    locator_prx
+    get_locator(context_type const& ctx = no_context) const
+    {
+        auto future = get_locator_async<_Promise>(
+                ctx, detail::promise_want_io_throttle<_Promise<locator_prx>>::value);
+        return future.get();
+    }
+    //@}
+    //@{
+    /**
+     * @name Get locator registry configured for the adapter
+     * (or the default locator registry)
+     */
+    void
+    get_locator_registry_async (
+        functional::callback<locator_registry_prx>  result,
+        functional::exception_callback              exception   = nullptr,
+        context_type const&                                     = no_context,
+        bool                                        run_sync    = false) const;
+
+    template < template <typename> class _Promise = promise >
+    auto
+    get_locator_registry_async(
+        context_type const&                 ctx         = no_context,
+        bool                                run_sync    = false) const
+        -> decltype(::std::declval<_Promise<locator_registry_prx>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<locator_registry_prx> >();
+
+        get_locator_registry_async(
+            [promise](locator_registry_prx res)
+            {
+                promise->set_value(res);
+            },
+            [promise](::std::exception_ptr ex)
+            {
+                promise->set_exception(ex);
+            }, ctx, run_sync
+        );
+
+        return promise->get_future();
+    }
+
+    template < template <typename> class _Promise = promise >
+    locator_registry_prx
+    get_locator_registry(context_type const& ctx = no_context) const
+    {
+        auto future = get_locator_registry_async<_Promise>(
+                ctx, detail::promise_want_io_throttle<_Promise<locator_registry_prx>>::value);
+        return future.get();
+    }
+    //@}
+    //@{
+    /**
+     * @name Register adapter in the locator
      */
     void
     register_adapter_async(
