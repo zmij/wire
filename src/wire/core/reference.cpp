@@ -159,9 +159,10 @@ fixed_reference::fixed_reference(fixed_reference&& rhs)
 }
 
 void
-fixed_reference::get_connection_async( connection_callback on_get,
-        functional::exception_callback on_error,
-        bool sync) const
+fixed_reference::get_connection_async(
+        connection_callback             on_get,
+        functional::exception_callback  on_error,
+        invocation_options const&       opts) const
 {
     connection_ptr conn = connection_.lock();
     if (!conn) {
@@ -208,8 +209,7 @@ fixed_reference::get_connection_async( connection_callback on_get,
                 try {
                     on_error(ex);
                 } catch(...) {}
-            },
-            sync);
+            }, opts);
     } else {
         try {
             on_get(conn);
@@ -239,10 +239,10 @@ floating_reference::floating_reference(floating_reference&& rhs)
 void
 floating_reference::get_connection_async( connection_callback on_get,
         functional::exception_callback exception,
-        bool sync ) const
+        invocation_options const& opts) const
 {
     connector_ptr cnctr = get_connector();
-    cnctr->resolve_connection_async(ref_, on_get, exception, sync);
+    cnctr->resolve_connection_async(ref_, on_get, exception, opts);
 }
 
 

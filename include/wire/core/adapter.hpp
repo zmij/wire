@@ -21,9 +21,11 @@
 #include <wire/core/connection_observer_fwd.hpp>
 #include <wire/core/current_fwd.hpp>
 #include <wire/core/locator_fwd.hpp>
+
 #include <wire/core/detail/configuration_options_fwd.hpp>
 #include <wire/core/detail/dispatch_request_fwd.hpp>
 
+#include <wire/core/invocation_options.hpp>
 #include <wire/core/functional.hpp>
 #include <wire/core/context.hpp>
 
@@ -99,13 +101,13 @@ public:
         functional::callback<locator_prx>   result,
         functional::exception_callback      exception   = nullptr,
         context_type const&                             = no_context,
-        bool                                run_sync    = false) const;
+        invocation_options const&           opts        = invocation_options::unspecified) const;
 
     template < template <typename> class _Promise = promise >
     auto
     get_locator_async(
         context_type const&                 ctx         = no_context,
-        bool                                run_sync    = false) const
+        invocation_options const&           opts        = invocation_options::unspecified) const
         -> decltype(::std::declval<_Promise<locator_prx>>().get_future())
     {
         auto promise = ::std::make_shared< _Promise<locator_prx> >();
@@ -118,7 +120,7 @@ public:
             [promise](::std::exception_ptr ex)
             {
                 promise->set_exception(ex);
-            }, ctx, run_sync
+            }, ctx, opts
         );
 
         return promise->get_future();
@@ -126,10 +128,12 @@ public:
 
     template < template <typename> class _Promise = promise >
     locator_prx
-    get_locator(context_type const& ctx = no_context) const
+    get_locator(
+            context_type const&         ctx     = no_context,
+            invocation_options const&   opts    = invocation_options::unspecified) const
     {
         auto future = get_locator_async<_Promise>(
-                ctx, detail::promise_want_io_throttle<_Promise<locator_prx>>::value);
+                ctx, opts | promise_invocation_flags<_Promise<locator_prx>>::value);
         return future.get();
     }
     //@}
@@ -143,13 +147,13 @@ public:
         functional::callback<locator_registry_prx>  result,
         functional::exception_callback              exception   = nullptr,
         context_type const&                                     = no_context,
-        bool                                        run_sync    = false) const;
+        invocation_options const&                   opts        = invocation_options::unspecified) const;
 
     template < template <typename> class _Promise = promise >
     auto
     get_locator_registry_async(
-        context_type const&                 ctx         = no_context,
-        bool                                run_sync    = false) const
+        context_type const&                 ctx     = no_context,
+        invocation_options const&           opts    = invocation_options::unspecified) const
         -> decltype(::std::declval<_Promise<locator_registry_prx>>().get_future())
     {
         auto promise = ::std::make_shared< _Promise<locator_registry_prx> >();
@@ -162,7 +166,7 @@ public:
             [promise](::std::exception_ptr ex)
             {
                 promise->set_exception(ex);
-            }, ctx, run_sync
+            }, ctx, opts
         );
 
         return promise->get_future();
@@ -170,10 +174,12 @@ public:
 
     template < template <typename> class _Promise = promise >
     locator_registry_prx
-    get_locator_registry(context_type const& ctx = no_context) const
+    get_locator_registry(
+        context_type const&         ctx     = no_context,
+        invocation_options const&   opts    = invocation_options::unspecified) const
     {
         auto future = get_locator_registry_async<_Promise>(
-                ctx, detail::promise_want_io_throttle<_Promise<locator_registry_prx>>::value);
+                ctx, opts | promise_invocation_flags<_Promise<locator_registry_prx>>::value);
         return future.get();
     }
     //@}
@@ -186,13 +192,13 @@ public:
         functional::void_callback       __result,
         functional::exception_callback  __exception,
         context_type const&             ctx         = no_context,
-        bool                            run_sync    = false
+        invocation_options const&       opts        = invocation_options::unspecified
     );
     template < template <typename> class _Promise = promise >
     auto
     register_adapter_async(
         context_type const&             ctx         = no_context,
-        bool                            run_sync    = false)
+        invocation_options const&       opts        = invocation_options::unspecified)
         -> decltype( ::std::declval<_Promise<void>>().get_future() )
     {
         auto promise = ::std::make_shared<_Promise<void>>();
@@ -201,15 +207,17 @@ public:
             { promise->set_value(); },
             [promise](::std::exception_ptr ex)
             { promise->set_exception(::std::move(ex)); },
-            ctx, run_sync);
+            ctx, opts);
         return promise->get_future();
     }
     template < template <typename> class _Promise = promise >
     void
-    register_adapter(context_type const& ctx = no_context)
+    register_adapter(
+        context_type const&             ctx         = no_context,
+        invocation_options const&       opts        = invocation_options::unspecified)
     {
         auto future = register_adapter_async<_Promise>(ctx,
-                detail::promise_want_io_throttle<_Promise<void>>::value);
+                opts | promise_invocation_flags<_Promise<void>>::value);
         future.get();
     }
     //@}
@@ -219,13 +227,13 @@ public:
         functional::void_callback       __result,
         functional::exception_callback  __exception,
         context_type const&             ctx         = no_context,
-        bool                            run_sync    = false
+        invocation_options const&       opts        = invocation_options::unspecified
     );
     template < template <typename> class _Promise = promise >
     auto
     unregister_adapter_async(
         context_type const&             ctx         = no_context,
-        bool                            run_sync    = false)
+        invocation_options const&       opts        = invocation_options::unspecified)
         -> decltype( ::std::declval<_Promise<void>>().get_future() )
     {
         auto promise = ::std::make_shared<_Promise<void>>();
@@ -234,15 +242,17 @@ public:
             { promise->set_value(); },
             [promise](::std::exception_ptr ex)
             { promise->set_exception(::std::move(ex)); },
-            ctx, run_sync);
+            ctx, opts);
         return promise->get_future();
     }
     template < template <typename> class _Promise = promise >
     void
-    unregister_adapter(context_type const& ctx = no_context)
+    unregister_adapter(
+        context_type const&             ctx         = no_context,
+        invocation_options const&       opts        = invocation_options::unspecified)
     {
         auto future = unregister_adapter_async<_Promise>(ctx,
-                detail::promise_want_io_throttle<_Promise<void>>::value);
+                opts | promise_invocation_flags<_Promise<void>>::value);
         future.get();
     }
     //@}

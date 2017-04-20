@@ -73,6 +73,8 @@ struct adapter_options {
     endpoint_list   endpoints;
     ::std::size_t   timeout;
     bool            registered;
+    int             register_retries;
+    ::std::size_t   retry_timeout;
     bool            replicated;
     ssl_options     adapter_ssl;
     reference_data  locator_ref         = reference_data{};

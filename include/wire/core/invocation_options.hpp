@@ -50,27 +50,47 @@ any(invocation_flags v)
 
 struct invocation_options {
     using timeout_type          = ::std::size_t;
-    static constexpr timeout_type default_timout = 5000;
+    using retry_count_type      = int;
+
+    static constexpr timeout_type default_timout        = 5000;
+
+    static constexpr retry_count_type no_retries        = -1;
+    static constexpr retry_count_type infinite_retries  = 0;
+    static constexpr timeout_type default_retry_timout  = 1000;
+
     static const invocation_options unspecified;
 
-    invocation_flags    flags   = invocation_flags::none;
-    timeout_type        timeout = default_timout;
+    invocation_flags    flags           = invocation_flags::none;
+    timeout_type        timeout         = default_timout;
+    retry_count_type    retries         = no_retries;
+    timeout_type        retry_timeout   = default_retry_timout;
 
     constexpr invocation_options() {}
     constexpr invocation_options(invocation_flags f)
         : flags{f} {}
     constexpr invocation_options(invocation_flags f, timeout_type t)
         : flags{f}, timeout{t} {}
+    constexpr
+    invocation_options(invocation_flags f, timeout_type t,
+            retry_count_type r, timeout_type rt)
+        : flags{f}, timeout{t}, retries{r}, retry_timeout{rt} {}
 
     constexpr bool
     operator == (invocation_options const& rhs) const
     {
-        return flags == rhs.flags && timeout == rhs.timeout;
+        return flags == rhs.flags && timeout == rhs.timeout
+                && retries == rhs.retries && retry_timeout == rhs.retry_timeout;
     }
     constexpr bool
     operator != (invocation_options const& rhs) const
     {
         return !(*this == rhs);
+    }
+
+    constexpr bool
+    is_unspecified() const
+    {
+        return flags == invocation_flags::unspecified;
     }
 
     constexpr bool
@@ -88,7 +108,13 @@ struct invocation_options {
     constexpr invocation_options
     with_timeout(timeout_type t) const
     {
-        return invocation_options{ flags, t };
+        return invocation_options{ flags, t, retries, retry_timeout };
+    }
+
+    constexpr invocation_options
+    with_retries(retry_count_type r, timeout_type rt)
+    {
+        return invocation_options{ flags, timeout, r, rt };
     }
 };
 
@@ -118,31 +144,36 @@ inline bool operator ! (invocation_flags v)
 inline invocation_options
 operator | (invocation_options const& lhs, invocation_flags rhs)
 {
-    return invocation_options{ lhs.flags | rhs, lhs.timeout };
+    return invocation_options{ lhs.flags | rhs,
+        lhs.timeout, lhs.retries, lhs.retry_timeout };
 }
 
 inline invocation_options
 operator & (invocation_options const& lhs, invocation_flags rhs)
 {
-    return invocation_options{ lhs.flags & rhs, lhs.timeout };
+    return invocation_options{ lhs.flags & rhs,
+        lhs.timeout, lhs.retries, lhs.retry_timeout };
 }
 
 inline invocation_options
 operator ^ (invocation_options const& lhs, invocation_flags rhs)
 {
-    return invocation_options{ lhs.flags ^ rhs, lhs.timeout };
+    return invocation_options{ lhs.flags ^ rhs,
+        lhs.timeout, lhs.retries, lhs.retry_timeout };
 }
 
 inline invocation_options
 operator + (invocation_options const& lhs, invocation_options::timeout_type t)
 {
-    return invocation_options{ lhs.flags, lhs.timeout + t };
+    return invocation_options{ lhs.flags,
+        lhs.timeout + t, lhs.retries, lhs.retry_timeout };
 }
 
 inline invocation_options
 operator - (invocation_options const& lhs, invocation_options::timeout_type t)
 {
-    return invocation_options{ lhs.flags, lhs.timeout - t };
+    return invocation_options{ lhs.flags,
+        lhs.timeout - t, lhs.retries, lhs.retry_timeout };
 }
 
 template <typename _Promise>

@@ -21,6 +21,10 @@ namespace wire {
 namespace core {
 
 constexpr invocation_options::timeout_type invocation_options::default_timout;
+constexpr invocation_options::retry_count_type invocation_options::no_retries;
+constexpr invocation_options::retry_count_type invocation_options::infinite_retries;
+constexpr invocation_options::timeout_type invocation_options::default_retry_timout;
+
 const invocation_options invocation_options::unspecified{ invocation_flags::unspecified };
 
 namespace detail {

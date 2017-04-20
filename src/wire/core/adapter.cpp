@@ -52,6 +52,7 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     identity                    id_;
 
     detail::adapter_options     options_;
+    invocation_options          register_options_;
     concurrent_enpoints         published_endpoints_;
 
     bool                        is_active_;
@@ -72,7 +73,9 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     impl(connector_ptr c, identity const& id, detail::adapter_options const& options,
             connection_observer_set const& observers)
         : connector_{c}, io_service_{c->io_service()},
-          id_{id}, options_{options}, is_active_{false}, registered_{false},
+          id_{id}, options_{options},
+          register_options_{ invocation_options{}.with_retries( options.register_retries, options.retry_timeout ) },
+          is_active_{false}, registered_{false},
           connection_observers_{observers}
     {
     }
@@ -120,21 +123,25 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
             functional::callback< locator_prx > __result,
             functional::exception_callback      __exception,
             context_type const&                 ctx,
-            bool                                run_sync)
+            invocation_options                  opts)
     {
         auto cnctr = connector_.lock();
         if (!cnctr)
             return functional::report_exception(__exception,
                     errors::connector_destroyed{"Connector was already destroyed"});
 
+        if (opts == invocation_options::unspecified) {
+            opts = register_options_;
+        }
+
         if (options_.locator_ref.valid()) {
             // Use locator configured for the adapter
             cnctr->get_locator_async(options_.locator_ref,
-                    __result, __exception, ctx, run_sync);
+                    __result, __exception, ctx, opts);
         } else {
             // Use connector's default adapter
             cnctr->get_locator_async(
-                    __result, __exception, ctx, run_sync);
+                    __result, __exception, ctx, opts);
         }
     }
 
@@ -143,28 +150,33 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
             functional::callback< locator_registry_prx >    __result,
             functional::exception_callback                  __exception,
             context_type const&                             ctx,
-            bool                                            run_sync)
+            invocation_options                              opts)
     {
         auto cnctr = connector_.lock();
         if (!cnctr)
             return functional::report_exception(__exception,
                     errors::connector_destroyed{"Connector was already destroyed"});
 
+        if (opts == invocation_options::unspecified) {
+            opts = register_options_;
+        }
+
+
         if (options_.locator_ref.valid()) {
             // Use locator configured for the adapter
             cnctr->get_locator_registry_async(options_.locator_ref,
-                    __result, __exception, ctx, run_sync);
+                    __result, __exception, ctx, opts);
         } else {
             // Use connector's default adapter
             cnctr->get_locator_registry_async(
-                    __result, __exception, ctx, run_sync);
+                    __result, __exception, ctx, opts);
         }
     }
 
     void
     register_adapter()
     {
-        auto future = register_adapter_async(no_context, true);
+        auto future = register_adapter_async(no_context, register_options_ | invocation_flags::sync);
         future.get();
     }
 
@@ -173,19 +185,16 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
             functional::void_callback       __result,
             functional::exception_callback  __exception,
             context_type const&             ctx         = no_context,
-            bool                            run_sync    = false)
+            invocation_options const&       opts        = invocation_options::unspecified)
     {
         if (registered_)
             return __result();
         auto _this = shared_from_this();
         auto on_get_reg =
-            [_this, __result, __exception, ctx, run_sync](locator_registry_prx reg)
+            [_this, __result, __exception, ctx, opts](locator_registry_prx reg)
             {
                 if (reg) {
                     auto prx = _this->adapter_proxy();
-                    invocation_options opts{ run_sync ?
-                            invocation_flags::sync : invocation_flags::none };
-
                     if (_this->is_replicated()) {
                         reg->add_replicated_adapter_async(prx,
                             [_this, __result]()
@@ -207,13 +216,13 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
                             "wire.locator is not configured for registering adapter"});
                 }
             };
-        get_locator_registry_async(on_get_reg, __exception, ctx, run_sync);
+        get_locator_registry_async(on_get_reg, __exception, ctx, opts);
     }
     template < template <typename> class _Promise = promise >
     auto
     register_adapter_async(
-            context_type const& ctx         = no_context,
-            bool                run_sync    = false)
+            context_type const&             ctx         = no_context,
+            invocation_options const&       opts        = invocation_options::unspecified)
         -> decltype(::std::declval< _Promise<void> >().get_future())
     {
         auto promise = ::std::make_shared<_Promise<void>>();
@@ -222,8 +231,7 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
             { promise->set_value(); },
             [promise](::std::exception_ptr ex)
             { promise->set_exception(::std::move(ex)); },
-            ctx, run_sync
-        );
+            ctx, opts);
         return promise->get_future();
     }
 
@@ -232,19 +240,17 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
             functional::void_callback       __result,
             functional::exception_callback  __exception,
             context_type const&             ctx         = no_context,
-            bool                            run_sync    = false)
+            invocation_options const&       opts        = invocation_options::unspecified)
     {
         if (!registered_)
             return __result();
 
         auto _this = shared_from_this();
         auto on_get_reg =
-            [_this, __result, __exception, ctx, run_sync](locator_registry_prx reg)
+            [_this, __result, __exception, ctx, opts](locator_registry_prx reg)
             {
                 if (reg) {
                     auto prx = _this->adapter_proxy();
-                    invocation_options opts{ run_sync ?
-                            invocation_flags::sync : invocation_flags::none };
                     reg->remove_adapter_async(
                         prx,
                         [_this, __result]()
@@ -254,13 +260,13 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
                         }, __exception, nullptr, ctx, opts);
                 }
             };
-        get_locator_registry_async(on_get_reg, __exception, ctx, run_sync);
+        get_locator_registry_async(on_get_reg, __exception, ctx, opts);
     }
     template < template <typename> class _Promise = promise >
     auto
     unregister_adapter_async(
-        context_type const& ctx         = no_context,
-        bool                run_sync    = false)
+        context_type const&         ctx         = no_context,
+        invocation_options const&   opts        = invocation_options::unspecified)
         -> decltype(::std::declval< _Promise<void> >().get_future())
     {
         auto promise = ::std::make_shared<_Promise<void>>();
@@ -269,7 +275,7 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
             { promise->set_value(); },
             [promise](::std::exception_ptr ex)
             { promise->set_exception(::std::move(ex)); },
-            ctx, run_sync
+            ctx, opts
         );
         return promise->get_future();
     }
@@ -277,7 +283,8 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     void
     unregister_adapter()
     {
-        auto future = unregister_adapter_async(no_context, true);
+        auto future = unregister_adapter_async(no_context,
+                register_options_ | invocation_flags::sync);
         future.get();
     }
 
@@ -551,9 +558,9 @@ adapter::get_locator_async(
         functional::callback<locator_prx>   result,
         functional::exception_callback      exception,
         context_type const&                 ctx,
-        bool                                run_sync) const
+        invocation_options const&           opts) const
 {
-    pimpl_->get_locator_async(result, exception, ctx, run_sync);
+    pimpl_->get_locator_async(result, exception, ctx, opts);
 }
 
 void
@@ -561,9 +568,9 @@ adapter::get_locator_registry_async(
         functional::callback<locator_registry_prx>  result,
         functional::exception_callback              exception,
         context_type const&                         ctx,
-        bool                                        run_sync) const
+        invocation_options const&                   opts) const
 {
-    pimpl_->get_locator_registry_async(result, exception, ctx, run_sync);
+    pimpl_->get_locator_registry_async(result, exception, ctx, opts);
 }
 
 void
@@ -571,9 +578,9 @@ adapter::register_adapter_async(
         functional::void_callback       __result,
         functional::exception_callback  __exception,
         context_type const&             ctx,
-        bool                            run_sync)
+        invocation_options const&       opts)
 {
-    pimpl_->register_adapter_async(__result, __exception, ctx, run_sync);
+    pimpl_->register_adapter_async(__result, __exception, ctx, opts);
 }
 
 void
@@ -581,9 +588,9 @@ adapter::unregister_adapter_async(
         functional::void_callback       __result,
         functional::exception_callback  __exception,
         context_type const&             ctx,
-        bool                            run_sync)
+        invocation_options const&       opts)
 {
-    pimpl_->unregister_adapter_async(__result, __exception, ctx, run_sync);
+    pimpl_->unregister_adapter_async(__result, __exception, ctx, opts);
 }
 
 bool

@@ -102,10 +102,16 @@ public:
     }
     template < template< typename > class _Promise = promise >
     connection_ptr
-    wire_get_connection() const
+    wire_get_connection(invocation_options opts = invocation_options::unspecified) const
     {
+        if (opts == invocation_options::unspecified) {
+            opts = wire_invocation_options();
+        }
+        if (opts.retries == invocation_options::infinite_retries) {
+            opts.retries = opts.timeout / opts.retry_timeout;
+        }
         auto future = wire_get_connection_async<_Promise>(
-                promise_invocation_flags<_Promise<connection_ptr>>::value );
+                opts | promise_invocation_flags<_Promise<connection_ptr>>::value );
         return future.get();
     }
 

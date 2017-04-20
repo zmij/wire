@@ -80,8 +80,7 @@ object_proxy::wire_get_connection_async(connection_callback result,
         functional::exception_callback error,
         invocation_options opts ) const
 {
-    wire_get_reference()->get_connection_async(
-            result, error, any(opts.flags & invocation_flags::sync) );
+    wire_get_reference()->get_connection_async( result, error, opts );
 }
 
 connector_ptr
