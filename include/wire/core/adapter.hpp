@@ -9,6 +9,7 @@
 #define WIRE_CORE_ADAPTER_HPP_
 
 #include <wire/asio_config.hpp>
+#include <wire/future_config.hpp>
 
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/adapter_fwd.hpp>
@@ -17,10 +18,15 @@
 #include <wire/core/proxy_fwd.hpp>
 #include <wire/core/object_locator_fwd.hpp>
 #include <wire/core/endpoint.hpp>
-#include <wire/core/detail/configuration_options_fwd.hpp>
 #include <wire/core/connection_observer_fwd.hpp>
-#include <wire/core/detail/dispatch_request_fwd.hpp>
 #include <wire/core/current_fwd.hpp>
+#include <wire/core/detail/configuration_options_fwd.hpp>
+#include <wire/core/detail/dispatch_request_fwd.hpp>
+
+#include <wire/core/functional.hpp>
+#include <wire/core/context.hpp>
+
+#include <wire/core/detail/future_traits.hpp>
 
 #include <string>
 
@@ -77,7 +83,36 @@ public:
      * Register adapter in the locator
      */
     void
-    register_adapter();
+    register_adapter_async(
+        functional::void_callback       __result,
+        functional::exception_callback  __exception,
+        context_type const&             ctx         = no_context,
+        bool                            run_sync    = false
+    );
+    template < template <typename> class _Promise = promise >
+    auto
+    register_adapter_async(
+        context_type const&             ctx         = no_context,
+        bool                            run_sync    = false)
+        -> decltype( ::std::declval<_Promise<void>>().get_future() )
+    {
+        auto promise = ::std::make_shared<_Promise<void>>();
+        register_adapter_async(
+            [promise]()
+            { promise->set_value(); },
+            [promise](::std::exception_ptr ex)
+            { promise->set_exception(::std::move(ex)); },
+            ctx, run_sync);
+        return promise->get_future();
+    }
+    template < template <typename> class _Promise = promise >
+    void
+    register_adapter(context_type const& ctx = no_context)
+    {
+        auto future = register_adapter_async<_Promise>(ctx,
+                detail::promise_want_io_throttle<_Promise<void>>::value);
+        future.get();
+    }
     /**
      * Stop accepting connections.
      * Send close to clients, close read ends.

@@ -32,7 +32,7 @@ namespace {
 
 }  /* namespace  */
 
-struct adapter::impl {
+struct adapter::impl : ::std::enable_shared_from_this<impl> {
     using connections           = ::tbb::concurrent_hash_map< endpoint, connection_ptr >;
     using active_objects        = ::tbb::concurrent_hash_map< identity, object_ptr >;
     using default_servants      = ::tbb::concurrent_hash_map< ::std::string, object_ptr >;
@@ -95,8 +95,14 @@ struct adapter::impl {
                     std::make_shared<connection>(server_side{}, adp, ep ));
             }
             is_active_ = true;
-            if (!postpone_reg)
-                register_adapter();
+            if ((options_.registered || is_replicated()) && !postpone_reg) {
+                try {
+                    register_adapter();
+                } catch (...) {
+                    if (is_replicated())
+                        throw;
+                }
+            }
         } else {
             // FIXME Correct exception
             throw errors::adapter_destroyed{"Adapter owning implementation was destroyed"};
@@ -112,39 +118,78 @@ struct adapter::impl {
     void
     register_adapter()
     {
+        auto future = register_adapter_async(no_context, true);
+        future.get();
+    }
+
+    void
+    register_adapter_async(
+            functional::void_callback       __result,
+            functional::exception_callback  __exception,
+            context_type const&             ctx         = no_context,
+            bool                            run_sync    = false)
+    {
         auto cnctr = connector_.lock();
         if (!cnctr)
-            // FIXME Correct exception
-            throw errors::connector_destroyed{"Connector was already destroyed"};
-        if (options_.registered || is_replicated()) {
-            locator_registry_prx reg;
-            try {
-                reg = cnctr->get_locator_registry(options_.locator_ref);
-            } catch (...) {
-                #if DEBUG_OUTPUT >= 1
-                ::std::cerr <<::getpid() << "  Failed to get locator registry on exception\n";
-                #endif
-            }
-            if (reg) {
-                auto prx = adapter_proxy();
-                if (is_replicated()) {
-                    #if DEBUG_OUTPUT >= 2
-                    ::std::cerr <<::getpid() << " Try to register replicated adapter " << *prx << " at locator\n";
-                    #endif
-                    reg->add_replicated_adapter(prx);
-                } else {
-                    #if DEBUG_OUTPUT >= 2
-                    ::std::cerr <<::getpid() << " Try to register adapter " << *prx << " at locator\n";
-                    #endif
-                    reg->add_adapter(prx);
-                }
-                registered_ = true;
-            } else if (is_replicated()) {
-                throw errors::runtime_error{
-                        "wire.locator not configured for a replicated adapter"};
-            }
+            return functional::report_exception(__exception,
+                    errors::connector_destroyed{"Connector was already destroyed"});
+        auto _this = shared_from_this();
+        auto on_get_reg =
+            [_this, __result, __exception, ctx, run_sync](locator_registry_prx reg)
+            {
+                if (reg) {
+                    auto prx = _this->adapter_proxy();
+                    invocation_options opts{ run_sync ?
+                            invocation_flags::sync : invocation_flags::none };
 
+                    if (_this->is_replicated()) {
+                        reg->add_replicated_adapter_async(prx,
+                            __result, __exception,
+                            nullptr, ctx, opts);
+                    } else {
+                        reg->add_adapter_async(prx,
+                            __result, __exception,
+                            nullptr, ctx, opts);
+                    }
+                } else {
+                    functional::report_exception(__exception,
+                        errors::runtime_error{
+                            "wire.locator is not configured for registering adapter"});
+                }
+            };
+        auto on_get_reg_error =
+            [_this, __exception](::std::exception_ptr ex)
+            {
+                functional::report_exception(
+                        __exception, errors::runtime_error{
+                            "wire.locator.registry is not connectible"});
+            };
+        if (options_.locator_ref.valid()) {
+            // Use locator configured for the adapter
+            cnctr->get_locator_registry_async(options_.locator_ref,
+                    on_get_reg, on_get_reg_error, ctx, run_sync);
+        } else {
+            // Use connector's default adapter
+            cnctr->get_locator_registry_async(
+                    on_get_reg, on_get_reg_error, ctx, run_sync);
         }
+    }
+    template < template <typename> class _Promise = promise >
+    auto
+    register_adapter_async(
+            context_type const& ctx         = no_context,
+            bool                run_sync    = false)
+        -> decltype(::std::declval< _Promise<void> >().get_future())
+    {
+        auto promise = ::std::make_shared<_Promise<void>>();
+        register_adapter_async(
+            [promise]()
+            { promise->set_value(); },
+            [promise](::std::exception_ptr ex)
+            { promise->set_exception(::std::move(ex)); },
+            ctx, run_sync
+        );
+        return promise->get_future();
     }
 
     bool
@@ -429,9 +474,13 @@ adapter::activate(bool postpone_reg)
 }
 
 void
-adapter::register_adapter()
+adapter::register_adapter_async(
+        functional::void_callback       __result,
+        functional::exception_callback  __exception,
+        context_type const&             ctx,
+        bool                            run_sync)
 {
-    pimpl_->register_adapter();
+    pimpl_->register_adapter_async(__result, __exception, ctx, run_sync);
 }
 
 void

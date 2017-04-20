@@ -24,7 +24,7 @@ TEST(LocatorInProc, LookupAdapter)
     auto cnctr = core::connector::create_connector(io_svc, args);
 
     svc::locator_service loc_svc{};
-    loc_svc.start(cnctr);
+    ASSERT_NO_THROW(loc_svc.start(cnctr)) << "Successfully start locator service";
 
     core::locator_prx loc;
     EXPECT_NO_THROW(loc = cnctr->get_locator())
@@ -53,7 +53,7 @@ TEST(LocatorInProc, ReplicatedAdapter)
     auto cnctr = core::connector::create_connector(io_svc, args);
 
     svc::locator_service loc_svc{};
-    loc_svc.start(cnctr);
+    ASSERT_NO_THROW(loc_svc.start(cnctr)) << "Successfully start locator service";
 
     auto loc = cnctr->get_locator();
     ASSERT_TRUE(loc.get()) << "Locator object in connector";
@@ -119,7 +119,7 @@ TEST(LocatorInProc, WellKnownObject)
     auto cnctr = core::connector::create_connector(io_svc, args);
 
     svc::locator_service loc_svc{};
-    loc_svc.start(cnctr);
+    ASSERT_NO_THROW(loc_svc.start(cnctr)) << "Successfully start locator service";
 
     auto loc = cnctr->get_locator();
     ASSERT_TRUE(loc.get()) << "Locator object in connector";
@@ -154,7 +154,7 @@ TEST(LocatorInProc, ConfigWellKnownObjects)
     auto cnctr = core::connector::create_connector(io_svc, args);
 
     svc::locator_service loc_svc{};
-    EXPECT_NO_THROW(loc_svc.start(cnctr));
+    ASSERT_NO_THROW(loc_svc.start(cnctr)) << "Successfully start locator service";
 
     auto loc = cnctr->get_locator();
     ASSERT_TRUE(loc.get()) << "Locator object in connector";
