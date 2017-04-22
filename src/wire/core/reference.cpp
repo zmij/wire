@@ -230,6 +230,7 @@ fixed_reference::get_connection_async(
                 [__exception, res](::std::exception_ptr ex)
                 {
 //                    ::std::cerr << "Connection error, don't retry\n";
+                    *res = true;
                     functional::report_exception(__exception, ex);
                 };
         } else {
