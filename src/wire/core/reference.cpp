@@ -13,6 +13,9 @@
 #include <wire/core/connector.hpp>
 #include <wire/core/locator.hpp>
 
+#include <wire/util/io_service_wait.hpp>
+#include <wire/util/scheduled_task.hpp>
+
 namespace wire {
 namespace core {
 
@@ -160,9 +163,9 @@ fixed_reference::fixed_reference(fixed_reference&& rhs)
 
 void
 fixed_reference::get_connection_async(
-        connection_callback             on_get,
-        functional::exception_callback  on_error,
-        invocation_options const&       opts) const
+        connection_callback             __result,
+        functional::exception_callback  __exception,
+        invocation_options const&       in_opts) const
 {
     connection_ptr conn = connection_.lock();
     if (!conn) {
@@ -177,15 +180,28 @@ fixed_reference::get_connection_async(
             ep = *current_++;
         }
         if (conn) {
-            try {
-                on_get(conn);
-            } catch (...) {}
+            // Connection is already there
+            functional::report_async_result(__result, conn);
             return;
         }
+
+        auto opts = in_opts;
+        if (opts.is_sync())
+            opts ^= invocation_flags::sync;
+
         auto _this = shared_this<fixed_reference>();
-        cntr->get_outgoing_connection_async(
-            ep,
-            [_this, on_get, on_error](connection_ptr c)
+        auto res = ::std::make_shared< ::std::atomic<bool> >(false);
+        if (!opts.dont_retry() && in_opts.is_sync()) {
+            auto err = [__exception, res](::std::exception_ptr ex)
+                {
+                    *res = true;
+                    functional::report_exception(__exception, ex);
+                };
+            __exception = err;
+        }
+
+        auto get_connection =
+            [_this, __result, __exception, res](connection_ptr c)
             {
                 connection_ptr conn;
                 {
@@ -197,28 +213,80 @@ fixed_reference::get_connection_async(
                     }
                 }
                 try {
-                    on_get(conn);
+                    *res = true;
+                    __result(conn);
                 } catch(...) {
                     try {
-                        on_error(::std::current_exception());
+                        __exception(::std::current_exception());
                     } catch(...) {}
                 }
-            },
-            [on_error](::std::exception_ptr ex)
-            {
-                try {
-                    on_error(ex);
-                } catch(...) {}
-            }, opts);
+            };
+
+        functional::exception_callback connect_error;
+
+        if (opts.dont_retry()) {
+//            ::std::cerr << "No connection retries\n";
+            connect_error =
+                [__exception, res](::std::exception_ptr ex)
+                {
+//                    ::std::cerr << "Connection error, don't retry\n";
+                    functional::report_exception(__exception, ex);
+                };
+        } else {
+            functional::void_callback retry_func;
+            if (opts.retries == invocation_options::infinite_retries) {
+//                ::std::cerr << "Infinite connection retries\n";
+                retry_func =
+                    [_this, __result, __exception, opts]()
+                    {
+//                    ::std::cerr << "Connection error, infinite retries\n";
+                        _this->get_connection_async(__result, __exception, opts);
+                    };
+            } else {
+//                ::std::cerr << opts.retries << " connection retries\n";
+                retry_func =
+                    [_this, __result, __exception, opts]()
+                    {
+//                        ::std::cerr << "Connection error, retry " << (opts.retries - 1) << " times\n";
+                        _this->get_connection_async(__result, __exception, opts.dec_retries());
+                    };
+            }
+            connect_error =
+                [_this, retry_func, __exception, opts, res](::std::exception_ptr ex)
+                {
+                    try {
+                        ::std::rethrow_exception(ex);
+                    } catch (errors::connection_refused const& ex) {
+                        // Retry connection
+                        util::schedule_in(
+                            _this->get_connector()->io_service(),
+                            [retry_func, __exception, res]( asio_config::error_code const& ec )
+                            {
+                                if (!ec) {
+                                    retry_func();
+                                } else {
+                                    functional::report_exception(__exception, ec);
+                                }
+                            }, ::std::chrono::milliseconds{ opts.retry_timeout });
+                    } catch(...) {
+                        functional::report_exception(__exception, ::std::current_exception());
+                    }
+                };
+        }
+
+        cntr->get_outgoing_connection_async(ep, get_connection, connect_error, opts);
+        if (in_opts.is_sync()) {
+            util::run_until(_this->get_connector()->io_service(), [res](){ return (bool)*res; });
+        }
     } else {
         try {
-            on_get(conn);
+            __result(conn);
         } catch(...) {}
     }
 }
 
 //----------------------------------------------------------------------------
-//      Floating reference implementation
+//      Floation_geteference implementation
 //----------------------------------------------------------------------------
 
 floating_reference::floating_reference(connector_ptr cn, reference_data const& ref)
@@ -237,12 +305,12 @@ floating_reference::floating_reference(floating_reference&& rhs)
 }
 
 void
-floating_reference::get_connection_async( connection_callback on_get,
-        functional::exception_callback exception,
+floating_reference::get_connection_async( connection_callback __result,
+        functional::exception_callback __exception,
         invocation_options const& opts) const
 {
     connector_ptr cnctr = get_connector();
-    cnctr->resolve_connection_async(ref_, on_get, exception, opts);
+    cnctr->resolve_connection_async(ref_, __result, __exception, opts);
 }
 
 

@@ -11,6 +11,7 @@
 #include <functional>
 #include <exception>
 #include <vector>
+#include <wire/asio_config.hpp>
 
 namespace wire {
 namespace core {
@@ -77,6 +78,16 @@ report_exception(exception_callback handler, ::std::exception_ptr ex) noexcept
     }
 }
 
+inline void
+report_exception(exception_callback handler, asio_config::error_code const& ec) noexcept
+{
+    if (handler) {
+        try {
+            handler( ::std::make_exception_ptr( asio_config::system_error{ ec } ) );
+        } catch (...) {}
+    }
+}
+
 template < typename Exception >
 void
 report_exception(exception_callback handler, Exception&& err) noexcept
@@ -84,6 +95,17 @@ report_exception(exception_callback handler, Exception&& err) noexcept
     if (handler) {
         try {
             handler(::std::make_exception_ptr(::std::forward<Exception>(err)));
+        } catch(...) {}
+    }
+}
+
+template < typename Handler, typename Result >
+void
+report_async_result(Handler handler, Result&& res)
+{
+    if (handler) {
+        try {
+            handler(::std::forward<Result>(res));
         } catch(...) {}
     }
 }

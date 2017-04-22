@@ -105,6 +105,10 @@ struct invocation_options {
         return any(flags & invocation_flags::one_way);
     }
 
+    constexpr bool
+    dont_retry() const
+    { return retries < 0; }
+
     constexpr invocation_options
     with_timeout(timeout_type t) const
     {
@@ -112,9 +116,20 @@ struct invocation_options {
     }
 
     constexpr invocation_options
-    with_retries(retry_count_type r, timeout_type rt)
+    with_retries(retry_count_type r, timeout_type rt) const
     {
         return invocation_options{ flags, timeout, r, rt };
+    }
+
+    constexpr invocation_options
+    dec_retries() const
+    {
+        retry_count_type r = retries - 1;
+        if (r == 0)
+            r = -1;
+        else if (r < -1)
+            r = -1;
+        return invocation_options{ flags, timeout, r, retry_timeout };
     }
 };
 
@@ -174,6 +189,27 @@ operator - (invocation_options const& lhs, invocation_options::timeout_type t)
 {
     return invocation_options{ lhs.flags,
         lhs.timeout - t, lhs.retries, lhs.retry_timeout };
+}
+
+inline invocation_options&
+operator |= (invocation_options& lhs, invocation_flags rhs)
+{
+    lhs.flags |= rhs;
+    return lhs;
+}
+
+inline invocation_options&
+operator &= (invocation_options& lhs, invocation_flags rhs)
+{
+    lhs.flags &= rhs;
+    return lhs;
+}
+
+inline invocation_options&
+operator ^= (invocation_options& lhs, invocation_flags rhs)
+{
+    lhs.flags ^= rhs;
+    return lhs;
 }
 
 template <typename _Promise>

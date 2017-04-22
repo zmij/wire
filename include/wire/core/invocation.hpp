@@ -401,7 +401,7 @@ struct remote_invocation< Handler,
         auto reply = make_callback(data->response, data->exception, opts, is_void{});
         if (opts.is_sync()) {
             try {
-                ref->get_connection()->invoke(data->target, data->op, data->ctx, opts,
+                ref->get_connection(opts)->invoke(data->target, data->op, data->ctx, opts,
                         ::std::move(data->out), reply, data->exception, data->sent);
             } catch (...) {
                 if (data->exception)
@@ -418,7 +418,7 @@ struct remote_invocation< Handler,
                 if (d->exception) {
                     d->exception(ex);
                 }
-            });
+            }, opts);
         }
     }
 
