@@ -283,8 +283,7 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     void
     unregister_adapter()
     {
-        auto future = unregister_adapter_async(no_context,
-                register_options_ | invocation_flags::sync);
+        auto future = unregister_adapter_async(no_context, invocation_flags::sync);
         future.get();
     }
 
@@ -299,7 +298,9 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     deactivate()
     {
         lock_guard lock{mtx_};
-        unregister_adapter();
+        try {
+            unregister_adapter();
+        } catch (...) { /* ignore it */}
         for (auto& c : connections_) {
             c.second->close();
         }
