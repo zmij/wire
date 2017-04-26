@@ -225,31 +225,25 @@ fixed_reference::get_connection_async(
         functional::exception_callback connect_error;
 
         if (opts.dont_retry()) {
-//            ::std::cerr << "No connection retries\n";
             connect_error =
                 [__exception, res](::std::exception_ptr ex)
                 {
-//                    ::std::cerr << "Connection error, don't retry\n";
                     *res = true;
                     functional::report_exception(__exception, ex);
                 };
         } else {
             functional::void_callback retry_func;
             if (opts.retries == invocation_options::infinite_retries) {
-//                ::std::cerr << "Infinite connection retries\n";
                 retry_func =
-                    [_this, __result, __exception, opts]()
+                    [_this, get_connection, __exception, opts]()
                     {
-//                    ::std::cerr << "Connection error, infinite retries\n";
-                        _this->get_connection_async(__result, __exception, opts);
+                        _this->get_connection_async(get_connection, __exception, opts);
                     };
             } else {
-//                ::std::cerr << opts.retries << " connection retries\n";
                 retry_func =
-                    [_this, __result, __exception, opts]()
+                    [_this, get_connection, __exception, opts]()
                     {
-//                        ::std::cerr << "Connection error, retry " << (opts.retries - 1) << " times\n";
-                        _this->get_connection_async(__result, __exception, opts.dec_retries());
+                        _this->get_connection_async(get_connection, __exception, opts.dec_retries());
                     };
             }
             connect_error =

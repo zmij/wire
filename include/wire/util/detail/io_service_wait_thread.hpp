@@ -18,6 +18,7 @@ template < typename Pred >
 void
 run_while( asio_config::io_service_ptr svc, Pred pred )
 {
+    asio_config::io_service::work w(*svc);
     ::std::thread t{
     [svc, pred](){
         while(pred())
@@ -30,6 +31,7 @@ template < typename Pred >
 void
 run_until( asio_config::io_service_ptr svc, Pred pred)
 {
+    asio_config::io_service::work w(*svc);
     ::std::thread t{
     [svc, pred](){
         while(!pred())
