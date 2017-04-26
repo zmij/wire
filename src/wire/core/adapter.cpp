@@ -11,6 +11,7 @@
 #include <wire/core/proxy.hpp>
 #include <wire/core/object_locator.hpp>
 #include <wire/core/locator.hpp>
+#include <wire/core/connection_observer.hpp>
 
 #include <wire/core/detail/configuration_options.hpp>
 #include <wire/errors/not_found.hpp>
@@ -33,6 +34,21 @@ namespace {
 }  /* namespace  */
 
 struct adapter::impl : ::std::enable_shared_from_this<impl> {
+    struct registry_disconnect_observer : connection_observer {
+        ::std::weak_ptr<impl>   adapter_;
+
+        registry_disconnect_observer(::std::shared_ptr<impl> a)
+            : adapter_{a} {}
+        virtual void
+        disconnect(endpoint const& ep) const noexcept override
+        {
+            auto adp = adapter_.lock();
+            if (adp) {
+                adp->registry_disconnected();
+            }
+        }
+    };
+
     using connections           = ::tbb::concurrent_hash_map< endpoint, connection_ptr >;
     using active_objects        = ::tbb::concurrent_hash_map< identity, object_ptr >;
     using default_servants      = ::tbb::concurrent_hash_map< ::std::string, object_ptr >;
@@ -46,6 +62,8 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     using shared_mutex_type     = ::boost::shared_mutex;
     using shared_lock           = ::boost::shared_lock<shared_mutex_type>;
     using exclusive_lock        = ::std::lock_guard<shared_mutex_type>;
+
+    using watchdog_ptr          = ::std::shared_ptr<registry_disconnect_observer>;
 
     connector_weak_ptr          connector_;
     asio_config::io_service_ptr io_service_;
@@ -70,11 +88,15 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     shared_mutex_type           observer_mtx_;
     connection_observer_set     connection_observers_;
 
+    watchdog_ptr                watchdog_;
+
     impl(connector_ptr c, identity const& id, detail::adapter_options const& options,
             connection_observer_set const& observers)
         : connector_{c}, io_service_{c->io_service()},
           id_{id}, options_{options},
-          register_options_{ invocation_options{}.with_retries( options.register_retries, options.retry_timeout ) },
+          register_options_{
+              invocation_options{}.with_retries(
+                      options.register_retries, options.retry_timeout ) },
           is_active_{false}, registered_{false},
           connection_observers_{observers}
     {
@@ -174,6 +196,40 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     }
 
     void
+    registry_disconnected()
+    {
+        if (registered_) {
+            registered_ = false;
+            register_adapter_async([](){}, [](::std::exception_ptr){},
+                no_context, register_options_.with_retries(
+                        invocation_options::infinite_retries,
+                        register_options_.retry_timeout));
+        }
+    }
+
+    void
+    set_registered(locator_registry_prx reg)
+    {
+        registered_ = true;
+        // Subscribe reconnect
+        if (reg) {
+            if (!watchdog_)
+                watchdog_ =
+                    ::std::make_shared<registry_disconnect_observer>(shared_from_this());
+            reg->wire_get_connection()->add_observer(watchdog_);
+        }
+    }
+
+    void
+    set_unregistered(locator_registry_prx reg)
+    {
+        registered_ = false;
+        if (reg && watchdog_) {
+            reg->wire_get_connection()->remove_observer(watchdog_);
+        }
+    }
+
+    void
     register_adapter()
     {
         auto future = register_adapter_async(no_context, register_options_ | invocation_flags::sync);
@@ -197,16 +253,16 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
                     auto prx = _this->adapter_proxy();
                     if (_this->is_replicated()) {
                         reg->add_replicated_adapter_async(prx,
-                            [_this, __result]()
+                            [_this, __result, reg]()
                             {
-                                _this->registered_ = true;
+                                _this->set_registered(reg);
                                 __result();
                             }, __exception, nullptr, ctx, opts);
                     } else {
                         reg->add_adapter_async(prx,
-                            [_this, __result]()
+                            [_this, __result, reg]()
                             {
-                                _this->registered_ = true;
+                                _this->set_registered(reg);
                                 __result();
                             }, __exception, nullptr, ctx, opts);
                     }
@@ -253,9 +309,9 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
                     auto prx = _this->adapter_proxy();
                     reg->remove_adapter_async(
                         prx,
-                        [_this, __result]()
+                        [_this, __result, reg]()
                         {
-                            _this->registered_ = false;
+                            _this->set_unregistered(reg);
                             __result();
                         }, __exception, nullptr, ctx, opts);
                 }
