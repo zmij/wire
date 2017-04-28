@@ -134,6 +134,8 @@ struct compilation_unit {
             entity_predicate pred = [](entity_const_ptr){ return true; }) const;
 
     bool
+    has_enums() const;
+    bool
     has_classes() const;
     bool
     has_interfaces() const;
@@ -999,6 +1001,7 @@ private:
 };
 
 using enumeration_ptr = shared_entity< enumeration >;
+using enumeration_const_ptr = const_shared_entity< enumeration >;
 //----------------------------------------------------------------------------
 /**
  * Wire IDL struct item

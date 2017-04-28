@@ -71,6 +71,12 @@ compilation_unit::collect_elements(entity_const_set& ent, entity_predicate pred)
 }
 
 bool
+compilation_unit::has_enums() const
+{
+    return has< enumeration >();
+}
+
+bool
 compilation_unit::has_classes() const
 {
     return has< class_ >();

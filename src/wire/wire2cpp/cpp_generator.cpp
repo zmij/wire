@@ -74,6 +74,7 @@ ast::qname const back_inserter          { "::std::back_insert_iterator" };
 ast::qname const wire_encoding_read     { "::wire::encoding::read" };
 ast::qname const wire_encoding_write    { "::wire::encoding::write" };
 ast::qname const wire_encoding_detail   { "::wire::encoding::detail" };
+ast::qname const wire_util_namespace    { "::wire::util" };
 
 ast::qname const wire_callback          { "::wire::core::functional::callback" };
 ast::qname const wire_void_callback     { "::wire::core::functional::void_callback" };
@@ -242,6 +243,9 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
     }
     if (unit_->has_classes()) {
         header_.include("<wire/encoding/detail/polymorphic_io.hpp>");
+    }
+    if (unit_->has_enums()) {
+        header_.include("<wire/util/enum_range.hpp>");
     }
 
     header_ << "\n";
@@ -730,6 +734,31 @@ generator::generate_enum(ast::enumeration_ptr enum_)
                 << off      <<      "}"
                 << off      <<      "return f->second;"
                 << mod(-1)  << "}\n";
+    }
+}
+
+void
+generator::generate_enum_traits(ast::enumeration_const_ptr enum_)
+{
+    if (!enum_->get_enumerators().empty()) {
+        header_ << off      << "// enum_range traits for " << qname(enum_)
+                << off      << "template <>"
+                << off      << "struct enum_traits<" << qname(enum_) << "> {"
+                << off(+1)      << "using enumerators = detail::enumerators<"
+                << off(+4)              << qname(enum_) << ",";
+        ;
+        header_.modify_offset(+4);
+        auto const& enumerators = enum_->get_enumerators();
+        for (auto p = enumerators.begin(); p != enumerators.end(); ++p) {
+            header_ << off << qname(enum_, p->first);
+            auto n = p;
+            if (++n != enumerators.end())
+                header_ << ",";
+        }
+        header_.modify_offset(-4);
+        header_ << off(+1)  << ">;";
+
+        header_ << off << "};";
     }
 }
 
@@ -1804,6 +1833,18 @@ generator::finish_compilation_unit(ast::compilation_unit const& u)
                         << " >: ::std::true_type {};";
         }
         header_ << "\n";
+    }
+    ast::entity_const_set enums;
+    u.collect_elements(enums,
+        [](ast::entity_const_ptr e)
+        {
+            return (bool)ast::dynamic_entity_cast< ast::enumeration >(e).get();
+        });
+    if (!enums.empty()) {
+        header_.adjust_namespace(wire_util_namespace);
+        for (auto e : enums) {
+            generate_enum_traits(ast::dynamic_entity_cast< ast::enumeration >(e));
+        }
     }
 }
 

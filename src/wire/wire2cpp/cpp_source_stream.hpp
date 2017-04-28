@@ -203,7 +203,7 @@ qname(ast::entity_const_ptr en)
 }
 
 inline ast::qname
-qname(ast::enumeration_ptr enum_, ::std::string const& enumerator)
+qname(ast::enumeration_const_ptr enum_, ::std::string const& enumerator)
 {
     ast::qname qn = enum_->get_qualified_name();
     if (!enum_->constrained()) {

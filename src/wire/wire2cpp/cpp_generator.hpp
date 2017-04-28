@@ -102,6 +102,9 @@ private:
     generate_dispatch_interface(ast::interface_ptr iface);
     void
     generate_proxy_interface(ast::interface_ptr iface);
+
+    void
+    generate_enum_traits(ast::enumeration_const_ptr enum_);
 private:
     generate_options                options_;
     ast::global_namespace_ptr       ns_;
