@@ -287,5 +287,46 @@ TEST_F(PingPong, ConnectFailException)
     EXPECT_ANY_THROW(prx_->wire_ping()) << "Expect the unreachable object throws an exception";
 }
 
+TEST_F(PingPong, AsyncConnectFailException)
+{
+    ASSERT_NE(0, child_.pid);
+    ASSERT_TRUE(connector_.get());
+    ASSERT_TRUE(prx_.get());
+
+    StopPartner();
+
+    bool connected = false;
+    bool errored   = false;
+    bool timed_out = false;
+
+    asio_ns::system_timer timer{*io_svc};
+    timer.expires_from_now(::std::chrono::seconds{5});
+    timer.async_wait(
+    [this, &timed_out](asio_config::error_code const& ec)
+    {
+        if (!ec) {
+            timed_out = true;
+            io_svc->stop();
+        }
+    });
+
+    prx_->wire_ping_async(
+        [this, &connected]()
+        {
+            connected = true;
+            io_svc->stop();
+        },
+        [this, &errored](::std::exception_ptr ex)
+        {
+            errored = true;
+            io_svc->stop();
+        });
+    io_svc->run();
+
+    EXPECT_FALSE(timed_out);
+    EXPECT_FALSE(connected);
+    EXPECT_TRUE(errored);
+}
+
 } // namespace test
 }  /* namespace wire */

@@ -223,6 +223,9 @@ struct reference_resolver::impl {
                             // Other exceptions are not retryable at this level
                             report_exception(exception, ::std::current_exception());
                         }
+                    } else {
+                        // Out of endpoint variants
+                        report_exception(exception, ex);
                     }
                 },
                 opts);

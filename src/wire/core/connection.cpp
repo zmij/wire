@@ -342,7 +342,7 @@ connection_implementation::handle_close()
     ::std::cerr << os.str();
     #endif
 
-    errors::connection_closed err{ "Conection closed" };
+    errors::connection_closed err{ "Connection closed" };
     auto ex = ::std::make_exception_ptr(err);
 
     cancel_connect_timer();
