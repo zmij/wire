@@ -134,6 +134,12 @@ connection_implementation::set_connect_timer()
 }
 
 void
+connection_implementation::cancel_connect_timer()
+{
+    connection_timer_.cancel();
+}
+
+void
 connection_implementation::on_connect_timeout(asio_config::error_code const& ec)
 {
     if (!ec) {
@@ -286,7 +292,6 @@ connection_implementation::handle_connected(asio_config::error_code const& ec)
     tag(os) << " Handle connected\n";
     ::std::cerr << os.str();
     #endif
-    connection_timer_.cancel();
     if (!ec) {
         process_event(events::connected{});
         auto adp = adapter_.lock();
@@ -340,7 +345,7 @@ connection_implementation::handle_close()
     errors::connection_closed err{ "Conection closed" };
     auto ex = ::std::make_exception_ptr(err);
 
-    connection_timer_.cancel();
+    cancel_connect_timer();
     request_timer_.cancel();
 
     reply_expiration r_exp;

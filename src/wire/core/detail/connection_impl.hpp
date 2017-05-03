@@ -355,6 +355,12 @@ struct connection_fsm_def :
             /*--------------------------+-------------------+-----------*/
             in< events::connected       ,   none            ,   none    >
         >;
+        template < typename FSM, typename Event >
+        void
+        on_enter(Event const&, FSM& fsm)
+        {
+            root_machine(fsm)->cancel_connect_timer();
+        }
     };
 
     struct terminated : ::afsm::def::terminal_state< terminated > {
@@ -556,6 +562,8 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
 
     void
     set_connect_timer();
+    void
+    cancel_connect_timer();
     void
     on_connect_timeout(asio_config::error_code const& ec);
 
