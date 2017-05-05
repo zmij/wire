@@ -644,7 +644,7 @@ generator::generate_enum(ast::enumeration_ptr enum_)
     header_ << cpp_name(enum_) << "{";
     header_.modify_offset(+1);
     for (auto e : enum_->get_enumerators()) {
-        header_ << off << e.first;
+        header_ << off << cpp_name(e.first);
         if (e.second.is_initialized()) {
             header_ << " = " << *e.second;
         }
