@@ -270,6 +270,8 @@ builtin_types()
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, double),
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, string),
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, uuid),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, time_point),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, duration),
 
         MAKE_TEMPLATE_WIRE_TYPE(templated_type_impl, variant,
                 {{ template_param_type::type, true }}),

@@ -23,7 +23,58 @@ namespace wire {
 namespace idl {
 namespace cpp {
 
-wire_type_map const wire_to_cpp = {
+namespace {
+
+::std::map< ::std::string, date_and_time > const STRING_TO_DATE_AND_TIME {
+    { "std",    date_and_time::std   },
+    { "boost",  date_and_time::boost }
+};
+
+::std::map< date_and_time, ::std::string > const DATE_AND_TIME_TO_STRING {
+    { date_and_time::std,   "std"   },
+    { date_and_time::boost, "boost" }
+};
+
+} /* namespace  */
+
+::std::ostream&
+operator <<(::std::ostream& os, date_and_time val)
+{
+    ::std::ostream::sentry s(os);
+    if (s) {
+        auto f = DATE_AND_TIME_TO_STRING.find(val);
+        if (f != DATE_AND_TIME_TO_STRING.end()) {
+            os << f->second;
+        } else {
+            os << "Unknown team_size value " << (int)val;
+        }
+    }
+    return os;
+}
+
+::std::istream&
+operator >>(::std::istream& is, date_and_time& val)
+{
+    ::std::istream::sentry s(is);
+    if (s) {
+        ::std::string name;
+        if (is >> name) {
+            auto f = STRING_TO_DATE_AND_TIME.find(name);
+            if (f != STRING_TO_DATE_AND_TIME.end()) {
+                val = f->second;
+            } else {
+                is.setstate(::std::ios_base::failbit);
+            }
+        }
+    }
+    return is;
+}
+
+date_and_time generator::datetime_type{date_and_time::std};
+
+namespace {
+
+wire_type_map const builtin_types = {
     /* Wire type      C++ Type                  Headers                                      */
     /*--------------+-------------------------+----------------------------------------------*/
     { "void",       { "void",                   {}                                          } },
@@ -54,8 +105,44 @@ wire_type_map const wire_to_cpp = {
                                                 "<wire/encoding/detail/containers_io.hpp>"} } },
     { "dictionary", { "::std::map",             {"<map>",
                                                 "<wire/encoding/detail/containers_io.hpp>"} } },
-
 };
+
+
+wire_type_map const chrono_mapping = {
+        /* Wire type      C++ Type                  Headers                                      */
+        /*--------------+-------------------------+----------------------------------------------*/
+        { "time_point", { "::std::chrono::system_clock::time_point",
+                                                    {"<chrono>",
+                                                     "<wire/encoding/detail/chrono_io.hpp>"}    } },
+        { "duration",   { "::std::chrono::system_clock::duration",
+                                                    {"<chrono>",
+                                                     "<wire/encoding/detail/chrono_io.hpp>"}    } }
+};
+
+wire_type_map const boost_time_mapping = {
+        /* Wire type      C++ Type                  Headers                                      */
+        /*--------------+-------------------------+----------------------------------------------*/
+        { "time_point", { "::boost::posix_time::ptime",
+                                             {"<wire/encoding/detail/boost_date_time_io.hpp>"} } },
+        { "duration",   { "::boost::posix_time::time_duration",
+                                             {"<wire/encoding/detail/boost_date_time_io.hpp>"} } }
+};
+
+} /* namespace  */
+
+type_mapping const&
+wire_to_cpp(::std::string const& name)
+{
+    if (chrono_mapping.find(name) != chrono_mapping.end()) {
+        switch (generator::datetime_type) {
+            case date_and_time::std :
+                return chrono_mapping.at(name);
+            case date_and_time::boost :
+                return boost_time_mapping.at(name);
+        }
+    }
+    return builtin_types.at(name);
+}
 
 namespace {
 
@@ -183,7 +270,7 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
     for (auto const& d : deps) {
         if (auto t = ast::dynamic_entity_cast< ast::type >(d)) {
             if (ast::type::is_built_in(qname(d))) {
-                auto const& tm = wire_to_cpp.at(d->name());
+                auto const& tm = wire_to_cpp(d->name());
                 if (!tm.headers.empty()) {
                     standard_headers.insert(tm.headers.begin(), tm.headers.end());
                 }

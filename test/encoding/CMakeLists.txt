@@ -38,6 +38,8 @@ set(test_SRCS
     endpoints_io_test.cpp
     endpoints_grammar_test.cpp
     uuid_io_test.cpp
+    chrono_io_test.cpp
+    boost_date_time_io_test.cpp
     identity_io_test.cpp
     identity_grammar_test.cpp
     containers_io_test.cpp

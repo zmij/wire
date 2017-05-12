@@ -80,7 +80,11 @@ try {
             "Root path of include files, for calculating a relative path for inclusion")
         ("dont-use-hashed-ids,n",
             po::bool_switch(&gen_options.dont_use_hashed_id)->default_value(false),
-            "Always use string type id in class and exception marshalling")
+            "Always use string type id in class and exception marshaling")
+        ("dates",
+            po::value< cpp::date_and_time >(&cpp::generator::datetime_type)
+                ->default_value(cpp::date_and_time::std),
+            "Which mapping for date and time types to use (std::chrono or boost::posix_time types)")
         ("generate-forwards,f",
             po::bool_switch(&gen_options.generate_forwards)->default_value(false),
             "Generate a header with forward declarations")

@@ -327,7 +327,7 @@ StreamType&
 write (StreamType& os, mapped_type const& val)
 {
     if (auto pt = ast::dynamic_entity_cast< ast::parametrized_type >(val.type)) {
-        auto tmpl_name = wire_to_cpp.at(pt->name()).type_name;
+        auto tmpl_name = wire_to_cpp(pt->name()).type_name;
         if (pt->name() == ast::ARRAY ||
                 pt->name() == ast::SEQUENCE ||
                 pt->name() == ast::DICTONARY) {
@@ -362,7 +362,7 @@ write (StreamType& os, mapped_type const& val)
         }
     } else {
         if (ast::type::is_built_in(val.type->get_qualified_name())) {
-            os << wire_to_cpp.at( val.type->name() ).type_name;
+            os << wire_to_cpp( val.type->name() ).type_name;
             if (val.is_arg &&
                     (val.type->name() == ast::STRING || val.type->name() == ast::UUID))
                 os << " const&";
