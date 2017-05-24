@@ -59,6 +59,7 @@ struct connect{
 };
 struct connected {};
 struct start{};
+struct started{};   // Server connection started
 struct close{};
 
 struct connection_failure {
@@ -175,6 +176,14 @@ struct connection_fsm_def :
             root_machine(fsm)->tag(os) << " on_connected action (receive_validate)\n";
             ::std::cerr << os.str();
             #endif
+        }
+    };
+    struct server_start {
+        template < typename Event, typename FSM, typename SourceState, typename TargetState >
+        void
+        operator()(Event const&, FSM& fsm, SourceState&, TargetState&)
+        {
+            root_machine(fsm)->start_server_session();
         }
     };
     struct send_validate {
@@ -403,8 +412,9 @@ struct connection_fsm_def :
         tr< connecting,     events::connected,          wait_validate,      on_connected,   is_stream_oriented          >,
         tr< connecting,     events::connected,          online,             none,           not_<is_stream_oriented>    >,
         /* Start server connection */
-        tr< unplugged,      events::start,              wait_validate,      send_validate,  none                        >,
+        tr< unplugged,      events::start,              connecting,         server_start,   is_stream_oriented          >,
         tr< unplugged,      events::start,              online,             none,           not_<is_stream_oriented>    >,
+        tr< connecting,     events::started,            wait_validate,      send_validate,  none                        >,
         /* Validate connection */
         tr< wait_validate,  events::receive_validate,   online,             on_connected,   is_server                   >,
         tr< wait_validate,  events::receive_validate,   online,             send_validate,  not_<is_server>             >,
@@ -497,6 +507,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
           on_close_{ on_close },
           observer_{adptr->io_service(), adptr->connection_observers()}
     {
+        mode_ = client;
         #if DEBUG_OUTPUT >= 1
         ::std::ostringstream os;
         tag(os) << " Create client connection instance\n";
@@ -505,7 +516,6 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         #if DEBUG_OUTPUT >= 3
         make_observer();
         #endif
-        mode_ = client;
         carry_.reserve(encoding::message::max_header_size);
     }
     connection_implementation( server_side const&, adapter_ptr adptr,
@@ -521,6 +531,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
           on_close_{ on_close },
           observer_{adptr->io_service(), adptr->connection_observers()}
     {
+        mode_ = server;
         #if DEBUG_OUTPUT >= 1
         ::std::ostringstream os;
         tag(os) << " Create server connection instance\n";
@@ -529,7 +540,6 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         #if DEBUG_OUTPUT >= 3
         make_observer();
         #endif
-        mode_ = server;
         carry_.reserve(encoding::message::max_header_size);
     }
 
@@ -600,8 +610,25 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
         observer_.remove_observer(observer);
     }
 
+    //@{
+    /** @name Server-side session */
+    /**
+     * Start server session, called by listener
+     */
     void
     start_session();
+    /**
+     * Start server session, called by FSM
+     */
+    void
+    start_server_session();
+    /**
+     * Start server session callback
+     * @param ec
+     */
+    void
+    handle_started(asio_config::error_code const& ec);
+    //@}
 
     void
     listen(endpoint const&, bool reuse_port = false);
@@ -754,6 +781,11 @@ private:
         throw ::std::logic_error("do_listen is not implemented");
     }
     virtual void
+    do_start_session(asio_config::asio_callback cb)
+    {
+        throw ::std::logic_error("do_start_session is not implemented");
+    }
+    virtual void
     do_write_async(encoding::outgoing_ptr, asio_config::asio_rw_callback) = 0;
     virtual void
     do_write_async(encoding::outgoing::const_buffer head,
@@ -818,8 +850,11 @@ struct connection_impl : connection_implementation {
             detail::adapter_options const& opts = {},
             typename ::std::enable_if< is_secure< T >::value, void >::type* = nullptr)
         : connection_implementation{c, adptr, on_close},
-          transport_{ io_service_, adptr->options().adapter_ssl }
+          transport_{ io_service_, adptr->ssl_options() }
     {
+        #if DEBUG_OUTPUT >= 3
+        tag(::std::cerr) << "create client-side secure connection\n";
+        #endif
     }
     template < typename T = transport_type >
     connection_impl(server_side const& s, adapter_ptr adptr,
@@ -827,8 +862,11 @@ struct connection_impl : connection_implementation {
             detail::adapter_options const& opts = {},
             typename ::std::enable_if< is_secure< T >::value, void >::type* = nullptr)
         : connection_implementation{s, adptr, on_close},
-          transport_{ io_service_, adptr->options().adapter_ssl }
+          transport_{ io_service_, adptr->ssl_options() }
     {
+        #if DEBUG_OUTPUT >= 3
+        tag(::std::cerr) << "create server-side secure connection\n";
+        #endif
     }
     virtual ~connection_impl()
     {
@@ -885,6 +923,24 @@ private:
     {
         configured_endpoint_ = ep;
         transport_.connect_async(ep, cb);
+    }
+    void
+    do_start_session(asio_config::asio_callback cb) override
+    {
+        do_start_session_impl(cb);
+    }
+
+    template < typename T = transport_type >
+    typename ::std::enable_if<is_secure< T >::value, void>::type
+    do_start_session_impl(asio_config::asio_callback cb)
+    {
+        transport_.start(cb);
+    }
+    template < typename T = transport_type >
+    typename ::std::enable_if<!is_secure< T >::value, void>::type
+    do_start_session_impl(asio_config::asio_callback cb)
+    {
+        if (cb) cb(asio_config::error_code{});
     }
     void
     do_close() override
@@ -955,7 +1011,7 @@ private:
     {
         #if DEBUG_OUTPUT >= 1
         ::std::ostringstream os;
-        tag(os) << " Open endpoint " << ep << "\n";
+        tag(os) << _type << " Open endpoint " << ep << "\n";
         ::std::cerr << os.str();
         #endif
         listener_.open(ep, reuse_port);

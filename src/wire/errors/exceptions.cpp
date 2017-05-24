@@ -61,6 +61,12 @@ runtime_error::what() const noexcept
 }
 
 void
+runtime_error::stream_message(::std::ostream& os) const
+{
+    os << ::std::runtime_error::what();
+}
+
+void
 not_found::stream_message(::std::ostream& os) const
 {
     os << format_message(subj_, object_id_, facet_, operation_);

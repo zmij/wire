@@ -321,6 +321,7 @@ struct connector::impl {
         } else {
             aopts.endpoints = eps;
         }
+        aopts.adapter_ssl = options_.server_ssl;
 
         adapter_general_opts.add_options()
         ((name + ".endpoints").c_str(), ep_value,
@@ -346,7 +347,6 @@ struct connector::impl {
                 "Locator proxy")
         ;
 
-
         po::options_description adapter_ssl_opts(name + " Adapter SSL Options");
         adapter_ssl_opts.add_options()
         ((name + ".ssl.certificate").c_str(),
@@ -359,14 +359,31 @@ struct connector::impl {
                 po::value<::std::string>(&aopts.adapter_ssl.verify_file),
                 "SSL verify file (CA root). If missing, default system certificates are used")
         ((name + ".ssl.require_peer_cert").c_str(),
-                po::bool_switch(&aopts.adapter_ssl.require_peer_cert),
+                po::bool_switch(&aopts.adapter_ssl.require_peer_cert)
+                    ->default_value(&aopts.adapter_ssl.require_peer_cert),
                 "Require client SSL certificate")
+        ((name + ".ssl.no_require_peer_cert").c_str(),
+                "Don't require client SSL certificate (for overloading connector's settings)")
         ;
 
         adapter_opts.add(adapter_general_opts).add(adapter_ssl_opts);
 
         po::variables_map vm;
         configure_options(adapter_opts, vm);
+
+        if (vm.count(name + ".ssl.no_require_peer_cert")) {
+            aopts.adapter_ssl.require_peer_cert = false;
+        }
+
+        auto ssl_eps = ::std::find_if(eps.begin(), eps.end(),
+                [](endpoint const& ep) { return ep.transport() == transport_type::ssl; });
+        if (ssl_eps != eps.end()) {
+            if (aopts.adapter_ssl.cert_file.empty()) {
+                throw ::std::runtime_error{
+                    "SSL certificate for adapter " + name + " is not configured"};
+            }
+        }
+
         return aopts;
     }
 

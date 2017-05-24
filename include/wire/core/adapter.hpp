@@ -76,6 +76,8 @@ public:
 
     detail::adapter_options const&
     options() const;
+    detail::ssl_options const&
+    ssl_options() const;
 
     //@{
     /** @name Activate/deactivate adapter */

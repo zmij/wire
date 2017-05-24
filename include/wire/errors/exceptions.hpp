@@ -23,9 +23,9 @@ public:
     runtime_error()
         : ::std::runtime_error{""}, message_{} {}
     runtime_error(std::string const& msg )
-        : ::std::runtime_error{""}, message_{msg} {}
+        : ::std::runtime_error{msg}, message_{msg} {}
     runtime_error(char const* msg)
-        : ::std::runtime_error{""}, message_{msg} {}
+        : ::std::runtime_error{msg}, message_{msg} {}
 
     template < typename ... T >
     runtime_error(T const& ... args)
@@ -34,7 +34,7 @@ public:
     what() const noexcept override;
 protected:
     virtual void
-    stream_message(::std::ostream& os) const {}
+    stream_message(::std::ostream& os) const;
 private:
     ::std::string mutable message_;
 };

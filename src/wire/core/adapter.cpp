@@ -598,6 +598,12 @@ adapter::options() const
     return pimpl_->options_;
 }
 
+detail::ssl_options const&
+adapter::ssl_options() const
+{
+    return pimpl_->options_.adapter_ssl;
+}
+
 void
 adapter::activate(bool postpone_reg)
 {

@@ -237,7 +237,9 @@ ssl_transport::verify_certificate(bool preverified, asio_ns::ssl::verify_context
     char subject_name[256];
     X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
     X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
-    std::cout << "Verifying " << subject_name << "\n";
+    #if DEBUG_OUTPUT >= 1
+    std::cerr << "SSL transport verifying " << subject_name << "\n";
+    #endif
 
     return preverified;
 }

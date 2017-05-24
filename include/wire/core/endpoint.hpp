@@ -491,6 +491,9 @@ hash(endpoint_rotation<Endpoints> const& eps)
 operator << (::std::ostream& os, transport_type val);
 ::std::istream&
 operator >> (::std::istream& in, transport_type& val);
+::std::string
+to_string(transport_type val);
+
 ::std::ostream&
 operator << (::std::ostream& os, endpoint const& val);
 ::std::istream&

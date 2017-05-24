@@ -274,7 +274,35 @@ connection_implementation::start_session()
     ::std::cerr << os.str();
     #endif
     process_event(events::start{});
-    observer_.connect(remote_endpoint());
+}
+
+void
+connection_implementation::start_server_session()
+{
+    do_start_session(
+        ::std::bind(&connection_implementation::handle_started,
+                shared_from_this(), ::std::placeholders::_1));
+}
+
+void
+connection_implementation::handle_started(asio_config::error_code const& ec)
+{
+    #if DEBUG_OUTPUT >= 1
+    ::std::ostringstream os;
+    tag(os) << " Handle started\n";
+    ::std::cerr << os.str();
+    #endif
+    if (!ec) {
+        process_event(events::started{});
+        auto adp = adapter_.lock();
+        if (adp) {
+            adp->connection_online(local_endpoint(), remote_endpoint());
+        }
+        observer_.connect(remote_endpoint());
+    } else {
+        connection_failure(
+            ::std::make_exception_ptr(errors::connection_failed(ec.message())));
+    }
 }
 
 void

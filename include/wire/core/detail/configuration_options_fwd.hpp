@@ -14,6 +14,7 @@ namespace detail {
 
 struct connector_options;
 struct adapter_options;
+struct ssl_options;
 
 }  // namespace detail
 }  // namespace core

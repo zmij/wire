@@ -91,6 +91,18 @@ operator >> (std::istream& in, transport_type& val)
     return in;
 }
 
+::std::string
+to_string(transport_type val)
+{
+    auto f = TRANSPORT_TYPE_TO_STRING.find(val);
+    if (f != TRANSPORT_TYPE_TO_STRING.end()) {
+        return f->second;
+    }
+    ::std::ostringstream os;
+    os << "Unknown ::wire::core::transport_type value " << (int)val;
+    throw ::std::runtime_error{os.str()};
+}
+
 namespace detail {
 
 namespace {
