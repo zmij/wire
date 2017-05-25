@@ -360,7 +360,7 @@ struct connector::impl {
                 "SSL verify file (CA root). If missing, default system certificates are used")
         ((name + ".ssl.require_peer_cert").c_str(),
                 po::bool_switch(&aopts.adapter_ssl.require_peer_cert)
-                    ->default_value(&aopts.adapter_ssl.require_peer_cert),
+                    ->default_value(aopts.adapter_ssl.require_peer_cert),
                 "Require client SSL certificate")
         ((name + ".ssl.no_require_peer_cert").c_str(),
                 "Don't require client SSL certificate (for overloading connector's settings)")
