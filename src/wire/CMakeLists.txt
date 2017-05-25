@@ -48,6 +48,7 @@ set(wire_lib_SRCS
     core/constants.cpp
     core/endpoint.cpp
     core/transport.cpp
+    core/ssl_certificate.cpp
     core/connection.cpp
     core/adapter.cpp
     core/identity.cpp

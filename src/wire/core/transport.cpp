@@ -8,6 +8,8 @@
 #include <wire/core/transport.hpp>
 #include <wire/errors/exceptions.hpp>
 
+#include <wire/core/ssl_certificate.hpp>
+
 #include <iostream>
 
 namespace wire {
@@ -220,7 +222,8 @@ ssl_transport::create_context(detail::ssl_options const& opts)
 
 ssl_transport::ssl_transport(asio_config::io_service_ptr io_svc,
         detail::ssl_options const& opts)
-    : ctx_(create_context(opts)), resolver_(*io_svc), socket_(*io_svc, ctx_)
+    : ctx_(create_context(opts)), resolver_(*io_svc), socket_(*io_svc, ctx_),
+      verify_{ opts.verify_func }
 {
     if (opts.require_peer_cert) {
         verify_mode_ = asio_ns::ssl::verify_peer
@@ -235,13 +238,12 @@ bool
 ssl_transport::verify_certificate(bool preverified, asio_ns::ssl::verify_context& ctx)
 {
     char subject_name[256];
-    X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
-    X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
+    ssl_certificate cert{X509_STORE_CTX_get_current_cert(ctx.native_handle())};
     #if DEBUG_OUTPUT >= 1
-    std::cerr << "SSL transport verifying " << subject_name << "\n";
+    std::cerr << "SSL transport verifying " << cert.subject_name() << "\n";
     #endif
 
-    return preverified;
+    return verify_ ? verify_(preverified, cert) : preverified;
 }
 
 void

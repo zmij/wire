@@ -852,6 +852,7 @@ struct connection_impl : connection_implementation {
         : connection_implementation{c, adptr, on_close},
           transport_{ io_service_, adptr->ssl_options() }
     {
+        // TODO Add verification handler for storing certificate chain
         #if DEBUG_OUTPUT >= 3
         tag(::std::cerr) << "create client-side secure connection\n";
         #endif
@@ -864,6 +865,7 @@ struct connection_impl : connection_implementation {
         : connection_implementation{s, adptr, on_close},
           transport_{ io_service_, adptr->ssl_options() }
     {
+        // TODO Add verification handler for storing certificate chain
         #if DEBUG_OUTPUT >= 3
         tag(::std::cerr) << "create server-side secure connection\n";
         #endif

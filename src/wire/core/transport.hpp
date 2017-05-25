@@ -12,6 +12,7 @@
 #include <wire/future_config.hpp>
 #include <wire/core/endpoint.hpp>
 #include <wire/core/detail/ssl_options.hpp>
+#include <wire/core/ssl_certificate_fwd.hpp>
 
 #include <pushkin/asio/async_ssl_ops.hpp>
 
@@ -454,6 +455,8 @@ private:
     resolver_type               resolver_;
     socket_type                 socket_;
     verify_mode                 verify_mode_ = asio_ns::ssl::verify_peer;
+
+    ssl_verify_callback         verify_;
 };
 
 struct udp_transport {
