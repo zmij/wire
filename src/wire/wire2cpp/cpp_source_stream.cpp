@@ -54,16 +54,7 @@ write_name(::std::ostream& os, ast::qname const& qn, ast::qname const& current_s
             os << cpp_name(qn);
             write_abs = false;
         } else {
-            auto target = qn.search();
-            auto current = current_scope.search();
-            for (auto c = current.begin;
-                    c != current.end && !target.empty() && *c == *target.begin;
-                    ++c, ++target);
-            if (target.empty()) {
-                os << cpp_name(qn);
-            } else {
-                os << cpp_name(target);
-            }
+            os << cpp_name(qn.in_scope(current_scope));
         }
     }
 }

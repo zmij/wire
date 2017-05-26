@@ -34,6 +34,9 @@ target_link_libraries(
     ${WIRE_IDL_LIB}
 )
 
+add_executable(wire_qname_fold qname_fold.cpp)
+target_link_libraries(wire_qname_fold ${WIRE_IDL_LIB})
+
 if (GTEST_XML_OUTPUT)
     set (
         TEST_ARGS

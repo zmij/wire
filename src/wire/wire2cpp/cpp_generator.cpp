@@ -696,6 +696,7 @@ generator::generate_forward_decl( ast::forward_declaration_ptr fwd )
                     << off << "using " << cpp_name(fwd) << "_prx = ::std::shared_ptr< "
                         << cpp_name(fwd) << "_proxy >;";
             ;
+            // fallthrough
         case ast::forward_declaration::exception:
         case ast::forward_declaration::class_:
             header_ << off << "class " << cpp_name(fwd) << ";"
