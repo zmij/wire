@@ -251,7 +251,7 @@ struct reference_resolver::impl {
             if (!ep_rot)
                 return false;
             auto retries = ::std::make_shared<::std::size_t>(0);
-            get_connection(eps->second, result, exception, opts);
+            get_connection(ep_rot, result, exception, opts);
             return true;
         }
         return false;
