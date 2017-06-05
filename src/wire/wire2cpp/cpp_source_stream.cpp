@@ -364,7 +364,16 @@ write (StreamType& os, mapped_type const& val)
         } else if (auto iface = ast::dynamic_type_cast< ast::interface >(val.type)) {
             os << qname(val.type) << "_ptr";
         } else {
-            os << qname(val.type);
+            auto scope = val.type->get_global()->find_scope(os.current_scope()).first;
+            if (scope) {
+                auto type_name = val.type->get_qualified_name();
+                os << cpp_safe_qname_search{ type_name.in_scope(scope) };
+            } else {
+                // The only type defining scope that is absent from AST
+                // is proxy type.
+                // TODO Calculate type name relative to proxy's scope
+                os << qname(val.type);
+            }
             if (val.is_arg) {
                 os << " const&";
             }

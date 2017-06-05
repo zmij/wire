@@ -695,15 +695,17 @@ scope::find_type(qname_search const& search) const
         type_ptr t = sc.first->local_type_search(search);
         if (t)
             return t;
-    }
-    if (sc.first && sc.second->owner()) { // Proceed to parent scope only if not searching from global namespace
-        sc.first = sc.first->owner();
-        if (sc.first) {
-            return sc.first->find_type(search);
+
+        // Proceed to parent scope only if not searching from global namespace
+        if (sc.second->owner()) {
+            sc.first = sc.first->owner();
+            if (sc.first && sc.first.get() != this) {
+                return sc.first->find_type(search);
+            }
         }
     }
 
-    return find_builtin(search.back());;
+    return find_builtin(search.back());
 }
 
 type_ptr

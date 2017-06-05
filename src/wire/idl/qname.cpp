@@ -88,6 +88,23 @@ qname::in_scope(qname const& scope) const
     return target;
 }
 
+qname_search
+qname::in_scope(scope_ptr sc) const
+{
+    auto scope_name = sc->get_qualified_name();
+    auto target = in_scope(scope_name);
+    auto e = sc->find_entity(target);
+    if (!e) {
+        ::std::cerr << "error: '" << target << "' not found in scope '"
+                << scope_name << "'\n";
+    } else if (e->get_qualified_name() != *this) {
+        ::std::cerr << "warning: '" << target << "' in scope '"
+                << scope_name << "' is not the target name\n";
+    }
+
+    return target;
+}
+
 ::std::ostream&
 operator << (::std::ostream& os, qname const& val)
 {

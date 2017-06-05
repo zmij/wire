@@ -12,6 +12,8 @@
 #include <vector>
 #include <stdexcept>
 
+#include <wire/idl/ast_fwd.hpp>
+
 namespace wire {
 namespace idl {
 namespace ast {
@@ -162,6 +164,8 @@ struct qname {
 
     qname_search
     in_scope(qname const& scope) const;
+    qname_search
+    in_scope(scope_ptr scope) const;
 
     qname
     scope() const

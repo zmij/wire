@@ -174,6 +174,10 @@ public:
     void
     modify_offset(int delta);
 
+    ast::qname
+    current_scope() const
+    { return current_scope_; }
+
     ::std::string
     str(int tab_width = 4) const;
 private:
