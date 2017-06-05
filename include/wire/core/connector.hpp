@@ -454,6 +454,211 @@ public:
     //@}
 
     //@{
+    /** @name Well-known object helpers */
+    /**
+     * Add a well-known object to the default locator
+     * @param obj
+     * @param result
+     * @param exception
+     * @param context
+     * @param options
+     */
+    void
+    add_well_known_object_async(
+        object_prx                          obj,
+        functional::void_callback           result,
+        functional::exception_callback      exception   = nullptr,
+        context_type const&                             = no_context,
+        invocation_options const&                       = invocation_options::unspecified
+    );
+    template < template <typename> class _Promise = promise >
+    auto
+    add_well_known_object_async(object_prx obj,
+            context_type const& ctx = no_context,
+            invocation_options const& opts = invocation_options::unspecified)
+    -> decltype(::std::declval<_Promise<void>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<void> >();
+
+        add_well_known_object_async(obj,
+                [promise]()
+                {
+                    promise->set_value();
+                },
+                [promise](::std::exception_ptr ex)
+                {
+                    promise->set_exception(ex);
+                }, ctx, opts
+        );
+
+        return promise->get_future();
+    }
+    template<template<typename > class _Promise = promise>
+    void
+    add_well_known_object(object_prx obj, context_type const& ctx = no_context,
+            invocation_options const& opts = invocation_options::unspecified)
+    {
+        auto future = add_well_known_object_async<_Promise>(obj,
+                ctx,
+                opts | promise_invocation_flags< _Promise<void>>::value);
+        return future.get();
+    }
+
+    /**
+     * Add a well-known object to the locator specified by reference
+     * @param obj
+     * @param loc_ref
+     * @param result
+     * @param exception
+     * @param
+     * @param
+     */
+    void
+    add_well_known_object_async(
+        object_prx                          obj,
+        reference_data const&               loc_ref,
+        functional::void_callback           result,
+        functional::exception_callback      exception   = nullptr,
+        context_type const&                             = no_context,
+        invocation_options const&                       = invocation_options::unspecified
+    );
+
+    template < template <typename> class _Promise = promise >
+    auto
+    add_well_known_object_async(object_prx obj, reference_data const& loc_ref,
+            context_type const& ctx = no_context,
+            invocation_options const& opts = invocation_options::unspecified)
+    -> decltype(::std::declval<_Promise<void>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<void> >();
+
+        add_well_known_object_async(obj, loc_ref,
+                [promise]()
+                {
+                    promise->set_value();
+                },
+                [promise](::std::exception_ptr ex)
+                {
+                    promise->set_exception(ex);
+                }, ctx, opts
+        );
+
+        return promise->get_future();
+    }
+    template<template<typename > class _Promise = promise>
+    void
+    add_well_known_object(object_prx obj, reference_data const& loc_ref,
+            context_type const&         ctx     = no_context,
+            invocation_options const&   opts    = invocation_options::unspecified)
+    {
+        auto future = add_well_known_object_async<_Promise>(obj, loc_ref,
+                ctx,
+                opts | promise_invocation_flags< _Promise<void>>::value);
+        return future.get();
+    }
+
+    /**
+     * Remove a well-known object from the default locator
+     * @param obj
+     * @param result
+     * @param exception
+     * @param
+     * @param
+     */
+    void
+    remove_well_known_object_async(
+        object_prx                          obj,
+        functional::void_callback           result,
+        functional::exception_callback      exception   = nullptr,
+        context_type const&                             = no_context,
+        invocation_options const&                       = invocation_options::unspecified
+    );
+    template < template <typename> class _Promise = promise >
+    auto
+    remove_well_known_object_async(object_prx obj,
+            context_type const& ctx = no_context,
+            invocation_options const& opts = invocation_options::unspecified)
+    -> decltype(::std::declval<_Promise<void>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<void> >();
+
+        remove_well_known_object_async(obj,
+                [promise]()
+                {
+                    promise->set_value();
+                },
+                [promise](::std::exception_ptr ex)
+                {
+                    promise->set_exception(ex);
+                }, ctx, opts
+        );
+
+        return promise->get_future();
+    }
+    template<template<typename > class _Promise = promise>
+    void
+    remove_well_known_object(object_prx obj, context_type const& ctx = no_context,
+            invocation_options const& opts = invocation_options::unspecified)
+    {
+        auto future = remove_well_known_object_async<_Promise>(obj,
+                ctx,
+                opts | promise_invocation_flags< _Promise<void>>::value);
+        return future.get();
+    }
+
+    /**
+     * Remove a well-known object from the locator specified by reference
+     * @param obj
+     * @param result
+     * @param exception
+     * @param
+     * @param
+     */
+    void
+    remove_well_known_object_async(
+        object_prx                          obj,
+        reference_data const&               loc_ref,
+        functional::void_callback           result,
+        functional::exception_callback      exception   = nullptr,
+        context_type const&                             = no_context,
+        invocation_options const&                       = invocation_options::unspecified
+    );
+    template < template <typename> class _Promise = promise >
+    auto
+    remove_well_known_object_async(object_prx obj, reference_data const& loc_ref,
+            context_type const& ctx = no_context,
+            invocation_options const& opts = invocation_options::unspecified)
+    -> decltype(::std::declval<_Promise<void>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<void> >();
+
+        remove_well_known_object_async(obj, loc_ref,
+                [promise]()
+                {
+                    promise->set_value();
+                },
+                [promise](::std::exception_ptr ex)
+                {
+                    promise->set_exception(ex);
+                }, ctx, opts
+        );
+
+        return promise->get_future();
+    }
+    template<template<typename > class _Promise = promise>
+    void
+    remove_well_known_object(object_prx obj, reference_data const& loc_ref, context_type const& ctx = no_context,
+            invocation_options const& opts = invocation_options::unspecified)
+    {
+        auto future = remove_well_known_object_async<_Promise>(obj, loc_ref,
+                ctx,
+                opts | promise_invocation_flags< _Promise<void>>::value);
+        return future.get();
+    }
+
+    //@}
+
+    //@{
     /** @name Connection observers */
     void
     add_observer(connection_observer_ptr observer);

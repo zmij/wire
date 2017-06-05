@@ -475,6 +475,36 @@ struct connector::impl {
     }
 
     void
+    add_well_known_object_async(object_prx  obj,
+        reference_data const&               locator_ref,
+        functional::void_callback           result,
+        functional::exception_callback      exception,
+        context_type                        ctx,
+        invocation_options                  opts)
+    {
+        get_locator_registry_async(locator_ref,
+            [obj, result, exception, ctx, opts](locator_registry_prx reg)
+            {
+                reg->add_well_known_object_async(obj, result, exception, nullptr, ctx, opts);
+            }, exception, ctx, opts);
+    }
+
+    void
+    remove_well_known_object_async(object_prx  obj,
+        reference_data const&               locator_ref,
+        functional::void_callback           result,
+        functional::exception_callback      exception,
+        context_type                        ctx,
+        invocation_options                  opts)
+    {
+        get_locator_registry_async(locator_ref,
+            [obj, result, exception, ctx, opts](locator_registry_prx reg)
+            {
+                reg->remove_well_known_object_async(obj, result, exception, nullptr, ctx, opts);
+            }, exception, ctx, opts);
+    }
+
+    void
     resolve_connection(reference_data const&    ref,
         functional::callback<connection_ptr>    result,
         functional::exception_callback          exception,
@@ -1035,6 +1065,60 @@ connector::get_locator_registry_async(
         invocation_options const&                   opts) const
 {
     pimpl_->get_locator_registry_async(loc_ref, result, exception, ctx, opts);
+}
+
+void
+connector::add_well_known_object_async(
+        object_prx obj,
+        functional::void_callback                   result,
+        functional::exception_callback              exception,
+        context_type const&                         ctx,
+        invocation_options const&                   opts
+    )
+{
+    pimpl_->add_well_known_object_async(
+            obj, pimpl_->options_.locator_ref, result, exception, ctx, opts);
+}
+
+void
+connector::add_well_known_object_async(
+        object_prx obj,
+        reference_data const&                       loc_ref,
+        functional::void_callback                   result,
+        functional::exception_callback              exception,
+        context_type const&                         ctx,
+        invocation_options const&                   opts
+    )
+{
+    pimpl_->add_well_known_object_async(
+            obj, loc_ref, result, exception, ctx, opts);
+}
+
+void
+connector::remove_well_known_object_async(
+        object_prx obj,
+        functional::void_callback                   result,
+        functional::exception_callback              exception,
+        context_type const&                         ctx,
+        invocation_options const&                   opts
+    )
+{
+    pimpl_->remove_well_known_object_async(
+            obj, pimpl_->options_.locator_ref, result, exception, ctx, opts);
+}
+
+void
+connector::remove_well_known_object_async(
+        object_prx obj,
+        reference_data const&                       loc_ref,
+        functional::void_callback                   result,
+        functional::exception_callback              exception,
+        context_type const&                         ctx,
+        invocation_options const&                   opts
+    )
+{
+    pimpl_->remove_well_known_object_async(
+            obj, loc_ref, result, exception, ctx, opts);
 }
 
 void
