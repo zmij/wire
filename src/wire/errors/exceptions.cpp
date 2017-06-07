@@ -51,12 +51,6 @@ operator << (::std::ostream& os, op_id const& val)
 char const*
 runtime_error::what() const noexcept
 {
-    if (message_.empty()) {
-        // call stream message
-        ::std::ostringstream os;
-        stream_message(os);
-        message_ = os.str();
-    }
     return message_.c_str();
 }
 

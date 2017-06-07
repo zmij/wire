@@ -35,7 +35,6 @@ public:
 protected:
     virtual void
     stream_message(::std::ostream& os) const;
-private:
     ::std::string mutable message_;
 };
 

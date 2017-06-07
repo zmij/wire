@@ -39,8 +39,12 @@ public:
     virtual void
     __wire_read(input_iterator& begin, input_iterator end, bool read_head = true) = 0;
 
+    void
+    post_unmarshal();
+
     virtual ::std::exception_ptr
     make_exception_ptr() = 0;
+
 public:
     static ::std::string const&
     wire_static_type_id();
@@ -106,6 +110,7 @@ struct exception_reader {
         using input_iterator_check = octet_input_iterator_concept< InputIterator >;
 
         v.__wire_read(begin, end);
+        v.post_unmarshal();
     }
 
     static void
