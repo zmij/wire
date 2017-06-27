@@ -46,6 +46,7 @@ set(wire_lib_SRCS
     errors/user_exception.cpp
     core/connector.cpp
     core/constants.cpp
+    core/context.cpp
     core/endpoint.cpp
     core/transport.cpp
     core/ssl_certificate.cpp
