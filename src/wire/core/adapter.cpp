@@ -16,6 +16,9 @@
 #include <wire/core/detail/configuration_options.hpp>
 #include <wire/errors/not_found.hpp>
 
+#include <wire/util/io_service_wait.hpp>
+#include <wire/util/debug_log.hpp>
+
 #include <tbb/concurrent_hash_map.h>
 #include <tbb/concurrent_unordered_set.h>
 
@@ -245,11 +248,14 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     {
         if (registered_)
             return __result();
+        DEBUG_LOG(2, "Register adapter " << id_)
         auto _this = shared_from_this();
         auto on_get_reg =
             [_this, __result, __exception, ctx, opts](locator_registry_prx reg)
             {
                 if (reg) {
+                    DEBUG_LOG(2, "Add adapter " << _this->id_ <<
+                            " to registry " << *reg);
                     auto prx = _this->adapter_proxy();
                     if (_this->is_replicated()) {
                         reg->add_replicated_adapter_async(prx,
@@ -267,6 +273,7 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
                             }, __exception, nullptr, ctx, opts);
                     }
                 } else {
+                    DEBUG_LOG(2, "No locator registry when registering adapter " << _this->id_);
                     functional::report_exception(__exception,
                         errors::runtime_error{
                             "wire.locator is not configured for registering adapter"});
@@ -300,23 +307,42 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     {
         if (!registered_)
             return __result();
-
+        DEBUG_LOG(2, "Unregister adapter " << id_);
+        auto done = ::std::make_shared< ::std::atomic<bool> >(false);
         auto _this = shared_from_this();
+        auto exception = [done, __exception](::std::exception_ptr ex)
+                {
+                    *done = true;
+                    DEBUG_LOG(2, "Exception when unregistering adapter");
+                    functional::report_exception(__exception, ex);
+                };
         auto on_get_reg =
-            [_this, __result, __exception, ctx, opts](locator_registry_prx reg)
+            [_this, __result, exception, ctx, done](locator_registry_prx reg)
             {
                 if (reg) {
+                    DEBUG_LOG(2, "Remove adapter " << _this->id_
+                            << " from registry " << *reg);
+                    _this->set_unregistered(reg);
                     auto prx = _this->adapter_proxy();
                     reg->remove_adapter_async(
-                        prx,
-                        [_this, __result, reg]()
-                        {
-                            _this->set_unregistered(reg);
+                        prx, [__result, done](){
+                            *done = true;
+                            DEBUG_LOG(2, "Done removing adapter from locator registry");
                             __result();
-                        }, __exception, nullptr, ctx, opts);
+                        }, exception, nullptr, ctx, invocation_options{});
+                } else {
+                    *done = true;
+                    DEBUG_LOG(2, "No locator registry to remove " << _this->id_);
+                    __result();
                 }
             };
-        get_locator_registry_async(on_get_reg, __exception, ctx, opts);
+        get_locator_registry_async(on_get_reg, exception, ctx, invocation_options{});
+        // Throttle sync call here
+        if (opts.is_sync()) {
+            DEBUG_LOG(3, "Wait for unregistering " << id_);
+            util::run_until(io_service_, [done](){ return (bool)*done; });
+            DEBUG_LOG(3, "Wait for unregistering " << id_ << " done");
+        }
     }
     template < template <typename> class _Promise = promise >
     auto
@@ -351,18 +377,44 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     }
 
     void
-    deactivate()
+    clear_connections()
     {
         lock_guard lock{mtx_};
-        try {
-            unregister_adapter();
-        } catch (...) { /* ignore it */}
         for (auto& c : connections_) {
             c.second->close();
         }
         connections_.clear();
         published_endpoints_.clear();
         is_active_ = false;
+    }
+
+    void
+    deactivate()
+    {
+        try {
+            unregister_adapter();
+        } catch (...) { /* ignore it */}
+        clear_connections();
+    }
+
+
+    void
+    deactivate_async(functional::void_callback  __result,
+            functional::exception_callback      __exception,
+            context_type const&                 ctx         = no_context,
+            invocation_options const&           opts        = invocation_options::unspecified)
+    {
+        auto _this = shared_from_this();
+        unregister_adapter_async(
+            [_this, __result, __exception]()
+            {
+                try {
+                    _this->clear_connections();
+                    __result();
+                } catch (...) {
+                    functional::report_exception(__exception, ::std::current_exception());
+                }
+            }, __exception, ctx, opts);
     }
 
     void
@@ -397,9 +449,7 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     void
     connection_online(endpoint const& local, endpoint const& remote)
     {
-        #ifdef DEBUG_OUTPUT
-        ::std::cerr <<::getpid() << " Connection " << local << " -> " << remote << " is online\n";
-        #endif
+        DEBUG_LOG(1, "Connection " << local << " -> " << remote << " is online")
     }
     void
     listen_connection_online(endpoint const& ep)
@@ -415,9 +465,7 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     void
     connection_offline(endpoint const& ep)
     {
-        #ifdef DEBUG_OUTPUT
-        ::std::cerr <<::getpid() << " Connection " << ep << " is offline\n";
-        #endif
+        DEBUG_LOG(1, "Connection " << ep << " is offline")
     }
 
     endpoint_list
@@ -611,9 +659,12 @@ adapter::activate(bool postpone_reg)
 }
 
 void
-adapter::deactivate()
+adapter::deactivate_async(functional::void_callback __result,
+            functional::exception_callback          __exception,
+            context_type const&                     ctx,
+            invocation_options const&               opts)
 {
-    pimpl_->deactivate();
+    pimpl_->deactivate_async(__result, __exception, ctx, opts);
 }
 
 void

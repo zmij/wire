@@ -404,11 +404,100 @@ struct connector::impl {
     }
 
     void
-    stop()
+    shutdown()
     {
         for (auto a : listen_adapters_) {
             a->deactivate();
         }
+    }
+
+    struct shutdown_async_action {
+        using action_ptr = ::std::shared_ptr<shutdown_async_action>;
+
+        functional::void_callback       result;
+        functional::exception_callback  exception;
+
+        ::std::exception_ptr            error;
+
+        shutdown_async_action(functional::void_callback res,
+                functional::exception_callback ex)
+            : result{res}, exception{ex}, error{nullptr}
+        {
+        }
+        ~shutdown_async_action()
+        {
+            try {
+                if (error) {
+                    if (exception) exception(error);
+                } else {
+                    if (result) result();
+                }
+            } catch(...) {}
+        }
+
+        void
+        done() {}
+        void
+        fail(::std::exception_ptr ex)
+        {
+            if (!error) {
+                error = ex;
+            }
+        }
+
+        static functional::void_result_pair
+        make_action(functional::void_callback res, functional::exception_callback ex)
+        {
+            auto action = ::std::make_shared< shutdown_async_action >(res, ex);
+            return ::std::make_pair(
+                ::std::bind(&shutdown_async_action::done, action),
+                ::std::bind(&shutdown_async_action::fail, action, ::std::placeholders::_1)
+             );
+        }
+    };
+
+    void
+    shutdown_async(
+            functional::void_callback       __result,
+            functional::exception_callback  __exception,
+            context_type const&             ctx         = no_context,
+            invocation_options const&       opts        = invocation_options::unspecified)
+    {
+        if (listen_adapters_.empty())
+            __result();
+        ::std::shared_ptr< ::std::atomic<bool> > done;
+
+        done = ::std::make_shared< ::std::atomic<bool> >(false);
+        {
+            auto res = [__result, done]()
+            {
+                *done = true;
+                __result();
+            };
+            auto exc = [__exception, done](::std::exception_ptr ex)
+            {
+                *done = true;
+                __exception(ex);
+            };
+
+            auto action = shutdown_async_action::make_action(res, exc);
+            auto o = opts - invocation_flags::sync;
+            for (auto a : listen_adapters_) {
+                a->deactivate_async(action.first, action.second, ctx, o);
+            }
+        }
+        if (opts.is_sync()) {
+            // Wait here
+            util::run_until(io_service_, [done](){ return (bool)*done; });
+        }
+    }
+
+    void
+    stop_async(
+            functional::void_callback       __result,
+            invocation_options const&       opts        = invocation_options::unspecified)
+    {
+
     }
 
     void
@@ -701,19 +790,19 @@ struct connector::impl {
             }
         }
         if (new_conn) {
-            auto res = ::std::make_shared< ::std::atomic<bool> >(false);
+            auto done = ::std::make_shared< ::std::atomic<bool> >(false);
             #if DEBUG_OUTPUT >= 2
             ::std::ostringstream os;
             tag(os) << " Start connection to " << ep << "\n";
             ::std::cerr << os.str();
             #endif
             conn->connect_async(ep,
-                [on_get, conn, res, ep]()
+                [on_get, conn, done, ep]()
                 {
                     #ifdef DEBUG_OUTPUT
                     tag(::std::cerr) << " Connected to " << ep << "\n";
                     #endif
-                    *res = true;
+                    *done = true;
                     try {
                         on_get(conn);
                     } catch(...) {
@@ -722,19 +811,19 @@ struct connector::impl {
                         #endif
                     }
                 },
-                [this, exception, res, ep](::std::exception_ptr ex)
+                [this, exception, done, ep](::std::exception_ptr ex)
                 {
                     #if DEBUG_OUTPUT >= 2
                     tag(::std::cerr) << " Failed to connect to " << ep << "\n";
                     #endif
-                    *res = true;
+                    *done = true;
                     try {
                         exception(ex);
                     } catch (...) {}
                 });
 
             if (opts.is_sync()) {
-                util::run_until(io_service_, [res](){ return (bool)*res; });
+                util::run_until(io_service_, [done](){ return (bool)*done; });
             }
         } else {
             #if DEBUG_OUTPUT >= 2
@@ -929,9 +1018,13 @@ connector::run()
 }
 
 void
-connector::stop()
+connector::shutdown_async(
+        functional::void_callback       __result,
+        functional::exception_callback  __exception,
+        context_type const&             ctx,
+        invocation_options const&       opts)
 {
-    pimpl_->stop();
+    pimpl_->shutdown_async(__result, __exception, ctx, opts);
 }
 
 detail::connector_options const&

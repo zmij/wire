@@ -31,6 +31,8 @@
 
 #include <wire/core/detail/future_traits.hpp>
 
+#include <wire/util/debug_log.hpp>
+
 #include <string>
 
 namespace wire {
@@ -92,7 +94,45 @@ public:
      * Finish dispatching current requests, then close connections.
      */
     void
-    deactivate();
+    deactivate_async(functional::void_callback  result,
+            functional::exception_callback      exception,
+            context_type const&                             = no_context,
+            invocation_options const&           opts        = invocation_options::unspecified);
+
+    template < template <typename> class _Promise = promise >
+    auto
+    deactivate_async(
+            context_type const&                 ctx         = no_context,
+            invocation_options const&           opts        = invocation_options::unspecified)
+        -> decltype(::std::declval< _Promise<void> >().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<void> >();
+
+        deactivate_async(
+            [promise]()
+            {
+                DEBUG_LOG(3, "Deactivate result");
+                promise->set_value();
+            },
+            [promise](::std::exception_ptr ex)
+            {
+                DEBUG_LOG(3, "Deactivate exception");
+                promise->set_exception(ex);
+            }, ctx, opts
+        );
+
+        return promise->get_future();
+    }
+    template < template <typename> class _Promise = promise >
+    void
+    deactivate(
+            context_type const&                 ctx         = no_context,
+            invocation_options const&           opts        = invocation_options::unspecified)
+    {
+        auto future = deactivate_async<_Promise>(
+                ctx, opts | promise_invocation_flags<_Promise<void>>::value);
+        return future.get();
+    }
     //@}
     //@{
     /**

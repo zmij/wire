@@ -24,6 +24,7 @@
 #include <wire/errors/unexpected.hpp>
 
 #include <wire/util/io_service_wait.hpp>
+#include <wire/util/debug_log.hpp>
 
 #include <afsm/fsm.hpp>
 
@@ -143,11 +144,7 @@ struct connection_fsm_def :
         operator()(events::connect const& evt, FSM& fsm,
                 SourceState&, TargetState&)
         {
-            #if DEBUG_OUTPUT >= 4
-            ::std::ostringstream os;
-            root_machine(fsm)->tag(os) << " connect action\n";
-            ::std::cerr << os.str();
-            #endif
+            DEBUG_LOG_TAG(4, root_machine(fsm)->tag, "connect action");
             // Do connect async
             root_machine(fsm)->do_connect_async(evt.ep);
         }
@@ -158,11 +155,7 @@ struct connection_fsm_def :
         operator()(events::connected const& evt, FSM& fsm,
                 connecting& from, wait_validate& to)
         {
-            #if DEBUG_OUTPUT >= 3
-            ::std::ostringstream os;
-            root_machine(fsm)->tag(os) << " on_connected action (connected)\n";
-            ::std::cerr << os.str();
-            #endif
+            DEBUG_LOG_TAG(3, root_machine(fsm)->tag, "on_connected action (connected)")
             ::std::swap(to.success, from.success);
             ::std::swap(to.fail, from.fail);
         }
@@ -171,11 +164,7 @@ struct connection_fsm_def :
         operator()(events::receive_validate const& evt, FSM& fsm,
                 wait_validate& from, online& to)
         {
-            #if DEBUG_OUTPUT >= 3
-            ::std::ostringstream os;
-            root_machine(fsm)->tag(os) << " on_connected action (receive_validate)\n";
-            ::std::cerr << os.str();
-            #endif
+            DEBUG_LOG_TAG(3, root_machine(fsm)->tag, "on_connected action (receive_validate)")
         }
     };
     struct server_start {
@@ -296,11 +285,7 @@ struct connection_fsm_def :
         void
         on_enter(Event const&, FSM& fsm)
         {
-            #if DEBUG_OUTPUT >= 4
-            ::std::ostringstream os;
-            root_machine(fsm)->tag(os) << " wait validate enter\n";
-            ::std::cerr << os.str();
-            #endif
+            DEBUG_LOG_TAG(4, root_machine(fsm)->tag(os), "wait validate enter")
             fsm->start_read();
         }
         template < typename FSM >
@@ -311,9 +296,7 @@ struct connection_fsm_def :
                 success();
                 #if DEBUG_OUTPUT >= 1
             } else {
-                ::std::ostringstream os;
-                root_machine(fsm)->tag(os) << " No success callback in wait_validate\n";
-                ::std::cerr << os.str();
+                DEBUG_LOG_TAG(1, root_machine(fsm)->tag, "No success callback in wait_validate")
                 #endif
             }
         }
@@ -325,9 +308,7 @@ struct connection_fsm_def :
                 fail(evt.error);
                 #if DEBUG_OUTPUT >= 1
             } else {
-                ::std::ostringstream os;
-                root_machine(fsm)->tag(os) << " No fail callback in wait_validate\n";
-                ::std::cerr << os.str();
+                DEBUG_LOG_TAG(1, root_machine(fsm)->tag, "No fail callback in wait_validate")
                 #endif
             }
         }
@@ -508,11 +489,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
           observer_{adptr->io_service(), adptr->connection_observers()}
     {
         mode_ = client;
-        #if DEBUG_OUTPUT >= 1
-        ::std::ostringstream os;
-        tag(os) << " Create client connection instance\n";
-        ::std::cerr << os.str();
-        #endif
+        DEBUG_LOG_TAG(1, tag, "Create client connection instance")
         #if DEBUG_OUTPUT >= 3
         make_observer();
         #endif
@@ -532,11 +509,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
           observer_{adptr->io_service(), adptr->connection_observers()}
     {
         mode_ = server;
-        #if DEBUG_OUTPUT >= 1
-        ::std::ostringstream os;
-        tag(os) << " Create server connection instance\n";
-        ::std::cerr << os.str();
-        #endif
+        DEBUG_LOG_TAG(1, tag, "Create server connection instance")
         #if DEBUG_OUTPUT >= 3
         make_observer();
         #endif
@@ -547,11 +520,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     {
         connection_timer_.cancel();
         request_timer_.cancel();
-        #if DEBUG_OUTPUT >= 1
-        ::std::ostringstream os;
-        tag(os) << " Destroy connection instance\n";
-        ::std::cerr << os.str();
-        #endif
+        DEBUG_LOG_TAG(1, tag, "Destroy connection instance")
     }
 
     connector_ptr
@@ -745,11 +714,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     void
     do_connect_async(endpoint const& ep)
     {
-        #if DEBUG_OUTPUT >= 3
-        ::std::ostringstream os;
-        tag(os) << " Starting async connection operation\n";
-        ::std::cerr << os.str();
-        #endif
+        DEBUG_LOG_TAG(3, tag, "Starting async connection operation")
         set_connect_timer();
         auto _this = shared_from_this();
         do_connect_async_impl(ep,
@@ -853,9 +818,7 @@ struct connection_impl : connection_implementation {
           transport_{ io_service_, adptr->ssl_options() }
     {
         // TODO Add verification handler for storing certificate chain
-        #if DEBUG_OUTPUT >= 3
-        tag(::std::cerr) << "create client-side secure connection\n";
-        #endif
+        DEBUG_LOG_TAG(3, tag, "create client-side secure connection")
     }
     template < typename T = transport_type >
     connection_impl(server_side const& s, adapter_ptr adptr,
@@ -866,9 +829,7 @@ struct connection_impl : connection_implementation {
           transport_{ io_service_, adptr->ssl_options() }
     {
         // TODO Add verification handler for storing certificate chain
-        #if DEBUG_OUTPUT >= 3
-        tag(::std::cerr) << "create server-side secure connection\n";
-        #endif
+        DEBUG_LOG_TAG(3, tag, "create server-side secure connection")
     }
     virtual ~connection_impl()
     {
@@ -1011,11 +972,8 @@ private:
     void
     do_listen(endpoint const& ep, bool reuse_port) override
     {
-        #if DEBUG_OUTPUT >= 1
-        ::std::ostringstream os;
-        tag(os) << _type << " Open endpoint " << ep << "\n";
-        ::std::cerr << os.str();
-        #endif
+        DEBUG_LOG_TAG(1, tag, _type << " Open endpoint " << ep)
+
         listener_.open(ep, reuse_port);
         auto adptr = adapter_.lock();
         if (adptr) {

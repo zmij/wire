@@ -23,6 +23,8 @@
 
 #include <wire/core/detail/future_traits.hpp>
 
+#include <wire/util/debug_log.hpp>
+
 #include <wire/encoding/wire_io.hpp>
 #include <wire/encoding/buffers.hpp>
 
@@ -85,16 +87,12 @@ public:
         wire_get_connection_async(
             [promise](connection_ptr v)
             {
-                #if DEBUG_OUTPUT >=3
-                ::std::cerr << "Proxy get connection async response\n";
-                #endif
+                DEBUG_LOG(3, "Proxy get connection async response");
                 promise->set_value(v);
             },
             [promise](::std::exception_ptr ex)
             {
-                #if DEBUG_OUTPUT >=3
-                ::std::cerr << "Proxy get connection async exception\n";
-                #endif
+                DEBUG_LOG(3, "Proxy get connection async exception");
                 promise->set_exception(ex);
             }, opts);
 

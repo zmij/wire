@@ -149,7 +149,46 @@ public:
     void
     run();
     void
-    stop();
+    shutdown_async(
+        functional::void_callback       __result,
+        functional::exception_callback  __exception,
+        context_type const&             ctx         = no_context,
+        invocation_options const&       opts        = invocation_options::unspecified);
+    template < template <typename> class _Promise = promise >
+    auto
+    shutdown_async(
+        context_type const&             ctx         = no_context,
+        invocation_options const&       opts        = invocation_options::unspecified)
+        -> decltype(::std::declval<_Promise<void>>().get_future())
+    {
+        auto promise = ::std::make_shared<_Promise<void>>();
+
+        shutdown_async(
+            [promise]()
+            {
+                promise->set_value();
+            },
+            [promise](::std::exception_ptr ex)
+            {
+                promise->set_exception(ex);
+            }, ctx, opts
+        );
+
+        return promise->get_future();
+    }
+    template < template <typename> class _Promise = promise >
+    void
+    shutdown(
+            context_type const&             ctx         = no_context,
+            invocation_options const&       opts        = invocation_options::unspecified)
+    {
+        auto future = shutdown_async<_Promise>(
+                ctx, opts | promise_invocation_flags<_Promise<void>>::value);
+        return future.get();
+    }
+
+    void
+    stop_async(functional::void_callback _result);
 
     //@{
     /** @name Adapters */

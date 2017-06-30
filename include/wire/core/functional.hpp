@@ -24,6 +24,11 @@ using callback              = ::std::function< void (T ... ) >;
 
 using exception_callback    = callback< ::std::exception_ptr >;
 
+using void_result_pair      = ::std::pair< void_callback, exception_callback >;
+
+template < typename ... T >
+using result_pair           = ::std::pair< callback< T... >, exception_callback >;
+
 template < typename ... T >
 struct callback_set {
     using callback_type    = callback< T ... >;
