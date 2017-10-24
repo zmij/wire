@@ -91,7 +91,7 @@ create_listen_connection_impl(adapter_ptr adptr, functional::void_callback on_cl
         adapter_ptr a = adptr_weak.lock();
         // TODO Throw an error if adapter gone away
         if (!a) {
-            throw errors::runtime_error{ "Adapter gone away" };
+            throw errors::adapter_destroyed{ "Adapter gone away" };
         }
         return ::std::make_shared< Session >( server_side{}, a, on_close );
     }, on_close);

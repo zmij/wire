@@ -109,7 +109,7 @@ reference::get_connector() const
 {
     auto cnctr = connector_.lock();
     if (!cnctr)
-        throw errors::runtime_error{ "Connector already destroyed" };
+        throw errors::connector_destroyed{ "Connector already destroyed" };
     return cnctr;
 }
 

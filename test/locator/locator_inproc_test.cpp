@@ -40,7 +40,7 @@ TEST(LocatorInProc, LookupAdapter)
     core::object_prx prx;
     EXPECT_NO_THROW(prx = loc->find_adapter("locator"_wire_id));
     EXPECT_TRUE(prx.get()) << "Find adapter via locator";
-    EXPECT_THROW(loc->find_adapter("__never_been_there__"_wire_id), core::no_adapter);
+    EXPECT_THROW(loc->find_adapter("__never_been_there__"_wire_id), core::adapter_not_found);
 }
 
 TEST(LocatorInProc, ReplicatedAdapter)
@@ -98,14 +98,14 @@ TEST(LocatorInProc, ReplicatedAdapter)
             << "Returned proxy contains single endpoint";
     EXPECT_EQ(ref1.endpoints, prx->wire_get_reference()->data().endpoints)
             << "Returned endpoint is one of the first reference";
-    EXPECT_THROW(reg->remove_adapter(prx2), core::no_adapter)
+    EXPECT_THROW(reg->remove_adapter(prx2), core::adapter_not_found)
             << "Adapter proxy is already removed";
     EXPECT_NO_THROW(reg->remove_adapter(prx1))
             << "Adapter proxy is correctly removed";
-    EXPECT_THROW(reg->remove_adapter(prx1), core::no_adapter)
+    EXPECT_THROW(reg->remove_adapter(prx1), core::adapter_not_found)
             << "Adapter removal throws when no adapter exists";
 
-    EXPECT_THROW(loc->find_adapter(ref1.object_id), core::no_adapter)
+    EXPECT_THROW(loc->find_adapter(ref1.object_id), core::adapter_not_found)
             << "No adapter data is left in the locator";
 }
 

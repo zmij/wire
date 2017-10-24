@@ -72,6 +72,7 @@ public:
 class connection_refused : public connection_closed {
 public:
     connection_refused(std::string const& msg) : connection_closed{msg} {}
+    connection_refused(char const* msg) : connection_closed{msg} {}
     template < typename ... T >
     connection_refused(T const& ... args) : connection_closed(args ...) {}
 };
@@ -82,6 +83,7 @@ public:
 class connection_failed : public connection_closed {
 public:
     connection_failed(std::string const& message) : connection_closed(message) {}
+    connection_failed(char const* msg) : connection_closed{msg} {}
     template < typename ... T >
     connection_failed(T const& ... args) : connection_closed(args ...) {}
 };
@@ -90,6 +92,7 @@ public:
 class request_timed_out : public runtime_error {
 public:
     request_timed_out(std::string const& msg) : runtime_error{msg} {}
+    request_timed_out(char const* msg) : runtime_error{msg} {}
     template < typename ... T >
     request_timed_out(T const& ... args) : runtime_error(args ...) {}
 };

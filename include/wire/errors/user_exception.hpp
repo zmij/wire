@@ -118,6 +118,8 @@ struct exception_reader {
     {
         using errors::user_exception_factory;
         auto tmp = user_exception_factory::instance().read< exception_value >(begin, end);
+        if (tmp)
+            tmp->post_unmarshal();
         ::std::swap(tmp, v);
     }
 };

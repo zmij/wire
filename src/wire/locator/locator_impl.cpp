@@ -196,7 +196,7 @@ struct locator::impl {
         if (adapters_.find(f, id)) {
             return f->second;
         }
-        throw core::no_adapter{id};
+        throw core::adapter_not_found{id};
     }
 
     void
@@ -268,7 +268,7 @@ struct locator::impl {
         auto id = adapter->wire_identity();
         proxy_map::accessor f;
         if (!adapters_.find(f, id)) {
-            throw core::no_adapter{id};
+            throw core::adapter_not_found{id};
         } else {
             #if DEBUG_OUTPUT >= 1
             ::std::cerr <<::getpid() << " Locator remove adapter " << *adapter << "\n";

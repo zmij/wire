@@ -617,7 +617,7 @@ struct connector::impl {
     {
         connector_ptr conn = owner_.lock();
         if (!conn) {
-            throw errors::runtime_error("Connector already destroyed");
+            throw errors::connector_destroyed{"Connector already destroyed"};
         }
         if (find_adapter(id))
             throw errors::runtime_error("Adapter ", id, " is already configured");
@@ -631,7 +631,7 @@ struct connector::impl {
     {
         connector_ptr conn = owner_.lock();
         if (!conn) {
-            throw errors::runtime_error("Connector already destroyed");
+            throw errors::connector_destroyed{"Connector already destroyed"};
         }
         detail::adapter_options opts { {}, 0, false, -1, 0, false, options_.client_ssl};
             bidir_adapter_ = adapter::create_adapter(
