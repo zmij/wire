@@ -22,6 +22,8 @@ struct outgoing::impl : detail::buffer_sequence {
     outgoing*                  container_;
     message::message_flags     flags_;
 
+    buffer_type                merged_;
+
     impl(core::connector_ptr cnctr, outgoing* out)
         : buffer_sequence{cnctr, 1},
           container_(out),
@@ -55,19 +57,32 @@ struct outgoing::impl : detail::buffer_sequence {
         return header_;
     }
 
-    asio_buffers
-    to_buffers()
+    asio_shared_buffers
+    to_buffers(bool merge_buffers)
     {
         // TODO close encaps and other stuff
         if (message_header_buffer().empty()) {
             message m { flags_, size() };
             write(std::back_inserter(message_header_buffer()), m);
         }
-        asio_buffers buffs;
-        buffs.push_back(asio_ns::buffer(message_header_buffer()));
-        for (auto const& b : buffers_) {
-            if (!b.empty()) {
-                buffs.push_back(asio_ns::buffer(b));
+        auto buffs = ::std::make_shared<asio_buffers>();
+        if (merge_buffers) {
+            merged_.clear();
+            merged_.reserve(size());
+            merged_.insert(merged_.end(),
+                    message_header_buffer().begin(), message_header_buffer().end());
+            for (auto const& b : buffers_) {
+                if (!b.empty()) {
+                    merged_.insert(merged_.end(), b.begin(), b.end());
+                }
+            }
+            buffs->push_back(asio_ns::buffer(merged_));
+        } else {
+            buffs->push_back(asio_ns::buffer(message_header_buffer()));
+            for (auto const& b : buffers_) {
+                if (!b.empty()) {
+                    buffs->push_back(asio_ns::buffer(b));
+                }
             }
         }
         return buffs;
@@ -214,10 +229,10 @@ outgoing::pop_back()
     pimpl_->pop_back();
 }
 
-outgoing::asio_buffers
-outgoing::to_buffers() const
+outgoing::asio_shared_buffers
+outgoing::to_buffers(bool merge_buffers) const
 {
-    return pimpl_->to_buffers();
+    return pimpl_->to_buffers(merge_buffers);
 }
 
 void

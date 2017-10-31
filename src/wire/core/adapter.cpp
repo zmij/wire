@@ -248,13 +248,13 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     {
         if (registered_)
             return __result();
-        DEBUG_LOG(2, "Register adapter " << id_)
+        DEBUG_LOG_TAG(2, tag, "Register adapter " << id_)
         auto _this = shared_from_this();
         auto on_get_reg =
             [_this, __result, __exception, ctx, opts](locator_registry_prx reg)
             {
                 if (reg) {
-                    DEBUG_LOG(2, "Add adapter " << _this->id_ <<
+                    DEBUG_LOG_TAG(2, _this->tag, "Add adapter " << _this->id_ <<
                             " to registry " << *reg);
                     auto prx = _this->adapter_proxy();
                     if (_this->is_replicated()) {
@@ -273,7 +273,7 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
                             }, __exception, nullptr, ctx, opts);
                     }
                 } else {
-                    DEBUG_LOG(2, "No locator registry when registering adapter " << _this->id_);
+                    DEBUG_LOG_TAG(2, _this->tag, "No locator registry when registering adapter " << _this->id_);
                     functional::report_exception(__exception,
                         errors::runtime_error{
                             "wire.locator is not configured for registering adapter"});
@@ -307,41 +307,41 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     {
         if (!registered_)
             return __result();
-        DEBUG_LOG(2, "Unregister adapter " << id_);
+        DEBUG_LOG_TAG(2, tag, "Unregister adapter");
         auto done = ::std::make_shared< ::std::atomic<bool> >(false);
         auto _this = shared_from_this();
-        auto exception = [done, __exception](::std::exception_ptr ex)
+        auto exception = [_this, done, __exception](::std::exception_ptr ex)
                 {
                     *done = true;
-                    DEBUG_LOG(2, "Exception when unregistering adapter");
+                    DEBUG_LOG_TAG(2, _this->tag, "Exception when unregistering adapter");
                     functional::report_exception(__exception, ex);
                 };
         auto on_get_reg =
             [_this, __result, exception, ctx, done](locator_registry_prx reg)
             {
                 if (reg) {
-                    DEBUG_LOG(2, "Remove adapter " << _this->id_
+                    DEBUG_LOG_TAG(2, _this->tag, "Remove adapter " << _this->id_
                             << " from registry " << *reg);
                     _this->set_unregistered(reg);
                     auto prx = _this->adapter_proxy();
                     reg->remove_adapter_async(
-                        prx, [__result, done](){
+                        prx, [_this, __result, done](){
                             *done = true;
-                            DEBUG_LOG(2, "Done removing adapter from locator registry");
+                            DEBUG_LOG_TAG(2, _this->tag, "Done removing adapter from locator registry");
                             __result();
                         }, exception, nullptr, ctx, invocation_options{});
                 } else {
                     *done = true;
-                    DEBUG_LOG(2, "No locator registry to remove " << _this->id_);
+                    DEBUG_LOG_TAG(2, _this->tag, "No locator registry to remove");
                     __result();
                 }
             };
         get_locator_registry_async(on_get_reg, exception, ctx, invocation_options{});
         // Throttle sync call here
         if (opts.is_sync()) {
-            DEBUG_LOG(3, "Wait for unregistering " << id_);
+            DEBUG_LOG_TAG(3, tag, "Wait for unregistering");
             util::run_until(io_service_, [done](){ return (bool)*done; });
-            DEBUG_LOG(3, "Wait for unregistering " << id_ << " done");
+            DEBUG_LOG_TAG(3, tag, "Wait for unregistering done");
         }
     }
     template < template <typename> class _Promise = promise >
@@ -449,7 +449,7 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     void
     connection_online(endpoint const& local, endpoint const& remote)
     {
-        DEBUG_LOG(1, "Connection " << local << " -> " << remote << " is online")
+        DEBUG_LOG_TAG(1, tag, "Connection " << local << " -> " << remote << " is online")
     }
     void
     listen_connection_online(endpoint const& ep)
@@ -465,7 +465,7 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
     void
     connection_offline(endpoint const& ep)
     {
-        DEBUG_LOG(1, "Connection " << ep << " is offline")
+        DEBUG_LOG_TAG(1, tag, "Connection " << ep << " is offline")
     }
 
     endpoint_list
@@ -606,6 +606,13 @@ struct adapter::impl : ::std::enable_shared_from_this<impl> {
             return false;
         obj->__dispatch(req, curr);
         return true;
+    }
+
+    ::std::ostream&
+    tag(::std::ostream& os) const
+    {
+        os << getpid() << " "<< id_;
+        return os;
     }
 };
 

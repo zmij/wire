@@ -223,6 +223,7 @@ ssl_transport::create_context(detail::ssl_options const& opts)
 ssl_transport::ssl_transport(asio_config::io_service_ptr io_svc,
         detail::ssl_options const& opts)
     : ctx_(create_context(opts)), resolver_(*io_svc), socket_(*io_svc, ctx_),
+      strand_{*io_svc},
       verify_{ opts.verify_func }
 {
     if (opts.require_peer_cert) {

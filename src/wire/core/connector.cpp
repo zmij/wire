@@ -21,6 +21,7 @@
 #include <wire/core/detail/reference_resolver.hpp>
 
 #include <wire/util/io_service_wait.hpp>
+#include <wire/util/debug_log.hpp>
 
 #include <boost/program_options.hpp>
 
@@ -694,9 +695,7 @@ struct connector::impl {
         for (auto const& e : eps) {
             online_adapters_.erase(e);
         }
-        #if DEBUG_OUTPUT >= 1
-        tag(::std::cerr) << " Adapter " << adptr->id() << " is listening to " << eps << "\n";
-            #endif
+        DEBUG_LOG_TAG(1, tag, "Adapter " << adptr->id() << " is listening to " << eps);
         for (auto e : eps)
             online_adapters_.emplace(e, adptr);
         }
@@ -705,9 +704,7 @@ struct connector::impl {
     adapter_offline(adapter_ptr adptr, endpoint const& ep) {
         endpoint_list eps;
         ep.published_endpoints(eps);
-        #if DEBUG_OUTPUT >= 1
-        tag(::std::cerr) << " Adapter " << adptr->id() << " listening to " << eps << " went offline\n";
-        #endif
+        DEBUG_LOG_TAG(1, tag, "Adapter " << adptr->id() << " listening to " << eps << " went offline");
         for (auto const& e : eps) {
             online_adapters_.erase(e);
     }
@@ -791,52 +788,34 @@ struct connector::impl {
         }
         if (new_conn) {
             auto done = ::std::make_shared< ::std::atomic<bool> >(false);
-            #if DEBUG_OUTPUT >= 2
-            ::std::ostringstream os;
-            tag(os) << " Start connection to " << ep << "\n";
-            ::std::cerr << os.str();
-            #endif
+            DEBUG_LOG_TAG(2, tag, "Start connection to " << ep);
             conn->connect_async(ep,
                 [on_get, conn, done, ep]()
                 {
-                    #ifdef DEBUG_OUTPUT
-                    tag(::std::cerr) << " Connected to " << ep << "\n";
-                    #endif
+                    DEBUG_LOG_TAG(2, tag, "Connected to " << ep);
                     *done = true;
                     try {
                         on_get(conn);
                     } catch(...) {
-                        #ifdef DEBUG_OUTPUT
-                        ::std::cerr << getpid() << " Exception while setting connection\n";
-                        #endif
+                        DEBUG_LOG_TAG(1, tag, "Exception while setting connection");
                     }
                 },
                 [this, exception, done, ep](::std::exception_ptr ex)
                 {
-                    #if DEBUG_OUTPUT >= 2
-                    tag(::std::cerr) << " Failed to connect to " << ep << "\n";
-                    #endif
+                    DEBUG_LOG_TAG(2, tag, "Failed to connect to " << ep);
                     *done = true;
-                    try {
-                        exception(ex);
-                    } catch (...) {}
+                    functional::report_exception(exception, ex);
                 });
 
             if (opts.is_sync()) {
                 util::run_until(io_service_, [done](){ return (bool)*done; });
             }
         } else {
-            #if DEBUG_OUTPUT >= 2
-            ::std::ostringstream os;
-            tag(os) << " Connection to " << ep << " already initiated\n";
-            ::std::cerr << os.str();
-            #endif
+            DEBUG_LOG_TAG(2, tag, "Connection to " << ep << " already initiated");
             try {
                 on_get(conn);
             } catch(...) {
-                #ifdef DEBUG_OUTPUT
-                ::std::cerr << getpid() << " Exception while setting connection\n";
-                #endif
+                DEBUG_LOG_TAG(1, tag, "Exception while setting connection");
             }
         }
     }
@@ -844,14 +823,10 @@ struct connector::impl {
     void
     erase_outgoing(endpoint ep)
     {
-        #if DEBUG_OUTPUT >= 1
-        tag(::std::cerr) << " Outgoing connection to " << ep << " closed\n";
-        #endif
+        DEBUG_LOG_TAG(1, tag, "Outgoing connection to " << ep << " closed");
         connection_accessor acc;
         if (outgoing_.find(acc, ep)) {
-            #if DEBUG_OUTPUT >= 1
-            tag(::std::cerr) << " Erase connection to " << ep << "\n";
-            #endif
+            DEBUG_LOG_TAG(1, tag, "Erase connection to " << ep);
             outgoing_.erase(acc);
         }
     }

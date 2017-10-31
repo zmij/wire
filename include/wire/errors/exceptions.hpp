@@ -112,11 +112,13 @@ public:
 class marshal_error : public runtime_error {
 public:
     marshal_error(std::string const& message) : runtime_error(message) {}
+    marshal_error(char const* message) : runtime_error(message) {}
 };
 
 class unmarshal_error : public runtime_error {
 public:
     unmarshal_error(std::string const& message) : runtime_error(message) {}
+    unmarshal_error(char const* message) : runtime_error(message) {}
     template < typename ... T >
     unmarshal_error(T const& ... args) : runtime_error(args ...) {}
 };

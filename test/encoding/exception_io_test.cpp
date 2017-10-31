@@ -260,6 +260,11 @@ TEST(IO, UserExceptionFactory)
 
         EXPECT_EQ(::std::string{"base exception"}, e->what());
         EXPECT_EQ(::std::string{"derived exception 100500"}, d->what());
+
+        auto ex = e->make_exception_ptr();
+        EXPECT_THROW(::std::rethrow_exception(ex), base);
+        ex = d->make_exception_ptr();
+        EXPECT_THROW(::std::rethrow_exception(ex), derived);
     }
 }
 

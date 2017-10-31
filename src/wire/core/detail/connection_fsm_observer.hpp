@@ -43,7 +43,7 @@ struct conection_fsm_observer : ::afsm::detail::null_observer {
                 << " (" << cut_type_name(demangle<Event>()) << ")\n";
         ::std::cerr << os.str();
     }
-    #if DEBUG_OUTPUT >= 3
+    #if DEBUG_OUTPUT >= 5
     template < typename FSM, typename State >
     void
     state_cleared(FSM const& fsm, State const&) const noexcept
@@ -55,6 +55,8 @@ struct conection_fsm_observer : ::afsm::detail::null_observer {
         ::std::cerr << os.str();
     }
 
+    #endif /* DEBUG_OUTPUT >= 5 */
+    #if DEBUG_OUTPUT >= 4
     template < typename FSM, typename Event >
     void
     start_process_event(FSM const& fsm, Event const&) const noexcept

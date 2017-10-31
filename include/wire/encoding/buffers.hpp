@@ -31,6 +31,7 @@ public:
     using buffer_sequence_type      = detail::buffer_sequence::buffer_sequence_type;
     using const_buffer              = asio_ns::const_buffer;
     using asio_buffers              = ::std::vector< const_buffer >;
+    using asio_shared_buffers       = ::std::shared_ptr<asio_buffers>;
     //@{
     /**
      * @name Container concept
@@ -166,8 +167,8 @@ public:
      * Get asio buffers for output
      * @return
      */
-    asio_buffers
-    to_buffers() const;
+    asio_shared_buffers
+    to_buffers(bool merge_buffers = false) const;
 
     //@{
     /** @name Encapsulated data */

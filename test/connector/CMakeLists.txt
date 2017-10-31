@@ -30,6 +30,7 @@ set(
     connector_test_main.cpp
     connector_configuration_test.cpp
     ping_pong_test.cpp
+    ssl_ping_pong_test.cpp
     send_multiple_test.cpp
     ${wired_SRCS}
 )

@@ -67,6 +67,7 @@ struct connection_failure {
     ::std::exception_ptr                error;
 };
 
+struct validate_sent {};
 struct receive_validate{};
 struct receive_request{
     encoding::incoming_ptr              incoming;
@@ -137,6 +138,25 @@ struct connection_fsm_def :
 
     //@}
     //@{
+    /** @name Guards */
+    struct is_server {
+        template < typename FSM, typename State >
+        bool
+        operator()(FSM const& fsm, State const&)
+        {
+            return fsm.mode_ >= server;
+        }
+    };
+    struct is_stream_oriented {
+        template < typename FSM, typename State >
+        bool
+        operator()(FSM const& fsm, State const&)
+        {
+            return fsm->is_stream_oriented();
+        }
+    };
+    //@}
+    //@{
     /** @name Actions */
     struct connect {
         template < typename FSM, typename SourceState, typename TargetState >
@@ -196,6 +216,7 @@ struct connection_fsm_def :
         void
         operator()(events::send_request const& req, FSM& fsm, SourceState&, TargetState&)
         {
+            //root_machine(fsm)->post(&concrete_type::write_async, req.outgoing, req.sent);
             root_machine(fsm)->write_async(req.outgoing, req.sent);
         }
     };
@@ -204,6 +225,8 @@ struct connection_fsm_def :
         void
         operator()(events::send_reply const& rep, FSM& fsm, SourceState&, TargetState&)
         {
+//            root_machine(fsm)->post(&concrete_type::write_async,
+//                    rep.outgoing, functional::void_callback{});
             root_machine(fsm)->write_async(rep.outgoing);
         }
     };
@@ -273,7 +296,10 @@ struct connection_fsm_def :
             events::send_request
         >;
         using internal_transitions = transition_table<
-            in< events::receive_data,       process_incoming,   none    >
+            /* Event                    |   Action          |   Guard   */
+            in< events::receive_data    , process_incoming  , none              >,
+            in< events::validate_sent   , none              , is_server         >,
+            in< events::receive_validate, send_validate     , not_<is_server>   >
         >;
 
         wait_validate()
@@ -285,19 +311,17 @@ struct connection_fsm_def :
         void
         on_enter(Event const&, FSM& fsm)
         {
-            DEBUG_LOG_TAG(4, root_machine(fsm)->tag(os), "wait validate enter")
+            DEBUG_LOG_TAG(4, root_machine(fsm)->tag, "wait validate enter")
             fsm->start_read();
         }
-        template < typename FSM >
+        template < typename FSM, typename Event >
         void
-        on_exit( events::receive_validate const&, FSM& fsm )
+        on_exit( Event const&, FSM& fsm )
         {
             if (success) {
                 success();
-                #if DEBUG_OUTPUT >= 1
             } else {
                 DEBUG_LOG_TAG(1, root_machine(fsm)->tag, "No success callback in wait_validate")
-                #endif
             }
         }
         template < typename FSM >
@@ -306,10 +330,8 @@ struct connection_fsm_def :
         {
             if (fail) {
                 fail(evt.error);
-                #if DEBUG_OUTPUT >= 1
             } else {
                 DEBUG_LOG_TAG(1, root_machine(fsm)->tag, "No fail callback in wait_validate")
-                #endif
             }
         }
 
@@ -365,26 +387,6 @@ struct connection_fsm_def :
     using initial_state = unplugged;
     //@}
     //@{
-    /** @name Guards */
-    struct is_server {
-        template < typename FSM, typename State >
-        bool
-        operator()(FSM const& fsm, State const&)
-        {
-            return fsm.mode_ >= server;
-        }
-    };
-    struct is_stream_oriented {
-        template < typename FSM, typename State >
-        bool
-        operator()(FSM const& fsm, State const&)
-        {
-            return fsm->is_stream_oriented();
-        }
-    };
-    //@}
-
-    //@{
     /** @name Transition table */
     using transitions = transition_table<
         /*  Start           Event                       Next                Action          Guard                       */
@@ -398,7 +400,7 @@ struct connection_fsm_def :
         tr< connecting,     events::started,            wait_validate,      send_validate,  none                        >,
         /* Validate connection */
         tr< wait_validate,  events::receive_validate,   online,             on_connected,   is_server                   >,
-        tr< wait_validate,  events::receive_validate,   online,             send_validate,  not_<is_server>             >,
+        tr< wait_validate,  events::validate_sent,      online,             none,           not_<is_server>             >,
         /* Close connection */
         tr< unplugged,      events::close,              terminated,         none,           none                        >,
         tr< connecting,     events::close,              terminated,         none,           none                        >,
@@ -698,7 +700,7 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     post( void (connection_implementation::* method)(Args ...), Args ... args)
     {
         auto shared_this = shared_from_this();
-        io_service_->post([shared_this, method, args...]() mutable {
+        post([shared_this, method, args...]() mutable {
             (shared_this.get()->*method)(args...);
         });
     }
@@ -730,8 +732,10 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     ::std::ostream&
     tag(::std::ostream& os) const
     {
+        static ::std::size_t thread_counter = 0;
+        thread_local ::std::size_t thread_no = ++thread_counter;
         os << ::getpid() << " #" << number_ << (mode_ == server ? "s" : "c")
-                << " " << ::std::this_thread::get_id() << " ";
+                << " " << thread_no << " ";
         return os;
     }
 private:
@@ -752,9 +756,6 @@ private:
     }
     virtual void
     do_write_async(encoding::outgoing_ptr, asio_config::asio_rw_callback) = 0;
-    virtual void
-    do_write_async(encoding::outgoing::const_buffer head,
-            encoding::outgoing::asio_buffers body, asio_config::asio_rw_callback) = 0;
     virtual void
     do_read_async(incoming_buffer_ptr, asio_config::asio_rw_callback) = 0;
 
@@ -913,17 +914,11 @@ private:
     void
     do_write_async(encoding::outgoing_ptr buffer, asio_config::asio_rw_callback cb) override
     {
-        transport_.async_write( buffer->to_buffers(), cb );
-    }
-    void
-    do_write_async(encoding::outgoing::const_buffer head,
-                encoding::outgoing::asio_buffers body,
-                asio_config::asio_rw_callback cb) override
-    {
-        encoding::outgoing::asio_buffers out;
-        out.push_back(head);
-        ::std::copy(body.begin(), body.end(), ::std::back_inserter(out));
-        transport_.async_write( out, cb );
+        auto buff = buffer->to_buffers();
+        transport_.async_write( *buff,
+        [cb, buff](asio_config::error_code const& ec, ::std::size_t sz){
+            cb(ec, sz);
+        });
     }
     void
     do_read_async(incoming_buffer_ptr buffer, asio_config::asio_rw_callback cb) override
@@ -991,11 +986,6 @@ private:
     }
     void
     do_write_async(encoding::outgoing_ptr buffer, asio_config::asio_rw_callback cb) override
-    {
-    }
-    void
-    do_write_async(encoding::outgoing::const_buffer head,
-                encoding::outgoing::asio_buffers body, asio_config::asio_rw_callback) override
     {
     }
     void

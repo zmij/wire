@@ -36,6 +36,9 @@ struct socket_transport;
 template<transport_type>
 struct transport_type_traits;
 
+//----------------------------------------------------------------------------
+//  Transport type traits
+//----------------------------------------------------------------------------
 template<>
 struct transport_type_traits<transport_type::tcp> {
     static constexpr transport_type value   = transport_type::tcp;
@@ -65,6 +68,7 @@ struct transport_type_traits<transport_type::tcp> {
     }
 };
 
+//----------------------------------------------------------------------------
 template<>
 struct transport_type_traits<transport_type::ssl> {
     static constexpr transport_type value   = transport_type::ssl;
@@ -94,6 +98,7 @@ struct transport_type_traits<transport_type::ssl> {
     }
 };
 
+//----------------------------------------------------------------------------
 template<>
 struct transport_type_traits<transport_type::udp> {
     static constexpr transport_type value   = transport_type::udp;
@@ -115,6 +120,8 @@ struct transport_type_traits<transport_type::udp> {
     get_endpoint_data(endpoint_type const&);
 };
 
+//----------------------------------------------------------------------------
+// TODO Wrap into ifdef HAVE_SOCKETS
 template<>
 struct transport_type_traits<transport_type::socket> {
     static constexpr transport_type value   = transport_type::socket;
@@ -139,6 +146,9 @@ struct transport_type_traits<transport_type::socket> {
     close_acceptor(acceptor_type& acceptor);
 };
 
+//----------------------------------------------------------------------------
+//  Transport implementations
+//----------------------------------------------------------------------------
 struct tcp_transport {
     using traits                = transport_type_traits< transport_type::tcp >;
     using socket_type           = traits::socket_type;
@@ -295,6 +305,7 @@ private:
     // TODO timeout settings
 };
 
+//----------------------------------------------------------------------------
 struct ssl_transport {
     using traits                = transport_type_traits< transport_type::ssl >;
     using socket_type           = traits::socket_type;
@@ -342,7 +353,7 @@ struct ssl_transport {
     void async_write(BufferType const& buffer, HandlerType handler)
     {
         if (socket_.lowest_layer().is_open()) {
-            ::psst::asio::async_write(socket_, buffer, ::std::move(handler));
+            ::psst::asio::async_write(socket_, buffer, strand_.wrap(::std::move(handler)));
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
@@ -373,7 +384,7 @@ struct ssl_transport {
     {
         if (socket_.lowest_layer().is_open()) {
             ::psst::asio::async_read(socket_, ::std::forward<BufferType>(buffer),
-                    ::std::move(handler));
+                    strand_.wrap(::std::move(handler)));
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
         }
@@ -451,14 +462,16 @@ private:
     ssl_transport&
     operator = (ssl_transport const&) = delete;
 private:
-    asio_config::ssl_context    ctx_;
-    resolver_type               resolver_;
-    socket_type                 socket_;
-    verify_mode                 verify_mode_ = asio_ns::ssl::verify_peer;
+    asio_config::ssl_context        ctx_;
+    resolver_type                   resolver_;
+    socket_type                     socket_;
+    asio_config::io_service::strand strand_;
+    verify_mode                     verify_mode_ = asio_ns::ssl::verify_peer;
 
-    ssl_verify_callback         verify_;
+    ssl_verify_callback             verify_;
 };
 
+//----------------------------------------------------------------------------
 struct udp_transport {
     using traits                = transport_type_traits< transport_type::udp >;
     using protocol              = traits::protocol;
@@ -549,6 +562,7 @@ protected:
     socket_type     socket_;
 };
 
+//----------------------------------------------------------------------------
 #ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
 struct socket_transport {
     using traits = transport_type_traits< transport_type::socket >;
@@ -683,6 +697,7 @@ private:
 };
 #endif /* BOOST_ASIO_HAS_LOCAL_SOCKETS */
 
+//----------------------------------------------------------------------------
 template<typename Session, transport_type Type>
 struct transport_listener {
     using traits                = transport_type_traits< Type >;
@@ -736,6 +751,7 @@ private:
     ::std::atomic<bool>         closed_;
 };
 
+//----------------------------------------------------------------------------
 template<>
 struct transport_listener<void, transport_type::udp> : udp_transport {
     using traits                = transport_type_traits< transport_type::udp >;
