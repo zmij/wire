@@ -54,16 +54,7 @@ write_name(::std::ostream& os, ast::qname const& qn, ast::qname const& current_s
             os << cpp_name(qn);
             write_abs = false;
         } else {
-            auto target = qn.search();
-            auto current = current_scope.search();
-            for (auto c = current.begin;
-                    c != current.end && !target.empty() && *c == *target.begin;
-                    ++c, ++target);
-            if (target.empty()) {
-                os << cpp_name(qn);
-            } else {
-                os << cpp_name(target);
-            }
+            os << cpp_name(qn.in_scope(current_scope));
         }
     }
 }
@@ -327,7 +318,7 @@ StreamType&
 write (StreamType& os, mapped_type const& val)
 {
     if (auto pt = ast::dynamic_entity_cast< ast::parametrized_type >(val.type)) {
-        auto tmpl_name = wire_to_cpp.at(pt->name()).type_name;
+        auto tmpl_name = wire_to_cpp(pt->name()).type_name;
         if (pt->name() == ast::ARRAY ||
                 pt->name() == ast::SEQUENCE ||
                 pt->name() == ast::DICTONARY) {
@@ -362,7 +353,7 @@ write (StreamType& os, mapped_type const& val)
         }
     } else {
         if (ast::type::is_built_in(val.type->get_qualified_name())) {
-            os << wire_to_cpp.at( val.type->name() ).type_name;
+            os << wire_to_cpp( val.type->name() ).type_name;
             if (val.is_arg &&
                     (val.type->name() == ast::STRING || val.type->name() == ast::UUID))
                 os << " const&";
@@ -373,7 +364,16 @@ write (StreamType& os, mapped_type const& val)
         } else if (auto iface = ast::dynamic_type_cast< ast::interface >(val.type)) {
             os << qname(val.type) << "_ptr";
         } else {
-            os << qname(val.type);
+            auto scope = val.type->get_global()->find_scope(os.current_scope()).first;
+            if (scope) {
+                auto type_name = val.type->get_qualified_name();
+                os << cpp_safe_qname_search{ type_name.in_scope(scope) };
+            } else {
+                // The only type defining scope that is absent from AST
+                // is proxy type.
+                // TODO Calculate type name relative to proxy's scope
+                os << qname(val.type);
+            }
             if (val.is_arg) {
                 os << " const&";
             }

@@ -67,10 +67,10 @@ struct reference_resolver::impl {
     }
 
     void
-    get_locator_async(functional::callback< locator_prx >  result,
+    get_locator_async(functional::callback< locator_prx >   result,
             functional::exception_callback                  exception,
             context_type const&                             ctx,
-            bool                                            run_sync)
+            invocation_options const&                       opts)
     {
         using functional::report_exception;
 
@@ -95,9 +95,6 @@ struct reference_resolver::impl {
                 if (locator_ref_.endpoints.empty())
                     throw errors::runtime_error{ "Locator reference must have endpoints" };
                 object_prx prx = cnctr->make_proxy(locator_ref_);
-                auto opts = prx->wire_invocation_options();
-                if (run_sync)
-                    opts.flags |= invocation_flags::sync;
                 checked_cast_async< locator_proxy >(
                     prx,
                     [this, result](locator_prx loc)
@@ -132,7 +129,7 @@ struct reference_resolver::impl {
             functional::callback< locator_registry_prx >    result,
             functional::exception_callback                  exception,
             context_type const&                             ctx,
-            bool                                            run_sync)
+            invocation_options const&                       opts)
     {
         using functional::report_exception;
         locator_registry_prx reg;
@@ -142,16 +139,13 @@ struct reference_resolver::impl {
         }
         if (!reg) {
             get_locator_async(
-                [this, result, exception, ctx, run_sync](locator_prx loc)
+                [this, result, exception, ctx, opts](locator_prx loc)
                 {
                     if (loc) {
                         #if DEBUG_OUTPUT >= 1
                         ::std::cerr <<::getpid() << " Try to obtain locator registry proxy from locator "
                                 << *loc << "\n";
                         #endif
-                        auto opts = loc->wire_invocation_options();
-                        if (run_sync)
-                            opts.flags |= invocation_flags::sync;
                         loc->get_registry_async(
                             [this, result](locator_registry_prx reg)
                             {
@@ -178,7 +172,7 @@ struct reference_resolver::impl {
                 #else
                 exception,
                 #endif
-                ctx, run_sync);
+                ctx, opts);
         } else {
             try {
                 result(reg);
@@ -202,7 +196,7 @@ struct reference_resolver::impl {
             functional::callback<connection_ptr> result,
             functional::exception_callback      exception,
             shared_count                        retries,
-            bool                                run_sync)
+            invocation_options const&           opts)
     {
         using functional::report_exception;
         if (!connector) {
@@ -213,7 +207,7 @@ struct reference_resolver::impl {
         ++(*retries);
         connector->get_outgoing_connection_async(
                 ep_rot->next(), result,
-                [connector, ep_rot, result, exception, retries, run_sync](::std::exception_ptr ex)
+                [connector, ep_rot, result, exception, retries, opts](::std::exception_ptr ex)
                 {
                     // Check retry count
                     if (*retries < ep_rot->size()) {
@@ -224,37 +218,40 @@ struct reference_resolver::impl {
                             // Retry if the exception is connection_refused
                             // and retry count doesn't exceed retry count
                             get_connection(connector, ep_rot, result,
-                                    exception, retries, run_sync);
+                                    exception, retries, opts);
                         } catch (...) {
                             // Other exceptions are not retryable at this level
                             report_exception(exception, ::std::current_exception());
                         }
+                    } else {
+                        // Out of endpoint variants
+                        report_exception(exception, ex);
                     }
                 },
-                run_sync);
+                opts);
     }
     void
-    get_connection(endpoint_rotation_ptr        ep_rot,
-            functional::callback<connection_ptr> result,
-            functional::exception_callback      exception,
-            bool                                run_sync)
+    get_connection(endpoint_rotation_ptr            ep_rot,
+            functional::callback<connection_ptr>    result,
+            functional::exception_callback          exception,
+            invocation_options const&               opts)
 
     {
         auto retries = ::std::make_shared<::std::size_t>(0);
-        get_connection(connector_.lock(), ep_rot, result, exception, retries, run_sync);
+        get_connection(connector_.lock(), ep_rot, result, exception, retries, opts);
     }
     bool
-    get_connection(endpoint_const_accessor const& eps,
-            functional::callback<connection_ptr> result,
-            functional::exception_callback      exception,
-            bool                                run_sync )
+    get_connection(endpoint_const_accessor const&   eps,
+            functional::callback<connection_ptr>    result,
+            functional::exception_callback          exception,
+            invocation_options const&               opts )
     {
         if (!eps.empty() && eps->second && !eps->second.stale()) {
             endpoint_rotation_ptr ep_rot = eps->second;
             if (!ep_rot)
                 return false;
             auto retries = ::std::make_shared<::std::size_t>(0);
-            get_connection(eps->second, result, exception, run_sync);
+            get_connection(ep_rot, result, exception, opts);
             return true;
         }
         return false;
@@ -278,10 +275,10 @@ struct reference_resolver::impl {
     }
 
     bool
-    cache_lookup(reference_data const& ref,
-            functional::callback<connection_ptr> result,
-            functional::exception_callback      exception,
-            bool                                run_sync)
+    cache_lookup(reference_data const&              ref,
+            functional::callback<connection_ptr>    result,
+            functional::exception_callback          exception,
+            invocation_options const&               opts)
     {
         endpoint_accessor eps;
         if (!ref.endpoints.empty()) {
@@ -291,12 +288,12 @@ struct reference_resolver::impl {
             if (endpoints_.insert(eps, eps_hash) || !eps->second) {
                 eps->second = endpoint_cache_item{ ref.endpoints };
             }
-            return get_connection(eps, result, exception, run_sync);
+            return get_connection(eps, result, exception, opts);
         }
 
         // Find endpoints by object_id
         auto id_hash = id_facet_hash(ref);
-        if (endpoints_.find(eps, id_hash) && get_connection(eps, result, exception, run_sync)) {
+        if (endpoints_.find(eps, id_hash) && get_connection(eps, result, exception, opts)) {
             return true;
         }
 
@@ -304,7 +301,7 @@ struct reference_resolver::impl {
             // Find endpoints by adapter id
             auto adapter_hash = hash(ref.adapter.get());
             if (endpoints_.find(eps, adapter_hash)
-                    && get_connection(eps, result, exception, run_sync)) {
+                    && get_connection(eps, result, exception, opts)) {
                 // Cache to object id
                 endpoint_accessor oid_eps;
                 endpoints_.insert(oid_eps, id_hash);
@@ -316,46 +313,43 @@ struct reference_resolver::impl {
     }
 
     void
-    resolve_reference_async(reference_data const& ref,
-            functional::callback<connection_ptr> result,
-            functional::exception_callback      exception,
-            bool                                run_sync
+    resolve_reference_async(reference_data const&   ref,
+            functional::callback<connection_ptr>    result,
+            functional::exception_callback          exception,
+            invocation_options const&               opts
         )
     {
         using functional::report_exception;
-        if (!cache_lookup(ref, result, exception, run_sync)) {
+        if (!cache_lookup(ref, result, exception, opts)) {
             // Don't check endpoints - they are checked by lookup function
             get_locator_async(
-            [this, ref, result, exception, run_sync](locator_prx loc)
+            [this, ref, result, exception, opts](locator_prx loc)
             {
                 if (!loc) {
                     report_exception( exception, errors::no_locator{} );
                     return;
                 }
-                auto opts = loc->wire_invocation_options();
-                if (run_sync)
-                    opts.flags |= invocation_flags::sync;
                 if (ref.adapter.is_initialized()) {
                     loc->find_adapter_async(ref.adapter.get(),
-                    [this, ref, result, exception, run_sync](object_prx obj)
+                    [this, ref, result, exception, opts](object_prx obj)
                     {
                         auto const& objref = obj->wire_get_reference()->data();
                         auto eps = make_enpoint_rotation(objref);
                         cache_store(ref, eps);
-                        get_connection(eps, result, exception, run_sync);
+                        get_connection(eps, result, exception, opts);
                     },
                     exception, nullptr, no_context, opts);
                 } else {
                     // Lookup by object id
                     loc->find_object_async(ref.object_id,
-                    [this, ref, result, exception, run_sync](object_prx obj)
+                    [this, ref, result, exception, opts](object_prx obj)
                     {
                         auto const& objref = obj->wire_get_reference()->data();
                         // Well-known object can have no endpoints initialized, only adapter set
                         if (objref.endpoints.empty()) {
                             // Resolve by adapter, if any
                             if (objref.adapter.is_initialized()) {
-                                resolve_reference_async(objref, result, exception, run_sync);
+                                resolve_reference_async(objref, result, exception, opts);
                             } else {
                                 // This is an error situation - locator returned
                                 // a proxy containing only object id
@@ -364,11 +358,11 @@ struct reference_resolver::impl {
                         } else {
                             auto eps = make_enpoint_rotation(objref);
                             cache_store(ref, eps);
-                            get_connection(eps, result, exception, run_sync);
+                            get_connection(eps, result, exception, opts);
                         }
                     }, exception, nullptr, no_context, opts);
                 }
-            }, exception, no_context, run_sync);
+            }, exception, no_context, opts);
         }
     }
 
@@ -416,9 +410,9 @@ void
 reference_resolver::get_locator_async(functional::callback<locator_prx>   result,
         functional::exception_callback      exception,
         context_type const&                 ctx,
-        bool                                run_sync) const
+        invocation_options const&           opts) const
 {
-    pimpl_->get_locator_async(result, exception, ctx, run_sync);
+    pimpl_->get_locator_async(result, exception, ctx, opts);
 }
 
 void
@@ -426,9 +420,9 @@ reference_resolver::get_locator_registry_async(
     functional::callback<locator_registry_prx> result,
     functional::exception_callback      exception,
     context_type const&                 ctx,
-    bool                                run_sync) const
+    invocation_options const&           opts) const
 {
-    pimpl_->get_locator_registry_async(result, exception, ctx, run_sync);
+    pimpl_->get_locator_registry_async(result, exception, ctx, opts);
 }
 
 
@@ -436,10 +430,10 @@ void
 reference_resolver::resolve_reference_async(reference_data const& ref,
         functional::callback<connection_ptr> result,
         functional::exception_callback      exception,
-        bool                                run_sync
+        invocation_options const&           opts
     ) const
 {
-    pimpl_->resolve_reference_async(ref, result, exception, run_sync);
+    pimpl_->resolve_reference_async(ref, result, exception, opts);
 }
 
 } /* namespace detail */

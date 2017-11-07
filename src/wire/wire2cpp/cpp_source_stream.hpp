@@ -174,6 +174,10 @@ public:
     void
     modify_offset(int delta);
 
+    ast::qname
+    current_scope() const
+    { return current_scope_; }
+
     ::std::string
     str(int tab_width = 4) const;
 private:
@@ -203,7 +207,7 @@ qname(ast::entity_const_ptr en)
 }
 
 inline ast::qname
-qname(ast::enumeration_ptr enum_, ::std::string const& enumerator)
+qname(ast::enumeration_const_ptr enum_, ::std::string const& enumerator)
 {
     ast::qname qn = enum_->get_qualified_name();
     if (!enum_->constrained()) {

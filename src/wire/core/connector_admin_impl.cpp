@@ -23,7 +23,7 @@ connector_admin_impl::get_adapter_ids(current const&) const
     auto cnctr = get_connector();
     if (cnctr)
         return cnctr->adapter_ids();
-    throw errors::runtime_error{ "Connector is shut down" };
+    throw errors::connector_destroyed{ "Connector is shut down" };
 }
 void
 connector_admin_impl::get_adapter_state(identity const& adapter_id,

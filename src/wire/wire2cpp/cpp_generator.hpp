@@ -35,6 +35,12 @@ namespace wire {
 namespace idl {
 namespace cpp {
 
+enum class date_and_time {
+    std,
+    boost
+};
+
+
 class generator : public ast::generator {
 public:
     using include_dir_list = ::std::vector< std::string >;
@@ -69,6 +75,9 @@ public:
 
     void
     generate_class(ast::class_ptr class_) override;
+
+    static date_and_time
+    datetime_type;
 private:
     void
     adjust_namespace(ast::entity_ptr en);
@@ -102,6 +111,9 @@ private:
     generate_dispatch_interface(ast::interface_ptr iface);
     void
     generate_proxy_interface(ast::interface_ptr iface);
+
+    void
+    generate_enum_traits(ast::enumeration_const_ptr enum_);
 private:
     generate_options                options_;
     ast::global_namespace_ptr       ns_;
@@ -110,6 +122,11 @@ private:
     source_stream                   header_;
     source_stream                   source_;
 };
+
+::std::ostream&
+operator <<(::std::ostream& os, date_and_time val);
+::std::istream&
+operator >>(::std::istream& is, date_and_time& val);
 
 }  /* namespace cpp */
 }  /* namespace idl */

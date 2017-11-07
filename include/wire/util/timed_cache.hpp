@@ -141,9 +141,16 @@ public:
     }
 
     timed_cache&
-    operator = (reference v)
+    operator = (value_type const& v)
     {
         value_ = ::std::make_shared<value_type>(v);
+        refresh();
+        return *this;
+    }
+    timed_cache&
+    operator = (value_type&& v)
+    {
+        value_ = ::std::make_shared<value_type>(::std::move(v));
         refresh();
         return *this;
     }

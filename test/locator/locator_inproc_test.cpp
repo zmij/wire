@@ -24,7 +24,7 @@ TEST(LocatorInProc, LookupAdapter)
     auto cnctr = core::connector::create_connector(io_svc, args);
 
     svc::locator_service loc_svc{};
-    loc_svc.start(cnctr);
+    ASSERT_NO_THROW(loc_svc.start(cnctr)) << "Successfully start locator service";
 
     core::locator_prx loc;
     EXPECT_NO_THROW(loc = cnctr->get_locator())
@@ -40,7 +40,7 @@ TEST(LocatorInProc, LookupAdapter)
     core::object_prx prx;
     EXPECT_NO_THROW(prx = loc->find_adapter("locator"_wire_id));
     EXPECT_TRUE(prx.get()) << "Find adapter via locator";
-    EXPECT_THROW(loc->find_adapter("__never_been_there__"_wire_id), core::no_adapter);
+    EXPECT_THROW(loc->find_adapter("__never_been_there__"_wire_id), core::adapter_not_found);
 }
 
 TEST(LocatorInProc, ReplicatedAdapter)
@@ -53,7 +53,7 @@ TEST(LocatorInProc, ReplicatedAdapter)
     auto cnctr = core::connector::create_connector(io_svc, args);
 
     svc::locator_service loc_svc{};
-    loc_svc.start(cnctr);
+    ASSERT_NO_THROW(loc_svc.start(cnctr)) << "Successfully start locator service";
 
     auto loc = cnctr->get_locator();
     ASSERT_TRUE(loc.get()) << "Locator object in connector";
@@ -98,14 +98,14 @@ TEST(LocatorInProc, ReplicatedAdapter)
             << "Returned proxy contains single endpoint";
     EXPECT_EQ(ref1.endpoints, prx->wire_get_reference()->data().endpoints)
             << "Returned endpoint is one of the first reference";
-    EXPECT_THROW(reg->remove_adapter(prx2), core::no_adapter)
+    EXPECT_THROW(reg->remove_adapter(prx2), core::adapter_not_found)
             << "Adapter proxy is already removed";
     EXPECT_NO_THROW(reg->remove_adapter(prx1))
             << "Adapter proxy is correctly removed";
-    EXPECT_THROW(reg->remove_adapter(prx1), core::no_adapter)
+    EXPECT_THROW(reg->remove_adapter(prx1), core::adapter_not_found)
             << "Adapter removal throws when no adapter exists";
 
-    EXPECT_THROW(loc->find_adapter(ref1.object_id), core::no_adapter)
+    EXPECT_THROW(loc->find_adapter(ref1.object_id), core::adapter_not_found)
             << "No adapter data is left in the locator";
 }
 
@@ -119,7 +119,7 @@ TEST(LocatorInProc, WellKnownObject)
     auto cnctr = core::connector::create_connector(io_svc, args);
 
     svc::locator_service loc_svc{};
-    loc_svc.start(cnctr);
+    ASSERT_NO_THROW(loc_svc.start(cnctr)) << "Successfully start locator service";
 
     auto loc = cnctr->get_locator();
     ASSERT_TRUE(loc.get()) << "Locator object in connector";
@@ -154,7 +154,7 @@ TEST(LocatorInProc, ConfigWellKnownObjects)
     auto cnctr = core::connector::create_connector(io_svc, args);
 
     svc::locator_service loc_svc{};
-    EXPECT_NO_THROW(loc_svc.start(cnctr));
+    ASSERT_NO_THROW(loc_svc.start(cnctr)) << "Successfully start locator service";
 
     auto loc = cnctr->get_locator();
     ASSERT_TRUE(loc.get()) << "Locator object in connector";

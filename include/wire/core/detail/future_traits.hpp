@@ -15,11 +15,11 @@ namespace wire {
 namespace core {
 namespace detail {
 
-template < template<typename> class _Promise >
+template < typename _Promise >
 struct promise_want_io_throttle : ::std::false_type {};
 
-template <>
-struct promise_want_io_throttle<::std::promise> : ::std::true_type {};
+template <typename T>
+struct promise_want_io_throttle<::std::promise<T>> : ::std::true_type {};
 
 } /* namespace detail */
 } /* namespace core */

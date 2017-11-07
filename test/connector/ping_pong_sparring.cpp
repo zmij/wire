@@ -13,6 +13,8 @@
 #include <wire/core/adapter.hpp>
 #include <wire/core/proxy.hpp>
 
+#include <wire/core/detail/configuration_options.hpp>
+
 #include <boost/program_options.hpp>
 
 class stream_redirect {
@@ -55,11 +57,15 @@ try {
     using namespace ::wire::core;
     namespace po = ::boost::program_options;
     ::std::uint16_t port_no{0};
+    transport_type transport;
     po::options_description desc("Test options");
     ::std::string log_file;
 
     desc.add_options()
         ("help,h", "show options description")
+        ("transport,t",
+            po::value<transport_type>(&transport)->default_value(transport_type::tcp),
+            "Start server for transport [tcp, ssl, udp, socket]")
         ("port,p",
             po::value< ::std::uint16_t >(&port_no),
             "Port to bind to")
@@ -99,8 +105,21 @@ try {
     });
 
     connector_ptr conn = connector::create_connector(io_service, unrecognized_cmd);
-    adapter_ptr adptr = conn->create_adapter(
-            "ping_pong", { ::wire::core::endpoint::tcp("127.0.0.1", port_no) });
+    endpoint ep;
+    switch (transport) {
+        case transport_type::tcp:
+            ep = endpoint::tcp("127.0.0.1", port_no);
+            break;
+        case transport_type::ssl:
+            ep = endpoint::ssl("127.0.0.1", port_no);
+            break;
+        case transport_type::socket:
+            ep = endpoint::socket("/tmp/.ping_pong." + ::std::to_string(::getpid()));
+            break;
+        default:
+            throw ::std::runtime_error{ "Protocol " + to_string(transport) + " is not implemented for sparring" };
+    }
+    adapter_ptr adptr = conn->create_adapter( "ping_pong", { ep });
 
     adptr->activate();
     auto pp_server = ::std::make_shared< wire::test::ping_pong_server >([io_service](){ io_service->stop(); });

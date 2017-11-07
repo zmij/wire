@@ -11,6 +11,7 @@
 #include <string>
 #include <iosfwd>
 #include <unordered_set>
+#include <mutex>
 #include <boost/variant.hpp>
 
 #include <wire/encoding/wire_io.hpp>
@@ -389,11 +390,59 @@ public:
     using const_iterator    = typename container_type::const_iterator;
 public:
     endpoint_rotation()
-        : endpoints_{}, current_{endpoints_.end()} {}
+        : endpoints_{}, current_{endpoints_.end()}, mtx_{} {}
+
+    endpoint_rotation(endpoint_rotation const& rhs)
+        : endpoints_{rhs.endpoints_},
+          current_{endpoints_.end()}, mtx_{} {}
+    endpoint_rotation(endpoint_rotation && rhs)
+        : endpoints_{::std::move(rhs.endpoints_)},
+          current_{endpoints_.end()}, mtx_{} {}
+
     endpoint_rotation(container_type const& eps)
-        : endpoints_{eps}, current_{endpoints_.end()} {}
+        : endpoints_{eps}, current_{endpoints_.end()}, mtx_{} {}
     endpoint_rotation(container_type&& eps)
-        : endpoints_{eps}, current_{endpoints_.end()} {}
+        : endpoints_{eps}, current_{endpoints_.end()}, mtx_{} {}
+
+    endpoint_rotation&
+    operator = (endpoint_rotation const& rhs)
+    {
+        endpoint_rotation{rhs}.swap(*this);
+        return *this;
+    }
+
+    endpoint_rotation&
+    operator = (endpoint_rotation&& rhs)
+    {
+        rhs.swap(*this);
+        return *this;
+    }
+
+    endpoint_rotation&
+    operator = (container_type const& rhs)
+    {
+        lock_type lk{mtx_};
+        endpoints_ = rhs;
+        current_ = endpoints_.end();
+        return *this;
+    }
+    endpoint_rotation&
+    operator = (container_type&& rhs)
+    {
+        lock_type lk{mtx_};
+        endpoints_.swap(rhs);
+        current_ = endpoints_.end();
+        return *this;
+    }
+
+    void
+    swap(endpoint_rotation& rhs)
+    {
+        using ::std::swap;
+        ::std::lock(mtx_, rhs.mtx_);
+        swap(endpoints_, rhs.endpoints_);
+        swap(current_, rhs.current_);
+    }
 
     bool
     empty() const
@@ -405,6 +454,7 @@ public:
     endpoint
     next() const
     {
+        lock_type lk{mtx_};
         if (endpoints_.empty())
             throw errors::runtime_error{"Endpoint list is empty"};
         if (current_ == endpoints_.end()) {
@@ -421,8 +471,12 @@ public:
     endpoints() const
     { return endpoints_; }
 private:
+    using mutex_type        = ::std::mutex;
+    using lock_type         = ::std::unique_lock<mutex_type>;
+
     container_type          endpoints_;
     const_iterator mutable  current_;
+    mutex_type     mutable  mtx_;
 };
 
 template < typename Endpoints >
@@ -437,6 +491,9 @@ hash(endpoint_rotation<Endpoints> const& eps)
 operator << (::std::ostream& os, transport_type val);
 ::std::istream&
 operator >> (::std::istream& in, transport_type& val);
+::std::string
+to_string(transport_type val);
+
 ::std::ostream&
 operator << (::std::ostream& os, endpoint const& val);
 ::std::istream&

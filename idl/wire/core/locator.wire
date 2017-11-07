@@ -8,7 +8,6 @@
 #ifndef WIRE_CORE_LOCATOR_WIRE_
 #define WIRE_CORE_LOCATOR_WIRE_
 
-#include <wire/core/adapter_admin.wire>
 #include <wire/core/identity.wire>
 #include <wire/core/object.wire>
 
@@ -16,7 +15,14 @@ namespace wire {
 namespace core {
 
 interface locator_registry;
-exception object_not_found{
+
+exception locator_error {};
+
+exception object_not_found : locator_error {
+    identity id;
+};
+
+exception adapter_not_found : locator_error {
     identity id;
 };
 
@@ -40,7 +46,7 @@ interface locator {
      */
     object*
     find_adapter(identity id) const
-        throw(no_adapter);
+        throw(adapter_not_found);
 
     /**
      * Get the locator registry object
@@ -114,7 +120,7 @@ interface locator_registry {
      */
     void
     remove_adapter(object* adapter)
-        throw(no_adapter);
+        throw(adapter_not_found);
 };
 
 }  /* namespace core */

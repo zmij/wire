@@ -9,7 +9,7 @@
 #define WIRE_CORE_TRANSPORT_INL_
 
 #include <wire/core/transport.hpp>
-#include <iostream>
+#include <wire/util/debug_log.hpp>
 
 namespace wire {
 namespace core {
@@ -93,9 +93,7 @@ transport_listener<Session, Type>::handle_accept(session_ptr session, asio_confi
         if (!closed_)
             start_accept();
     } else {
-        #ifdef DEBUG_OUTPUT
-        ::std::cerr << "Listener accept error code " << ec.message() << "\n";
-        #endif
+        DEBUG_LOG(3, "Listener accept error code " << ec.message());
     }
 }
 

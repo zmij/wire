@@ -129,15 +129,19 @@ public:
 
     template < template < typename  > class _Promise = promise >
     connection_ptr
-    get_connection() const
+    get_connection(invocation_options opts = invocation_options::unspecified) const
     {
-        auto future = get_connection_async<_Promise>( detail::promise_want_io_throttle<_Promise>::value );
+        if (opts.retries == invocation_options::infinite_retries) {
+            opts.retries = opts.timeout / opts.retry_timeout;
+        }
+        auto future = get_connection_async<_Promise>(
+                opts | promise_invocation_flags<_Promise< connection_ptr >>::value );
         return future.get();
     }
 
     template < template < typename  > class _Promise = promise >
     auto
-    get_connection_async(bool sync = false) const
+    get_connection_async(invocation_options const& opts = invocation_options::unspecified) const
         -> decltype(::std::declval< _Promise< connection_ptr > >().get_future() )
     {
         auto promise = ::std::make_shared< _Promise< connection_ptr > >();
@@ -149,16 +153,17 @@ public:
             [promise](::std::exception_ptr ex)
             {
                 promise->set_exception(::std::move(ex));
-            }, sync
+            }, opts
         );
 
         return promise->get_future();
     }
 
     virtual void
-    get_connection_async( connection_callback on_get,
-            functional::exception_callback on_error,
-            bool sync = false) const  = 0;
+    get_connection_async( connection_callback   on_get,
+            functional::exception_callback      on_error,
+            invocation_options const&           opts = invocation_options::unspecified
+    ) const  = 0;
 
     locator_prx
     get_locator() const;
@@ -200,9 +205,10 @@ public:
     fixed_reference(fixed_reference&& rhs);
 
     void
-    get_connection_async( connection_callback on_get,
-            functional::exception_callback on_error,
-            bool sync = false) const override;
+    get_connection_async( connection_callback   on_get,
+            functional::exception_callback      on_error,
+            invocation_options const&           opts = invocation_options::unspecified
+    ) const override;
 private:
     using mutex_type                        = ::std::mutex;
     using lock_guard                        = ::std::lock_guard<mutex_type>;
@@ -223,9 +229,10 @@ public:
     floating_reference(floating_reference&& rhs);
 
     void
-    get_connection_async( connection_callback on_get,
-            functional::exception_callback on_error,
-            bool sync = false) const override;
+    get_connection_async( connection_callback   on_get,
+            functional::exception_callback      on_error,
+            invocation_options const&           opts = invocation_options::unspecified
+    ) const override;
 };
 
 class routed_reference : public reference {

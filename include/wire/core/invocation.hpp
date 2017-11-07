@@ -136,12 +136,11 @@ struct local_invocation< Handler, Member,
         auto srvnt = ref->get_local_object();
         object_ptr obj = srvnt.first;
         if (!obj) {
-            invokation_error(
-                ::std::make_exception_ptr(errors::no_object{
-                    ref->object_id(),
-                    ref->facet(),
-                    op
-            }));
+            functional::report_exception(exception,
+                    errors::no_object{
+                        ref->object_id(),
+                        ref->facet(),
+                        op });
             return;
         }
         servant_ptr srv = ::std::dynamic_pointer_cast< interface_type >(obj);
@@ -165,7 +164,7 @@ struct local_invocation< Handler, Member,
             ((*srv).*member)(::std::get< Indexes >(args).get() ..., curr);
             response();
         } catch (...) {
-            invokation_error(::std::current_exception());
+            functional::report_exception(exception, ::std::current_exception());
         }
     }
 
@@ -176,7 +175,7 @@ struct local_invocation< Handler, Member,
         try {
             response(((*srv).*member)(::std::get< Indexes >(args).get() ..., curr));
         } catch (...) {
-            invokation_error(::std::current_exception());
+            functional::report_exception(exception, ::std::current_exception());
         }
     }
 
@@ -188,7 +187,7 @@ struct local_invocation< Handler, Member,
             ((*srv).*member)(::std::get< Indexes >(args) ...,
                     response, exception, curr);
         } catch (...) {
-            invokation_error(::std::current_exception());
+            functional::report_exception(exception, ::std::current_exception());
         }
     }
 
@@ -198,15 +197,6 @@ struct local_invocation< Handler, Member,
         if (sent) {
             try {
                 sent(true);
-            } catch (...) {}
-        }
-    }
-    void
-    invokation_error(::std::exception_ptr ex) const
-    {
-        if (exception) {
-            try {
-                exception(ex);
             } catch (...) {}
         }
     }
@@ -233,11 +223,7 @@ struct local_invocation< Handler, Member,
             try {
                 if (resp) resp();
             } catch (...) {
-                if (exc) {
-                    try {
-                        exc(::std::current_exception());
-                    } catch(...) {}
-                }
+                functional::report_exception(exc, ::std::current_exception());
             }
         };
     }
@@ -260,11 +246,7 @@ struct local_invocation< Handler, Member,
                 encaps.read_indirection_table(begin);
                 ::psst::meta::invoke(resp, args);
             } catch (...) {
-                if (exc) {
-                    try {
-                        exc(::std::current_exception());
-                    } catch (...) {}
-                }
+                functional::report_exception(exc, ::std::current_exception());
             }
         };
     }
@@ -357,11 +339,7 @@ struct remote_invocation< Handler,
                     encaps.read_indirection_table(begin);
                     ::psst::meta::invoke(response, args);
                 } catch(...) {
-                    if (exception) {
-                        try {
-                            exception(::std::current_exception());
-                        } catch (...) {}
-                    }
+                    functional::report_exception(exception, ::std::current_exception());
                 }
             };
         }
@@ -385,11 +363,10 @@ struct remote_invocation< Handler,
                 try {
                     response();
                 } catch(...) {
-                    if (exception) {
-                        try {
-                            exception(::std::current_exception());
-                        } catch (...) {}
-                    }
+                    // Don't report exception here, as the exception is the
+                    // pair for the response and it will lead to setting shared
+                    // state of a promise
+                    //functional::report_exception(exception, ::std::current_exception());
                 }
             };
         return [](incoming::const_iterator, incoming::const_iterator) {};
@@ -401,11 +378,10 @@ struct remote_invocation< Handler,
         auto reply = make_callback(data->response, data->exception, opts, is_void{});
         if (opts.is_sync()) {
             try {
-                ref->get_connection()->invoke(data->target, data->op, data->ctx, opts,
+                ref->get_connection(opts)->invoke(data->target, data->op, data->ctx, opts,
                         ::std::move(data->out), reply, data->exception, data->sent);
             } catch (...) {
-                if (data->exception)
-                    data->exception(::std::current_exception());
+                functional::report_exception(data->exception, ::std::current_exception());
             }
         } else {
             auto d = data;
@@ -415,10 +391,8 @@ struct remote_invocation< Handler,
                     ::std::move(d->out), reply, d->exception, d->sent);
             },
             [d](::std::exception_ptr ex) {
-                if (d->exception) {
-                    d->exception(ex);
-                }
-            });
+                functional::report_exception(d->exception, ex);
+            }, opts);
         }
     }
 

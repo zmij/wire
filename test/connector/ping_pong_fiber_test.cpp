@@ -84,10 +84,22 @@ fiber_catalogue fiber_names;
 ::std::ostream&
 tag(::std::ostream& out)
 {
+    using ::boost::fibers::context;
+    using context_type          = ::boost::fibers::type;
+
     ::std::ostream::sentry s{out};
     if (s) {
         out << thread_names.lookup() << ":"
-                << ::std::setw(4) << fiber_names.lookup() << " ";
+                << ::std::setw(4) << fiber_names.lookup() << " "
+                << ::std::this_thread::get_id() << " ";
+
+//        if (context::active()->is_context(context_type::dispatcher_context)) {
+//            out << "disp ";
+//        } else if (context::active()->is_context(context_type::main_context)) {
+//            out << "main ";
+//        } else {
+//            out << "work ";
+//        }
     }
     return out;
 }
@@ -147,44 +159,51 @@ checked_cast_fiber(core::object_prx prx)
 
 TEST_F(FiberPingPong, SyncPing)
 {
-    using boost::fibers::fiber;
+    using ::boost::fibers::fiber;
+
     ASSERT_NE(0, child_.pid);
     ASSERT_TRUE(connector_.get());
     ASSERT_TRUE(prx_.get());
 
-    const auto fiber_cnt    = 20;
-    const auto thread_cnt   = 4;
+    const auto fiber_cnt    = 1;
+    const auto thread_cnt   = 2;
     ::std::atomic<int>  finish_cnt{0};
 
     auto test_f = [&](::boost::fibers::barrier& barrier){
         try {
-            tag(::std::cout) << " Fiber start\n";
-            tag(::std::cout) << "Start sync get connection\n";
-            auto conn = prx_->wire_get_connection();
-            tag(::std::cout) << "End sync get connection\n";
-            EXPECT_TRUE(conn.get());
+            for (auto i = 0; i < 1000; ++i) {
+                tag(::std::cerr) << " Fiber start " << ::boost::this_fiber::get_id() << "\n";
+                tag(::std::cerr) << "Start sync get connection\n";
+                auto conn = prx_->wire_get_connection();
+                tag(::std::cerr) << "End sync get connection\n";
+                EXPECT_TRUE(conn.get());
+            }
 
-            tag(::std::cout) << "Start ping the proxy\n";
+            tag(::std::cerr) << "Start ping the proxy\n";
             EXPECT_NO_THROW(prx_->wire_ping());
-            tag(::std::cout) << "End ping the proxy\n";
+            tag(::std::cerr) << "End ping the proxy\n";
 
             ::test::ping_pong_prx pp_prx;
-            tag(::std::cout) << "Start checked cast\n";
+            tag(::std::cerr) << "Start checked cast\n";
             EXPECT_NO_THROW( pp_prx = core::checked_cast< ::test::ping_pong_proxy >(prx_) );
-            tag(::std::cout) << "End checked cast\n";
+            tag(::std::cerr) << "End checked cast\n";
             EXPECT_TRUE(pp_prx.get());
 
+            tag(::std::cerr) << "Start test int\n";
             EXPECT_EQ(42, pp_prx->test_int(42));
+            tag(::std::cerr) << "End test int\n";
         } catch (::std::exception const& e) {
             tag(std::cerr) << "Exception while running test " << e.what() << "\n";
         }
 
-        tag(::std::cout) << "Wait barrier " << ++finish_cnt << "\n";
+        tag(::std::cerr) << "Wait barrier " << ++finish_cnt << "\n";
         if (barrier.wait()) {
-            tag(::std::cout) << "Stop the io service\n";
+//            tag(::std::cerr) << "Sleep for a while\n";
+//            ::boost::this_fiber::sleep_for(::std::chrono::milliseconds{5});
+            tag(::std::cerr) << "Stop the io service\n";
             io_svc->stop();
         }
-        tag(::std::cout) << " Fiber exit\n";
+        tag(::std::cerr) << " Fiber exit " << ::boost::this_fiber::get_id() << "\n";
     };
 
     ::std::vector<::std::thread> threads;
@@ -195,13 +214,13 @@ TEST_F(FiberPingPong, SyncPing)
     for (auto i = 0; i < thread_cnt; ++i) {
         threads.emplace_back(
         [&](){
-            tag(::std::cout) << " Thread start\n";
+            tag(::std::cerr) << " Thread start\n";
             auto runner = ::psst::asio::fiber::use_shared_work_algorithm( io_svc );
             for (auto i = 0; i < fiber_cnt; ++i) {
                 fiber{ test_f, ::std::ref(b) }.detach();
             }
             runner->run();
-            tag(::std::cout) << " Thread exit\n";
+            tag(::std::cerr) << " Thread exit\n";
         });
     }
 

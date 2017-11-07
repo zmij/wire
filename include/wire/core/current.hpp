@@ -21,6 +21,10 @@ struct current {
     context_const_ptr           context;
     endpoint                    peer_endpoint;
     adapter_ptr                 adapter;
+
+    context_type const&
+    get_context() const
+    { return context ? *context : no_context; }
 };
 
 extern const current no_current;

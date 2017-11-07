@@ -457,13 +457,23 @@ read_string = function(tvbuf, offset)
     --dprint2("String size " .. sz)
     local str = {}
     if sz > 0 then
-        str = {
-            offset    = offset,
-            size      = n + sz,
-            size_len  = n,
-            value     = tvbuf:range(offset + n, sz):string()
-        }
+        if sz > tvbuf:len() then
+            str = {
+                offset    = offset,
+                size      = n + sz,
+                size_len  = n,
+                value     = "Invalid string size " .. sz
+            }
+            return 0, str
+        else
+            str = {
+                offset    = offset,
+                size      = n + sz,
+                size_len  = n,
+                value     = tvbuf:range(offset + n, sz):string()
+            }
         --dprint2("Value is " .. str.value)
+        end
     else
         str = {
             offset    = offset,

@@ -92,7 +92,7 @@ session::handle_read(asio_config::error_code const& ec, size_t bytes_transferred
                 std::copy(b, e, std::back_inserter(out));
                 auto buffers = out.to_buffers();
                 auto o = data_;
-                for (auto const& buff : buffers) {
+                for (auto const& buff : *buffers) {
                     char const* bdata = reinterpret_cast<char const*>(asio_ns::detail::buffer_cast_helper(buff));
                     std::size_t sz = asio_ns::detail::buffer_size_helper(buff);
                     o = std::copy(bdata, bdata + sz, o);

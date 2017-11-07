@@ -27,6 +27,9 @@ using uint64   = ::std::uint64_t;
 
 class string;
 class uuid;
+class time_point;
+class duration;
+
 template < typename ... T >
 struct variant;
 template < typename T >

@@ -213,7 +213,7 @@ TEST(OutgoingBuffer, MessageHeaders)
     auto buffers = out.to_buffers();
     char* in = data;
     std::size_t header_size(0);
-    for (auto const& buff : buffers) {
+    for (auto const& buff : *buffers) {
         char const* bdata = reinterpret_cast<char const*>(asio_ns::detail::buffer_cast_helper(buff));
         std::size_t sz = asio_ns::detail::buffer_size_helper(buff);
         if (!header_size) {

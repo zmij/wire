@@ -34,6 +34,8 @@ using address_v4        = asio_ns::ip::address_v4;
 using address_v6        = asio_ns::ip::address_v6;
 
 using error_code        = ::boost::system::error_code;
+using system_error      = ::boost::system::system_error;
+
 using asio_callback     = ::std::function< void(error_code const&) >;
 using asio_rw_callback  = ::std::function< void(error_code const&, std::size_t) >;
 

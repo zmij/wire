@@ -21,28 +21,59 @@ enum class invocation_flags {
     unspecified = 0x10
 };
 
-inline invocation_flags
+constexpr inline invocation_flags
 operator | (invocation_flags lhs, invocation_flags rhs)
 {
     using integral_type = ::std::underlying_type<invocation_flags>::type;
     return static_cast<invocation_flags>( static_cast< integral_type >(lhs) | static_cast< integral_type >(rhs) );
 }
 
-inline invocation_flags
+constexpr inline invocation_flags
 operator & (invocation_flags lhs, invocation_flags rhs)
 {
     using integral_type = ::std::underlying_type<invocation_flags>::type;
     return static_cast<invocation_flags>( static_cast< integral_type >(lhs) & static_cast< integral_type >(rhs) );
 }
 
-inline invocation_flags
+constexpr inline invocation_flags
 operator ^ (invocation_flags lhs, invocation_flags rhs)
 {
     using integral_type = ::std::underlying_type<invocation_flags>::type;
     return static_cast<invocation_flags>( static_cast< integral_type >(lhs) ^ static_cast< integral_type >(rhs) );
 }
 
-inline bool
+constexpr inline invocation_flags
+operator ~ (invocation_flags val)
+{
+    using integral_type = ::std::underlying_type<invocation_flags>::type;
+    return static_cast<invocation_flags>(~static_cast< integral_type >(val))
+            & (invocation_flags::one_way | invocation_flags::sync | invocation_flags::unspecified);
+}
+
+constexpr inline invocation_flags&
+operator |= (invocation_flags& lhs, invocation_flags rhs)
+{
+    return lhs = lhs | rhs;
+}
+
+constexpr inline invocation_flags&
+operator &= (invocation_flags& lhs, invocation_flags rhs)
+{
+    return lhs = lhs & rhs;
+}
+
+constexpr inline invocation_flags&
+operator ^= (invocation_flags& lhs, invocation_flags rhs)
+{
+    return lhs = lhs ^ rhs;
+}
+
+constexpr inline bool operator ! (invocation_flags v)
+{
+    return v == invocation_flags::none;
+}
+
+constexpr inline bool
 any(invocation_flags v)
 {
     return v != invocation_flags::none;
@@ -50,107 +81,165 @@ any(invocation_flags v)
 
 struct invocation_options {
     using timeout_type          = ::std::size_t;
-    static constexpr timeout_type default_timout = 5000;
+    using retry_count_type      = int;
+
+    static constexpr timeout_type default_timout        = 5000;
+
+    static constexpr retry_count_type no_retries        = -1;
+    static constexpr retry_count_type infinite_retries  = 0;
+    static constexpr timeout_type default_retry_timout  = 1000;
+
     static const invocation_options unspecified;
 
-    invocation_flags    flags   = invocation_flags::none;
-    timeout_type        timeout = default_timout;
+    invocation_flags    flags           = invocation_flags::none;
+    timeout_type        timeout         = default_timout;
+    retry_count_type    retries         = no_retries;
+    timeout_type        retry_timeout   = default_retry_timout;
 
     constexpr invocation_options() {}
     constexpr invocation_options(invocation_flags f)
         : flags{f} {}
     constexpr invocation_options(invocation_flags f, timeout_type t)
         : flags{f}, timeout{t} {}
+    constexpr
+    invocation_options(invocation_flags f, timeout_type t,
+            retry_count_type r, timeout_type rt)
+        : flags{f}, timeout{t}, retries{r}, retry_timeout{rt} {}
 
-    bool
+    constexpr bool
     operator == (invocation_options const& rhs) const
     {
-        return flags == rhs.flags && timeout == rhs.timeout;
+        return flags == rhs.flags && timeout == rhs.timeout
+                && retries == rhs.retries && retry_timeout == rhs.retry_timeout;
     }
-    bool
+    constexpr bool
     operator != (invocation_options const& rhs) const
     {
         return !(*this == rhs);
     }
 
-    bool
+    constexpr bool
+    is_unspecified() const
+    {
+        return flags == invocation_flags::unspecified;
+    }
+
+    constexpr bool
     is_sync() const
     {
         return any(flags & invocation_flags::sync);
     }
 
-    bool
+    constexpr bool
     is_one_way() const
     {
         return any(flags & invocation_flags::one_way);
     }
 
-    invocation_options
+    constexpr bool
+    dont_retry() const
+    { return retries < 0; }
+
+    constexpr invocation_options
+    with_flags( invocation_flags f ) const
+    {
+        return invocation_options{ f, timeout, retries, retry_timeout };
+    }
+
+    constexpr invocation_options
     with_timeout(timeout_type t) const
     {
-        return invocation_options{ flags, t };
+        return invocation_options{ flags, t, retries, retry_timeout };
+    }
+
+    constexpr invocation_options
+    with_retries(retry_count_type r, timeout_type rt) const
+    {
+        return invocation_options{ flags, timeout, r, rt };
+    }
+
+    constexpr invocation_options
+    dec_retries() const
+    {
+        retry_count_type r = retries - 1;
+        if (r == 0)
+            r = -1;
+        else if (r < -1)
+            r = -1;
+        return invocation_options{ flags, timeout, r, retry_timeout };
     }
 };
 
-inline invocation_flags&
-operator |= (invocation_flags& lhs, invocation_flags rhs)
-{
-    return lhs = lhs | rhs;
-}
-
-inline invocation_flags&
-operator &= (invocation_flags& lhs, invocation_flags rhs)
-{
-    return lhs = lhs & rhs;
-}
-
-inline invocation_flags&
-operator ^= (invocation_flags& lhs, invocation_flags rhs)
-{
-    return lhs = lhs ^ rhs;
-}
-
-inline bool operator ! (invocation_flags v)
-{
-    return v == invocation_flags::none;
-}
-
-inline invocation_options
+constexpr inline invocation_options
 operator | (invocation_options const& lhs, invocation_flags rhs)
 {
-    return invocation_options{ lhs.flags | rhs, lhs.timeout };
+    return invocation_options{ lhs.flags | rhs,
+        lhs.timeout, lhs.retries, lhs.retry_timeout };
 }
 
-inline invocation_options
+constexpr inline invocation_options
 operator & (invocation_options const& lhs, invocation_flags rhs)
 {
-    return invocation_options{ lhs.flags & rhs, lhs.timeout };
+    return invocation_options{ lhs.flags & rhs,
+        lhs.timeout, lhs.retries, lhs.retry_timeout };
 }
 
-inline invocation_options
+constexpr inline invocation_options
 operator ^ (invocation_options const& lhs, invocation_flags rhs)
 {
-    return invocation_options{ lhs.flags ^ rhs, lhs.timeout };
+    return invocation_options{ lhs.flags ^ rhs,
+        lhs.timeout, lhs.retries, lhs.retry_timeout };
 }
 
-inline invocation_options
+constexpr inline invocation_options
+operator - (invocation_options const& lhs, invocation_flags f)
+{
+    return invocation_options{
+        lhs.flags & ~f,
+        lhs.timeout, lhs.retries, lhs.retry_timeout };
+}
+
+constexpr inline invocation_options
 operator + (invocation_options const& lhs, invocation_options::timeout_type t)
 {
-    return invocation_options{ lhs.flags, lhs.timeout + t };
+    return invocation_options{ lhs.flags,
+        lhs.timeout + t, lhs.retries, lhs.retry_timeout };
 }
 
-inline invocation_options
+constexpr inline invocation_options
 operator - (invocation_options const& lhs, invocation_options::timeout_type t)
 {
-    return invocation_options{ lhs.flags, lhs.timeout - t };
+    return invocation_options{ lhs.flags,
+        lhs.timeout - t, lhs.retries, lhs.retry_timeout };
 }
 
-template <template<typename> class _Promise>
+constexpr inline invocation_options&
+operator |= (invocation_options& lhs, invocation_flags rhs)
+{
+    lhs.flags |= rhs;
+    return lhs;
+}
+
+constexpr inline invocation_options&
+operator &= (invocation_options& lhs, invocation_flags rhs)
+{
+    lhs.flags &= rhs;
+    return lhs;
+}
+
+constexpr inline invocation_options&
+operator ^= (invocation_options& lhs, invocation_flags rhs)
+{
+    lhs.flags ^= rhs;
+    return lhs;
+}
+
+template <typename _Promise>
 struct promise_invocation_flags :
         ::std::integral_constant<invocation_flags, invocation_flags::none> {};
 
-template <>
-struct promise_invocation_flags<::std::promise> :
+template <typename T>
+struct promise_invocation_flags<::std::promise<T>> :
         ::std::integral_constant<invocation_flags, invocation_flags::sync> {};
 
 namespace functional {

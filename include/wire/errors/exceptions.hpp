@@ -23,9 +23,9 @@ public:
     runtime_error()
         : ::std::runtime_error{""}, message_{} {}
     runtime_error(std::string const& msg )
-        : ::std::runtime_error{""}, message_{msg} {}
+        : ::std::runtime_error{msg}, message_{msg} {}
     runtime_error(char const* msg)
-        : ::std::runtime_error{""}, message_{msg} {}
+        : ::std::runtime_error{msg}, message_{msg} {}
 
     template < typename ... T >
     runtime_error(T const& ... args)
@@ -34,8 +34,7 @@ public:
     what() const noexcept override;
 protected:
     virtual void
-    stream_message(::std::ostream& os) const {}
-private:
+    stream_message(::std::ostream& os) const;
     ::std::string mutable message_;
 };
 
@@ -73,6 +72,7 @@ public:
 class connection_refused : public connection_closed {
 public:
     connection_refused(std::string const& msg) : connection_closed{msg} {}
+    connection_refused(char const* msg) : connection_closed{msg} {}
     template < typename ... T >
     connection_refused(T const& ... args) : connection_closed(args ...) {}
 };
@@ -83,6 +83,7 @@ public:
 class connection_failed : public connection_closed {
 public:
     connection_failed(std::string const& message) : connection_closed(message) {}
+    connection_failed(char const* msg) : connection_closed{msg} {}
     template < typename ... T >
     connection_failed(T const& ... args) : connection_closed(args ...) {}
 };
@@ -91,6 +92,7 @@ public:
 class request_timed_out : public runtime_error {
 public:
     request_timed_out(std::string const& msg) : runtime_error{msg} {}
+    request_timed_out(char const* msg) : runtime_error{msg} {}
     template < typename ... T >
     request_timed_out(T const& ... args) : runtime_error(args ...) {}
 };
@@ -110,11 +112,13 @@ public:
 class marshal_error : public runtime_error {
 public:
     marshal_error(std::string const& message) : runtime_error(message) {}
+    marshal_error(char const* message) : runtime_error(message) {}
 };
 
 class unmarshal_error : public runtime_error {
 public:
     unmarshal_error(std::string const& message) : runtime_error(message) {}
+    unmarshal_error(char const* message) : runtime_error(message) {}
     template < typename ... T >
     unmarshal_error(T const& ... args) : runtime_error(args ...) {}
 };

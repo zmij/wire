@@ -21,6 +21,7 @@
 #include <wire/core/detail/reference_resolver.hpp>
 
 #include <wire/util/io_service_wait.hpp>
+#include <wire/util/debug_log.hpp>
 
 #include <boost/program_options.hpp>
 
@@ -321,6 +322,7 @@ struct connector::impl {
         } else {
             aopts.endpoints = eps;
         }
+        aopts.adapter_ssl = options_.server_ssl;
 
         adapter_general_opts.add_options()
         ((name + ".endpoints").c_str(), ep_value,
@@ -331,9 +333,19 @@ struct connector::impl {
         ((name + ".register").c_str(),
             po::bool_switch(&aopts.registered)->default_value(true),
             "Register adapter in locator, if any")
+        ((name + ".register_retries").c_str(),
+            po::value<int>(&aopts.register_retries)->default_value(
+                    invocation_options::default_timout / invocation_options::default_retry_timout),
+            "Register retry count (-1 = disabled, 0 = infinite)")
+        ((name + ".retry_timeout").c_str(),
+            po::value<::std::size_t>(&aopts.retry_timeout)->default_value(invocation_options::default_retry_timout),
+            "Register retry timeout")
         ((name + ".replicated").c_str(),
             po::bool_switch(&aopts.replicated)->default_value(false),
             "Replicated adapter, should register in locator")
+        ((name + ".locator").c_str(),
+                po::value<reference_data>(&aopts.locator_ref)->default_value(options_.locator_ref),
+                "Locator proxy")
         ;
 
         po::options_description adapter_ssl_opts(name + " Adapter SSL Options");
@@ -348,14 +360,31 @@ struct connector::impl {
                 po::value<::std::string>(&aopts.adapter_ssl.verify_file),
                 "SSL verify file (CA root). If missing, default system certificates are used")
         ((name + ".ssl.require_peer_cert").c_str(),
-                po::bool_switch(&aopts.adapter_ssl.require_peer_cert),
+                po::bool_switch(&aopts.adapter_ssl.require_peer_cert)
+                    ->default_value(aopts.adapter_ssl.require_peer_cert),
                 "Require client SSL certificate")
+        ((name + ".ssl.no_require_peer_cert").c_str(),
+                "Don't require client SSL certificate (for overloading connector's settings)")
         ;
 
         adapter_opts.add(adapter_general_opts).add(adapter_ssl_opts);
 
         po::variables_map vm;
         configure_options(adapter_opts, vm);
+
+        if (vm.count(name + ".ssl.no_require_peer_cert")) {
+            aopts.adapter_ssl.require_peer_cert = false;
+        }
+
+        auto ssl_eps = ::std::find_if(eps.begin(), eps.end(),
+                [](endpoint const& ep) { return ep.transport() == transport_type::ssl; });
+        if (ssl_eps != eps.end()) {
+            if (aopts.adapter_ssl.cert_file.empty()) {
+                throw ::std::runtime_error{
+                    "SSL certificate for adapter " + name + " is not configured"};
+            }
+        }
+
         return aopts;
     }
 
@@ -376,11 +405,100 @@ struct connector::impl {
     }
 
     void
-    stop()
+    shutdown()
     {
         for (auto a : listen_adapters_) {
             a->deactivate();
         }
+    }
+
+    struct shutdown_async_action {
+        using action_ptr = ::std::shared_ptr<shutdown_async_action>;
+
+        functional::void_callback       result;
+        functional::exception_callback  exception;
+
+        ::std::exception_ptr            error;
+
+        shutdown_async_action(functional::void_callback res,
+                functional::exception_callback ex)
+            : result{res}, exception{ex}, error{nullptr}
+        {
+        }
+        ~shutdown_async_action()
+        {
+            try {
+                if (error) {
+                    if (exception) exception(error);
+                } else {
+                    if (result) result();
+                }
+            } catch(...) {}
+        }
+
+        void
+        done() {}
+        void
+        fail(::std::exception_ptr ex)
+        {
+            if (!error) {
+                error = ex;
+            }
+        }
+
+        static functional::void_result_pair
+        make_action(functional::void_callback res, functional::exception_callback ex)
+        {
+            auto action = ::std::make_shared< shutdown_async_action >(res, ex);
+            return ::std::make_pair(
+                ::std::bind(&shutdown_async_action::done, action),
+                ::std::bind(&shutdown_async_action::fail, action, ::std::placeholders::_1)
+             );
+        }
+    };
+
+    void
+    shutdown_async(
+            functional::void_callback       __result,
+            functional::exception_callback  __exception,
+            context_type const&             ctx         = no_context,
+            invocation_options const&       opts        = invocation_options::unspecified)
+    {
+        if (listen_adapters_.empty())
+            __result();
+        ::std::shared_ptr< ::std::atomic<bool> > done;
+
+        done = ::std::make_shared< ::std::atomic<bool> >(false);
+        {
+            auto res = [__result, done]()
+            {
+                *done = true;
+                __result();
+            };
+            auto exc = [__exception, done](::std::exception_ptr ex)
+            {
+                *done = true;
+                __exception(ex);
+            };
+
+            auto action = shutdown_async_action::make_action(res, exc);
+            auto o = opts - invocation_flags::sync;
+            for (auto a : listen_adapters_) {
+                a->deactivate_async(action.first, action.second, ctx, o);
+            }
+        }
+        if (opts.is_sync()) {
+            // Wait here
+            util::run_until(io_service_, [done](){ return (bool)*done; });
+        }
+    }
+
+    void
+    stop_async(
+            functional::void_callback       __result,
+            invocation_options const&       opts        = invocation_options::unspecified)
+    {
+
     }
 
     void
@@ -389,12 +507,12 @@ struct connector::impl {
         default_resolver_.set_locator(loc);
     }
     void
-    get_locator_async(functional::callback< locator_prx >  result,
+    get_locator_async(functional::callback< locator_prx >   result,
             functional::exception_callback                  exception,
             context_type const&                             ctx,
-            bool                                            run_sync)
+            invocation_options const&                       opts)
     {
-        default_resolver_.get_locator_async(result, exception, ctx, run_sync);
+        default_resolver_.get_locator_async(result, exception, ctx, opts);
     }
 
     void
@@ -402,27 +520,96 @@ struct connector::impl {
             functional::callback< locator_registry_prx >    result,
             functional::exception_callback                  exception,
             context_type const&                             ctx,
-            bool                                            run_sync)
+            invocation_options const&                       opts)
     {
-        default_resolver_.get_locator_registry_async(result, exception, ctx, run_sync);
+        default_resolver_.get_locator_registry_async(result, exception, ctx, opts);
     }
 
     void
-    resolve_connection(reference_data const& ref,
-        functional::callback<connection_ptr> result,
+    get_locator_async(reference_data const& locator_ref,
+            functional::callback< locator_prx >             result,
+            functional::exception_callback                  exception,
+            context_type const&                             ctx,
+            invocation_options const&                       opts)
+    {
+        if (locator_ref == options_.locator_ref) {
+            default_resolver_.get_locator_async(result, exception, ctx, opts);
+        } else {
+            locator_map::accessor acc;
+            if (!locators_.find(acc, locator_ref)) {
+                locators_.emplace(acc, locator_ref,
+                        detail::reference_resolver(owner_.lock(), locator_ref));
+            }
+            acc->second.get_locator_async(result, exception, ctx, opts);
+        }
+    }
+
+    void
+    get_locator_registry_async(
+            reference_data const& locator_ref,
+            functional::callback< locator_registry_prx >    result,
+            functional::exception_callback                  exception,
+            context_type const&                             ctx,
+            invocation_options const&                       opts)
+    {
+        if (locator_ref == options_.locator_ref) {
+            default_resolver_.get_locator_registry_async(result, exception, ctx, opts);
+        } else {
+            locator_map::accessor acc;
+            if (!locators_.find(acc, locator_ref)) {
+                locators_.emplace(acc, locator_ref,
+                        detail::reference_resolver(owner_.lock(), locator_ref));
+            }
+            acc->second.get_locator_registry_async(result, exception, ctx, opts);
+        }
+    }
+
+    void
+    add_well_known_object_async(object_prx  obj,
+        reference_data const&               locator_ref,
+        functional::void_callback           result,
         functional::exception_callback      exception,
-        bool                                run_sync)
+        context_type                        ctx,
+        invocation_options                  opts)
+    {
+        get_locator_registry_async(locator_ref,
+            [obj, result, exception, ctx, opts](locator_registry_prx reg)
+            {
+                reg->add_well_known_object_async(obj, result, exception, nullptr, ctx, opts);
+            }, exception, ctx, opts);
+    }
+
+    void
+    remove_well_known_object_async(object_prx  obj,
+        reference_data const&               locator_ref,
+        functional::void_callback           result,
+        functional::exception_callback      exception,
+        context_type                        ctx,
+        invocation_options                  opts)
+    {
+        get_locator_registry_async(locator_ref,
+            [obj, result, exception, ctx, opts](locator_registry_prx reg)
+            {
+                reg->remove_well_known_object_async(obj, result, exception, nullptr, ctx, opts);
+            }, exception, ctx, opts);
+    }
+
+    void
+    resolve_connection(reference_data const&    ref,
+        functional::callback<connection_ptr>    result,
+        functional::exception_callback          exception,
+        invocation_options const&               opts)
     {
         if (!ref.locator || ref.locator->wire_get_reference()->data() == options_.locator_ref) {
             // Use default locator
-            default_resolver_.resolve_reference_async(ref, result, exception, run_sync);
+            default_resolver_.resolve_reference_async(ref, result, exception, opts);
         } else {
             auto const& loc_ref = ref.locator->wire_get_reference()->data();
             locator_map::accessor acc;
             if (!locators_.find(acc, loc_ref)) {
                 locators_.emplace(acc, loc_ref, detail::reference_resolver(owner_.lock(), loc_ref));
             }
-            acc->second.resolve_reference_async(ref, result, exception, run_sync);
+            acc->second.resolve_reference_async(ref, result, exception, opts);
         }
     }
 
@@ -431,7 +618,7 @@ struct connector::impl {
     {
         connector_ptr conn = owner_.lock();
         if (!conn) {
-            throw errors::runtime_error("Connector already destroyed");
+            throw errors::connector_destroyed{"Connector already destroyed"};
         }
         if (find_adapter(id))
             throw errors::runtime_error("Adapter ", id, " is already configured");
@@ -445,9 +632,9 @@ struct connector::impl {
     {
         connector_ptr conn = owner_.lock();
         if (!conn) {
-            throw errors::runtime_error("Connector already destroyed");
+            throw errors::connector_destroyed{"Connector already destroyed"};
         }
-        detail::adapter_options opts { {}, 0, false, false, options_.client_ssl};
+        detail::adapter_options opts { {}, 0, false, -1, 0, false, options_.client_ssl};
             bidir_adapter_ = adapter::create_adapter(
                 conn, identity::random("client"), opts, connection_observers_);
     }
@@ -508,9 +695,7 @@ struct connector::impl {
         for (auto const& e : eps) {
             online_adapters_.erase(e);
         }
-        #if DEBUG_OUTPUT >= 1
-        ::std::cerr <<::getpid() << " Adapter " << adptr->id() << " is listening to " << eps << "\n";
-            #endif
+        DEBUG_LOG_TAG(1, tag, "Adapter " << adptr->id() << " is listening to " << eps);
         for (auto e : eps)
             online_adapters_.emplace(e, adptr);
         }
@@ -519,9 +704,7 @@ struct connector::impl {
     adapter_offline(adapter_ptr adptr, endpoint const& ep) {
         endpoint_list eps;
         ep.published_endpoints(eps);
-        #if DEBUG_OUTPUT >= 1
-        ::std::cerr <<::getpid() << " Adapter " << adptr->id() << " listening to " << eps << " went offline\n";
-        #endif
+        DEBUG_LOG_TAG(1, tag, "Adapter " << adptr->id() << " listening to " << eps << " went offline");
         for (auto const& e : eps) {
             online_adapters_.erase(e);
     }
@@ -581,15 +764,15 @@ struct connector::impl {
     }
 
     void
-    get_outgoing(endpoint const& ep,
-            connection_callback on_get,
-            functional::exception_callback exception,
-            bool sync)
+    get_outgoing(endpoint const&            ep,
+            connection_callback             on_get,
+            functional::exception_callback  exception,
+            invocation_options const&       opts)
     {
         bool new_conn = false;
         connection_ptr conn;
         {
-            connection_const_accessor acc;
+            connection_accessor acc;
             if (outgoing_.find(acc, ep)) {
                 conn = acc->second;
             } else {
@@ -599,60 +782,61 @@ struct connector::impl {
                         {
                             erase_outgoing(ep);
                         });
-                outgoing_.emplace(ep, conn);
-                new_conn = true;
+                new_conn = outgoing_.emplace(acc, ep, conn);
+                conn = acc->second;
             }
         }
         if (new_conn) {
-            auto res = ::std::make_shared< ::std::atomic<bool> >(false);
+            auto done = ::std::make_shared< ::std::atomic<bool> >(false);
+            DEBUG_LOG_TAG(2, tag, "Start connection to " << ep);
             conn->connect_async(ep,
-                [on_get, conn, res, ep]()
+                [on_get, conn, done, ep]()
                 {
-                    #ifdef DEBUG_OUTPUT
-                    ::std::cerr <<::getpid() << " Connected to " << ep << "\n";
-                    #endif
-                    *res = true;
+                    DEBUG_LOG_TAG(2, tag, "Connected to " << ep);
+                    *done = true;
                     try {
                         on_get(conn);
-                    } catch(...) {}
+                    } catch(...) {
+                        DEBUG_LOG_TAG(1, tag, "Exception while setting connection");
+                    }
                 },
-                [this, exception, res, ep](::std::exception_ptr ex)
+                [this, exception, done, ep](::std::exception_ptr ex)
                 {
-                    #if DEBUG_OUTPUT >= 2
-                        ::std::cerr <<::getpid() << " Failed to connect to " << ep << "\n";
-                    #endif
-                    *res = true;
-                    try {
-                        exception(ex);
-                    } catch (...) {}
+                    DEBUG_LOG_TAG(2, tag, "Failed to connect to " << ep);
+                    *done = true;
+                    functional::report_exception(exception, ex);
                 });
 
-            if (sync) {
-                util::run_until(io_service_, [res](){ return (bool)*res; });
+            if (opts.is_sync()) {
+                util::run_until(io_service_, [done](){ return (bool)*done; });
             }
         } else {
+            DEBUG_LOG_TAG(2, tag, "Connection to " << ep << " already initiated");
             try {
-            on_get(conn);
-            } catch(...) {}
+                on_get(conn);
+            } catch(...) {
+                DEBUG_LOG_TAG(1, tag, "Exception while setting connection");
+            }
         }
     }
 
     void
     erase_outgoing(endpoint ep)
     {
-        #if DEBUG_OUTPUT >= 1
-        ::std::cerr <<::getpid() << " Outgoing connection to " << ep << " closed\n";
-        #endif
+        DEBUG_LOG_TAG(1, tag, "Outgoing connection to " << ep << " closed");
         connection_accessor acc;
         if (outgoing_.find(acc, ep)) {
-            #if DEBUG_OUTPUT >= 1
-            ::std::cerr <<::getpid() << " Erase connection to " << ep << "\n";
-            #endif
+            DEBUG_LOG_TAG(1, tag, "Erase connection to " << ep);
             outgoing_.erase(acc);
         }
     }
 
-    ;
+    static ::std::ostream&
+    tag(::std::ostream& os)
+    {
+        os << ::getpid() << " (connector) ";
+        return os;
+    }
 };
 
 connector_ptr
@@ -809,9 +993,13 @@ connector::run()
 }
 
 void
-connector::stop()
+connector::shutdown_async(
+        functional::void_callback       __result,
+        functional::exception_callback  __exception,
+        context_type const&             ctx,
+        invocation_options const&       opts)
 {
-    pimpl_->stop();
+    pimpl_->shutdown_async(__result, __exception, ctx, opts);
 }
 
 detail::connector_options const&
@@ -882,21 +1070,21 @@ connector::make_proxy(reference_data const& ref) const
 
 void
 connector::get_outgoing_connection_async(endpoint const& ep,
-        connection_callback             on_get,
-        functional::exception_callback  on_error,
-        bool sync)
+        connection_callback                 on_get,
+        functional::exception_callback      on_error,
+        invocation_options const&           opts)
 {
-    pimpl_->get_outgoing(ep, on_get, on_error, sync);
+    pimpl_->get_outgoing(ep, on_get, on_error, opts);
 }
 
 void
-connector::resolve_connection_async(reference_data const& ref,
-        functional::callback<connection_ptr> result,
-        functional::exception_callback      exception,
-        bool                                run_sync) const
+connector::resolve_connection_async(reference_data const&   ref,
+        functional::callback<connection_ptr>                result,
+        functional::exception_callback                      exception,
+        invocation_options const&                           opts) const
 {
     // TODO Lookup bidir connections by adapter
-    pimpl_->resolve_connection(ref, result, exception, run_sync);
+    pimpl_->resolve_connection(ref, result, exception, opts);
 }
 
 void
@@ -910,9 +1098,20 @@ connector::get_locator_async(
         functional::callback<locator_prx>   result,
         functional::exception_callback      exception,
         context_type const&                 ctx,
-        bool                                run_sync) const
+        invocation_options const&           opts) const
 {
-    pimpl_->get_locator_async(result, exception, ctx, run_sync);
+    pimpl_->get_locator_async(result, exception, ctx, opts);
+}
+
+void
+connector::get_locator_async(
+        reference_data const&               loc_ref,
+        functional::callback<locator_prx>   result,
+        functional::exception_callback      exception,
+        context_type const&                 ctx,
+        invocation_options const&           opts) const
+{
+    pimpl_->get_locator_async(loc_ref, result, exception, ctx, opts);
 }
 
 void
@@ -920,9 +1119,74 @@ connector::get_locator_registry_async(
         functional::callback<locator_registry_prx>  result,
         functional::exception_callback              exception,
         context_type const&                         ctx,
-        bool                                        run_sync) const
+        invocation_options const&                   opts) const
 {
-    pimpl_->get_locator_registry_async(result, exception, ctx, run_sync);
+    pimpl_->get_locator_registry_async(result, exception, ctx, opts);
+}
+
+void
+connector::get_locator_registry_async(
+        reference_data const&                       loc_ref,
+        functional::callback<locator_registry_prx>  result,
+        functional::exception_callback              exception,
+        context_type const&                         ctx,
+        invocation_options const&                   opts) const
+{
+    pimpl_->get_locator_registry_async(loc_ref, result, exception, ctx, opts);
+}
+
+void
+connector::add_well_known_object_async(
+        object_prx obj,
+        functional::void_callback                   result,
+        functional::exception_callback              exception,
+        context_type const&                         ctx,
+        invocation_options const&                   opts
+    )
+{
+    pimpl_->add_well_known_object_async(
+            obj, pimpl_->options_.locator_ref, result, exception, ctx, opts);
+}
+
+void
+connector::add_well_known_object_async(
+        object_prx obj,
+        reference_data const&                       loc_ref,
+        functional::void_callback                   result,
+        functional::exception_callback              exception,
+        context_type const&                         ctx,
+        invocation_options const&                   opts
+    )
+{
+    pimpl_->add_well_known_object_async(
+            obj, loc_ref, result, exception, ctx, opts);
+}
+
+void
+connector::remove_well_known_object_async(
+        object_prx obj,
+        functional::void_callback                   result,
+        functional::exception_callback              exception,
+        context_type const&                         ctx,
+        invocation_options const&                   opts
+    )
+{
+    pimpl_->remove_well_known_object_async(
+            obj, pimpl_->options_.locator_ref, result, exception, ctx, opts);
+}
+
+void
+connector::remove_well_known_object_async(
+        object_prx obj,
+        reference_data const&                       loc_ref,
+        functional::void_callback                   result,
+        functional::exception_callback              exception,
+        context_type const&                         ctx,
+        invocation_options const&                   opts
+    )
+{
+    pimpl_->remove_well_known_object_async(
+            obj, loc_ref, result, exception, ctx, opts);
 }
 
 void

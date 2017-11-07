@@ -144,7 +144,9 @@ struct variant_read_unwrapper_base< InputIterator, ::psst::meta::indexes_tuple< 
     static void
     input_nth(iterator_type& begin, iterator_type end, out_type v, ::std::size_t type_idx)
     {
-        assert(type_idx < size && "Variant type index is in bounds of type list");
+        if (type_idx >= size)
+            throw errors::unmarshal_error{"Variant type index ", type_idx,
+                " is out of bounds of type list [0..", size, ")"};
         functions()[type_idx](begin, end, v);
     }
 };

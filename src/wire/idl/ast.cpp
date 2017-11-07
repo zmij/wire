@@ -71,6 +71,12 @@ compilation_unit::collect_elements(entity_const_set& ent, entity_predicate pred)
 }
 
 bool
+compilation_unit::has_enums() const
+{
+    return has< enumeration >();
+}
+
+bool
 compilation_unit::has_classes() const
 {
     return has< class_ >();
@@ -264,6 +270,8 @@ builtin_types()
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, double),
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, string),
         MAKE_BUILTIN_WIRE_TYPE(builtin_type, uuid),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, time_point),
+        MAKE_BUILTIN_WIRE_TYPE(builtin_type, duration),
 
         MAKE_TEMPLATE_WIRE_TYPE(templated_type_impl, variant,
                 {{ template_param_type::type, true }}),
@@ -687,15 +695,17 @@ scope::find_type(qname_search const& search) const
         type_ptr t = sc.first->local_type_search(search);
         if (t)
             return t;
-    }
-    if (sc.first && sc.second->owner()) { // Proceed to parent scope only if not searching from global namespace
-        sc.first = sc.first->owner();
-        if (sc.first) {
-            return sc.first->find_type(search);
+
+        // Proceed to parent scope only if not searching from global namespace
+        if (sc.second->owner()) {
+            sc.first = sc.first->owner();
+            if (sc.first && sc.first.get() != this) {
+                return sc.first->find_type(search);
+            }
         }
     }
 
-    return find_builtin(search.back());;
+    return find_builtin(search.back());
 }
 
 type_ptr

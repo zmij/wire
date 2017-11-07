@@ -13,6 +13,7 @@
 #include <wire/core/locator_fwd.hpp>
 #include <wire/core/connection_fwd.hpp>
 #include <wire/core/context.hpp>
+#include <wire/core/invocation_options.hpp>
 
 #include <wire/core/functional.hpp>
 
@@ -42,7 +43,7 @@ public:
         functional::callback<locator_prx>   result,
         functional::exception_callback      exception   = nullptr,
         context_type const&                             = no_context,
-        bool                                run_sync    = false
+        invocation_options const&                       = invocation_options::unspecified
     ) const;
     void
     set_locator(locator_prx);
@@ -52,14 +53,14 @@ public:
         functional::callback<locator_registry_prx> result,
         functional::exception_callback      exception   = nullptr,
         context_type const&                             = no_context,
-        bool                                run_sync    = false
+        invocation_options const&                       = invocation_options::unspecified
     ) const;
 
     void
     resolve_reference_async(reference_data const& ref,
         functional::callback<connection_ptr> result,
         functional::exception_callback      exception   = nullptr,
-        bool                                run_sync    = false
+        invocation_options const&                       = invocation_options::unspecified
     ) const;
 private:
     struct impl;

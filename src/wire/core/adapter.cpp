@@ -11,9 +11,13 @@
 #include <wire/core/proxy.hpp>
 #include <wire/core/object_locator.hpp>
 #include <wire/core/locator.hpp>
+#include <wire/core/connection_observer.hpp>
 
 #include <wire/core/detail/configuration_options.hpp>
 #include <wire/errors/not_found.hpp>
+
+#include <wire/util/io_service_wait.hpp>
+#include <wire/util/debug_log.hpp>
 
 #include <tbb/concurrent_hash_map.h>
 #include <tbb/concurrent_unordered_set.h>
@@ -32,7 +36,22 @@ namespace {
 
 }  /* namespace  */
 
-struct adapter::impl {
+struct adapter::impl : ::std::enable_shared_from_this<impl> {
+    struct registry_disconnect_observer : connection_observer {
+        ::std::weak_ptr<impl>   adapter_;
+
+        registry_disconnect_observer(::std::shared_ptr<impl> a)
+            : adapter_{a} {}
+        virtual void
+        disconnect(endpoint const& ep) const noexcept override
+        {
+            auto adp = adapter_.lock();
+            if (adp) {
+                adp->registry_disconnected();
+            }
+        }
+    };
+
     using connections           = ::tbb::concurrent_hash_map< endpoint, connection_ptr >;
     using active_objects        = ::tbb::concurrent_hash_map< identity, object_ptr >;
     using default_servants      = ::tbb::concurrent_hash_map< ::std::string, object_ptr >;
@@ -47,11 +66,14 @@ struct adapter::impl {
     using shared_lock           = ::boost::shared_lock<shared_mutex_type>;
     using exclusive_lock        = ::std::lock_guard<shared_mutex_type>;
 
+    using watchdog_ptr          = ::std::shared_ptr<registry_disconnect_observer>;
+
     connector_weak_ptr          connector_;
     asio_config::io_service_ptr io_service_;
     identity                    id_;
 
     detail::adapter_options     options_;
+    invocation_options          register_options_;
     concurrent_enpoints         published_endpoints_;
 
     bool                        is_active_;
@@ -69,10 +91,16 @@ struct adapter::impl {
     shared_mutex_type           observer_mtx_;
     connection_observer_set     connection_observers_;
 
+    watchdog_ptr                watchdog_;
+
     impl(connector_ptr c, identity const& id, detail::adapter_options const& options,
             connection_observer_set const& observers)
         : connector_{c}, io_service_{c->io_service()},
-          id_{id}, options_{options}, is_active_{false}, registered_{false},
+          id_{id}, options_{options},
+          register_options_{
+              invocation_options{}.with_retries(
+                      options.register_retries, options.retry_timeout ) },
+          is_active_{false}, registered_{false},
           connection_observers_{observers}
     {
     }
@@ -95,8 +123,14 @@ struct adapter::impl {
                     std::make_shared<connection>(server_side{}, adp, ep ));
             }
             is_active_ = true;
-            if (!postpone_reg)
-                register_adapter();
+            if ((options_.registered || is_replicated()) && !postpone_reg) {
+                try {
+                    register_adapter();
+                } catch (...) {
+                    if (is_replicated())
+                        throw;
+                }
+            }
         } else {
             // FIXME Correct exception
             throw errors::adapter_destroyed{"Adapter owning implementation was destroyed"};
@@ -110,41 +144,229 @@ struct adapter::impl {
     }
 
     void
-    register_adapter()
+    get_locator_async(
+            functional::callback< locator_prx > __result,
+            functional::exception_callback      __exception,
+            context_type const&                 ctx,
+            invocation_options                  opts)
     {
         auto cnctr = connector_.lock();
         if (!cnctr)
-            // FIXME Correct exception
-            throw errors::connector_destroyed{"Connector was already destroyed"};
-        if (options_.registered || is_replicated()) {
-            locator_registry_prx reg;
-            try {
-                reg = cnctr->get_locator_registry();
-            } catch (...) {
-                #if DEBUG_OUTPUT >= 1
-                ::std::cerr <<::getpid() << "  Failed to get locator registry on exception\n";
-                #endif
-            }
-            if (reg) {
-                auto prx = adapter_proxy();
-                if (is_replicated()) {
-                    #if DEBUG_OUTPUT >= 2
-                    ::std::cerr <<::getpid() << " Try to register replicated adapter " << *prx << " at locator\n";
-                    #endif
-                    reg->add_replicated_adapter(prx);
-                } else {
-                    #if DEBUG_OUTPUT >= 2
-                    ::std::cerr <<::getpid() << " Try to register adapter " << *prx << " at locator\n";
-                    #endif
-                    reg->add_adapter(prx);
-                }
-                registered_ = true;
-            } else if (is_replicated()) {
-                throw errors::runtime_error{
-                        "wire.locator not configured for a replicated adapter"};
-            }
+            return functional::report_exception(__exception,
+                    errors::connector_destroyed{"Connector was already destroyed"});
 
+        if (opts == invocation_options::unspecified) {
+            opts = register_options_;
         }
+
+        if (options_.locator_ref.valid()) {
+            // Use locator configured for the adapter
+            cnctr->get_locator_async(options_.locator_ref,
+                    __result, __exception, ctx, opts);
+        } else {
+            // Use connector's default adapter
+            cnctr->get_locator_async(
+                    __result, __exception, ctx, opts);
+        }
+    }
+
+    void
+    get_locator_registry_async(
+            functional::callback< locator_registry_prx >    __result,
+            functional::exception_callback                  __exception,
+            context_type const&                             ctx,
+            invocation_options                              opts)
+    {
+        auto cnctr = connector_.lock();
+        if (!cnctr)
+            return functional::report_exception(__exception,
+                    errors::connector_destroyed{"Connector was already destroyed"});
+
+        if (opts == invocation_options::unspecified) {
+            opts = register_options_;
+        }
+
+
+        if (options_.locator_ref.valid()) {
+            // Use locator configured for the adapter
+            cnctr->get_locator_registry_async(options_.locator_ref,
+                    __result, __exception, ctx, opts);
+        } else {
+            // Use connector's default adapter
+            cnctr->get_locator_registry_async(
+                    __result, __exception, ctx, opts);
+        }
+    }
+
+    void
+    registry_disconnected()
+    {
+        if (registered_) {
+            registered_ = false;
+            register_adapter_async([](){}, [](::std::exception_ptr){},
+                no_context, register_options_.with_retries(
+                        invocation_options::infinite_retries,
+                        register_options_.retry_timeout));
+        }
+    }
+
+    void
+    set_registered(locator_registry_prx reg)
+    {
+        registered_ = true;
+        // Subscribe reconnect
+        if (reg) {
+            if (!watchdog_)
+                watchdog_ =
+                    ::std::make_shared<registry_disconnect_observer>(shared_from_this());
+            reg->wire_get_connection()->add_observer(watchdog_);
+        }
+    }
+
+    void
+    set_unregistered(locator_registry_prx reg)
+    {
+        registered_ = false;
+        if (reg && watchdog_) {
+            reg->wire_get_connection()->remove_observer(watchdog_);
+        }
+    }
+
+    void
+    register_adapter()
+    {
+        auto future = register_adapter_async(no_context, register_options_ | invocation_flags::sync);
+        future.get();
+    }
+
+    void
+    register_adapter_async(
+            functional::void_callback       __result,
+            functional::exception_callback  __exception,
+            context_type const&             ctx         = no_context,
+            invocation_options const&       opts        = invocation_options::unspecified)
+    {
+        if (registered_)
+            return __result();
+        DEBUG_LOG_TAG(2, tag, "Register adapter " << id_)
+        auto _this = shared_from_this();
+        auto on_get_reg =
+            [_this, __result, __exception, ctx, opts](locator_registry_prx reg)
+            {
+                if (reg) {
+                    DEBUG_LOG_TAG(2, _this->tag, "Add adapter " << _this->id_ <<
+                            " to registry " << *reg);
+                    auto prx = _this->adapter_proxy();
+                    if (_this->is_replicated()) {
+                        reg->add_replicated_adapter_async(prx,
+                            [_this, __result, reg]()
+                            {
+                                _this->set_registered(reg);
+                                __result();
+                            }, __exception, nullptr, ctx, opts);
+                    } else {
+                        reg->add_adapter_async(prx,
+                            [_this, __result, reg]()
+                            {
+                                _this->set_registered(reg);
+                                __result();
+                            }, __exception, nullptr, ctx, opts);
+                    }
+                } else {
+                    DEBUG_LOG_TAG(2, _this->tag, "No locator registry when registering adapter " << _this->id_);
+                    functional::report_exception(__exception,
+                        errors::runtime_error{
+                            "wire.locator is not configured for registering adapter"});
+                }
+            };
+        get_locator_registry_async(on_get_reg, __exception, ctx, opts);
+    }
+    template < template <typename> class _Promise = promise >
+    auto
+    register_adapter_async(
+            context_type const&             ctx         = no_context,
+            invocation_options const&       opts        = invocation_options::unspecified)
+        -> decltype(::std::declval< _Promise<void> >().get_future())
+    {
+        auto promise = ::std::make_shared<_Promise<void>>();
+        register_adapter_async(
+            [promise]()
+            { promise->set_value(); },
+            [promise](::std::exception_ptr ex)
+            { promise->set_exception(::std::move(ex)); },
+            ctx, opts);
+        return promise->get_future();
+    }
+
+    void
+    unregister_adapter_async(
+            functional::void_callback       __result,
+            functional::exception_callback  __exception,
+            context_type const&             ctx         = no_context,
+            invocation_options const&       opts        = invocation_options::unspecified)
+    {
+        if (!registered_)
+            return __result();
+        DEBUG_LOG_TAG(2, tag, "Unregister adapter");
+        auto done = ::std::make_shared< ::std::atomic<bool> >(false);
+        auto _this = shared_from_this();
+        auto exception = [_this, done, __exception](::std::exception_ptr ex)
+                {
+                    *done = true;
+                    DEBUG_LOG_TAG(2, _this->tag, "Exception when unregistering adapter");
+                    functional::report_exception(__exception, ex);
+                };
+        auto on_get_reg =
+            [_this, __result, exception, ctx, done](locator_registry_prx reg)
+            {
+                if (reg) {
+                    DEBUG_LOG_TAG(2, _this->tag, "Remove adapter " << _this->id_
+                            << " from registry " << *reg);
+                    _this->set_unregistered(reg);
+                    auto prx = _this->adapter_proxy();
+                    reg->remove_adapter_async(
+                        prx, [_this, __result, done](){
+                            *done = true;
+                            DEBUG_LOG_TAG(2, _this->tag, "Done removing adapter from locator registry");
+                            __result();
+                        }, exception, nullptr, ctx, invocation_options{});
+                } else {
+                    *done = true;
+                    DEBUG_LOG_TAG(2, _this->tag, "No locator registry to remove");
+                    __result();
+                }
+            };
+        get_locator_registry_async(on_get_reg, exception, ctx, invocation_options{});
+        // Throttle sync call here
+        if (opts.is_sync()) {
+            DEBUG_LOG_TAG(3, tag, "Wait for unregistering");
+            util::run_until(io_service_, [done](){ return (bool)*done; });
+            DEBUG_LOG_TAG(3, tag, "Wait for unregistering done");
+        }
+    }
+    template < template <typename> class _Promise = promise >
+    auto
+    unregister_adapter_async(
+        context_type const&         ctx         = no_context,
+        invocation_options const&   opts        = invocation_options::unspecified)
+        -> decltype(::std::declval< _Promise<void> >().get_future())
+    {
+        auto promise = ::std::make_shared<_Promise<void>>();
+        unregister_adapter_async(
+            [promise]()
+            { promise->set_value(); },
+            [promise](::std::exception_ptr ex)
+            { promise->set_exception(::std::move(ex)); },
+            ctx, opts
+        );
+        return promise->get_future();
+    }
+
+    void
+    unregister_adapter()
+    {
+        auto future = unregister_adapter_async(no_context, invocation_flags::sync);
+        future.get();
     }
 
     bool
@@ -155,38 +377,44 @@ struct adapter::impl {
     }
 
     void
-    deactivate()
+    clear_connections()
     {
         lock_guard lock{mtx_};
-        if (registered_) {
-            auto cnctr = connector_.lock();
-            if (cnctr) {
-                try {
-                    auto reg = cnctr->get_locator_registry();
-                    if (reg) {
-                        auto prx = adapter_proxy();
-                        reg->remove_adapter(prx);
-                    }
-                } catch ( ::std::exception const& e) {
-                    #if DEBUG_OUTPUT >= 1
-                    ::std::cerr <<::getpid() << " Error wnen unregistering adapter " << id_<< ": "
-                            << e.what() << "\n";
-                    #endif
-                } catch (...) {
-                    #if DEBUG_OUTPUT >= 1
-                    ::std::cerr <<::getpid() << " Unexpected error when unregistering adapter "
-                            << id_ << "\n";
-                    #endif
-                }
-            }
-            registered_ = false;
-        }
         for (auto& c : connections_) {
             c.second->close();
         }
         connections_.clear();
         published_endpoints_.clear();
         is_active_ = false;
+    }
+
+    void
+    deactivate()
+    {
+        try {
+            unregister_adapter();
+        } catch (...) { /* ignore it */}
+        clear_connections();
+    }
+
+
+    void
+    deactivate_async(functional::void_callback  __result,
+            functional::exception_callback      __exception,
+            context_type const&                 ctx         = no_context,
+            invocation_options const&           opts        = invocation_options::unspecified)
+    {
+        auto _this = shared_from_this();
+        unregister_adapter_async(
+            [_this, __result, __exception]()
+            {
+                try {
+                    _this->clear_connections();
+                    __result();
+                } catch (...) {
+                    functional::report_exception(__exception, ::std::current_exception());
+                }
+            }, __exception, ctx, opts);
     }
 
     void
@@ -221,9 +449,7 @@ struct adapter::impl {
     void
     connection_online(endpoint const& local, endpoint const& remote)
     {
-        #ifdef DEBUG_OUTPUT
-        ::std::cerr <<::getpid() << " Connection " << local << " -> " << remote << " is online\n";
-        #endif
+        DEBUG_LOG_TAG(1, tag, "Connection " << local << " -> " << remote << " is online")
     }
     void
     listen_connection_online(endpoint const& ep)
@@ -239,9 +465,7 @@ struct adapter::impl {
     void
     connection_offline(endpoint const& ep)
     {
-        #ifdef DEBUG_OUTPUT
-        ::std::cerr <<::getpid() << " Connection " << ep << " is offline\n";
-        #endif
+        DEBUG_LOG_TAG(1, tag, "Connection " << ep << " is offline")
     }
 
     endpoint_list
@@ -383,6 +607,13 @@ struct adapter::impl {
         obj->__dispatch(req, curr);
         return true;
     }
+
+    ::std::ostream&
+    tag(::std::ostream& os) const
+    {
+        os << getpid() << " "<< id_;
+        return os;
+    }
 };
 
 adapter_ptr
@@ -422,6 +653,12 @@ adapter::options() const
     return pimpl_->options_;
 }
 
+detail::ssl_options const&
+adapter::ssl_options() const
+{
+    return pimpl_->options_.adapter_ssl;
+}
+
 void
 adapter::activate(bool postpone_reg)
 {
@@ -429,15 +666,52 @@ adapter::activate(bool postpone_reg)
 }
 
 void
-adapter::register_adapter()
+adapter::deactivate_async(functional::void_callback __result,
+            functional::exception_callback          __exception,
+            context_type const&                     ctx,
+            invocation_options const&               opts)
 {
-    pimpl_->register_adapter();
+    pimpl_->deactivate_async(__result, __exception, ctx, opts);
 }
 
 void
-adapter::deactivate()
+adapter::get_locator_async(
+        functional::callback<locator_prx>   result,
+        functional::exception_callback      exception,
+        context_type const&                 ctx,
+        invocation_options const&           opts) const
 {
-    pimpl_->deactivate();
+    pimpl_->get_locator_async(result, exception, ctx, opts);
+}
+
+void
+adapter::get_locator_registry_async(
+        functional::callback<locator_registry_prx>  result,
+        functional::exception_callback              exception,
+        context_type const&                         ctx,
+        invocation_options const&                   opts) const
+{
+    pimpl_->get_locator_registry_async(result, exception, ctx, opts);
+}
+
+void
+adapter::register_adapter_async(
+        functional::void_callback       __result,
+        functional::exception_callback  __exception,
+        context_type const&             ctx,
+        invocation_options const&       opts)
+{
+    pimpl_->register_adapter_async(__result, __exception, ctx, opts);
+}
+
+void
+adapter::unregister_adapter_async(
+        functional::void_callback       __result,
+        functional::exception_callback  __exception,
+        context_type const&             ctx,
+        invocation_options const&       opts)
+{
+    pimpl_->unregister_adapter_async(__result, __exception, ctx, opts);
 }
 
 bool

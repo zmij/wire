@@ -6,49 +6,22 @@
  */
 
 #include <gtest/gtest.h>
+#include <wire/core/connection_observer.hpp>
 
-#include <test/ping_pong.hpp>
-#include <wire/core/connector.hpp>
+#include "ping_pong_test.hpp"
+#include "ping_pong_options.hpp"
 
 #include <atomic>
 
-#include "sparring/sparring_test.hpp"
 
 namespace wire {
 namespace test {
 
-class PingPong : public wire::test::sparring::SparringTest {
-protected:
-    void
-    SetUp() override
-    {
-        connector_ = core::connector::create_connector(io_svc);
-        StartPartner();
-    }
-
-    void
-    SetupArgs(args_type& args) override
-    {
-        //args.push_back("--log=ping-pong-test.log");
-    }
-
-    void
-    ReadSparringOutput(::std::istream& is) override
-    {
-        ::std::string proxy_str;
-        ::std::getline(is, proxy_str);
-        prx_ = connector_->string_to_proxy(proxy_str);
-        ::std::cerr << "Sparring proxy object is " << *prx_ << "\n";
-    }
+#define LOG_TAG(...)\
+{ ::std::ostringstream os; os << getpid() << " (test) " << __VA_ARGS__ << "\n"; ::std::cerr << os.str(); }
 
 
-    core::connector_ptr connector_;
-    core::object_prx    prx_;
-};
-
-namespace {
-
-::std::string const LIPSUM_TEST_STRING = R"~(
+::std::string const PingPong::LIPSUM_TEST_STRING = R"~(
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque malesuada
 ut nulla vitae elementum. Curabitur dictum egestas mauris et accumsan. Aliquam
 erat volutpat. Proin tempor enim vitae purus hendrerit, id varius tellus
@@ -83,9 +56,69 @@ maximus elementum maximus. Phasellus finibus mi dolor, in molestie sem ultrices
 ac.
 )~";
 
-}  /* namespace  */
+struct test_stats : core::connection_observer {
+    using atomic_counter = ::std::atomic<::std::size_t>;
 
-TEST_F(PingPong, CheckedCast)
+    void
+    send_bytes(::std::size_t bytes, ::wire::core::endpoint const& ep) const noexcept override
+    {
+        tx_ += bytes;
+    }
+
+    void
+    receive_bytes(::std::size_t bytes, ::wire::core::endpoint const& ep) const noexcept override
+    {
+        rx_ += bytes;
+    }
+
+    atomic_counter mutable  rx_;
+    atomic_counter mutable  tx_;
+};
+
+void
+PingPong::SetUp()
+{
+    connector_ = core::connector::create_connector(io_svc);
+    StartPartner();
+}
+
+void
+PingPong::SetupArgs(args_type& args)
+{
+    #if DEBUG_OUTPUT > 1
+    args.push_back("--port=14889");
+    #endif
+}
+
+void
+PingPong::ReadSparringOutput(::std::istream& is)
+{
+    ::std::string proxy_str;
+    ::std::getline(is, proxy_str);
+    prx_ = connector_->string_to_proxy(proxy_str);
+    ::std::cerr << "Sparring proxy object is " << *prx_ << "\n";
+}
+
+::std::string const&
+PingPong::PartnerProgram() const
+{
+    return ping_pong_options::instance().sparring_partner;
+}
+
+::std::size_t
+PingPong::ReqPerThread() const
+{
+    return ping_pong_options::instance().tcp_req_per_thread;
+}
+
+::std::int64_t
+PingPong::MTTestTimeout() const
+{
+    return ping_pong_options::instance().tcp_test_timeout;
+}
+
+void
+PingPong::CheckedCast()
 {
     ASSERT_NE(0, child_.pid);
     ASSERT_TRUE(connector_.get());
@@ -102,7 +135,8 @@ TEST_F(PingPong, CheckedCast)
     EXPECT_EQ("test_int", fname);
 }
 
-TEST_F(PingPong, WireFunctions)
+void
+PingPong::WireFunctions()
 {
     ASSERT_NE(0, child_.pid);
     ASSERT_TRUE(connector_.get());
@@ -120,7 +154,8 @@ TEST_F(PingPong, WireFunctions)
     EXPECT_EQ(2, wire_types.size());
 }
 
-TEST_F(PingPong, OneWayPing)
+void
+PingPong::OneWayPing()
 {
     ASSERT_NE(0, child_.pid);
     ASSERT_TRUE(connector_.get());
@@ -135,7 +170,8 @@ TEST_F(PingPong, OneWayPing)
     EXPECT_THROW(one_way_prx->wire_type(), errors::invalid_one_way_invocation);
 }
 
-TEST_F(PingPong, SyncRoundtrip)
+void
+PingPong::SyncRoundtrip()
 {
     ASSERT_NE(0, child_.pid);
     ASSERT_TRUE(connector_.get());
@@ -177,36 +213,57 @@ TEST_F(PingPong, SyncRoundtrip)
     ASSERT_FALSE(ret.get());
 }
 
-TEST_F(PingPong, MTConnectionUsage)
+void
+PingPong::MTConnectionUsage()
 {
-    const ::std::size_t req_per_thread = 10;
+    const ::std::size_t req_per_thread = ReqPerThread();
     auto const test_threads = ::std::thread::hardware_concurrency() / 2;
     auto const num_req = req_per_thread * test_threads * 2;
+
 
     ASSERT_NE(0, child_.pid);
     ASSERT_TRUE(connector_.get());
     ASSERT_TRUE(prx_.get());
 
+    auto observer = ::std::make_shared<test_stats>();
+    connector_->add_observer(observer);
+
     auto work = ::std::make_shared<asio_config::io_service::work>(*io_svc);
 
-    auto pp_prx = core::checked_cast< ::test::ping_pong_proxy >(prx_);
-    ASSERT_TRUE(pp_prx.get());
+    auto pp_prx = core::unchecked_cast< ::test::ping_pong_proxy >(prx_);
+    //ASSERT_TRUE(pp_prx.get());
 
     ::std::atomic<::std::size_t> requests{0}, responses{0}, errors{0};
 
     ::std::vector<::std::thread> threads;
+    auto results = [&](){
+        ::std::cerr << "******* Stop io service\n"
+                << "SENT        " << requests << "\n"
+                << "PASS        " << responses << "\n"
+                << "FAIL        " << errors << "\n"
+                << "TOTAL       " << responses + errors << "\n"
+                << "EXPECTED    " << num_req << "\n";
+    };
+    auto counts = [&](char const* msg){
+        ::std::ostringstream os;
+        os << getpid() << " (test " << msg << ") Req count: " << requests
+                << " resp count: " <<  responses << " err count: " << errors << "\n";
+        ::std::cerr << os.str();
+    };
+    auto sent = [&](bool done) {
+        ++requests;
+        counts("out");
+    };
     auto int_resp =
             [&](int32_t const& res)
             {
+                LOG_TAG("Int response " << res);
                 ++responses;
                 if (responses + errors >= num_req) {
-                    ::std::cerr << "******* Stop io service\n"
-                            << "SENT        " << requests << "\n"
-                            << "PASS        " << responses << "\n"
-                            << "FAIL        " << errors << "\n"
-                            << "TOTAL       " << responses + errors << "\n"
-                            << "EXPECTED    " << num_req << "\n";
+                    results();
                     io_svc->stop();
+                } else {
+                    counts("in");
                 }
             };
     auto string_resp =
@@ -214,13 +271,10 @@ TEST_F(PingPong, MTConnectionUsage)
             {
                 ++responses;
                 if (responses + errors >= num_req) {
-                    ::std::cerr << "******* Stop io service\n"
-                            << "SENT        " << requests << "\n"
-                            << "PASS        " << responses << "\n"
-                            << "FAIL        " << errors << "\n"
-                            << "TOTAL       " << responses + errors << "\n"
-                            << "EXPECTED    " << num_req << "\n";
+                    results();
                     io_svc->stop();
+                } else {
+                    counts("in");
                 }
             };
     auto error_resp =
@@ -235,15 +289,24 @@ TEST_F(PingPong, MTConnectionUsage)
                     ::std::cerr << "Unknown exception\n";
                 }
                 if (responses + errors >= num_req) {
-                    ::std::cerr << "******* Stop io service\n"
-                            << "SENT        " << requests << "\n"
-                            << "PASS        " << responses << "\n"
-                            << "FAIL        " << errors << "\n"
-                            << "TOTAL       " << responses + errors << "\n"
-                            << "EXPECTED    " << num_req << "\n";
+                    results();
                     io_svc->stop();
+                } else {
+                    counts("in");
                 }
             };
+
+    asio_ns::system_timer timer{*io_svc};
+    timer.expires_from_now(::std::chrono::seconds{MTTestTimeout()});
+    timer.async_wait(
+    [&](asio_config::error_code const& ec)
+    {
+        if (!ec) {
+            results();
+            io_svc->stop();
+        }
+    });
+
     for (auto t = 0U; t < test_threads; ++t) {
         threads.emplace_back(
         [&](::std::size_t n)
@@ -259,10 +322,11 @@ TEST_F(PingPong, MTConnectionUsage)
                 fat_string = os.str();
             }
             for (auto i = 0U; i < req_per_thread; ++i) {
-                ++requests;
-                pp_prx->test_int_async(42, int_resp, error_resp);
-                ++requests;
-                pp_prx->test_string_async(fat_string, string_resp, error_resp);
+                ::std::int32_t the_num = 100000 * (n + 1) + i;
+                LOG_TAG("thread " << n + 1 << " iteration " << i);
+                LOG_TAG(n + 1 << " Int req " << the_num);
+                pp_prx->test_int_async(the_num, int_resp, error_resp, sent);
+                pp_prx->test_string_async(fat_string, string_resp, error_resp, sent);
             }
         }, t);
     }
@@ -274,9 +338,13 @@ TEST_F(PingPong, MTConnectionUsage)
     EXPECT_EQ(requests, responses)          << "All requests without errors";
     EXPECT_EQ(0, errors)                    << "No errors";
     EXPECT_EQ(requests, responses + errors) << "Total count";
+
+    ::std::cerr << "TX: " << observer->tx_ << " bytes\n"
+                << "RX: " << observer->rx_ << " bytes\n";
 }
 
-TEST_F(PingPong, ConnectFailException)
+void
+PingPong::ConnectFailException()
 {
     ASSERT_NE(0, child_.pid);
     ASSERT_TRUE(connector_.get());
@@ -285,6 +353,83 @@ TEST_F(PingPong, ConnectFailException)
     StopPartner();
 
     EXPECT_ANY_THROW(prx_->wire_ping()) << "Expect the unreachable object throws an exception";
+}
+
+void
+PingPong::AsyncConnectFailException()
+{
+    ASSERT_NE(0, child_.pid);
+    ASSERT_TRUE(connector_.get());
+    ASSERT_TRUE(prx_.get());
+
+    StopPartner();
+
+    bool connected = false;
+    bool errored   = false;
+    bool timed_out = false;
+
+    asio_ns::system_timer timer{*io_svc};
+    timer.expires_from_now(::std::chrono::seconds{5});
+    timer.async_wait(
+    [this, &timed_out](asio_config::error_code const& ec)
+    {
+        if (!ec) {
+            timed_out = true;
+            io_svc->stop();
+        }
+    });
+
+    prx_->wire_ping_async(
+        [this, &connected]()
+        {
+            connected = true;
+            io_svc->stop();
+        },
+        [this, &errored](::std::exception_ptr ex)
+        {
+            errored = true;
+            io_svc->stop();
+        });
+    io_svc->run();
+
+    EXPECT_FALSE(timed_out);
+    EXPECT_FALSE(connected);
+    EXPECT_TRUE(errored);
+}
+//----------------------------------------------------------------------------
+TEST_F(PingPong, CheckedCast)
+{
+    CheckedCast();
+}
+
+TEST_F(PingPong, WireFunctions)
+{
+    WireFunctions();
+}
+
+TEST_F(PingPong, OneWayPing)
+{
+    OneWayPing();
+}
+
+TEST_F(PingPong, SyncRoundtrip)
+{
+    SyncRoundtrip();
+}
+
+TEST_F(PingPong, MTConnectionUsage)
+{
+    MTConnectionUsage();
+}
+
+TEST_F(PingPong, ConnectFailException)
+{
+    ConnectFailException();
+}
+
+TEST_F(PingPong, AsyncConnectFailException)
+{
+    AsyncConnectFailException();
 }
 
 } // namespace test

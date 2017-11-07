@@ -116,7 +116,7 @@ public:
 
         using encoding::incoming;
         if (any(opts.flags & invocation_flags::one_way)) {
-            throw errors::runtime_error{ "Cannot send a non-void invocation one way" };
+            throw errors::invalid_one_way_invocation{ "Cannot send a non-void invocation one way" };
         }
         encoding::outgoing out{ get_connector() };
         encoding::write(::std::back_inserter(out), args ...);

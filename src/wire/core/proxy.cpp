@@ -75,10 +75,12 @@ object_proxy::wire_identity() const
     return wire_get_reference()->object_id();
 }
 
-connection_ptr
-object_proxy::wire_get_connection() const
+void
+object_proxy::wire_get_connection_async(connection_callback result,
+        functional::exception_callback error,
+        invocation_options opts ) const
 {
-    return wire_get_reference()->get_connection();
+    wire_get_reference()->get_connection_async( result, error, opts );
 }
 
 connector_ptr

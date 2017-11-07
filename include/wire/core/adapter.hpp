@@ -9,6 +9,7 @@
 #define WIRE_CORE_ADAPTER_HPP_
 
 #include <wire/asio_config.hpp>
+#include <wire/future_config.hpp>
 
 #include <wire/core/object_fwd.hpp>
 #include <wire/core/adapter_fwd.hpp>
@@ -17,10 +18,20 @@
 #include <wire/core/proxy_fwd.hpp>
 #include <wire/core/object_locator_fwd.hpp>
 #include <wire/core/endpoint.hpp>
-#include <wire/core/detail/configuration_options_fwd.hpp>
 #include <wire/core/connection_observer_fwd.hpp>
-#include <wire/core/detail/dispatch_request_fwd.hpp>
 #include <wire/core/current_fwd.hpp>
+#include <wire/core/locator_fwd.hpp>
+
+#include <wire/core/detail/configuration_options_fwd.hpp>
+#include <wire/core/detail/dispatch_request_fwd.hpp>
+
+#include <wire/core/invocation_options.hpp>
+#include <wire/core/functional.hpp>
+#include <wire/core/context.hpp>
+
+#include <wire/core/detail/future_traits.hpp>
+
+#include <wire/util/debug_log.hpp>
 
 #include <string>
 
@@ -67,24 +78,226 @@ public:
 
     detail::adapter_options const&
     options() const;
+    detail::ssl_options const&
+    ssl_options() const;
 
+    //@{
+    /** @name Activate/deactivate adapter */
     /**
      * Start accepting connections
      */
     void
     activate(bool postpone_reg = false);
     /**
-     * Register adapter in the locator
-     */
-    void
-    register_adapter();
-    /**
      * Stop accepting connections.
      * Send close to clients, close read ends.
      * Finish dispatching current requests, then close connections.
      */
     void
-    deactivate();
+    deactivate_async(functional::void_callback  result,
+            functional::exception_callback      exception,
+            context_type const&                             = no_context,
+            invocation_options const&           opts        = invocation_options::unspecified);
+
+    template < template <typename> class _Promise = promise >
+    auto
+    deactivate_async(
+            context_type const&                 ctx         = no_context,
+            invocation_options const&           opts        = invocation_options::unspecified)
+        -> decltype(::std::declval< _Promise<void> >().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<void> >();
+
+        deactivate_async(
+            [promise]()
+            {
+                DEBUG_LOG(3, "Deactivate result");
+                promise->set_value();
+            },
+            [promise](::std::exception_ptr ex)
+            {
+                DEBUG_LOG(3, "Deactivate exception");
+                promise->set_exception(ex);
+            }, ctx, opts
+        );
+
+        return promise->get_future();
+    }
+    template < template <typename> class _Promise = promise >
+    void
+    deactivate(
+            context_type const&                 ctx         = no_context,
+            invocation_options const&           opts        = invocation_options::unspecified)
+    {
+        auto future = deactivate_async<_Promise>(
+                ctx, opts | promise_invocation_flags<_Promise<void>>::value);
+        return future.get();
+    }
+    //@}
+    //@{
+    /**
+     * @name Get locator configured for the adapter (or the default locator)
+     */
+    void
+    get_locator_async (
+        functional::callback<locator_prx>   result,
+        functional::exception_callback      exception   = nullptr,
+        context_type const&                             = no_context,
+        invocation_options const&           opts        = invocation_options::unspecified) const;
+
+    template < template <typename> class _Promise = promise >
+    auto
+    get_locator_async(
+        context_type const&                 ctx         = no_context,
+        invocation_options const&           opts        = invocation_options::unspecified) const
+        -> decltype(::std::declval<_Promise<locator_prx>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<locator_prx> >();
+
+        get_locator_async(
+            [promise](locator_prx res)
+            {
+                promise->set_value(res);
+            },
+            [promise](::std::exception_ptr ex)
+            {
+                promise->set_exception(ex);
+            }, ctx, opts
+        );
+
+        return promise->get_future();
+    }
+
+    template < template <typename> class _Promise = promise >
+    locator_prx
+    get_locator(
+            context_type const&         ctx     = no_context,
+            invocation_options const&   opts    = invocation_options::unspecified) const
+    {
+        auto future = get_locator_async<_Promise>(
+                ctx, opts | promise_invocation_flags<_Promise<locator_prx>>::value);
+        return future.get();
+    }
+    //@}
+    //@{
+    /**
+     * @name Get locator registry configured for the adapter
+     * (or the default locator registry)
+     */
+    void
+    get_locator_registry_async (
+        functional::callback<locator_registry_prx>  result,
+        functional::exception_callback              exception   = nullptr,
+        context_type const&                                     = no_context,
+        invocation_options const&                   opts        = invocation_options::unspecified) const;
+
+    template < template <typename> class _Promise = promise >
+    auto
+    get_locator_registry_async(
+        context_type const&                 ctx     = no_context,
+        invocation_options const&           opts    = invocation_options::unspecified) const
+        -> decltype(::std::declval<_Promise<locator_registry_prx>>().get_future())
+    {
+        auto promise = ::std::make_shared< _Promise<locator_registry_prx> >();
+
+        get_locator_registry_async(
+            [promise](locator_registry_prx res)
+            {
+                promise->set_value(res);
+            },
+            [promise](::std::exception_ptr ex)
+            {
+                promise->set_exception(ex);
+            }, ctx, opts
+        );
+
+        return promise->get_future();
+    }
+
+    template < template <typename> class _Promise = promise >
+    locator_registry_prx
+    get_locator_registry(
+        context_type const&         ctx     = no_context,
+        invocation_options const&   opts    = invocation_options::unspecified) const
+    {
+        auto future = get_locator_registry_async<_Promise>(
+                ctx, opts | promise_invocation_flags<_Promise<locator_registry_prx>>::value);
+        return future.get();
+    }
+    //@}
+    //@{
+    /**
+     * @name Register adapter in the locator
+     */
+    void
+    register_adapter_async(
+        functional::void_callback       __result,
+        functional::exception_callback  __exception,
+        context_type const&             ctx         = no_context,
+        invocation_options const&       opts        = invocation_options::unspecified
+    );
+    template < template <typename> class _Promise = promise >
+    auto
+    register_adapter_async(
+        context_type const&             ctx         = no_context,
+        invocation_options const&       opts        = invocation_options::unspecified)
+        -> decltype( ::std::declval<_Promise<void>>().get_future() )
+    {
+        auto promise = ::std::make_shared<_Promise<void>>();
+        register_adapter_async(
+            [promise]()
+            { promise->set_value(); },
+            [promise](::std::exception_ptr ex)
+            { promise->set_exception(::std::move(ex)); },
+            ctx, opts);
+        return promise->get_future();
+    }
+    template < template <typename> class _Promise = promise >
+    void
+    register_adapter(
+        context_type const&             ctx         = no_context,
+        invocation_options const&       opts        = invocation_options::unspecified)
+    {
+        auto future = register_adapter_async<_Promise>(ctx,
+                opts | promise_invocation_flags<_Promise<void>>::value);
+        future.get();
+    }
+    //@}
+    //@{
+    void
+    unregister_adapter_async(
+        functional::void_callback       __result,
+        functional::exception_callback  __exception,
+        context_type const&             ctx         = no_context,
+        invocation_options const&       opts        = invocation_options::unspecified
+    );
+    template < template <typename> class _Promise = promise >
+    auto
+    unregister_adapter_async(
+        context_type const&             ctx         = no_context,
+        invocation_options const&       opts        = invocation_options::unspecified)
+        -> decltype( ::std::declval<_Promise<void>>().get_future() )
+    {
+        auto promise = ::std::make_shared<_Promise<void>>();
+        unregister_adapter_async(
+            [promise]()
+            { promise->set_value(); },
+            [promise](::std::exception_ptr ex)
+            { promise->set_exception(::std::move(ex)); },
+            ctx, opts);
+        return promise->get_future();
+    }
+    template < template <typename> class _Promise = promise >
+    void
+    unregister_adapter(
+        context_type const&             ctx         = no_context,
+        invocation_options const&       opts        = invocation_options::unspecified)
+    {
+        auto future = unregister_adapter_async<_Promise>(ctx,
+                opts | promise_invocation_flags<_Promise<void>>::value);
+        future.get();
+    }
+    //@}
     /**
      * @return State of adapter.
      */

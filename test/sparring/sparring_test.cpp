@@ -34,7 +34,7 @@ SparringTest::StartPartner()
 {
     {
         args_type args {
-            wire::test::sparring::options::instance().sparring_partner
+            PartnerProgram()
         };
         SetupArgs(args);
         pipe_sink out_sink(out_pipe_.sink, bio::close_handle);
@@ -47,6 +47,12 @@ SparringTest::StartPartner()
     }
     bio::stream< pipe_source > is(out_source_);
     ReadSparringOutput(is);
+}
+
+::std::string const&
+SparringTest::PartnerProgram() const
+{
+    return wire::test::sparring::options::instance().sparring_partner;
 }
 
 void

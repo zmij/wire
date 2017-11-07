@@ -25,7 +25,8 @@ struct type_mapping {
 
 using wire_type_map = ::std::map< ::std::string, type_mapping >;
 
-extern wire_type_map const wire_to_cpp;
+type_mapping const&
+wire_to_cpp(::std::string const&);
 
 struct mapped_type {
     static grammar::annotation_list const empty_annotations;

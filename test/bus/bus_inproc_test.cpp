@@ -39,10 +39,10 @@ TEST(BusInProc, StartService)
     auto cnctr = core::connector::create_connector(io_svc, args);
 
     svc::locator_service loc_svc{};
-    loc_svc.start(cnctr);
+    ASSERT_NO_THROW(loc_svc.start(cnctr)) << "Successfully start locator service";
 
     svc::bus_service bus_svc{};
-    bus_svc.start(cnctr);
+    ASSERT_NO_THROW(bus_svc.start(cnctr)) << "Successfully start bus service";
 
     auto bus_reg = bus_svc.registry();
     ASSERT_TRUE(bus_reg.get()) << "Bus registry proxy object";

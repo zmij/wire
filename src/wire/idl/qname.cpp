@@ -60,6 +60,51 @@ qname::parse(::std::string const& name)
     return qname{ name };
 }
 
+qname_search
+qname::in_scope(qname const& scope) const
+{
+    auto target = search();
+    auto current = scope.search();
+    for (; !current.empty() && !target.empty() && *current.begin == *target.begin;
+            ++current, ++target);
+    if (target.empty())
+        return search();
+    if (target.size() > 1) {
+        auto start = components.begin();
+        // Check for ambiguous names
+        for (auto c = current.begin; c != current.end; ++c) {
+            if (*c == *target.begin) {
+                // The name is ambiguous, put back the last common name, if any
+                if (target.begin != start) {
+                    --target;
+                    break;
+                } else {
+                    // Return original name, this is likely an error in in idl
+                    return search();
+                }
+            }
+        }
+    }
+    return target;
+}
+
+qname_search
+qname::in_scope(scope_ptr sc) const
+{
+    auto scope_name = sc->get_qualified_name();
+    auto target = in_scope(scope_name);
+    auto e = sc->find_entity(target);
+    if (!e) {
+        ::std::cerr << "error: '" << target << "' not found in scope '"
+                << scope_name << "'\n";
+    } else if (e->get_qualified_name() != *this) {
+        ::std::cerr << "warning: '" << target << "' in scope '"
+                << scope_name << "' is not the target name\n";
+    }
+
+    return target;
+}
+
 ::std::ostream&
 operator << (::std::ostream& os, qname const& val)
 {

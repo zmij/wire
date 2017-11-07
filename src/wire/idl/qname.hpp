@@ -12,6 +12,8 @@
 #include <vector>
 #include <stdexcept>
 
+#include <wire/idl/ast_fwd.hpp>
+
 namespace wire {
 namespace idl {
 namespace ast {
@@ -79,6 +81,14 @@ struct qname_search {
     {
         fully = false;
         ++begin;
+        return *this;
+    }
+
+    qname_search&
+    operator--()
+    {
+        fully = false;
+        --begin;
         return *this;
     }
 };
@@ -151,6 +161,11 @@ struct qname {
     qname_search
     search( bool f) const
     { return { f, components.begin(), components.end() }; }
+
+    qname_search
+    in_scope(qname const& scope) const;
+    qname_search
+    in_scope(scope_ptr scope) const;
 
     qname
     scope() const

@@ -23,7 +23,58 @@ namespace wire {
 namespace idl {
 namespace cpp {
 
-wire_type_map const wire_to_cpp = {
+namespace {
+
+::std::map< ::std::string, date_and_time > const STRING_TO_DATE_AND_TIME {
+    { "std",    date_and_time::std   },
+    { "boost",  date_and_time::boost }
+};
+
+::std::map< date_and_time, ::std::string > const DATE_AND_TIME_TO_STRING {
+    { date_and_time::std,   "std"   },
+    { date_and_time::boost, "boost" }
+};
+
+} /* namespace  */
+
+::std::ostream&
+operator <<(::std::ostream& os, date_and_time val)
+{
+    ::std::ostream::sentry s(os);
+    if (s) {
+        auto f = DATE_AND_TIME_TO_STRING.find(val);
+        if (f != DATE_AND_TIME_TO_STRING.end()) {
+            os << f->second;
+        } else {
+            os << "Unknown team_size value " << (int)val;
+        }
+    }
+    return os;
+}
+
+::std::istream&
+operator >>(::std::istream& is, date_and_time& val)
+{
+    ::std::istream::sentry s(is);
+    if (s) {
+        ::std::string name;
+        if (is >> name) {
+            auto f = STRING_TO_DATE_AND_TIME.find(name);
+            if (f != STRING_TO_DATE_AND_TIME.end()) {
+                val = f->second;
+            } else {
+                is.setstate(::std::ios_base::failbit);
+            }
+        }
+    }
+    return is;
+}
+
+date_and_time generator::datetime_type{date_and_time::std};
+
+namespace {
+
+wire_type_map const builtin_types = {
     /* Wire type      C++ Type                  Headers                                      */
     /*--------------+-------------------------+----------------------------------------------*/
     { "void",       { "void",                   {}                                          } },
@@ -54,8 +105,44 @@ wire_type_map const wire_to_cpp = {
                                                 "<wire/encoding/detail/containers_io.hpp>"} } },
     { "dictionary", { "::std::map",             {"<map>",
                                                 "<wire/encoding/detail/containers_io.hpp>"} } },
-
 };
+
+
+wire_type_map const chrono_mapping = {
+        /* Wire type      C++ Type                  Headers                                      */
+        /*--------------+-------------------------+----------------------------------------------*/
+        { "time_point", { "::std::chrono::system_clock::time_point",
+                                                    {"<chrono>",
+                                                     "<wire/encoding/detail/chrono_io.hpp>"}    } },
+        { "duration",   { "::std::chrono::system_clock::duration",
+                                                    {"<chrono>",
+                                                     "<wire/encoding/detail/chrono_io.hpp>"}    } }
+};
+
+wire_type_map const boost_time_mapping = {
+        /* Wire type      C++ Type                  Headers                                      */
+        /*--------------+-------------------------+----------------------------------------------*/
+        { "time_point", { "::boost::posix_time::ptime",
+                                             {"<wire/encoding/detail/boost_date_time_io.hpp>"} } },
+        { "duration",   { "::boost::posix_time::time_duration",
+                                             {"<wire/encoding/detail/boost_date_time_io.hpp>"} } }
+};
+
+} /* namespace  */
+
+type_mapping const&
+wire_to_cpp(::std::string const& name)
+{
+    if (chrono_mapping.find(name) != chrono_mapping.end()) {
+        switch (generator::datetime_type) {
+            case date_and_time::std :
+                return chrono_mapping.at(name);
+            case date_and_time::boost :
+                return boost_time_mapping.at(name);
+        }
+    }
+    return builtin_types.at(name);
+}
 
 namespace {
 
@@ -74,6 +161,7 @@ ast::qname const back_inserter          { "::std::back_insert_iterator" };
 ast::qname const wire_encoding_read     { "::wire::encoding::read" };
 ast::qname const wire_encoding_write    { "::wire::encoding::write" };
 ast::qname const wire_encoding_detail   { "::wire::encoding::detail" };
+ast::qname const wire_util_namespace    { "::wire::util" };
 
 ast::qname const wire_callback          { "::wire::core::functional::callback" };
 ast::qname const wire_void_callback     { "::wire::core::functional::void_callback" };
@@ -182,7 +270,7 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
     for (auto const& d : deps) {
         if (auto t = ast::dynamic_entity_cast< ast::type >(d)) {
             if (ast::type::is_built_in(qname(d))) {
-                auto const& tm = wire_to_cpp.at(d->name());
+                auto const& tm = wire_to_cpp(d->name());
                 if (!tm.headers.empty()) {
                     standard_headers.insert(tm.headers.begin(), tm.headers.end());
                 }
@@ -242,6 +330,9 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
     }
     if (unit_->has_classes()) {
         header_.include("<wire/encoding/detail/polymorphic_io.hpp>");
+    }
+    if (unit_->has_enums()) {
+        header_.include("<wire/util/enum_range.hpp>");
     }
 
     header_ << "\n";
@@ -459,7 +550,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
     }
     header_ << "__ctx, "
             << off(+2)    << "wire_invocation_options() | "
-                << promise_inv_flags << "<_Promise>::value);"
+                << promise_inv_flags << "<_Promise<" << mapped_type{func->get_return_type(), func->get_annotations()} << ">>::value);"
             << off << "return future.get();"
             << mod(-1) << "}\n";
 
@@ -605,6 +696,7 @@ generator::generate_forward_decl( ast::forward_declaration_ptr fwd )
                     << off << "using " << cpp_name(fwd) << "_prx = ::std::shared_ptr< "
                         << cpp_name(fwd) << "_proxy >;";
             ;
+            // fallthrough
         case ast::forward_declaration::exception:
         case ast::forward_declaration::class_:
             header_ << off << "class " << cpp_name(fwd) << ";"
@@ -640,7 +732,7 @@ generator::generate_enum(ast::enumeration_ptr enum_)
     header_ << cpp_name(enum_) << "{";
     header_.modify_offset(+1);
     for (auto e : enum_->get_enumerators()) {
-        header_ << off << e.first;
+        header_ << off << cpp_name(e.first);
         if (e.second.is_initialized()) {
             header_ << " = " << *e.second;
         }
@@ -730,6 +822,31 @@ generator::generate_enum(ast::enumeration_ptr enum_)
                 << off      <<      "}"
                 << off      <<      "return f->second;"
                 << mod(-1)  << "}\n";
+    }
+}
+
+void
+generator::generate_enum_traits(ast::enumeration_const_ptr enum_)
+{
+    if (!enum_->get_enumerators().empty()) {
+        header_ << off      << "// enum_range traits for " << qname(enum_)
+                << off      << "template <>"
+                << off      << "struct enum_traits<" << qname(enum_) << "> {"
+                << off(+1)      << "using enumerators = detail::enumerators<"
+                << off(+4)              << qname(enum_) << ",";
+        ;
+        header_.modify_offset(+4);
+        auto const& enumerators = enum_->get_enumerators();
+        for (auto p = enumerators.begin(); p != enumerators.end(); ++p) {
+            header_ << off << qname(enum_, p->first);
+            auto n = p;
+            if (++n != enumerators.end())
+                header_ << ",";
+        }
+        header_.modify_offset(-4);
+        header_ << off(+1)  << ">;";
+
+        header_ << off << "};";
     }
 }
 
@@ -1804,6 +1921,18 @@ generator::finish_compilation_unit(ast::compilation_unit const& u)
                         << " >: ::std::true_type {};";
         }
         header_ << "\n";
+    }
+    ast::entity_const_set enums;
+    u.collect_elements(enums,
+        [](ast::entity_const_ptr e)
+        {
+            return (bool)ast::dynamic_entity_cast< ast::enumeration >(e).get();
+        });
+    if (!enums.empty()) {
+        header_.adjust_namespace(wire_util_namespace);
+        for (auto e : enums) {
+            generate_enum_traits(ast::dynamic_entity_cast< ast::enumeration >(e));
+        }
     }
 }
 
