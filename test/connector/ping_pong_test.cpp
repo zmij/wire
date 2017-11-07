@@ -9,6 +9,7 @@
 #include <wire/core/connection_observer.hpp>
 
 #include "ping_pong_test.hpp"
+#include "ping_pong_options.hpp"
 
 #include <atomic>
 
@@ -96,6 +97,24 @@ PingPong::ReadSparringOutput(::std::istream& is)
     ::std::getline(is, proxy_str);
     prx_ = connector_->string_to_proxy(proxy_str);
     ::std::cerr << "Sparring proxy object is " << *prx_ << "\n";
+}
+
+::std::string const&
+PingPong::PartnerProgram() const
+{
+    return ping_pong_options::instance().sparring_partner;
+}
+
+::std::size_t
+PingPong::ReqPerThread() const
+{
+    return ping_pong_options::instance().tcp_req_per_thread;
+}
+
+::std::int64_t
+PingPong::MTTestTimeout() const
+{
+    return ping_pong_options::instance().tcp_test_timeout;
 }
 
 void
@@ -197,7 +216,7 @@ PingPong::SyncRoundtrip()
 void
 PingPong::MTConnectionUsage()
 {
-    const ::std::size_t req_per_thread = 10;
+    const ::std::size_t req_per_thread = ReqPerThread();
     auto const test_threads = ::std::thread::hardware_concurrency() / 2;
     auto const num_req = req_per_thread * test_threads * 2;
 
@@ -278,7 +297,7 @@ PingPong::MTConnectionUsage()
             };
 
     asio_ns::system_timer timer{*io_svc};
-    timer.expires_from_now(::std::chrono::seconds{5});
+    timer.expires_from_now(::std::chrono::seconds{MTTestTimeout()});
     timer.async_wait(
     [&](asio_config::error_code const& ec)
     {
@@ -303,7 +322,7 @@ PingPong::MTConnectionUsage()
                 fat_string = os.str();
             }
             for (auto i = 0U; i < req_per_thread; ++i) {
-                ::std::int32_t the_num = 10000 * (n + 1) + i;
+                ::std::int32_t the_num = 100000 * (n + 1) + i;
                 LOG_TAG("thread " << n + 1 << " iteration " << i);
                 LOG_TAG(n + 1 << " Int req " << the_num);
                 pp_prx->test_int_async(the_num, int_resp, error_resp, sent);

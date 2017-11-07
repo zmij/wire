@@ -31,6 +31,15 @@ protected:
     core::object_prx    prx_;
 
     static ::std::string const LIPSUM_TEST_STRING;
+private:
+    virtual ::std::size_t
+    ReqPerThread() const;
+
+    virtual ::std::int64_t
+    MTTestTimeout() const;
+
+    ::std::string const&
+     PartnerProgram() const override;
 protected:
     void
     CheckedCast();

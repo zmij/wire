@@ -20,8 +20,9 @@ public:
     instance();
 public:
     std::string sparring_partner;
-private:
+protected:
     options() {}
+private:
     options(options const&) = delete;
     options&
     operator = (options const&) = delete;

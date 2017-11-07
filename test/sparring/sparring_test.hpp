@@ -66,6 +66,9 @@ protected:
         return endpoint_data;
     }
 private:
+    virtual ::std::string const&
+    PartnerProgram() const;
+private:
     pipe        out_pipe_;
     pipe_source out_source_;
 };

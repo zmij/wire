@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include "ping_pong_test.hpp"
+#include "ping_pong_options.hpp"
 #include "config.hpp"
 
 namespace wire {
@@ -25,7 +26,8 @@ protected:
             {
                 "--wire.connector.ssl.client.certificate=" + wire::test::CLIENT_CERT,
                 "--wire.connector.ssl.client.key=" + wire::test::CLIENT_KEY,
-                "--wire.connector.ssl.client.verify_file=" + wire::test::CA_ROOT
+                "--wire.connector.ssl.client.verify_file=" + wire::test::CA_ROOT,
+                "--wire.connector.cm.request_timeout=60000"
             });
         StartPartner();
     }
@@ -43,6 +45,18 @@ protected:
             "--wire.connector.ssl.server.verify_file=" + wire::test::CA_ROOT,
             "--wire.connector.ssl.server.reqire_peer_cert=true"
         });
+    }
+private:
+    ::std::size_t
+    ReqPerThread() const override
+    {
+        return ping_pong_options::instance().ssl_req_per_thread;
+    }
+
+    ::std::int64_t
+    MTTestTimeout() const override
+    {
+        return ping_pong_options::instance().ssl_test_timeout;
     }
 
 };
