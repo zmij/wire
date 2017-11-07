@@ -343,16 +343,26 @@ struct ssl_transport {
     void
     close();
 
-    bool
+    inline bool
     is_open() const
     {
         return socket_.lowest_layer().is_open();
     }
 
+    inline bool
+    ssl_shutdown() const
+    {
+        socket_type& s = const_cast<socket_type&>(socket_);
+        if (!s.native_handle()->wbio) {
+            return false;
+        }
+        return s.native_handle()->wbio->shutdown;
+    }
+
     template<typename BufferType, typename HandlerType>
     void async_write(BufferType const& buffer, HandlerType handler)
     {
-        if (socket_.lowest_layer().is_open()) {
+        if (is_open()) {
             ::psst::asio::async_write(socket_, buffer, strand_.wrap(::std::move(handler)));
         } else {
             handler(asio_config::make_error_code( asio_config::error::shut_down ), 0);
@@ -382,7 +392,7 @@ struct ssl_transport {
     void
     async_read(BufferType&& buffer, HandlerType handler)
     {
-        if (socket_.lowest_layer().is_open()) {
+        if (is_open()) {
             ::psst::asio::async_read(socket_, ::std::forward<BufferType>(buffer),
                     strand_.wrap(::std::move(handler)));
         } else {

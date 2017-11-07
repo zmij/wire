@@ -26,6 +26,8 @@ struct connection_observer {
     using invocation_target = encoding::invocation_target;
     using operation_id      = encoding::operation_specs::operation_id;
     using duration_type     = ::std::chrono::system_clock::duration;
+    using request_number    = encoding::request::request_number;
+
     virtual ~connection_observer() {}
     /**
      * Invoked when a connection writes bytes to it's peer
@@ -49,7 +51,8 @@ struct connection_observer {
      * @param ep
      */
     virtual void
-    invoke_remote(invocation_target const& id, operation_id const& op,
+    invoke_remote(request_number req_no,
+            invocation_target const& id, operation_id const& op,
             endpoint const& ep) const noexcept {}
     /**
      * Invocation completed successfully
@@ -58,7 +61,8 @@ struct connection_observer {
      * @param ep
      */
     virtual void
-    invocation_ok(invocation_target const& id, operation_id const& op,
+    invocation_ok(request_number req_no,
+            invocation_target const& id, operation_id const& op,
             endpoint const& ep, duration_type elapsed_time) const noexcept {}
     /**
      * Invocation completed with an error
@@ -68,7 +72,8 @@ struct connection_observer {
      * @param ex
      */
     virtual void
-    invocation_error(invocation_target const& id, operation_id const& op,
+    invocation_error(request_number req_no,
+            invocation_target const& id, operation_id const& op,
             endpoint const& ep, bool sent,
             ::std::exception_ptr ex, duration_type elapsed_time) const noexcept {}
     /**
@@ -78,7 +83,8 @@ struct connection_observer {
      * @param ep
      */
     virtual void
-    receive_request(invocation_target const& id, operation_id const& op,
+    receive_request(request_number req_no,
+            invocation_target const& id, operation_id const& op,
             endpoint const& ep) const noexcept {}
     /**
      * Request processed successfully
@@ -87,9 +93,9 @@ struct connection_observer {
      * @param ep
      */
     virtual void
-    request_ok(invocation_target const& id, operation_id const& op,
-            endpoint const& ep,
-            duration_type elapsed_time) const noexcept {};
+    request_ok(request_number req_no,
+            invocation_target const& id, operation_id const& op,
+            endpoint const& ep, duration_type elapsed_time) const noexcept {};
     /**
      * Request processing raised an exception
      * @param id
@@ -98,7 +104,8 @@ struct connection_observer {
      * @param ex
      */
     virtual void
-    request_error(invocation_target const& id, operation_id const& op,
+    request_error(request_number req_no,
+            invocation_target const& id, operation_id const& op,
             endpoint const& ep, ::std::exception_ptr ex,
             duration_type elapsed_time) const noexcept {}
     /**
@@ -109,7 +116,8 @@ struct connection_observer {
      * @param ep
      */
     virtual void
-    request_no_response(invocation_target const& id, operation_id const& op,
+    request_no_response(request_number req_no,
+            invocation_target const& id, operation_id const& op,
             endpoint const& ep,
             duration_type elapsed_time) const noexcept {}
     /**
@@ -121,7 +129,8 @@ struct connection_observer {
      * @param ep
      */
     virtual void
-    request_double_response(invocation_target const& id, operation_id const& op,
+    request_double_response(request_number req_no,
+            invocation_target const& id, operation_id const& op,
             endpoint const& ep) const noexcept {}
     /**
      * Connection is connected to a peer

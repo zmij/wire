@@ -215,14 +215,10 @@ connection_implementation::request_error(request_number r_no,
 {
     pending_replies_type::accessor acc;
     if (pending_replies_.find(acc, r_no)) {
-        #if DEBUG_OUTPUT >= 3
-        ::std::ostringstream os;
-        tag(os) << " Request " << r_no << " connection error\n";
-        ::std::cerr << os.str();
-        #endif
+        DEBUG_LOG_TAG(3, tag, "Request #" << r_no << " connection error");
         auto const& p_rep = acc->second;
         auto elapsed = clock_type::now() - p_rep.start;
-        observer_.invocation_error(p_rep.target, p_rep.operation,
+        observer_.invocation_error(r_no, p_rep.target, p_rep.operation,
                 remote_endpoint(), p_rep.sent, ex, elapsed);
         if (p_rep.error) {
             auto err_handler = p_rep.error;
@@ -247,6 +243,7 @@ connection_implementation::on_request_timeout(asio_config::error_code const& ec)
     reply_expiration r_exp;
     while (expiration_queue_.try_pop(r_exp)) {
         if (r_exp.expires <= now) {
+            DEBUG_LOG_TAG(3, tag, "Request #" << r_exp.number << " timed out");
             request_error(r_exp.number, ::std::make_exception_ptr(err));
         } else {
             expiration_queue_.push(r_exp);
@@ -411,11 +408,7 @@ connection_implementation::handle_write(asio_config::error_code const& ec, ::std
         process_event(events::write_done{});
         if (cb) cb();
     } else {
-        #if DEBUG_OUTPUT >= 2
-        ::std::ostringstream os;
-        tag(os) << " Write failed " << ec.message() << "\n";
-        ::std::cerr << os.str();
-        #endif
+        DEBUG_LOG_TAG(2, tag, "Write failed " << ec.message());
         connection_failure(
             ::std::make_exception_ptr(errors::connection_failed(ec.message())));
     }
@@ -444,6 +437,7 @@ connection_implementation::handle_read(asio_config::error_code const& ec, ::std:
         incoming_buffer_ptr buffer)
 {
     if (!ec) {
+        DEBUG_LOG_TAG(4, tag, "Received " << bytes << " bytes");
         observer_.receive_bytes(bytes, remote_endpoint());
         process_event(events::receive_data{buffer, bytes});
         start_read();
@@ -619,7 +613,6 @@ connection_implementation::invoke(encoding::invocation_target const& target,
         functional::callback< bool > sent)
 {
     using encoding::request;
-    observer_.invoke_remote(target, op, remote_endpoint());
     encoding::outgoing_ptr out = ::std::make_shared<encoding::outgoing>(
             get_connector(),
             encoding::message::request);
@@ -628,6 +621,7 @@ connection_implementation::invoke(encoding::invocation_target const& target,
         encoding::operation_specs{ target, op },
         request::normal
     };
+    observer_.invoke_remote(r.number, target, op, remote_endpoint());
     if (ctx.empty())
         r.mode |= request::no_context;
     if (opts.is_one_way())
@@ -800,7 +794,8 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                         DEBUG_LOG_TAG(3, tag, "Reply encaps v" << ever.major << "." << ever.minor
                                 << " size " << encaps.size());
                         #endif
-                        observer_.invocation_ok(p_rep.target, p_rep.operation,
+                        observer_.invocation_ok(rep.number,
+                                p_rep.target, p_rep.operation,
                                 peer_ep, elapsed);
                         try {
                             p_rep.reply(encaps->begin(), encaps->end());
@@ -813,7 +808,8 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                 case reply::success_no_body: {
                     DEBUG_LOG_TAG(3, tag, "Reply #" << rep.number
                             << " status is success without body");
-                    observer_.invocation_ok(p_rep.target, p_rep.operation,
+                    observer_.invocation_ok(rep.number,
+                            p_rep.target, p_rep.operation,
                             peer_ep, elapsed);
                     if (p_rep.reply) {
                         try {
@@ -848,7 +844,8 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                                         op.target.facet,
                                     op.operation
                                 });
-                        observer_.invocation_error(p_rep.target, p_rep.operation,
+                        observer_.invocation_error(rep.number,
+                                p_rep.target, p_rep.operation,
                                 peer_ep, p_rep.sent, ex, elapsed);
                         try {
                             p_rep.error(ex);
@@ -876,7 +873,8 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                         read(b, encaps->end(), exc);
                         encaps->read_indirection_table(b);
                         auto ex = exc->make_exception_ptr();
-                        observer_.invocation_error(p_rep.target, p_rep.operation,
+                        observer_.invocation_error(rep.number,
+                                p_rep.target, p_rep.operation,
                                 peer_ep, p_rep.sent, ex, elapsed);
                         try {
                             p_rep.error(ex);
@@ -890,7 +888,8 @@ connection_implementation::dispatch_reply(encoding::incoming_ptr buffer)
                     if (p_rep.error) {
                         auto ex = ::std::make_exception_ptr(
                                 errors::unmarshal_error{ "Unhandled reply status" } );
-                        observer_.invocation_error(p_rep.target, p_rep.operation,
+                        observer_.invocation_error(rep.number,
+                                p_rep.target, p_rep.operation,
                                 peer_ep, p_rep.sent, ex, elapsed);
                         try {
                             p_rep.error(ex);
@@ -1028,8 +1027,8 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
             #endif
             time_point req_start = clock_type::now();
             auto peer_ep = remote_endpoint();
-            observer_.receive_request(req.operation.target,
-                    req.operation.operation, peer_ep);
+            observer_.receive_request(req.number,
+                    req.operation.target, req.operation.operation, peer_ep);
             current curr {
                 req.operation,
                 {},
@@ -1069,7 +1068,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                 << " failed to respond\n";
                         ::std::cerr << os.str();
                         #endif
-                        _this->observer_.request_no_response(
+                        _this->observer_.request_no_response(req.number,
                                 req.operation.target, req.operation.operation,
                                 _this->remote_endpoint(),
                                 clock_type::now() - req_start);
@@ -1080,13 +1079,9 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                         buffer, en.begin(), en.end(), en.size(),
                         [_this, req, fpg, req_start](outgoing&& res) mutable {
                             if (fpg->respond()) {
-                                #if DEBUG_OUTPUT >= 3
-                                ::std::ostringstream os;
-                                _this->tag(os) << " Request #" << req.number
-                                        << " success responce\n";
-                                ::std::cerr << os.str();
-                                #endif
-                                _this->observer_.request_ok(
+                                DEBUG_LOG_TAG(3, _this->tag,
+                                        "Request #" << req.number << " success responce");
+                                _this->observer_.request_ok(req.number,
                                     req.operation.target, req.operation.operation,
                                     _this->remote_endpoint(),
                                     clock_type::now() - req_start);
@@ -1104,6 +1099,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                 _this->process_event(events::send_reply{out});
                             } else {
                                 _this->observer_.request_double_response(
+                                    req.number,
                                     req.operation.target,
                                     req.operation.operation,
                                     _this->remote_endpoint());
@@ -1117,7 +1113,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                         << " exception responce\n";
                                 ::std::cerr << os.str();
                                 #endif
-                                _this->observer_.request_error(
+                                _this->observer_.request_error(req.number,
                                     req.operation.target, req.operation.operation,
                                     _this->remote_endpoint(), ex,
                                     clock_type::now() - req_start);
@@ -1134,6 +1130,7 @@ connection_implementation::dispatch_incoming_request(encoding::incoming_ptr buff
                                 }
                             } else {
                                 _this->observer_.request_double_response(
+                                    req.number,
                                     req.operation.target,
                                     req.operation.operation,
                                     _this->remote_endpoint());

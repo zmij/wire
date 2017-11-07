@@ -225,9 +225,9 @@ struct connection_fsm_def :
         void
         operator()(events::send_reply const& rep, FSM& fsm, SourceState&, TargetState&)
         {
-//            root_machine(fsm)->post(&concrete_type::write_async,
-//                    rep.outgoing, functional::void_callback{});
-            root_machine(fsm)->write_async(rep.outgoing);
+            root_machine(fsm)->post(&concrete_type::write_async,
+                    rep.outgoing, functional::void_callback{});
+            //root_machine(fsm)->write_async(rep.outgoing);
         }
     };
     struct process_incoming {
