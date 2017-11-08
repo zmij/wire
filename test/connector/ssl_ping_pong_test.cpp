@@ -37,6 +37,7 @@ protected:
     {
         args.insert(args.end(), {
             "--transport=ssl",
+            "--threads=2",
             #if DEBUG_OUTPUT > 1
             "--port=14888",
             #endif

@@ -834,7 +834,8 @@ struct connector::impl {
     static ::std::ostream&
     tag(::std::ostream& os)
     {
-        os << ::getpid() << " (connector) ";
+        auto t = ::std::time(nullptr);
+        os << t << " " << ::getpid() << " (connector) ";
         return os;
     }
 };

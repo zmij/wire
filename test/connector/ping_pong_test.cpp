@@ -18,7 +18,7 @@ namespace wire {
 namespace test {
 
 #define LOG_TAG(...)\
-{ ::std::ostringstream os; os << getpid() << " (test) " << __VA_ARGS__ << "\n"; ::std::cerr << os.str(); }
+{ ::std::ostringstream os; os << ::std::time(nullptr) << " " << getpid() << " (test) " << __VA_ARGS__ << "\n"; ::std::cerr << os.str(); }
 
 
 ::std::string const PingPong::LIPSUM_TEST_STRING = R"~(

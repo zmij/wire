@@ -734,7 +734,8 @@ struct connection_implementation : ::std::enable_shared_from_this<connection_imp
     {
         static ::std::size_t thread_counter = 0;
         thread_local ::std::size_t thread_no = ++thread_counter;
-        os << ::getpid() << " #" << number_ << (mode_ == server ? "s" : "c")
+        auto t = ::std::time(nullptr);
+        os << t << " " << ::getpid() << " #" << number_ << (mode_ == server ? "s" : "c")
                 << " " << thread_no << " ";
         return os;
     }

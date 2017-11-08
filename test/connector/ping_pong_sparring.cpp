@@ -58,8 +58,9 @@ try {
     namespace po = ::boost::program_options;
     ::std::uint16_t port_no{0};
     transport_type transport;
-    po::options_description desc("Test options");
     ::std::string log_file;
+    ::std::size_t   thread_count{1};
+    po::options_description desc("Test options");
 
     desc.add_options()
         ("help,h", "show options description")
@@ -69,6 +70,8 @@ try {
         ("port,p",
             po::value< ::std::uint16_t >(&port_no),
             "Port to bind to")
+        ("threads", po::value<::std::size_t>(&thread_count)->default_value(1),
+            "Number of threads to run")
         ("log", po::value< ::std::string >(&log_file))
     ;
     po::parsed_options parsed_cmd =
@@ -100,7 +103,7 @@ try {
     signals.add(SIGQUIT);
     signals.async_wait(
     [io_service](::wire::asio_config::error_code const&, int signo){
-        ::std::cerr << "Signal " << signo << "\n";
+        ::std::cerr << ::getpid() << " Signal " << signo << "\n";
         io_service->stop();
     });
 
@@ -126,13 +129,23 @@ try {
     auto prx = adptr->add_object({"ping_pong"}, pp_server);
     adptr->add_default_servant(pp_server);
     ::std::cout << *prx << ::std::endl;
-    if (prx->wire_get_reference()->is_local()) {
-        ::std::cerr << ::getpid() << " Reference classified to be local\n";
-    } else {
-        ::std::cerr << ::getpid() << " Reference classified to be remote\n";
-    }
 
-    io_service->run();
+    if (thread_count > 1) {
+        if (thread_count > ::std::thread::hardware_concurrency())
+            thread_count = ::std::thread::hardware_concurrency();
+        ::std::cerr << ::getpid() << " running in " << thread_count << " threads\n";
+        ::std::vector< ::std::thread > threads;
+        for (auto i = 0U; i < thread_count; ++i) {
+            threads.emplace_back(::std::thread{ [&](){
+                io_service->run();
+            }});
+        }
+        for (auto& t : threads) {
+            t.join();
+        }
+    } else {
+        io_service->run();
+    }
     return 0;
 } catch (::std::exception const& e) {
     ::std::cerr << "Exception: " << e.what() << "\n";

@@ -391,10 +391,10 @@ connection_implementation::write_async(encoding::outgoing_ptr out,
 {
     DEBUG_LOG_TAG(3, tag, "Send " << out->type() << " size " << out->size());
     if (!is_terminated() && is_open()) {
-    do_write_async( out,
-        ::std::bind(&connection_implementation::handle_write, shared_from_this(),
+        do_write_async( out,
+            ::std::bind(&connection_implementation::handle_write, shared_from_this(),
                 ::std::placeholders::_1, ::std::placeholders::_2, cb, out));
-}
+    }
 }
 
 void
@@ -409,6 +409,7 @@ connection_implementation::handle_write(asio_config::error_code const& ec, ::std
         if (cb) cb();
     } else {
         DEBUG_LOG_TAG(2, tag, "Write failed " << ec.message());
+        connection_fsm::clear_deferred_events();
         connection_failure(
             ::std::make_exception_ptr(errors::connection_failed(ec.message())));
     }
@@ -438,12 +439,13 @@ connection_implementation::handle_read(asio_config::error_code const& ec, ::std:
 {
     if (!ec) {
         DEBUG_LOG_TAG(4, tag, "Received " << bytes << " bytes");
+        start_read();
         observer_.receive_bytes(bytes, remote_endpoint());
         process_event(events::receive_data{buffer, bytes});
-        start_read();
         set_idle_timer();
     } else {
         DEBUG_LOG_TAG(2, tag, "Read failed " << ec.message());
+        connection_fsm::clear_deferred_events();
         connection_failure(
             ::std::make_exception_ptr(errors::connection_failed(ec.message())));
     }
