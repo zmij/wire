@@ -54,6 +54,9 @@ protected:
     SyncRoundtrip();
 
     void
+    Exceptions();
+
+    void
     MTConnectionUsage();
 
     void

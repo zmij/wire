@@ -47,12 +47,16 @@ public:
             ::wire::core::current const& = ::wire::core::no_current) override;
 
     void
-    error(::wire::core::current const& = ::wire::core::no_current) override;
+    error(::std::string const& message, ::wire::core::current const& = ::wire::core::no_current) override;
 
     void
-    async_error(::wire::core::functional::void_callback __resp,
+    async_error(::std::string const& message,
+            ::wire::core::functional::void_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) const override;
+
+    void
+    throw_unexpected(::std::string const& message, ::wire::core::current const& = ::wire::core::no_current) override;
 
     void
     stop(::wire::core::functional::void_callback __resp,

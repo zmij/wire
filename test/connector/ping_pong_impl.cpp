@@ -100,23 +100,34 @@ ping_pong_server::test_ball(::test::ball_ptr b,
 }
 
 void
-ping_pong_server::error(::wire::core::current const&)
+ping_pong_server::error(::std::string const& message, ::wire::core::current const&)
 {
-    throw ::test::oops{ "Shit happens!" };
+    ::std::ostringstream os;
+    os << ::getpid() << " " << __FUNCTION__ << " message '" << message << "'\n";
+    ::std::cerr << os.str();
+    throw ::test::oops{ message };
 }
 
 void
-ping_pong_server::async_error(::wire::core::functional::void_callback __resp,
+ping_pong_server::async_error(::std::string const& message, ::wire::core::functional::void_callback __resp,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&) const
 {
-    #if DEBUG_OUTPUT >= 3
     ::std::ostringstream os;
-    os << ::getpid() << " " << __FUNCTION__ << "\n";
+    os << ::getpid() << " " << __FUNCTION__ << " message '" << message << "'\n";
     ::std::cerr << os.str();
-    #endif
-    __exception(::std::make_exception_ptr(::test::oops{ "Async shit happens!" }));
+    __exception(::std::make_exception_ptr(::test::oops{ message }));
 }
+
+void
+ping_pong_server::throw_unexpected(::std::string const& message, ::wire::core::current const&)
+{
+    ::std::ostringstream os;
+    os << ::getpid() << " " << __FUNCTION__ << " message '" << message << "'\n";
+    ::std::cerr << os.str();
+    throw ::std::runtime_error{message};
+}
+
 
 void
 ping_pong_server::stop(::wire::core::functional::void_callback __resp,

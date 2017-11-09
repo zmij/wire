@@ -56,10 +56,14 @@ interface ping_pong {
 
     [[sync]]
     void
-    error() throw (oops);
+    error(string message) throw (oops);
 
     void
-    async_error() const throw (oops);
+    async_error(string message) const throw (oops);
+
+    [[sync]]
+    void
+    throw_unexpected(string message);
 
     void
     stop();

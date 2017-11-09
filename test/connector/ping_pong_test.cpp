@@ -7,6 +7,7 @@
 
 #include <gtest/gtest.h>
 #include <wire/core/connection_observer.hpp>
+#include <wire/errors/unexpected.hpp>
 
 #include "ping_pong_test.hpp"
 #include "ping_pong_options.hpp"
@@ -189,8 +190,8 @@ PingPong::SyncRoundtrip()
     auto data = pp_prx->test_struct(d);
     EXPECT_EQ(d, data);
 
-    EXPECT_THROW(pp_prx->error(), ::test::oops);
-    EXPECT_THROW(pp_prx->async_error(), ::test::oops);
+    EXPECT_THROW(pp_prx->error("Message"), ::test::oops);
+    EXPECT_THROW(pp_prx->async_error("Message"), ::test::oops);
 
     auto prx = connector_->string_to_proxy("events tcp://localhost:8888");
     auto cb_prx = core::unchecked_cast< ::test::ping_pong::callback_proxy >(prx);
@@ -211,6 +212,33 @@ PingPong::SyncRoundtrip()
 
     ret = pp_prx->test_ball(::test::ball_ptr{});
     ASSERT_FALSE(ret.get());
+}
+
+void
+PingPong::Exceptions()
+{
+    ASSERT_NE(0, child_.pid);
+    ASSERT_TRUE(connector_.get());
+    ASSERT_TRUE(prx_.get());
+
+    ::std::string message = "the message";
+
+    auto pp_prx = core::checked_cast< ::test::ping_pong_proxy >(prx_);
+    ASSERT_TRUE(pp_prx.get());
+
+    try {
+        pp_prx->error(message);
+    } catch (::test::oops const& err) {
+        EXPECT_EQ(message, err.message) << "Incorrect message from 'error' invocation";
+    }
+
+    EXPECT_THROW(pp_prx->throw_unexpected(message), errors::unexpected);
+    try {
+        pp_prx->throw_unexpected(message);
+    } catch(errors::unexpected const& err) {
+        EXPECT_EQ(message, err.message) << "Incorrect message from 'throw_unexpected' invocation";
+    }
+
 }
 
 void
@@ -415,6 +443,11 @@ TEST_F(PingPong, OneWayPing)
 TEST_F(PingPong, SyncRoundtrip)
 {
     SyncRoundtrip();
+}
+
+TEST_F(PingPong, Exceptions)
+{
+    Exceptions();
 }
 
 TEST_F(PingPong, MTConnectionUsage)

@@ -980,7 +980,7 @@ connection_implementation::send_exception(request_number req_num, ::std::excepti
 
     {
         outgoing::encaps_guard guard{ out->begin_encapsulation() };
-        errors::unexpected ue { typeid(e).name(), e.what() };
+        errors::unexpected ue { ::std::string{typeid(e).name()}, ::std::string{e.what()} };
         ue.__wire_write(o);
     }
     process_event(events::send_reply{out});
@@ -990,6 +990,8 @@ void
 connection_implementation::send_unknown_exception(request_number req_num)
 {
     using namespace encoding;
+    using namespace ::std::string_literals;
+
     outgoing_ptr out =
             ::std::make_shared<outgoing>(get_connector(), message::reply);
     reply rep { req_num, reply::unknown_exception };
@@ -998,7 +1000,8 @@ connection_implementation::send_unknown_exception(request_number req_num)
 
     {
         outgoing::encaps_guard guard{ out->begin_encapsulation() };
-        errors::unexpected ue {"Unknown type", "Unexpected exception not deriving from std::exception"};
+        errors::unexpected ue {"Unknown type"s,
+            "Unexpected exception not deriving from std::exception"s};
         ue.__wire_write(o);
     }
     process_event(events::send_reply{out});

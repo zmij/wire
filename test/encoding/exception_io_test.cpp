@@ -7,6 +7,7 @@
 
 #include <gtest/gtest.h>
 #include <wire/errors/user_exception.hpp>
+#include <wire/errors/unexpected.hpp>
 #include <wire/encoding/buffers.hpp>
 #include <wire/util/murmur_hash.hpp>
 
@@ -14,6 +15,8 @@
 namespace wire {
 namespace encoding {
 namespace test {
+
+using namespace std::string_literals;
 
 namespace {
 
@@ -265,6 +268,43 @@ TEST(IO, UserExceptionFactory)
         EXPECT_THROW(::std::rethrow_exception(ex), base);
         ex = d->make_exception_ptr();
         EXPECT_THROW(::std::rethrow_exception(ex), derived);
+    }
+}
+
+TEST(IO, UnexpectedException)
+{
+    outgoing out{ core::connector_ptr{} };
+    {
+        auto encaps = out.current_encapsulation();
+        auto o = ::std::back_inserter(out);
+        errors::unexpected e{ "some_type"s, "message"s };
+        EXPECT_EQ("some_type", e.type_name);
+        EXPECT_EQ("message", e.message);
+        e.__wire_write(o);
+        ::std::cerr << "Encaps size " << encaps.size() << "\n";
+        EXPECT_FALSE(encaps.empty());
+        out.debug_print(::std::cerr);
+    }
+    incoming in{ message{}, ::std::move(out) };
+    {
+        auto encaps = in.current_encapsulation();
+        EXPECT_FALSE(encaps.empty());
+
+        auto f = encaps.begin();
+        auto l = encaps.end();
+        ::std::cerr << "Encaps size " << encaps.size() << "\n";
+        ::std::cerr << "Data left " << (encaps.end() - f) << "\n";
+
+        errors::user_exception_ptr e;
+        read(f, l, e);
+        encaps.read_indirection_table(f);
+
+        ASSERT_TRUE(e.get()) << "Exception pointer read from stream";
+        auto u = ::std::dynamic_pointer_cast< errors::unexpected >(e);
+        ASSERT_TRUE(u.get()) << "Correct exception runtime type";
+
+        EXPECT_EQ("message", u->message);
+        EXPECT_EQ("some_type", u->type_name);
     }
 }
 
