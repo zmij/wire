@@ -83,7 +83,7 @@ TEST_F(SSLPingPong, SyncRoundtrip)
     SyncRoundtrip();
 }
 
-TEST_F(SSLPingPong, DISBLED_MTConnectionUsage)
+TEST_F(SSLPingPong, DISABLED_MTConnectionUsage)
 {
     MTConnectionUsage();
 }
