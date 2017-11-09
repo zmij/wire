@@ -15,6 +15,7 @@
 #include <wire/encoding/message.hpp>
 #include <wire/errors/user_exception.hpp>
 
+#include <cxxabi.h>
 #include <iterator>
 
 namespace wire {
@@ -41,6 +42,21 @@ const encoding::request_result_callback dispatch_request::ignore_result
     = [](encoding::outgoing&&){};
 const functional::exception_callback dispatch_request::ignore_exception
     = [](::std::exception_ptr){};
+
+namespace {
+
+::std::string
+demangle(char const* type_name)
+{
+    int status {0};
+    char* ret = abi::__cxa_demangle( type_name, nullptr, nullptr, &status );
+    ::std::string res{ret};
+    if(ret) free(ret);
+    return res;
+}
+
+} /* namespace  */
+
 
 class invocation_foolproof_guard {
     using atomic_flag               = ::std::atomic_flag;
@@ -980,7 +996,7 @@ connection_implementation::send_exception(request_number req_num, ::std::excepti
 
     {
         outgoing::encaps_guard guard{ out->begin_encapsulation() };
-        errors::unexpected ue { ::std::string{typeid(e).name()}, ::std::string{e.what()} };
+        errors::unexpected ue { demangle(typeid(e).name()), ::std::string{e.what()} };
         ue.__wire_write(o);
     }
     process_event(events::send_reply{out});

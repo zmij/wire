@@ -236,6 +236,7 @@ PingPong::Exceptions()
     try {
         pp_prx->throw_unexpected(message);
     } catch(errors::unexpected const& err) {
+        ::std::cerr << err.what() << "\n";
         EXPECT_EQ(message, err.message) << "Incorrect message from 'throw_unexpected' invocation";
     }
 
