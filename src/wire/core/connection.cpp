@@ -425,7 +425,6 @@ connection_implementation::handle_write(asio_config::error_code const& ec, ::std
         if (cb) cb();
     } else {
         DEBUG_LOG_TAG(2, tag, "Write failed " << ec.message());
-        connection_fsm::clear_deferred_events();
         connection_failure(
             ::std::make_exception_ptr(errors::connection_failed(ec.message())));
     }
@@ -461,7 +460,6 @@ connection_implementation::handle_read(asio_config::error_code const& ec, ::std:
         set_idle_timer();
     } else {
         DEBUG_LOG_TAG(2, tag, "Read failed " << ec.message());
-        connection_fsm::clear_deferred_events();
         connection_failure(
             ::std::make_exception_ptr(errors::connection_failed(ec.message())));
     }
