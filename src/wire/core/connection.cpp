@@ -454,9 +454,9 @@ connection_implementation::handle_read(asio_config::error_code const& ec, ::std:
 {
     if (!ec) {
         DEBUG_LOG_TAG(4, tag, "Received " << bytes << " bytes");
-        start_read();
         observer_.receive_bytes(bytes, remote_endpoint());
         process_event(events::receive_data{buffer, bytes});
+        start_read();
         set_idle_timer();
     } else {
         DEBUG_LOG_TAG(2, tag, "Read failed " << ec.message());
