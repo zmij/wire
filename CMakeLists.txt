@@ -185,6 +185,7 @@ add_subdirectory(src/wire)
 add_subdirectory(include)
 add_subdirectory(idl)
 add_subdirectory(cmake/scripts)
+add_subdirectory(support)
 
 if(BUILD_TESTS)
     enable_testing()

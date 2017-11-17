@@ -19,7 +19,6 @@ wire2cpp(
     HEADER_DIR include/test
     INCLUDE_ROOT test
     SOURCES wired_SRCS
-    OPTIONS --dont-use-hashed-ids
     OPTIONS --generate-forwards
 )
 
