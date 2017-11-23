@@ -117,6 +117,8 @@ end
 local function qname_abbrev(owner_name, name)
     local fname     = owner_name .. "::" .. name
     local abbrev    = fname:gsub("::", ".")
+    abbrev = abbrev:gsub("^%.", "")
+
     if abbrev:find("wire", 0) == nil then
         abbrev = "wire." .. abbrev
     end
@@ -327,7 +329,7 @@ dissect_uint_field = function ( tvbuf, offset, proto, tree, max_bytes )
     if n > 0 then
         add_tree_field(tree, proto, tvbuf, v)
     end
-    return n, v        
+    return n, v
 end,
 
 read_int = function ( tvbuf, offset, max_bytes )
@@ -355,7 +357,29 @@ dissect_int_field = function ( tvbuf, offset, proto, tree, max_bytes )
     if n > 0 then
         add_tree_field(tree, proto, tvbuf, v)
     end
-    return n, v        
+    return n, v
+end,
+
+--------------------------------------------------------------------------------
+read_float      = function ( tvbuf, offset, size )
+    local val = range64(tvbuf,offset, size):le_float()
+    return size, val
+end
+
+read_float_field = function ( tvbuf, offset, size )
+    local n, val = wire.encoding.read_float(tvbuf, offset, size)
+    if n <= 0 then
+        return 0
+    end
+    return n, { value = tostring(val), offset = offset, size = n }
+end
+
+dissect_float_field = function ( tvbuf, offset, proto, tree, size )
+    local n, v = wire.encoding.read_float_field( tvbuf, offset, size)
+    if n > 0 then
+        add_tree_field(tree, proto, tvbuf, v)
+    end
+    return n, v
 end,
 
 --------------------------------------------------------------------------------
@@ -942,6 +966,16 @@ parsers 		= {
         dissect = function ( encaps, offset, proto, tree )
             return wire.encoding.dissect_uint_field( encaps.tvbuf, offset, proto, tree, 8)
         end,
+    },
+    float       = {
+        dissect = function ( encaps, offset, proto, tree )
+            return wire.encoding.dissect_float_field( encaps.tvbuf, offset, proto, tree, 4 )
+        end
+    },
+    double      = {
+        dissect = function ( encaps, offset, proto, tree )
+            return wire.encoding.dissect_float_field( encaps.tvbuf, offset, proto, tree, 8 )
+        end
     },
     uuid        = {
         dissect = function ( encaps, offset, proto, tree )

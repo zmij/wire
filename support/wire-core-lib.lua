@@ -106,3 +106,4 @@ wire.types.interface("::wire::core::object", {
 	}
 })
 
+wire.types.alias("::wire::core::object_seq", wire.types.sequence( wire.types.type("proxy") ))
