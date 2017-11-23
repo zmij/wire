@@ -364,7 +364,7 @@ end,
 read_float      = function ( tvbuf, offset, size )
     local val = range64(tvbuf,offset, size):le_float()
     return size, val
-end
+end,
 
 read_float_field = function ( tvbuf, offset, size )
     local n, val = wire.encoding.read_float(tvbuf, offset, size)
@@ -372,7 +372,7 @@ read_float_field = function ( tvbuf, offset, size )
         return 0
     end
     return n, { value = tostring(val), offset = offset, size = n }
-end
+end,
 
 dissect_float_field = function ( tvbuf, offset, proto, tree, size )
     local n, v = wire.encoding.read_float_field( tvbuf, offset, size)
