@@ -84,17 +84,33 @@ local repstatus = {
     unknown_exception       = 0x08,
 }
 
+local segment_type_id = {
+    type_number             = 0x00,
+    string_type_id          = 0x01,
+    hash_type_id            = 0x02,
+}
+
 local msgtype_valstr 	  	= makeValString(flagstype)
 local reqmode_valstr        = makeValString(reqmode)
 local repstatus_valstr  	= makeValString(repstatus)
+local segment_type_id_valstr= makeValString(segment_type_id)
 
 ------------------------------------------------------------------------------
 --	Helper functions
 ------------------------------------------------------------------------------
+function range64( tvbuf, offset, size )
+    return tvbuf:range(UInt64(offset):tonumber(), UInt64(size):tonumber())
+end
+
+local function tvb64( tvbuf, offset, size )
+    dprint2("Create tvb", tostring(offset), ",", tostring(size))
+    return tvbuf(UInt64(offset):tonumber(), UInt64(size):tonumber()):tvb()
+end
+
 local function add_tree_field(tree, proto, tvbuf, val)
 	-- https://wiki.wireshark.org/LuaAPI/TreeItem
 	-- treeitem:add(proto_field [,tvbrange] [,value [,text1 [,text2] ...] ])
-	local item = tree:add(proto, tvbuf:range(val.offset, val.size), val.value)
+	local item = tree:add(proto, range64(tvbuf, val.offset, val.size), val.value)
 	return item
 end
 
@@ -143,6 +159,59 @@ local field_protos = {
 	end
 }
 
+------------------------------------------------------------------------------
+Version = {
+    offset      = nil,
+    size        = nil,
+
+    major       = nil,
+    minor       = nil,
+
+    value       = nil,
+}
+function Version:new(ver)
+    ver = ver or {
+        offset      = nil,
+        size        = nil,
+
+        major       = nil,
+        minor       = nil,
+
+        value       = nil,
+    }
+    setmetatable(ver, self)
+    self.__index = self
+    return ver
+end
+
+Encapsulation = {
+    tvbuf           = nil,
+    offset          = nil,
+    pktinfo         = nil,
+    version         = nil,
+    size            = nil,
+    tree            = nil,
+    ind_tree        = nil,
+    indirection     = nil,
+    types           = {},
+}
+function Encapsulation:new(encaps)
+    encaps = encaps or {
+        tvbuf           = nil,
+        offset          = nil,
+        pktinfo         = nil,
+        tree            = nil,
+        ind_tree        = nil,
+    }
+    encaps.version      = Version:new()
+    encaps.size         = nil
+    encaps.indirection  = {}
+
+    setmetatable(encaps, self)
+    self.__index = self
+    return encaps
+end
+
 wire = {
 ------------------------------------------------------------------------------
 --	Table of wire function call parsers by their hash
@@ -181,14 +250,24 @@ hdr_fields =
     reply         = field_protos.string ("wire.reply",					"Reply",				"Wire reply"				),
     reply_no      = field_protos.string ("wire.reply.number", 			"Number", 				"Reply number"				),
     reply_status  = field_protos.enum 	("wire.reply.status", 			"Reply Status", 		repstatus_valstr			),
+    reply_exc     = field_protos.string ("wire.reply.exception",        "Exception",            "Wire reply exception"      ),
 
     encaps        = field_protos.string ("wire.encaps",                 "Encapsulation",        "Wire encapsulation"        ),
     encaps_version= field_protos.string ("wire.encaps.version",         "Encoding version",     "Encapsulation verion"      ),
     encaps_ind_tbl= field_protos.string ("wire.encaps.indirection_tbl",	"Indirection table", 	"Indirection table"   		),
+    ind_tbl_count = field_protos.string ("wire.encaps.ind_tbl.count",   "count"                                             ),
+
+    encaps_object = field_protos.string ("wire.encaps.object",          "object",               "Polymorphic object"        ),
+    encaps_objects= field_protos.string ("wire.encaps.objects",         "Objects",              "Polymorphic objects"       ),
+
+    segment       = field_protos.string ("wire.segment",                "Segment"                                           ),
+    segment_type  = field_protos.enum   ("wire.segment.type",           "Type",                 segment_type_id_valstr, 0x03),
+    segment_last  = field_protos.bool   ("wire.segment.last",           "Last segment",         0x04                        ),
+    segment_t_id  = field_protos.string ("wire.segment.type_id",        "Type ID"                                           ),
 
     func_params   = field_protos.string ("wire.request.params", 		"Params", 				"Wire reqest params"		),
 
-    seq_element   = field_protos.string ("wire.sequence.element",       "element"                                           )
+    seq_element   = field_protos.string ("wire.sequence.element",       "element"                                           ),
 },
 
 ------------------------------------------------------------------------------
@@ -208,7 +287,7 @@ repstatus 		  = repstatus,
 repstatus_valstr  = makeValString(repstatus),
 --------------------------------------------------------------------------------
 read_bool = function (tvbuf, offset, max_bytes)
-	local byte = tvbuf:range(offset, 1):uint()
+	local byte = range64(tvbuf,offset, 1):uint()
 	return 1, byte ~= 0
 end,
 
@@ -219,12 +298,12 @@ end,
 read_uint = function(tvbuf, offset, max_bytes)
     local msglen = tvbuf:len() - offset
 
-    local val = 0
+    local val = UInt64(0)
     local n = 0
     local more = true
     while more and (n * 7 <= max_bytes * 8) and msglen > 0 do
-        local byte = tvbuf:range(offset + n, 1):uint()
-        val = bit.bor( val, bit.lshift( bit.band(byte, 0x7f), 7 * n ) )
+        local byte = range64(tvbuf, offset + n, 1):uint()
+        val = val:bor( UInt64(bit.band(byte, 0x7f)):lshift(7 * n) )
         more = bit.band(byte, 0x80) > 0
         n = n + 1
         msglen = msglen - 1
@@ -240,11 +319,39 @@ read_uint_field = function(tvbuf, offset, max_bytes)
 	if n <= 0 then
 		return 0
 	end
-	return n, { value = val, offset = offset, size = n }
+	return n, { value = val:tonumber(), offset = offset, size = n }
 end,
 
-dissect_uint_field = function ( tvbuf, offset, proto, tree, pktinfo, max_bytes )
+dissect_uint_field = function ( tvbuf, offset, proto, tree, max_bytes )
     local n, v = wire.encoding.read_uint_field( tvbuf, offset, max_bytes)
+    if n > 0 then
+        add_tree_field(tree, proto, tvbuf, v)
+    end
+    return n, v        
+end,
+
+read_int = function ( tvbuf, offset, max_bytes )
+    local n, uint = wire.encoding.read_uint(tvbuf, offset, max_bytes)
+    if n <= 0 then
+        return 0
+    end
+    
+    local shift_bits = 63
+    local v = Int64(uint:arshift(1)):bxor(Int64(uint):lshift(shift_bits):arshift(shift_bits))
+    dprint2("ZigZag uint", tostring(uint), "to int", tostring(v))
+    return n, v
+end,
+
+read_int_field = function(tvbuf, offset, max_bytes)
+    local n, val = wire.encoding.read_int(tvbuf, offset, max_bytes)
+    if n <= 0 then
+        return 0
+    end
+    return n, { value = val:tonumber(), offset = offset, size = n }
+end,
+
+dissect_int_field = function ( tvbuf, offset, proto, tree, max_bytes )
+    local n, v = wire.encoding.read_int_field( tvbuf, offset, max_bytes)
     if n > 0 then
         add_tree_field(tree, proto, tvbuf, v)
     end
@@ -277,7 +384,7 @@ read_string = function(tvbuf, offset)
                 offset    = offset,
                 size      = n + sz,
                 size_len  = n,
-                value     = tvbuf:range(offset + n, sz):string()
+                value     = range64(tvbuf, offset + n, sz):string()
             }
         --dprint2("Value is " .. str.value)
         end
@@ -308,7 +415,7 @@ read_uuid = function(tvbuf, offset)
         if i == 4 or i == 6 or i == 8 or i == 10 then
             uuid_str = uuid_str .. "-"
         end
-        local byte = tvbuf:range(offset + i, 1):uint()
+        local byte = range64(tvbuf, offset + i, 1):uint()
         uuid_str = uuid_str .. string.format("%02x", byte)
     end
     return 16, uuid_str
@@ -346,7 +453,7 @@ read_identity = function(tvbuf, offset)
         identity.value = nil
     end
     consumed = consumed + n
-    local type = tvbuf:range(offset + consumed, 1):uint()
+    local type = range64(tvbuf, (offset + consumed):tonumber(), 1):uint()
     consumed = consumed + 1
     if type == 0 then -- id is string
         dprint2("Id is string")
@@ -444,10 +551,10 @@ read_operation = function(tvbuf, offset)
     local op = {
         offset = offset
     }
-    op.type = tvbuf:range(offset, 1):uint()
+    op.type = range64(tvbuf, offset, 1):uint()
     local consumed = 1
     if op.type == 0 then -- Op hash
-        local hash = tvbuf:range(offset + consumed, 4):le_uint()
+        local hash = range64(tvbuf, offset + consumed, 4):le_uint()
         local h_string = string.format("0x%x", hash)
         if wire.types.functions[h_string] ~= nil then
         	op.func = wire.types.functions[h_string]
@@ -478,7 +585,7 @@ read_version = function(tvbuf, offset)
     local version  = {
         offset = offset
     }
-    local n, val = wire.encoding.read_uint(tvbuf,offset,4)
+    local n, val = wire.encoding.read_uint(tvbuf, offset,4)
     if n == 0 then
         dprint("Failed to read protocol major")
         return 0
@@ -486,7 +593,7 @@ read_version = function(tvbuf, offset)
     version.major = val
     consumed = consumed + n
     offset = offset + consumed
-    n, val = wire.encoding.read_uint(tvbuf,offset,4)
+    n, val = wire.encoding.read_uint(tvbuf, offset,4)
     if n == 0 then
         dprint("Failed to read protocol minor")
         return 0
@@ -496,6 +603,36 @@ read_version = function(tvbuf, offset)
     version.size = consumed
     version.value = version.major .. "." .. version.minor
     return consumed, version
+end,
+
+read_object    = function ( encaps, offset, proto, tree, fn )
+    -- read object id and add a function to encaps indirection table
+    local n, id = wire.encoding.read_int(encaps.tvbuf, offset, 8)
+
+    local inf = {
+            offset = offset,
+            size   = n,
+    }
+    if id == Int64(0) then
+        inf.value = "null object"
+    elseif id < Int64(0) then
+        inf.value = "object #" .. tostring(-id) .. " (see objects tree)"
+        -- TODO Add dissector for reading indirection table
+        encaps:add_object_reference(-id, fn)
+    end
+    add_tree_field(tree, proto, encaps.tvbuf, inf)
+    return n
+end,
+
+dissect_exception = function ( encaps, offset, tree )
+    dprint2("Dissect exception")
+
+    local ex_tree = tree:add(wire.hdr_fields.reply_exc, range64(encaps.tvbuf, offset, 0))
+
+    local n = encaps:dissect_object(offset, ex_tree)
+
+    ex_tree:set_len(UInt64(n):tonumber())
+    return n
 end,
 
 },
@@ -514,16 +651,16 @@ protocol = {
 --    encoding_version
 --    TODO make all size/offset fields consistent
 read_header = function( tvbuf, offset )
-    local msglen = tvbuf:len() - offset
+    local msglen = UInt64(tvbuf:len() - offset)
 
     -- check if capture was only capturing partial packet size
-    if msglen ~= tvbuf:reported_length_remaining(offset) then
+    if msglen ~= UInt64(tvbuf:reported_length_remaining(UInt64(offset):tonumber())) then
         -- captured packets are being sliced/cut-off, so don't try to desegment/reassemble
         dprint("Captured packet was shorter than original, can't reassemble")
         return 0
     end
 
-    if msglen < wire.encoding.WIRE_MIN_HEADER_SIZE then
+    if msglen < UInt64(wire.encoding.WIRE_MIN_HEADER_SIZE) then
         -- we need more bytes, so tell the main dissector function that we
         -- didn't dissect anything, and we need an unknown number of more
         -- bytes (which is what "DESEGMENT_ONE_MORE_SEGMENT" is used for)
@@ -534,7 +671,7 @@ read_header = function( tvbuf, offset )
 
     -- if we got here, then we know we have enough bytes in the Tvb buffer
     -- to check the magic number and flags.
-    local magic_tvbr = tvbuf:range(offset, 4)
+    local magic_tvbr = range64(tvbuf, offset, 4)
     local magic_val  = magic_tvbr:string()
 
     if magic_val ~= "wire" then
@@ -544,7 +681,7 @@ read_header = function( tvbuf, offset )
     local start = offset
     offset = offset + 4
 
-    local flags_tvbr = tvbuf:range(offset, 1)
+    local flags_tvbr = range64(tvbuf, offset, 1)
     offset = offset + 1
     local flags_val  = flags_tvbr:uint()
 
@@ -553,7 +690,7 @@ read_header = function( tvbuf, offset )
     dprint2("Message flags value " .. flags_val .. " type " .. msg_header.type)
     if (bit32.band(flags_val, 0x8) > 0) then
         dprint2("Read protocol version")
-        local consumed, tmp = wire.encoding.read_version(tvbuf,offset)
+        local consumed, tmp = wire.encoding.read_version(tvbuf, offset)
         if consumed <= 0 then
             dprint("Failed to read protocol version")
             return -DESEGMENT_ONE_MORE_SEGMENT
@@ -565,7 +702,7 @@ read_header = function( tvbuf, offset )
     end
     if (bit32.band(flags_val, 0x10) > 0) then
         dprint2("Read encoding version")
-        local consumed, tmp = wire.encoding.read_version(tvbuf,offset)
+        local consumed, tmp = wire.encoding.read_version(tvbuf, offset)
         if consumed <= 0 then
             dprint("Failed to read encoding version")
             return -DESEGMENT_ONE_MORE_SEGMENT
@@ -574,7 +711,7 @@ read_header = function( tvbuf, offset )
         offset = offset + consumed
         dprint2("Encoding version " .. msg_header.encoding_version.value)
     end
-    local consumed, msg_size = wire.encoding.read_uint(tvbuf,offset,8)
+    local consumed, msg_size = wire.encoding.read_uint(tvbuf, offset,8)
     if (consumed <= 0) then
         return -DESEGMENT_ONE_MORE_SEGMENT
     end
@@ -583,10 +720,10 @@ read_header = function( tvbuf, offset )
     offset = offset + consumed
     dprint2("Message size " .. msg_size)
 
-    msglen = tvbuf:len() - offset
+    msglen = UInt64(tvbuf:len() - offset)
     if msglen < msg_size then
         dprint2("Need more bytes to desegment wire message")
-        return -(msg_size - msglen)
+        return -Int64(msg_size - msglen):tonumber()
     end
 
     msg_header.size = msg_size
@@ -596,47 +733,8 @@ end,
 
 --------------------------------------------------------------------------------
 dissect_encapsulation = function ( tvbuf, pktinfo, offset, tree, parse_fn )
-    dprint2("Dissect encapsulation")
-
-    local ver_size, ver = wire.encoding.read_version(tvbuf, offset)
-    if ver_size <= 0 then
-    	dprint2("Failed to read encapsulation version")
-    	return 0
-    end
-    local n, sz = wire.encoding.read_uint_field(tvbuf, offset + ver_size, 8)
-    if n <= 0 then
-    	dprint2("Failed to read encapsulation size")
-    	return 0
-    end
-    local consumed = ver_size + n
-    dprint2("Encapsulation version", ver.value, "size", sz.value)
-
-    local inf = "version " .. ver.value .. " size " .. sz.value
-    local enc_tree = tree:add(wire.hdr_fields.encaps, tvbuf:range(offset, consumed + sz.value), inf)
-    add_tree_field(enc_tree, wire.hdr_fields.encaps_version, tvbuf, ver)
-    add_tree_field(enc_tree, wire.hdr_fields.msg_size, tvbuf, sz)
-
-    if sz.value > 0 then
-    	if parse_fn ~= nil then
-    		local n = parse_fn(tvbuf, offset + consumed, tree, pktinfo)
-    		if n < sz.value then
-                local ind_table_sz = sz.value - n
-    			dprint2("Encapsulation indirection table size", ind_table_sz, "bytes")
-                local ind_table = enc_tree:add(wire.hdr_fields.encaps_ind_tbl, tvbuf:range(offset + consumed + n, ind_table_sz))
-
-                -- TODO Read indirection table
-                local tvb = tvbuf(offset + consumed + n, ind_table_sz):tvb()
-                data:call(tvb, pktinfo, ind_table)
-    		end
-    	else
-	    	local tvb = tvbuf(offset + consumed, sz.value):tvb()
-	    	data:call(tvb, pktinfo, enc_tree)
-    	end
-	    consumed = consumed + sz.value
-    end
-
-
-	return consumed
+    local encaps = Encapsulation:new{ tvbuf = tvbuf, offset = offset, pktinfo = pktinfo }
+    return encaps:dissect(tree, parse_fn)
 end,
 
 --------------------------------------------------------------------------------
@@ -644,7 +742,7 @@ dissect_request = function(tvbuf, pktinfo, root, offset)
     local inf = ""
     local req = {}
     dprint2("Dissect request header")
-    local consumed, req_no = wire.encoding.read_uint(tvbuf,offset,8)
+    local consumed, req_no = wire.encoding.read_uint(tvbuf, offset,8)
     if consumed == 0 then
         dprint("Failed to read request number")
         return 0
@@ -679,7 +777,7 @@ dissect_request = function(tvbuf, pktinfo, root, offset)
     end
     consumed = consumed + n
 
-    local mode = tvbuf:range(offset + consumed, 1):uint()
+    local mode = range64(tvbuf, offset + consumed, 1):uint()
     consumed = consumed + 1
 
     -- TODO Read context
@@ -706,29 +804,29 @@ dissect_request = function(tvbuf, pktinfo, root, offset)
     pktinfo.cols.info:append(" Request" .. inf)
     root:append_text(" Request" .. inf)
 
-    local req_tree = root:add(wire.hdr_fields.request, tvbuf:range(offset, consumed), inf)
-    req_tree:add(wire.hdr_fields.request_no, tvbuf:range(offset, num_sz), req_no)
-    req_tree:add(wire.hdr_fields.request_tgt, tvbuf:range(identity.offset, identity.size),
+    local req_tree = root:add(wire.hdr_fields.request, range64(tvbuf, offset, consumed), inf)
+    req_tree:add(wire.hdr_fields.request_no, range64(tvbuf, offset, num_sz), req_no:tonumber())
+    req_tree:add(wire.hdr_fields.request_tgt, range64(tvbuf, identity.offset, identity.size),
             identity.value)
-    req_tree:add(wire.hdr_fields.request_fct, tvbuf:range(facet.offset, facet.size),
+    req_tree:add(wire.hdr_fields.request_fct, range64(tvbuf, facet.offset, facet.size),
             facet.value)
-    req_tree:add(wire.hdr_fields.request_op, tvbuf:range(op.offset, op.size),
+    req_tree:add(wire.hdr_fields.request_op, range64(tvbuf, op.offset, op.size),
             op.value)
-    req_tree:add(wire.hdr_fields.request_mode, tvbuf:range(op.offset + op.size, 1))
-    req_tree:add(wire.hdr_fields.request_multi, tvbuf:range(op.offset + op.size, 1))
-    req_tree:add(wire.hdr_fields.request_noctx, tvbuf:range(op.offset + op.size, 1))
-    req_tree:add(wire.hdr_fields.request_nobody, tvbuf:range(op.offset + op.size, 1))
+    req_tree:add(wire.hdr_fields.request_mode, range64(tvbuf, op.offset + op.size, 1))
+    req_tree:add(wire.hdr_fields.request_multi, range64(tvbuf, op.offset + op.size, 1))
+    req_tree:add(wire.hdr_fields.request_noctx, range64(tvbuf, op.offset + op.size, 1))
+    req_tree:add(wire.hdr_fields.request_nobody, range64(tvbuf, op.offset + op.size, 1))
 
     if (multitarget == true) then
         dprint2("Targets offset " .. targets.offset .. " size " .. targets.size .. " count " .. #targets)
-        local mt_tree = req_tree:add(hdr_fields.request_mt, tvbuf:range(targets.offset, targets.size), "Count " .. #targets)
+        local mt_tree = req_tree:add(hdr_fields.request_mt, range64(tvbuf, targets.offset, targets.size), "Count " .. #targets)
         for i, tgt in ipairs(targets) do
             local inf = tgt.identity.value
             if tgt.facet.value ~= nil then
                 inf = inf .. " [" .. tgt.facet.value .. "]"
             end
             dprint2("Target " .. inf)
-            mt_tree:add(wire.hdr_fields.request_tgt, tvbuf:range(tgt.offset, tgt.size),
+            mt_tree:add(wire.hdr_fields.request_tgt, range64(tvbuf, tgt.offset, tgt.size),
                     inf)
         end
     end
@@ -753,24 +851,30 @@ end,
 dissect_reply = function(tvbuf, pktinfo, root, offset)
     local rep = {}
     dprint2("Dissect reply header")
-    local consumed, req_no = wire.encoding.read_uint(tvbuf,offset,8)
+    local consumed, req_no = wire.encoding.read_uint(tvbuf, offset,8)
     if consumed == 0 then
         dprint("Failed to read request number")
         return 0
     end
     local num_sz = consumed
-    local status = tvbuf:range(offset + consumed, 1):uint()
+    local status = range64(tvbuf, offset + consumed, 1):uint()
 
     local inf = " #" .. req_no .. " " .. wire.encoding.repstatus_valstr[status]
     pktinfo.cols.info:append(" Reply" .. inf)
     root:append_text(" Reply" .. inf)
 
     consumed = consumed + 1 -- message status
-    local rep_tree = root:add(wire.hdr_fields.reply, tvbuf:range(offset, consumed), inf)
-    rep_tree:add(wire.hdr_fields.reply_no, tvbuf:range(offset, num_sz), req_no)
-    rep_tree:add(wire.hdr_fields.reply_status, tvbuf:range(offset + num_sz, 1))
+    local rep_tree = root:add(wire.hdr_fields.reply, range64(tvbuf, offset, consumed), inf)
+    rep_tree:add(wire.hdr_fields.reply_no, range64(tvbuf, offset, num_sz), req_no:tonumber())
+    rep_tree:add(wire.hdr_fields.reply_status, range64(tvbuf, offset + num_sz, 1))
 
-    local n = wire.protocol.dissect_encapsulation(tvbuf, pktinfo, offset + consumed, rep_tree, nil)
+    local fn = nil
+    if status == repstatus.user_exception or status >= repstatus.unknown_wire_exception then
+        dprint2("Reply contains an exception in the encapsulation")
+        fn = wire.encoding.dissect_exception
+    end
+
+    local n = wire.protocol.dissect_encapsulation(tvbuf, pktinfo, offset + consumed, rep_tree, fn)
     if n <= 0 then
     	return 0
     end
@@ -778,7 +882,6 @@ dissect_reply = function(tvbuf, pktinfo, root, offset)
 
     return consumed
 end,
-
 
 },
 ------------------------------------------------------------------------------
@@ -789,82 +892,79 @@ end,
 ------------------------------------------------------------------------------
 types = {
 
-type_dictionary = {},
-
 --  Parser dictionary
 parsers 		= {
 	string 		= {
-		dissect = function ( tvbuf, offset, proto, tree, pktinfo )
+		dissect = function ( encaps, offset, proto, tree )
 			-- TODO Add the tree field
-			local n, v = wire.encoding.read_string_field(tvbuf, offset)
+			local n, v = wire.encoding.read_string_field(encaps.tvbuf, offset)
             if n > 0 then
-                add_tree_field(tree, proto, tvbuf, v)
+                add_tree_field(tree, proto, encaps.tvbuf, v)
             end
 			return n, v
 		end,
-		proto   = function ( abbrev, name )
-			return field_protos.string(abbrev, name)
-		end
 	},
 	bool 		= {
-		dissect = function ( tvbuf, offset, proto, tree, pktinfo )
-			local n, v = wire.encoding.read_bool( tvbuf, offset, proto, tree, pktinfo )
+		dissect = function ( encaps, offset, proto, tree )
+			local n, v = wire.encoding.read_bool( encaps.tvbuf, offset, proto, tree )
             if n > 0 then
-                tree:add(proto, tvbuf(offset, n))
+                tree:add(proto, encaps.tvbuf(offset, n))
             end
             return n, v
 		end,
-		proto   = function ( abbrev, name, mask )
-			return field_protos.bool(abbrev, name, mask)
-		end
 	},
-    uint16      = {
-        dissect = function ( tvbuf, offset, proto, tree, pktinfo )
-            return wire.encoding.dissect_uint_field( tvbuf, offset, proto, tree, pktinfo, 2)
+    int16       = {
+        dissect = function ( encaps, offset, proto, tree )
+            return wire.encoding.dissect_int_field( encaps.tvbuf, offset, proto, tree, 2)
         end,
-        proto   = function ( abbrev, name )
-            -- As far as ints are compressed, there is no way to use integer protos for fields
-            return field_protos.string(abbrev, name)
-        end
+    },
+    int32       = {
+        dissect = function ( encaps, offset, proto, tree )
+            return wire.encoding.dissect_int_field( encaps.tvbuf, offset, proto, tree, 4)
+        end,
+    },
+    int64       = {
+        dissect = function ( encaps, offset, proto, tree )
+            return wire.encoding.dissect_int_field( encaps.tvbuf, offset, proto, tree, 8)
+        end,
+    },
+    uint16      = {
+        dissect = function ( encaps, offset, proto, tree )
+            return wire.encoding.dissect_uint_field( encaps.tvbuf, offset, proto, tree, 2)
+        end,
     },
     uint32      = {
-        dissect = function ( tvbuf, offset, proto, tree, pktinfo )
-            return wire.encoding.dissect_uint_field( tvbuf, offset, proto, tree, pktinfo, 4)
+        dissect = function ( encaps, offset, proto, tree )
+            return wire.encoding.dissect_uint_field( encaps.tvbuf, offset, proto, tree, 4)
         end,
-        proto   = function ( abbrev, name )
-            -- As far as ints are compressed, there is no way to use integer protos for fields
-            return field_protos.string(abbrev, name)
-        end
     },
     uint64      = {
-        dissect = function ( tvbuf, offset, proto, tree, pktinfo )
-            return wire.encoding.dissect_uint_field( tvbuf, offset, proto, tree, pktinfo, 8)
+        dissect = function ( encaps, offset, proto, tree )
+            return wire.encoding.dissect_uint_field( encaps.tvbuf, offset, proto, tree, 8)
         end,
-        proto   = function ( abbrev, name )
-            -- As far as ints are compressed, there is no way to use integer protos for fields
-            return field_protos.string(abbrev, name)
-        end
     },
     uuid        = {
-        dissect = function ( tvbuf, offset, proto, tree, pktinfo )
-            local n, v = wire.encoding.read_uuid_field(tvbuf, offset)
+        dissect = function ( encaps, offset, proto, tree )
+            local n, v = wire.encoding.read_uuid_field(encaps.tvbuf, offset)
             if n > 0 then
                 add_tree_field(tree, proto, tvbuf, v)
             end
             return n, v
         end,
-        proto   = function ( abbrev, name )
-            return field_protos.string(abbrev, name)
-        end
     }
 },
 
 --  Dictionary of functions by hashes
 functions = {},
 
+--  Dictionary of classes and exceptions by hashes
+classes   = {},
+
 --  Return a pair of lambdas - parser and field creator
 type 			= function ( name )
-	return wire.types.parsers[name]
+	return function() 
+        return wire.types.parsers[name]
+    end
 end,
 
 -- Enumeration
@@ -874,8 +974,8 @@ enum            = function ( name, definition )
     local e = {
         name = name,
         enumerators  = valstr,
-        dissect = function ( tvbuf, offset, proto, tree, pktinfo )
-            local n, v = wire.encoding.read_uint(tvbuf, offset, 8)
+        dissect = function ( encaps, offset, proto, tree )
+            local n, v = wire.encoding.read_uint(encaps.tvbuf, offset, 8)
             if n > 0 then
                 local val = {
                     offset = offset,
@@ -885,12 +985,9 @@ enum            = function ( name, definition )
                 if val.value == nil then
                     val.value = "<UNKNOWN VALUE " .. n .. ">"
                 end
-                add_tree_field(tree, proto, tvbuf, val)
+                add_tree_field(tree, proto, encaps.tvbuf, val)
             end
             return n, v
-        end,
-        proto   = function ( abbrev, name )
-            return field_protos.string(abbrev, name)
         end,
     }
     wire.types.parsers[name] = e
@@ -899,26 +996,26 @@ end,
 
 --  Sequence type
 sequence 		= function ( element_type )
-    local seq_name = "__sequence_of__." .. element_type.name
+    local seq_name = "__sequence_of__." .. element_type().name
     if wire.types.parsers[seq_name] == nil then
         local abbrev = seq_name:gsub("::", ".")
-        local elem_proto = element_type.proto(abbrev, "element")
+        local elem_proto = field_protos.string(abbrev, "element")
         wire.hdr_fields[abbrev] = elem_proto
 
         wire.types.parsers[seq_name] = {
             name = seq_name,
-            dissect = function ( tvbuf, offset, proto, tree, pktinfo )
+            dissect = function ( encaps, offset, proto, tree )
                 local consumed = 0
-                local n, sz = wire.encoding.read_uint(tvbuf, offset, 8)
+                local n, sz = wire.encoding.read_uint(encaps.tvbuf, offset, 8)
                 if n <= 0 then
                     dprint("Failed to read sequence size")
                     return 0
                 end
                 consumed = consumed + n
-                local seq_tree = tree:add(proto, tvbuf:range(offset, 0))
+                local seq_tree = tree:add(proto, range64(encaps.tvbuf, offset, 0))
                 seq_tree:append_text(n .. " element(s)")
                 for i=1, sz do
-                    local n, val = element_type.dissect(tvbuf, offset + consumed, elem_proto, seq_tree, pktinfo)
+                    local n, val = element_type().dissect(encaps, offset + consumed, elem_proto, seq_tree)
                     if n <= 0 then
                         dprint("Failed to read sequence element")
                         return 0
@@ -927,12 +1024,9 @@ sequence 		= function ( element_type )
                 end
                 return consumed
             end,
-            proto   = function ( abbrev, name )
-                return field_protos.string(abbrev, name)
-            end,
         }
     end
-    return wire.types.parsers[seq_name]
+    return wire.types.type(seq_name)
 end,
 
 --  Dictionary
@@ -945,10 +1039,10 @@ end,
 
 -- Optional
 optional 		= function ( element_type )
-    return {
-        dissect = function ( tvbuf, offset, proto, tree, pktinfo )
+    local t = {
+        dissect = function ( encaps, offset, proto, tree )
             local consumed = 0
-            local n, b = wire.encoding.read_bool(tvbuf, offset)
+            local n, b = wire.encoding.read_bool(encaps.tvbuf, offset)
             if n <= 0 then
                 return 0
             end
@@ -957,7 +1051,7 @@ optional 		= function ( element_type )
             local v = nil
             if b then
                 dprint2("Optional value is present")
-                n, v = element_type.dissect(tvbuf, offset + consumed, proto, tree, pktinfo)
+                n, v = element_type().dissect(encaps, offset + consumed, proto, tree)
                 if n <= 0 then
                     return 0
                 end
@@ -969,12 +1063,14 @@ optional 		= function ( element_type )
                     size   = consumed,
                     value  = "optional value not present"
                 }
-                add_tree_field(tree, proto, tvbuf, val)
+                add_tree_field(tree, proto, encaps.tvbuf, val)
             end
             return consumed, v
         end,
-        proto   = element_type.proto,
     }
+    return function ()
+        return t
+    end
 end,
 
 -- Variant
@@ -982,7 +1078,7 @@ end,
 variant 		= function ( variants, var_map )
     local name = "__variant_of__."
     for i, t in ipairs(variants) do
-        name = name .. t.name
+        name = name .. t().name
     end
 
     if wire.types.parsers[name] == nil then
@@ -991,7 +1087,7 @@ variant 		= function ( variants, var_map )
         local type_proto = nil
         if var_map ~= nil and var_map.enumerators ~= nil then
             local abbrev = name:gsub("::", ".")
-            type_proto = var_map.proto(abbrev, "Variant type")
+            type_proto = field_protos.string(abbrev, "Variant type")
 
             for i,v in pairs(var_map.enumerators) do
                 dprint2(i,v)
@@ -999,9 +1095,9 @@ variant 		= function ( variants, var_map )
         end
         wire.types.parsers[name] = {
             name = name,
-            dissect = function ( tvbuf, offset, proto, tree, pktinfo )
+            dissect = function ( encaps, offset, proto, tree )
                 local consumed = 0
-                local n, v = wire.encoding.read_uint(tvbuf, offset, 8)
+                local n, v = wire.encoding.read_uint(encaps.tvbuf, offset, 8)
                 if n <= 0 then
                     dprint("Failed to read varant type index")
                     return 0
@@ -1019,31 +1115,28 @@ variant 		= function ( variants, var_map )
                         size   = n,
                         value  = var_map.enumerators[v]
                     }
-                    val_tree = add_tree_field(tree, type_proto, tvbuf, t)
+                    val_tree = add_tree_field(tree, type_proto, encaps.tvbuf, t)
                 end
                 consumed = consumed + n
-                n, val = variants[v + 1].dissect(tvbuf, offset + consumed, proto, val_tree, pktinfo)
+                n, val = variants[v + 1]().dissect(encaps, offset + consumed, proto, val_tree)
                 if n <= 0 then
                     return 0
                 end
 
                 return consumed + n, val
             end,
-            proto   = function ( abbrev, name )
-                return field_protos.string(abbrev, name)
-            end,
         }
     end
-    return wire.types.parsers[name]
+    return wire.types.type(name)
 end,
 
 alias           = function ( name, t )
     wire.types.parsers[name] = {
         name    = name,
-        dissect = t.dissect,
-        proto   = t.proto
+        dissect = t().dissect,
+        proto   = t().proto
     }
-    return wire.types.parsers[name]
+    return wire.types.type(name)
 end,
 
 -- Create a field/function param parser and proto
@@ -1051,13 +1144,37 @@ field           = function ( owner_name, definition )
     local fname, abbrev     = qname_abbrev(owner_name, definition.name)
 
     dprint2("Make field", definition.name, "at", owner_name, "abbrev", abbrev)
-    local proto = definition.type.proto(abbrev, definition.name)
+    local proto = field_protos.string(abbrev, definition.name)
     wire.hdr_fields[ fname ] = proto
     return {
         name    = definition.name,
-        dissect = definition.type.dissect, 
+        type    = definition.type, 
         proto   = proto,
     }
+end,
+
+fields          = function ( owner_name, definition )
+    local fields = {}
+    if definition ~= nil then
+        for i, field in ipairs(definition) do
+            table.insert(fields, wire.types.field( owner_name, field ))
+        end
+    end
+    local parse_fn = function ( encaps, offset, tree, data )
+        local consumed = 0
+        for i, f in ipairs(fields) do
+            local n, v = f.type().dissect(encaps, offset + consumed, f.proto, tree)
+            if n <= 0 then
+                return n, nil
+            end
+            if data ~= nil then
+                data[f.name] = v
+            end
+            consumed = consumed + n
+        end
+        return consumed, data
+    end
+    return parse_fn
 end,
 
 func            = function ( owner_name, name, definition )
@@ -1068,25 +1185,14 @@ func            = function ( owner_name, name, definition )
     wire.hdr_fields[ fname ] = proto
 
     -- Create param protos
-    local params = {}
-    if definition.params ~= nil then
-        for i, field in ipairs(definition.params) do
-            table.insert(params, wire.types.field(fname, field))
-        end
-    end
+    local params = wire.types.fields(fname, definition.params)
 
-    local dissector = function ( tvbuf, offset, tree, pktinfo )
-        local consumed = 0
+    -- Function dissector is called directly from encaps dissector
+    local dissector = function ( encaps, offset, tree )
         dprint2("Parse function", fname, "params")
-        local param_tree = tree:add(proto, tvbuf:range(offset, 0))
-        for i, p in ipairs(params) do
-            dprint2("Parse", p.name, "param")
-            local n, v = p.dissect(tvbuf, offset + consumed, p.proto, param_tree, pktinfo)
-            if n <= 0 then
-                return n
-            end
-            consumed = consumed + n
-        end
+        local param_tree = tree:add(proto, range64(encaps.tvbuf, offset, 0))
+        local consumed = params(encaps, offset, param_tree)
+        param_tree:set_len(Int64(consumed):tonumber())
         return consumed
     end
 
@@ -1106,59 +1212,386 @@ structure 		= function ( name, definition )
     if definition ~= nil then
         dprint2("Add structure", name, "definition")
 		-- Create field protos
-		local fields = {}
-		if definition.fields ~= nil then
-			for i, field in ipairs(definition.fields) do
-                table.insert(fields, wire.types.field(name, field))
-			end
-		end
+        local fields = wire.types.fields(name, definition.fields)
 		-- Create dissector for fields
-		local dissector = function ( tvbuf, offset, proto, tree, pktinfo )
-            local consumed = 0
+		local dissector = function ( encaps, offset, proto, tree )
             local data     = {}
             -- Add field with type name
-			local struct_tree = tree:add(proto, tvbuf:range(offset, 0), name)
+			local struct_tree = tree:add(proto, range64(encaps.tvbuf, offset, 0), name)
             -- Dissect structure fields
-            for i, f in ipairs(fields) do
-                local n, v = f.dissect(tvbuf, offset + consumed, f.proto, struct_tree, pktinfo)
-                if n <= 0 then
-                    return n, nil
-                end
-                data[f.name] = v
-                consumed = consumed + n
-            end
+            local consumed = fields(encaps, offset, struct_tree, data)
+            struct_tree:set_len(Int64(consumed):tonumber())
 			return consumed, data
 		end
 
         wire.types.parsers[name] = {
             name    = name,
             dissect = dissector,
-            proto   = wire.types.parsers.string.proto
         }
 	end
 
    -- Find type by name
-    return wire.types.parsers[name]
+    return wire.types.type(name)
 end,
 
 interface 		= function ( name, definition )
     dprint2("Add interface", name, "definition")
 	-- create parsers for functions
-    for n, func in pairs(definition.functions) do
-        wire.types.func(name, n, func)
+    if definition.functions ~= nil then
+        for n, func in pairs(definition.functions) do
+            wire.types.func(name, n, func)
+        end
     end
 	return {}
 end,
 
 class 			= function ( name, definition )
-	wire.types.interface( name, definition )
-    -- TODO add by hash
-	return wire.types.structure( name, definition )
+    if definition ~= nil then
+        wire.types.interface( name, definition )
+        dprint2("Add class", name, "definition")
+        
+        local fields = wire.types.fields(name, definition.fields)
+        local data_dissector = function ( encaps, offset, tree, first_segment )
+            local data     = {}
+            if first_segment then
+                -- Add type name to field
+                tree:append_text(name)
+            end
+            -- Dissect structure fields
+            local consumed = fields(encaps, offset, tree, data)
+            -- TODO return parent
+            return consumed, data
+        end
+        local dissector = function ( encaps, offset, proto, tree )
+            local n = wire.encoding.read_object( encaps, offset, proto, tree, data_dissector )
+            return n
+        end
+        local p = {
+            name        = name,
+            dissect     = dissector,
+            ind_dissect = data_dissector,
+        }
+        wire.types.parsers[name] = p
+        wire.types.parsers[definition.hash] = p
+    end
+
+    return wire.types.type(name)
+end,
+
+exception       = function ( name, definition )
+    if definition ~= nil then
+        dprint2("Add exception", name, "definition")
+        local parent = definition.parent
+        -- Create field protos
+        local fields = wire.types.fields(name, definition.fields)
+        local data_dissector = function ( encaps, offset, tree, first_segment )
+            local data     = {}
+            if first_segment then
+                -- Add type name to field
+                tree:append_text(name)
+            end
+            -- Dissect structure fields
+            local consumed = fields(encaps, offset, tree, data)
+
+            return consumed, data, parent ~= nil
+        end
+        local dissector = function (  encaps, offset, proto, tree )
+            local data     = {}
+            -- Add type name to field
+            tree:append_text(name)
+            -- Dissect structure fields
+            local consumed = fields(encaps, offset, tree, data)
+
+            return consumed, data, parent ~= nil
+        end
+
+        local e =  {
+            name        = name,
+            dissect     = dissector,
+            ind_dissect = data_dissector,
+        }
+        wire.types.parsers[name] = e
+        wire.types.parsers[definition.hash] = e
+    end
+    return wire.types.type(name)
 end,
 
 }, -- types
 
 }
+
+function Version:read( tvbuf, offset )
+    self.offset = offset
+    local consumed = 0
+    local n, v = wire.encoding.read_uint(tvbuf, offset, 4)
+    if n == 0 then
+        dprint2("Failed to read version major")
+        return 0
+    end
+    self.major = v
+    consumed = consumed + n
+
+    n, v = wire.encoding.read_uint(tvbuf, offset + n, 4)
+    if n == 0 then
+        dprint2("Failed to read version minor")
+        return 0
+    end
+    self.minor = v
+    consumed = consumed + n
+
+    self.size = consumed
+    self.value = self.major .. "." .. self.minor
+    dprint2("Version from wire " .. self.value)
+
+    return consumed, self
+end
+
+function Encapsulation:dissect( tree, fn )
+    dprint2("Dissect encapsulation")
+    local n = self.version:read(self.tvbuf, self.offset)
+
+    if n <= 0 then
+        dprint("Failed to read encapsulation version")
+        return 0
+    end
+
+    n, self.size = wire.encoding.read_uint_field(self.tvbuf, self.offset + self.version.size, 8)
+    if n <= 0 then
+        dprint2("Failed to read encapsulation size")
+        return 0
+    end
+    local consumed = self.version.size + n
+    dprint2("Encapsulation version", self.version.value, "size", self.size.value)
+
+    local inf = "version " .. self.version.value .. " size " .. self.size.value
+    -- TODO Mark as expert
+    self.tree = tree:add(wire.hdr_fields.encaps, range64(self.tvbuf, self.offset, consumed + self.size.value), inf)
+    add_tree_field(self.tree, wire.hdr_fields.encaps_version, self.tvbuf, self.version)
+    add_tree_field(self.tree, wire.hdr_fields.msg_size, self.tvbuf, self.size)
+
+    if self.size.value > 0 then
+        if fn ~= nil then
+            local n = fn(self, self.offset + consumed, tree)
+            if n < self.size.value then
+                self:read_indirection_table(self.offset + consumed + n, n, tree)
+            end
+        else
+            local tvb = tvb64(self.tvbuf, self.offset + consumed, self.size.value)
+            data:call(tvb, self.pktinfo, self.tree)
+        end
+    end
+
+    consumed = consumed + self.size.value
+
+    return consumed
+end
+
+function Encapsulation:add_object_reference(obj_id, f)
+    local str_id = tostring(obj_id)
+    if self.indirection[str_id] == nil then
+        dprint2("Add object indirection", tostring(obj_id))
+        self.indirection[str_id] = {
+
+        }
+    end
+
+end
+
+function Encapsulation:read_indirection_table(offset, size, tree)
+    local consumed, count = wire.encoding.read_uint(self.tvbuf, offset, 8)
+
+    local ind_table_sz = UInt64(self.size.value - size - consumed)
+    dprint2("Encapsulation indirection table size", ind_table_sz:tonumber(), "bytes", count:tonumber(), "items")
+    local inf = "size " .. tostring(ind_table_sz)
+    self.ind_tree = self.tree:add(wire.hdr_fields.encaps_ind_tbl, range64(self.tvbuf, offset, ind_table_sz), inf)
+
+    inf = {
+        offset = offset,
+        size   = consumed,
+        value  = tostring(count)
+    }
+    add_tree_field(self.ind_tree, wire.hdr_fields.ind_tbl_count, self.tvbuf, inf)
+    if count > UInt64(0) then
+        local objects = tree:add(wire.hdr_fields.encaps_objects, range64(self.tvbuf, offset + consumed, 0))
+        while (count > UInt64(0)) do
+
+            while count > UInt64(0) do
+                local n, id = wire.encoding.read_int(self.tvbuf, offset + consumed, 8)
+                local str_id = tostring(id)
+                dprint2("Object id", str_id)
+                consumed = consumed + n
+
+                if self.indirection[str_id] == nil then
+                    dprint("Unexpected object id", str_id)
+                    break
+                end
+                local obj = objects:add(wire.hdr_fields.encaps_object, range64(self.tvbuf, offset + consumed, 0))
+                obj:set_text("#" .. str_id .. ": ")
+                local obj_sz = self:dissect_object(offset + consumed, obj)
+                obj:set_len(UInt64(obj_sz):tonumber())
+
+                consumed = consumed + obj_sz
+                count = count - 1
+                dprint2("Objects remain", tostring(count))
+            end
+
+            local n, cnt = wire.encoding.read_uint(self.tvbuf, offset + consumed, 8)
+            local inf = {
+                offset = offset + consumed,
+                size   = n,
+                value  = tostring(cnt)
+            }
+            dprint2("Next table size", tostring(cnt))
+            add_tree_field(self.ind_tree, wire.hdr_fields.ind_tbl_count, self.tvbuf, inf)
+
+            consumed = consumed + n
+            count = cnt
+        end
+    end
+
+    if Int64(ind_table_sz) - consumed > Int64(0) then
+        local tvb = tvb64(self.tvbuf, offset + consumed, ind_table_sz - consumed)
+        data:call(tvb, self.pktinfo, self.ind_tree)
+    end
+
+    return consumed
+end
+
+function Encapsulation:dissect_object( offset, tree )
+    dprint2("Dissect object data")
+    -- TODO Add the tree item here, so that polymorphic parsers only add fields
+    local consumed, last = self:dissect_segment(offset, tree, true, true, nil)
+    while not last do
+        local n = 0
+        n, last = self:dissect_segment(offset + consumed, tree, true, false, nil)
+        consumed = consumed + n
+    end
+    return consumed
+end
+
+function Encapsulation:read_segment_header( offset )
+    local consumed = 0
+    local n, f = wire.encoding.read_uint(self.tvbuf, offset, 8)
+    if n <= 0 then
+        dprint2("Failed to read segment header flags")
+        return 0
+    end
+    consumed = consumed + n
+
+    local hdr = {
+        flags   = f,
+        type_id = nil,
+        size    = nil,
+        type    = nil,
+        last    = f:band(0x04) > 0
+    }
+    dprint2("Segment header flags", hdr.flags:tonumber())
+
+    if hdr.flags:band(0x01) > 0 then
+        dprint2("Type id is string", hdr.flags:band(0x01):tonumber())
+        local n, type_id = wire.encoding.read_string_field(self.tvbuf, consumed)
+        if n <= 0 then
+            dprint2("Failed to read segment type id string")
+            return 0
+        end
+        hdr.type_id = type_id
+        consumed = consumed + n
+
+        self.types[ #self.types + 1 ] = hdr.type_id.value
+    elseif hdr.flags:band(0x02) > 0 then
+        dprint2("Type id is hash")
+        local n, hash = wire.encoding.read_uint(self.tvbuf, offset + consumed, 8)
+        if n <= 0 then
+            dprint2("Failed to read segment type id hash")
+            return 0
+        end
+        hdr.type_id = {
+            size   = n,
+            offset = offset + consumed,
+            value  = "0x" .. hash:tohex()
+        }
+        consumed = consumed + n
+
+        self.types[ #self.types + 1 ] = hdr.type_id.value
+    else
+        dprint2("Type id is number")
+        local n, num = wire.encoding.read_uint(self.tvbuf, offset + consumed, 8)
+        if n <= 0 then
+            dprint2("Failed to read segment type id number")
+            return 0
+        end
+
+        if num <= 0 or self.types[ num:tonumber() ] == nil then
+            dprint2("Type number", num:tonumber(), "is invalid")
+        end
+
+        hdr.type_id = {
+            size   = n,
+            offset = offset + consumed,
+            value  = self.types[ num:tonumber() ]
+        }
+        consumed = consumed + n
+    end
+
+    local sz
+    n, sz = wire.encoding.read_uint_field(self.tvbuf, offset + consumed, 8)
+    if n <= 0 then
+        dprint2("Failed to read segment size")
+        return 0
+    end
+    hdr.size = sz
+    consumed = consumed + n
+
+    hdr.type = wire.types.parsers[hdr.type_id.value]
+
+    return consumed, hdr
+end
+
+function Encapsulation:dissect_segment( offset, tree, read_head, first_segment, fn )
+    local consumed = 0
+    local last = false
+    if read_head then
+        local n, hdr = self:read_segment_header(offset)
+        if n <= 0 then
+            dprint("Failed to read segment header")
+            return 0
+        end
+
+        local inf = ""
+        if hdr.type == nil then
+            inf = "Unknown type"
+        else
+            inf = hdr.type.name
+        end
+
+        last = hdr.last
+
+        -- TODO Mark as expert
+        local parent = self.ind_tree
+        if parent == nil then
+            parent = self.tree
+        end
+        local seg_tree = parent:add(wire.hdr_fields.segment, range64(self.tvbuf, offset, n + hdr.size.value), inf)
+        seg_tree:add(wire.hdr_fields.segment_type, range64(self.tvbuf, offset, 1))
+        seg_tree:add(wire.hdr_fields.segment_last, range64(self.tvbuf, offset, 1))
+
+        add_tree_field(seg_tree, wire.hdr_fields.segment_t_id, self.tvbuf, hdr.type_id)
+        add_tree_field(seg_tree, wire.hdr_fields.msg_size, self.tvbuf, hdr.size)
+
+        consumed = consumed + n
+
+        if fn == nil and hdr.type ~= nil then
+            fn = hdr.type.ind_dissect
+        end
+    end
+    if fn ~= nil then
+        local n, data, parent = fn(self, offset + consumed, tree, first_segment)
+        consumed = consumed + n
+    end
+    return consumed, last
+end
+
+
 
 local function name_predefined_types()
     for n,t in pairs(wire.types.parsers) do

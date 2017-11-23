@@ -105,7 +105,7 @@ function wire_proto.dissector(tvbuf, pktinfo, root)
             -- we need more bytes, so set the desegment_offset to what we
             -- already consumed, and the desegment_len to how many more
             -- are needed
-            pktinfo.desegment_offset = bytes_consumed
+            pktinfo.desegment_offset = Int64(bytes_consumed):tonumber()
 
             -- invert the negative result so it's a positive number
             result = -result
@@ -125,7 +125,7 @@ function wire_proto.dissector(tvbuf, pktinfo, root)
     -- Do NOT return the number 0, or else Wireshark will interpret that to mean
     -- this packet did not belong to your protocol, and will try to dissect it
     -- with other protocol dissectors (such as heuristic ones)
-    return bytes_consumed
+    return Int64(bytes_consumed):tonumber()
 end
 
 --------------------------------------------------------------------------------
@@ -154,15 +154,15 @@ dissectWire = function(tvbuf, pktinfo, root, offset)
         pktinfo.cols.info:set("WIRE: " .. pktinfo.src_port .. "→" .. pktinfo.dst_port)
     end
 
-    local tree = root:add(wire_proto, tvbuf:range(offset, consumed + msg_header.size))
-    local hdr_tree = tree:add(wire.hdr_fields.header, tvbuf:range(offset, consumed),
+    local tree = root:add(wire_proto, range64(tvbuf, offset, consumed + msg_header.size))
+    local hdr_tree = tree:add(wire.hdr_fields.header, range64(tvbuf, offset, consumed),
         "Size: " .. consumed)
     -- magic number
-    hdr_tree:add(wire.hdr_fields.magic_type, tvbuf:range(offset, 4))
+    hdr_tree:add(wire.hdr_fields.magic_type, range64(tvbuf, offset, 4))
     -- flags
-    hdr_tree:add(wire.hdr_fields.msg_type, tvbuf:range(offset + 4, 1))
-    hdr_tree:add(wire.hdr_fields.proto_flag, tvbuf:range(offset + 4, 1))
-    hdr_tree:add(wire.hdr_fields.enc_flag, tvbuf:range(offset + 4, 1))
+    hdr_tree:add(wire.hdr_fields.msg_type, range64(tvbuf, offset + 4, 1))
+    hdr_tree:add(wire.hdr_fields.proto_flag, range64(tvbuf, offset + 4, 1))
+    hdr_tree:add(wire.hdr_fields.enc_flag, range64(tvbuf, offset + 4, 1))
 
     local data_size = msg_header.size
     dprint2("Tree added, adding info")
@@ -193,19 +193,17 @@ dissectWire = function(tvbuf, pktinfo, root, offset)
         pktinfo.cols.info:append(" protocol " .. msg_header.proto_version.major ..
             "." .. msg_header.proto_version.minor)
         hdr_tree:add(wire.hdr_fields.proto_version,
-            tvbuf:range(msg_header.proto_version.offset,
-                msg_header.proto_version.size), msg_header.proto_version.value)
+            range64(tvbuf, msg_header.proto_version.offset, msg_header.proto_version.size), msg_header.proto_version.value)
     end
     if msg_header.encoding_version then
         pktinfo.cols.info:append(" encoding " .. msg_header.encoding_version.major ..
             "." .. msg_header.encoding_version.minor)
         hdr_tree:add(wire.hdr_fields.enc_version,
-            tvbuf:range(msg_header.encoding_version.offset,
-                msg_header.encoding_version.size), msg_header.encoding_version.value)
+            range64(tvbuf, msg_header.encoding_version.offset, msg_header.encoding_version.size), msg_header.encoding_version.value)
     end
     pktinfo.cols.info:append(" size " .. msg_header.size)
     hdr_tree:add(wire.hdr_fields.msg_size,
-          tvbuf:range(msg_header.size_offset, msg_header.size_length), msg_header.size)
+          range64(tvbuf, msg_header.size_offset, msg_header.size_length), msg_header.size:tonumber())
 
     if data_size > 0 then
         local tvb = tvbuf(offset + consumed, data_size):tvb()
@@ -214,32 +212,6 @@ dissectWire = function(tvbuf, pktinfo, root, offset)
 
     return consumed + data_size
 end
-
---------------------------------------------------------------------------------
---  Dissect reply
-dissectReply = function(tvbuf, pktinfo, root, offset)
-    local rep = {}
-    dprint2("Dissect reply header")
-    local consumed, req_no = wire.encoding.read_uint(tvbuf,offset,8)
-    if consumed == 0 then
-        dprint("Failed to read request number")
-        return 0
-    end
-    local num_sz = consumed
-    local status = tvbuf:range(offset + consumed, 1):uint()
-
-    local inf = " #" .. req_no .. " " .. repstatus_valstr[status]
-    pktinfo.cols.info:append(" Reply" .. inf)
-    root:append_text(" Reply" .. inf)
-
-    consumed = consumed + 1 -- message status
-    local rep_tree = root:add(wire.hdr_fields.reply, tvbuf:range(offset, consumed), inf)
-    rep_tree:add(wire.hdr_fields.reply_no, tvbuf:range(offset, num_sz), req_no)
-    rep_tree:add(wire.hdr_fields.reply_status, tvbuf:range(offset + num_sz, 1))
-
-    return consumed
-end
-
 
 --------------------------------------------------------------------------------
 local function wire_proto_heuristic (tvbuf, pktinfo, root)

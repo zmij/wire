@@ -1,9 +1,9 @@
 
 dprint2("Add core functions")
 
-wire.types.alias("wire::core::identity::id_type", wire.types.variant( { wire.types.type("string"), wire.types.type("uuid") } ))
+wire.types.alias("::wire::core::identity::id_type", wire.types.variant( { wire.types.type("string"), wire.types.type("uuid") } ))
 
-local identity = wire.types.structure("wire::core::identity", {
+local identity = wire.types.structure("::wire::core::identity", {
 	fields			= {
 		{ 
 			name	= "category",
@@ -11,12 +11,12 @@ local identity = wire.types.structure("wire::core::identity", {
 		},
 		{ 
 			name    = "id", 
-			type 	= wire.types.type("wire::core::identity::id_type") 
+			type 	= wire.types.type("::wire::core::identity::id_type") 
 		},
 	}
 })
 
-local ep_data = wire.types.structure("wire::core::inet_endpoint_data", {
+local ep_data = wire.types.structure("::wire::core::inet_endpoint_data", {
 	fields 			= {
 		{
 			name 	= "host",
@@ -29,7 +29,7 @@ local ep_data = wire.types.structure("wire::core::inet_endpoint_data", {
 	}
 })
 
-local socket_endpoint = wire.types.structure("wire::core::socket_endpoint", {
+local socket_endpoint = wire.types.structure("::wire::core::socket_endpoint", {
 	fields 			= {
 		{
 			name 	= "path",
@@ -38,11 +38,11 @@ local socket_endpoint = wire.types.structure("wire::core::socket_endpoint", {
 	}
 })
 
-local tcp_endpoint 		= wire.types.alias("wire::core::tcp_endpoint", ep_data)
-local ssl_endpoint 		= wire.types.alias("wire::core::ssl_endpoint", ep_data)
-local udp_endpoint 		= wire.types.alias("wire::core::udp_endpoint", ep_data)
+local tcp_endpoint 		= wire.types.alias("::wire::core::tcp_endpoint", ep_data)
+local ssl_endpoint 		= wire.types.alias("::wire::core::ssl_endpoint", ep_data)
+local udp_endpoint 		= wire.types.alias("::wire::core::udp_endpoint", ep_data)
 
-local endpoint_type = wire.types.enum("wire::core::endpoint_type",
+local endpoint_type = wire.types.enum("::wire::core::endpoint_type",
 {
 	empty	= 0x00,
 	tcp		= 0x01,
@@ -51,11 +51,11 @@ local endpoint_type = wire.types.enum("wire::core::endpoint_type",
 	socket  = 0x05,
 })
 
-local endpoint = wire.types.alias("wire::core::endpoint", 
+local endpoint = wire.types.alias("::wire::core::endpoint", 
 	wire.types.variant( { ep_data, tcp_endpoint, ssl_endpoint, udp_endpoint, socket_endpoint } , 
 	endpoint_type))
 
-local reference_data = wire.types.structure("wire::core::reference_data", {
+local reference_data = wire.types.structure("::wire::core::reference_data", {
 	fields 			= {
 		{
 			name 	= "object_id", 
@@ -78,7 +78,7 @@ local reference_data = wire.types.structure("wire::core::reference_data", {
 
 wire.types.alias("proxy", reference_data)
 
-wire.types.interface("wire::core::object", {
+wire.types.interface("::wire::core::object", {
 	functions 		= {
 		wire_is_a 	= {
 			hash	= "0x1cdc304b",
