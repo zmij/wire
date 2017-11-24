@@ -1,7 +1,7 @@
 
 dprint2("Add core functions")
 
-wire.types.alias("::wire::core::identity::id_type", wire.types.variant( { wire.types.type("string"), wire.types.type("uuid") } ))
+wire.types.alias("::wire::core::identity::id_type", wire.types.variant( { wire.types.type("string"), wire.types.type("uuid"), wire.types.type("wildcard") } ))
 
 local identity = wire.types.structure("::wire::core::identity", {
 	fields			= {
@@ -15,6 +15,7 @@ local identity = wire.types.structure("::wire::core::identity", {
 		},
 	}
 })
+wire.types.alias("::wire::core::identity_seq", wire.types.sequence( wire.types.type("::wire::core::identity") ))
 
 local ep_data = wire.types.structure("::wire::core::inet_endpoint_data", {
 	fields 			= {
@@ -76,8 +77,6 @@ local reference_data = wire.types.structure("::wire::core::reference_data", {
 	}
 })
 
-wire.types.alias("proxy", reference_data)
-
 wire.types.interface("::wire::core::object", {
 	functions 		= {
 		wire_is_a 	= {
@@ -106,4 +105,4 @@ wire.types.interface("::wire::core::object", {
 	}
 })
 
-wire.types.alias("::wire::core::object_seq", wire.types.sequence( wire.types.type("proxy") ))
+wire.types.alias("::wire::core::object_seq", wire.types.sequence(wire.types.type("proxy")))

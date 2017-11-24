@@ -13,7 +13,7 @@ end
 local function load_generated_protos()
     local path = persconffile_path('wire_plugins/')
     for fname in Dir.open(path) do
-        if fname:find('wire', 0) == nil then
+        if fname:find('wire%-core', 0) == nil then
             dprint2('Generated proto', path .. fname)
             dofile(path .. fname)
         end
