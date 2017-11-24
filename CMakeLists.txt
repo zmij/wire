@@ -41,6 +41,11 @@ set( CMAKE_MODULE_PATH
 # FindWire.cmake script
 set(WIRE2CPP wire2cpp)
 include(cmake/scripts/wire2cpp.cmake)
+# wire2lua generator. Variable is required by wire2lua cmake script
+# When wire is found by find_package, the variable will be set by
+# FindWire.cmake script
+set(WIRE2LUA wire2lua)
+include(cmake/scripts/wire2lua.cmake)
 
 set(
     BOOST_COMPONENTS

@@ -17,9 +17,12 @@ namespace ast {
 ::std::string const ARRAY       = "array";
 ::std::string const SEQUENCE    = "sequence";
 ::std::string const DICTONARY   = "dictionary";
+::std::string const VARIANT     = "variant";
+::std::string const OPTIONAL    = "optional";
 
 ::std::string const STRING      = "string";
 ::std::string const UUID        = "uuid";
+::std::string const VOID        = "void";
 
 namespace annotations {
 
