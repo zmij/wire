@@ -40,7 +40,8 @@ wire2lua(
     ${WIRE_IDL_ROOT}/wire/core/locator.wire
     ${WIRE_IDL_ROOT}/wire/core/adapter_admin.wire
     ${WIRE_IDL_ROOT}/wire/core/connector_admin.wire
-    OUTPUT wire-generated-libs.lua
+    ${WIRE_IDL_ROOT}/wire/bus/bus.wire
+    TARGET wire-generated-libs.lua
 )
 
 set(wire_lib_SRCS

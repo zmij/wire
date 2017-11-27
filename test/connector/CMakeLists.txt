@@ -24,7 +24,7 @@ wire2cpp(
 
 wire2lua(
     ping_pong.wire
-    OUTPUT ping_pong.lua
+    TARGET ping_pong.lua
 )
 
 include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR}/include)
