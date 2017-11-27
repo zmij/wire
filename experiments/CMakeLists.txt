@@ -43,3 +43,18 @@ add_executable(bits-fun bits-fun.cpp)
 add_executable(enum-iface enumerate_ifaces.cpp)
 target_link_libraries(enum-iface ${client_LIBS})
 
+if(WITH_BOOST_FIBER)
+set(fiber_LIBS
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${Boost_SYSTEM_LIBRARIES}
+    ${Boost_CONTEXT_LIBRARIES}
+    ${Boost_FIBER_LIBRARIES}
+)
+
+add_executable(autoecho autoecho.cpp)
+target_link_libraries( autoecho ${fiber_LIBS} )
+
+add_executable(exchange exchange.cpp)
+target_link_libraries( exchange ${fiber_LIBS} )
+
+endif()

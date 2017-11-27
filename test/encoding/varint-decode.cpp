@@ -23,6 +23,7 @@ typedef std::bitset<8> binary_byte;
 struct options {
 	bool		unsigned_;
 	string_list	inputs;
+	bool        bits    = false;
 };
 
 uint8_t
@@ -54,8 +55,9 @@ main(int argc, char* argv[])
 		options opts;
 		po::options_description desc("Varint decoding options");
 		desc.add_options()
-			("unsigned,u", po::bool_switch(&opts.unsigned_), "Decode as unsigned")
-			("input-string", po::value<string_list>(&opts.inputs), "Input strings")
+			("unsigned,u",      po::bool_switch(&opts.unsigned_), "Decode as unsigned")
+			("input-string",    po::value<string_list>(&opts.inputs), "Input strings")
+			("output-bits,b",   po::bool_switch(&opts.bits),        "Output bit stream")
 		;
 		po::positional_options_description pos;
 		pos.add("input-string", -1);
@@ -73,22 +75,28 @@ main(int argc, char* argv[])
 			while (is.get(hi)) {
 				if (!is.get(lo)) break;
 				val = str_to_byte(hi, lo);
-				std::cout << binary_byte(val) << " ";
+                if (opts.bits)
+				    std::cout << binary_byte(val) << " ";
 				buffer.push_back(val);
 			}
-			std::cout << "\n";
+            if (opts.bits)
+                std::cout << "\n";
 
 			auto b = buffer.begin();
 			auto e = buffer.end();
+            auto p = b;
 			if (opts.unsigned_) {
 				uint64_t v;
 				wire::encoding::read(b, e, v);
-				std::cout << v << "\n";
+				std::cout << "Dec: " << v << "\n"
+				          << "Hex: 0x" << ::std::hex << v << "\n";
 			} else {
 				int64_t v;
 				wire::encoding::read(b, e, v);
-				std::cout << v << "\n";
+				std::cout << "Dec: " << v << "\n"
+                          << "Hex: 0x" << ::std::hex << v << "\n";
 			}
+            std::cout << "Bytes used " << ::std::dec << (b - p) << "\n";
 		}
 	} catch (std::exception const& e) {
 		std::cerr << "Exception: " << e.what() << "\n";

@@ -1,128 +1,44 @@
 ------------------------------------------------------------------------------
 -- author: Sergei Fedorov <sergei.a.fedorov@gmail.com>
--- Copyright (c) 2016, Sergei Fedorov
+-- Copyright (c) 2016, 2017, Sergei Fedorov
 ------------------------------------------------------------------------------
 
-------------------------------------------------------------------------------
--- do not modify this table
-local debug_level = {
-    DISABLED = 0,
-    LEVEL_1  = 1,
-    LEVEL_2  = 2
-}
-------------------------------------------------------------------------------
--- set this DEBUG to debug_level.LEVEL_1 to enable printing debug_level info
--- set it to debug_level.LEVEL_2 to enable really verbose printing
--- set it to debug_level.DISABLED to disable debug printing
--- note: this will be overridden by user's preference settings
-local DEBUG = debug_level.LEVEL_2
-
--- a table of our default settings - these can be changed by changing
--- the preferences through the GUI or command-line; the Lua-side of that
--- preference handling is at the end of this script file
-local default_settings =
-{
-    debug_level  = DEBUG,
-    enabled      = true, -- whether this dissector is enabled or not
-    port         = 11333, -- default TCP port number for FPM
-    --max_msg_len  = 4096, -- max length of FPM message
-}
-
-
-local dprint = function() end
-local dprint2 = function() end
-local function resetDebugLevel()
-    if default_settings.debug_level > debug_level.DISABLED then
-        dprint = function(...)
-            info(table.concat({"Lua: ", ...}," "))
+local function load_core_lib()
+    -- body
+    local path = persconffile_path('wire_plugins/')
+    dofile(path .. 'wire-core.lua')
+    dofile(path .. 'wire-core-lib.lua')
+    info('WIRE:  Core lib loaded')
+end
+local function load_generated_protos()
+    local path = persconffile_path('wire_plugins/')
+    for fname in Dir.open(path) do
+        if fname:find('wire%-core', 0) == nil then
+            dprint2('Generated proto', path .. fname)
+            dofile(path .. fname)
         end
-
-        if default_settings.debug_level > debug_level.LEVEL_1 then
-            dprint2 = dprint
-        end
-    else
-        dprint = function() end
-        dprint2 = dprint
+    end
+    for k, v in pairs(wire.function_dictionary) do
+        dprint2('Registered function', v.name)
     end
 end
--- call it now
-resetDebugLevel()
+
+
+load_core_lib()
+load_generated_protos()
+-- if pcall(load_generated_protos) then
+--     dprint2("Protos loaded OK")
+-- else
+--     dprint2("Failed to load protos")
+-- end
+
+--wire_functions['test'].run('test the func')
 
 --------------------------------------------------------------------------------
 -- creates a Proto object, but doesn't register it yet
 local wire_proto = Proto("wire", "Wire Protocol");
 
-----------------------------------------
--- a function to convert tables of enumerated types to value-string tables
--- i.e., from { "name" = number } to { number = "name" }
-local function makeValString(enumTable)
-    local t = {}
-    for name,num in pairs(enumTable) do
-        t[num] = name
-    end
-    return t
-end
-
-local flagstype = {
-    request   = 0x00,
-    reply     = 0x02,
-    validate  = 0x03,
-    close     = 0x04,
-    protocol  = 0x08,
-    encoding  = 0x10,
-}
-local msgtype_valstr = makeValString(flagstype)
-
-local reqmode = {
-    normal    = 0x00,
-    one_way   = 0x01
-}
-local reqmode_valstr = makeValString(reqmode)
-
-local repstatus = {
-    success                 = 0x00,
-    success_no_body         = 0x01,
-    user_exception          = 0x02,
-    no_object               = 0x03,
-    no_facet                = 0x04,
-    no_operation            = 0x05,
-    unknown_wire_exception  = 0x06,
-    unknown_user_exception  = 0x07,
-    unknown_exception       = 0x08,
-}
-local repstatus_valstr = makeValString(repstatus)
-
-----------------------------------------
--- a table of all of our Protocol's fields
-local hdr_fields =
-{
-    header        = ProtoField.string("wire.header", "Header", "Wire message header"),
-    magic_type    = ProtoField.string("wire.magic", "Magic"),
-    msg_type      = ProtoField.uint8 ("wire.type", "Type", base.HEX, msgtype_valstr, 0x07),
-    proto_flag    = ProtoField.bool("wire.header.proto_flag", "Protocol Flag", base.HEX, nil, 0x08),
-    enc_flag      = ProtoField.bool("wire.header.encoding_flag", "Encoding Flag", base.HEX, nil, 0x10),
-
-    proto_version = ProtoField.uint16 ("wire.header.proto_version", "Protocol Version", base.HEX),
-    enc_version   = ProtoField.uint16 ("wire.header.enc_version", "Encoding Version", base.HEX),
-    msg_size      = ProtoField.uint64("wire.length", "Length", base.HEX),
-
-    request       = ProtoField.string("wire.request", "Request", "Wire request"),
-    request_no    = ProtoField.string("wire.request.number", "Number", "Request number"),
-    request_tgt   = ProtoField.string("wire.request.target", "Request Target", "Wire request target"),
-    request_fct   = ProtoField.string("wire.request.facet", "Request Facet", "Wire request facet"),
-    request_op    = ProtoField.string("wire.request.op", "Request Operation", "Wire request operation"),
-    request_mode  = ProtoField.uint8("wire.request.mode", "Request Mode", base.HEX, reqmode_valstr, 0x1),
-    request_multi = ProtoField.bool("wire.request.multi_target", "Request Multi-Target", base.HEX, nil, 0x2),
-    request_noctx = ProtoField.bool("wire.request.no_context", "Request Without Context", base.HEX, nil, 0x10),
-    request_nobody= ProtoField.bool("wire.request.no_body", "Request Without Body", base.HEX, nil, 0x20),
-    request_mt    = ProtoField.string("wire.request.targets", "Targets", "Wire request targets"),
-
-    reply         = ProtoField.string("wire.reply", "Reply", "Wire reply"),
-    reply_no      = ProtoField.string("wire.reply.number", "Number", "Reply number"),
-    reply_status  = ProtoField.uint8("wire.reply.status", "Reply Status", base.HEX, repstatus_valstr),
-}
-
-wire_proto.fields = hdr_fields
+wire_proto.fields = wire.hdr_fields
 
 dprint2("wire_proto ProtoFields registered")
 
@@ -133,6 +49,8 @@ dprint2("wire_proto ProtoFields registered")
 -- to pass on to the Netlink dissector
 local tvbs = {}
 
+--wire_functions = {}
+
 ---------------------------------------
 -- This function will be invoked by Wireshark during initialization, such as
 -- at program start and loading a new file
@@ -141,12 +59,8 @@ function wire_proto.init()
     tvbs = {}
 end
 
-local WIRE_MIN_HEADER_SIZE = 6
-local WIRE_MAX_HEADER_SIZE = 18
-
 -- some forward "declarations" of helper functions we use in the dissector
-local checkWireHeader, dissectWire, dissectRequest, dissectReply
-local read_uint, read_string, read_uuid, read_identity, read_invocation_target, read_operation, read_sequence
+local dissectWire
 
 -- this holds the plain "data" Dissector for opaque message contents
 local data = Dissector.get("data")
@@ -191,7 +105,7 @@ function wire_proto.dissector(tvbuf, pktinfo, root)
             -- we need more bytes, so set the desegment_offset to what we
             -- already consumed, and the desegment_len to how many more
             -- are needed
-            pktinfo.desegment_offset = bytes_consumed
+            pktinfo.desegment_offset = Int64(bytes_consumed):tonumber()
 
             -- invert the negative result so it's a positive number
             result = -result
@@ -211,14 +125,14 @@ function wire_proto.dissector(tvbuf, pktinfo, root)
     -- Do NOT return the number 0, or else Wireshark will interpret that to mean
     -- this packet did not belong to your protocol, and will try to dissect it
     -- with other protocol dissectors (such as heuristic ones)
-    return bytes_consumed
+    return Int64(bytes_consumed):tonumber()
 end
 
 --------------------------------------------------------------------------------
 dissectWire = function(tvbuf, pktinfo, root, offset)
     dprint2("Wire dissect function called. offset = " .. offset)
 
-    local consumed, msg_header = checkWireHeader(tvbuf, offset)
+    local consumed, msg_header = wire.protocol.read_header(tvbuf, offset)
 
     if consumed <= 0 then
       return consumed
@@ -240,20 +154,20 @@ dissectWire = function(tvbuf, pktinfo, root, offset)
         pktinfo.cols.info:set("WIRE: " .. pktinfo.src_port .. "→" .. pktinfo.dst_port)
     end
 
-    local tree = root:add(wire_proto, tvbuf:range(offset, consumed + msg_header.size))
-    local hdr_tree = tree:add(hdr_fields.header, tvbuf:range(offset, consumed),
+    local tree = root:add(wire_proto, range64(tvbuf, offset, consumed + msg_header.size))
+    local hdr_tree = tree:add(wire.hdr_fields.header, range64(tvbuf, offset, consumed),
         "Size: " .. consumed)
     -- magic number
-    hdr_tree:add(hdr_fields.magic_type, tvbuf:range(offset, 4))
+    hdr_tree:add(wire.hdr_fields.magic_type, range64(tvbuf, offset, 4))
     -- flags
-    hdr_tree:add(hdr_fields.msg_type, tvbuf:range(offset + 4, 1))
-    hdr_tree:add(hdr_fields.proto_flag, tvbuf:range(offset + 4, 1))
-    hdr_tree:add(hdr_fields.enc_flag, tvbuf:range(offset + 4, 1))
+    hdr_tree:add(wire.hdr_fields.msg_type, range64(tvbuf, offset + 4, 1))
+    hdr_tree:add(wire.hdr_fields.proto_flag, range64(tvbuf, offset + 4, 1))
+    hdr_tree:add(wire.hdr_fields.enc_flag, range64(tvbuf, offset + 4, 1))
 
     local data_size = msg_header.size
     dprint2("Tree added, adding info")
     if msg_header.type == 0 then
-        local rn = dissectRequest(tvbuf, pktinfo, tree, offset + consumed)
+        local rn = wire.protocol.dissect_request(tvbuf, pktinfo, tree, offset + consumed)
         if rn == 0 then
             dprint("Failed to dissect request")
             return 0
@@ -261,7 +175,7 @@ dissectWire = function(tvbuf, pktinfo, root, offset)
         consumed = consumed + rn
         data_size = data_size - rn
     elseif msg_header.type == 2 then
-        local rn = dissectReply(tvbuf, pktinfo, tree, offset + consumed)
+        local rn = wire.protocol.dissect_reply(tvbuf, pktinfo, tree, offset + consumed)
         if rn == 0 then
             dprint("Failed to dissect reply")
             return 0
@@ -278,20 +192,18 @@ dissectWire = function(tvbuf, pktinfo, root, offset)
     if msg_header.proto_version then
         pktinfo.cols.info:append(" protocol " .. msg_header.proto_version.major ..
             "." .. msg_header.proto_version.minor)
-        hdr_tree:add(hdr_fields.proto_version,
-            tvbuf:range(msg_header.proto_version.offset,
-                msg_header.proto_version.size))
+        hdr_tree:add(wire.hdr_fields.proto_version,
+            range64(tvbuf, msg_header.proto_version.offset, msg_header.proto_version.size), msg_header.proto_version.value)
     end
     if msg_header.encoding_version then
         pktinfo.cols.info:append(" encoding " .. msg_header.encoding_version.major ..
             "." .. msg_header.encoding_version.minor)
-        hdr_tree:add(hdr_fields.enc_version,
-            tvbuf:range(msg_header.encoding_version.offset,
-                msg_header.encoding_version.size))
+        hdr_tree:add(wire.hdr_fields.enc_version,
+            range64(tvbuf, msg_header.encoding_version.offset, msg_header.encoding_version.size), msg_header.encoding_version.value)
     end
     pktinfo.cols.info:append(" size " .. msg_header.size)
-    hdr_tree:add(hdr_fields.msg_size,
-          tvbuf:range(msg_header.size_offset, msg_header.size_length))
+    hdr_tree:add(wire.hdr_fields.msg_size,
+          range64(tvbuf, msg_header.size_offset, msg_header.size_length), msg_header.size:tonumber())
 
     if data_size > 0 then
         local tvb = tvbuf(offset + consumed, data_size):tvb()
@@ -302,458 +214,6 @@ dissectWire = function(tvbuf, pktinfo, root, offset)
 end
 
 --------------------------------------------------------------------------------
-dissectRequest = function(tvbuf, pktinfo, root, offset)
-    local inf = ""
-    local req = {}
-    dprint2("Dissect request header")
-    local consumed, req_no = read_uint(tvbuf,offset,8)
-    if consumed == 0 then
-        dprint("Failed to read request number")
-        return 0
-    end
-    local num_sz = consumed
-
-    inf = inf .. " #" .. req_no
-
-    local n, identity = read_identity(tvbuf, offset + consumed)
-    if n == 0 then
-        dprint("Failed to read request target")
-        return 0
-    end
-    consumed = consumed + n
-
-    -- read facet
-    local n, facet = read_string(tvbuf, offset + consumed)
-    if n == 0 then
-        dprint("Failed to read request target facet")
-        return 0
-    end
-    if facet.value == nil then
-        facet.value = "none"
-    end
-    consumed = consumed + n
-
-    -- read op
-    local n, op = read_operation(tvbuf, offset + consumed)
-    if n == 0 then
-        dprint("Failed to read op specs")
-        return 0
-    end
-    consumed = consumed + n
-
-    local mode = tvbuf:range(offset + consumed, 1):uint()
-    consumed = consumed + 1
-
-    -- TODO Read context
-
-    local multitarget = false
-    local targets = {}
-    -- Read multitarget
-    if bit.band(mode, 0x02) > 0 then
-        dprint2("Read multitarget")
-        local n = 0;
-        n, targets = read_sequence(tvbuf, offset + consumed, read_invocation_target)
-        consumed = consumed + n
-        multitarget = true
-    end
-
-    if multitarget == false then
-        dprint2("Request target: " .. identity.value)
-        inf = inf .. " " .. identity.value
-    else
-        inf = inf .. " <multiple targets>"
-    end
-
-    inf = inf .. "::" .. op.value
-    pktinfo.cols.info:append(" Request" .. inf)
-    root:append_text(" Request" .. inf)
-
-    local req_tree = root:add(hdr_fields.request, tvbuf:range(offset, consumed), inf)
-    req_tree:add(hdr_fields.request_no, tvbuf:range(offset, num_sz), req_no)
-    req_tree:add(hdr_fields.request_tgt, tvbuf:range(identity.offset, identity.size),
-            identity.value)
-    req_tree:add(hdr_fields.request_fct, tvbuf:range(facet.offset, facet.size),
-            facet.value)
-    req_tree:add(hdr_fields.request_op, tvbuf:range(op.offset, op.size),
-            op.value)
-    req_tree:add(hdr_fields.request_mode, tvbuf:range(op.offset + op.size, 1))
-    req_tree:add(hdr_fields.request_multi, tvbuf:range(op.offset + op.size, 1))
-    req_tree:add(hdr_fields.request_noctx, tvbuf:range(op.offset + op.size, 1))
-    req_tree:add(hdr_fields.request_nobody, tvbuf:range(op.offset + op.size, 1))
-
-    if (multitarget == true) then
-        dprint2("Targets offset " .. targets.offset .. " size " .. targets.size .. " count " .. #targets)
-        local mt_tree = req_tree:add(hdr_fields.request_mt, tvbuf:range(targets.offset, targets.size), "Count " .. #targets)
-        for i, tgt in ipairs(targets) do
-            local inf = tgt.identity.value
-            if tgt.facet.value ~= nil then
-                inf = inf .. " [" .. tgt.facet.value .. "]"
-            end
-            dprint2("Target " .. inf)
-            mt_tree:add(hdr_fields.request_tgt, tvbuf:range(tgt.offset, tgt.size),
-                    inf)
-        end
-    end
-
-    return consumed
-end
-
---------------------------------------------------------------------------------
---  Dissect reply
-dissectReply = function(tvbuf, pktinfo, root, offset)
-    local rep = {}
-    dprint2("Dissect reply header")
-    local consumed, req_no = read_uint(tvbuf,offset,8)
-    if consumed == 0 then
-        dprint("Failed to read request number")
-        return 0
-    end
-    local num_sz = consumed
-    local status = tvbuf:range(offset + consumed, 1):uint()
-
-    local inf = " #" .. req_no .. " " .. repstatus_valstr[status]
-    pktinfo.cols.info:append(" Reply" .. inf)
-    root:append_text(" Reply" .. inf)
-
-    consumed = consumed + 1 -- message status
-    local rep_tree = root:add(hdr_fields.reply, tvbuf:range(offset, consumed), inf)
-    rep_tree:add(hdr_fields.reply_no, tvbuf:range(offset, num_sz), req_no)
-    rep_tree:add(hdr_fields.reply_status, tvbuf:range(offset + num_sz, 1))
-
-    return consumed
-end
---------------------------------------------------------------------------------
---  Read a variable-length uint from buffer
---  Returns consumed length and the int value
---  If the length is 0 means read failure
-read_uint = function(tvbuf, offset, max_bytes)
-    local msglen = tvbuf:len() - offset
-
-    local val = 0
-    local n = 0
-    local more = true
-    while more and (n * 7 <= max_bytes * 8) and msglen > 0 do
-        local byte = tvbuf:range(offset + n, 1):uint()
-        val = bit.bor( val, bit.lshift( bit.band(byte, 0x7f), 7 * n ) )
-        more = bit.band(byte, 0x80) > 0
-        n = n + 1
-        msglen = msglen - 1
-    end
-    if more then
-        return 0
-    end
-    return n, val
-end
---------------------------------------------------------------------------------
---  Read string from buffer
---  Return number of bytes consumed and string together with sizes and offsets
-read_string = function(tvbuf, offset)
-    --dprint2("Read string")
-    local n, sz = read_uint(tvbuf, offset, 8)
-    if n == 0 then
-        dprint2("Failed to read string size")
-        return 0
-    end
-    --dprint2("String size " .. sz)
-    local str = {}
-    if sz > 0 then
-        if sz > tvbuf:len() then
-            str = {
-                offset    = offset,
-                size      = n + sz,
-                size_len  = n,
-                value     = "Invalid string size " .. sz
-            }
-            return 0, str
-        else
-            str = {
-                offset    = offset,
-                size      = n + sz,
-                size_len  = n,
-                value     = tvbuf:range(offset + n, sz):string()
-            }
-        --dprint2("Value is " .. str.value)
-        end
-    else
-        str = {
-            offset    = offset,
-            size      = n,
-            size_len  = n,
-            value     = nil
-        }
-        --dprint2("Value is nil")
-    end
-    return n + sz, str
-end
-
---------------------------------------------------------------------------------
---  Read uuid from buffer
---
-read_uuid = function(tvbuf, offset)
-    --dprint2("Read uuid")
-    local uuid_str = ""
-    for i=0,15 do
-        if i == 4 or i == 6 or i == 8 or i == 10 then
-            uuid_str = uuid_str .. "-"
-        end
-        local byte = tvbuf:range(offset + i, 1):uint()
-        uuid_str = uuid_str .. string.format("%02x", byte)
-    end
-    return 16, uuid_str
-end
-
---------------------------------------------------------------------------------
---  Read identity from buffer
---  Return number of bytes consumed and identity object (if any)
-read_identity = function(tvbuf, offset)
-    dprint2("Read identity")
-    local consumed = 0
-    local n, cat = read_string(tvbuf, offset)
-    if n == 0 then
-        dprint("Failed to read identity:category from buffer")
-        return 0
-    end
-    local identity = {
-        offset  = offset,
-        cat_size    = n,
-        category    = cat
-    }
-    if identity.category.value ~= nil then
-        identity.value = identity.category.value .. "/"
-    else
-        identity.value = nil
-    end
-    consumed = consumed + n
-    local type = tvbuf:range(offset + consumed, 1):uint()
-    consumed = consumed + 1
-    if type == 0 then -- id is string
-        dprint2("Id is string")
-        local n, id = read_string(tvbuf, offset + consumed)
-        if n == 0 then
-            dprint("Failed to read identity:id string from buffer")
-            return 0
-        end
-        consumed = consumed + n
-        identity.id = id
-        identity.id_size = n
-
-        if identity.value ~= nil then
-            identity.value = identity.value .. id.value
-        else
-            identity.value = id.value
-        end
-    elseif type == 1 then  -- id is uuid
-        dprint2("Id is uuid")
-        local n, id = read_uuid(tvbuf, offset + consumed)
-        if n == 0 then
-            dprint("Failed to read identity:id uuid from buffer")
-            return 0
-        end
-        consumed = consumed + n
-        identity.id = id
-        identity.id_size = n
-
-        if identity.value ~= nil then
-            identity.value = identity.value .. id
-        else
-            identity.value = id
-        end
-    else -- id is wildcard
-        dprint2("Id is wildcard")
-        consumed = consumed + 1
-        identity.value = identity.value .. "*"
-    end
-    if identity.value == nil then
-        dprint2("Identity value is nil")
-        identity.value = "<none>"
-    end
-    identity.size = consumed
-    return consumed, identity
-end
-
---------------------------------------------------------------------------------
---  Read a sequence of elements
-read_sequence = function(tvbuf, offset, elem_func)
-    local seq = {
-        offset = offset,
-    }
-    local n, sz = read_uint(tvbuf, offset, 8)
-    if n == 0 then
-        dprint("Failed to read sequence size")
-        return 0
-    end
-    if sz > 0 then
-        dprint2("Read sequence size " .. sz)
-        for i = 1, sz do
-            local c, elem = elem_func(tvbuf, offset + n)
-            if c == 0 then
-                dprint("Failed to read sequence element")
-                return 0
-            end
-            seq[i] = elem
-            n = n + c
-        end
-    end
-    seq.size = n
-    return n, seq
-end
-
---------------------------------------------------------------------------------
---  Read identity/facet pair
-read_invocation_target = function(tvbuf, offset)
-    dprint2("Read target identity")
-    local n, id = read_identity(tvbuf, offset)
-    if n == 0 then
-        dprint("Failed to read identity")
-        return 0
-    end
-    dprint2("Read target facet")
-    local s, fct = read_string(tvbuf, offset)
-    if s == 0 then
-        dprint("Failed to read facet")
-        return 0
-    end
-    return n + s, { identity = id, facet = fct, offset = id.offset, size = id.size + fct.size }
-end
-
---------------------------------------------------------------------------------
---  Read operation id
-read_operation = function(tvbuf, offset)
-    local op = {
-        offset = offset
-    }
-    op.type = tvbuf:range(offset, 1):uint()
-    local consumed = 1
-    if op.type == 0 then -- Op hash
-        local hash = tvbuf:range(offset + consumed, 4):le_uint()
-        op.value = string.format("0x%x", hash)
-        consumed = consumed + 4
-    else  -- Op name
-        local n, name = read_string(tvbuf, offset + consumed)
-        if n == 0 then
-            dprint("Failed to read literal op name")
-            return 0
-        end
-        op.value = name.value
-        consumed = consumed + n
-    end
-    op.size = consumed
-    return consumed, op
-end
-
---------------------------------------------------------------------------------
---  Read version information from buffer
---  uint32 major uint32 minor
---  Returns number of consumed bytes and version object (if any)
-read_version = function(tvbuf, offset)
-    local consumed = 0
-    local version  = {
-        offset = offset
-    }
-    local n, val = read_uint(tvbuf,offset,4)
-    if n == 0 then
-        dprint("Failed to read protocol major")
-        return 0
-    end
-    version.major = val
-    consumed = consumed + n
-    offset = offset + consumed
-    n, val = read_uint(tvbuf,offset,4)
-    if n == 0 then
-        dprint("Failed to read protocol minor")
-        return 0
-    end
-    version.minor = val
-    consumed = consumed + n
-    version.size = consumed
-    return consumed, version
-end
-
---------------------------------------------------------------------------------
-checkWireHeader = function(tvbuf, offset)
-    local msglen = tvbuf:len() - offset
-
-    -- check if capture was only capturing partial packet size
-    if msglen ~= tvbuf:reported_length_remaining(offset) then
-        -- captured packets are being sliced/cut-off, so don't try to desegment/reassemble
-        dprint("Captured packet was shorter than original, can't reassemble")
-        return 0
-    end
-
-    if msglen < WIRE_MIN_HEADER_SIZE then
-        -- we need more bytes, so tell the main dissector function that we
-        -- didn't dissect anything, and we need an unknown number of more
-        -- bytes (which is what "DESEGMENT_ONE_MORE_SEGMENT" is used for)
-        dprint("Need more bytes to figure out WIRE header")
-        -- return as a negative number
-        return -DESEGMENT_ONE_MORE_SEGMENT
-    end
-
-    -- if we got here, then we know we have enough bytes in the Tvb buffer
-    -- to check the magic number and flags.
-    local magic_tvbr = tvbuf:range(offset, 4)
-    local magic_val  = magic_tvbr:string()
-
-    if magic_val ~= "wire" then
-        dprint("Invalid magic number")
-        return 0
-    end
-    local start = offset
-    offset = offset + 4
-    dprint2("Magic number OK offset " .. offset)
-
-    local flags_tvbr = tvbuf:range(offset, 1)
-    offset = offset + 1
-    local flags_val  = flags_tvbr:uint()
-
-    local msg_header = {}
-    msg_header.type = bit32.band(flags_val, 0x7)
-    dprint2("Message flags value " .. flags_val .. " type " .. msg_header.type)
-    if (bit32.band(flags_val, 0x8) > 0) then
-        dprint2("Read protocol version")
-        local consumed, tmp = read_version(tvbuf,offset)
-        if consumed <= 0 then
-            dprint("Failed to read protocol version")
-            return -DESEGMENT_ONE_MORE_SEGMENT
-        end
-        msg_header.proto_version = tmp
-        offset = offset + consumed
-        dprint2("Protocol version " .. msg_header.proto_version.major ..
-            "." .. msg_header.proto_version.minor ..
-            " offset " .. tmp.offset .. " size " .. tmp.size)
-    end
-    if (bit32.band(flags_val, 0x10) > 0) then
-        dprint2("Read encoding version")
-        local consumed, tmp = read_version(tvbuf,offset)
-        if consumed <= 0 then
-            dprint("Failed to read encoding version")
-            return -DESEGMENT_ONE_MORE_SEGMENT
-        end
-        msg_header.encoding_version = tmp
-        offset = offset + consumed
-        dprint2("Encoding version " .. msg_header.encoding_version.major ..
-            "." .. msg_header.encoding_version.minor)
-    end
-    local consumed, msg_size = read_uint(tvbuf,offset,8)
-    if (consumed <= 0) then
-        return -DESEGMENT_ONE_MORE_SEGMENT
-    end
-    msg_header.size_offset = offset
-    msg_header.size_length = consumed
-    offset = offset + consumed
-    dprint2("Message size " .. msg_size)
-
-    msglen = tvbuf:len() - offset
-    if msglen < msg_size then
-        dprint2("Need more bytes to desegment wire message")
-        return -(msg_size - msglen)
-    end
-
-    msg_header.size = msg_size
-    msg_header.hdr_size = offset - start
-    return offset - start, msg_header
-end
-
 local function wire_proto_heuristic (tvbuf, pktinfo, root)
     local bytesConsumed = wire_proto.dissector(tvbuf,pktinfo,root)
     return bytesConsumed ~= 0

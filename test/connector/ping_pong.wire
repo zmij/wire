@@ -12,7 +12,7 @@
 
 namespace test {
 
-[[cpp_cmp, cpp_io]]
+[[cpp_cmp, cpp_io, lua_format("{str}")]]
 struct data {
     string  str;
 };

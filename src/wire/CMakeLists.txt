@@ -35,6 +35,14 @@ wire2cpp(
     OPTIONS         --generate-forwards
 )
 
+wire2lua(
+    ${WIRE_IDL_ROOT}/wire/errors/unexpected.wire
+    ${WIRE_IDL_ROOT}/wire/core/locator.wire
+    ${WIRE_IDL_ROOT}/wire/core/adapter_admin.wire
+    ${WIRE_IDL_ROOT}/wire/core/connector_admin.wire
+    OUTPUT wire-generated-libs.lua
+)
+
 set(wire_lib_SRCS
     ${wired_ERRORS}
     ${wired_LOCATOR}
@@ -83,6 +91,7 @@ target_link_libraries(
 
 add_subdirectory(idl)
 add_subdirectory(wire2cpp)
+add_subdirectory(wire2lua)
 add_subdirectory(bus)
 add_subdirectory(locator)
 

@@ -19,8 +19,12 @@ wire2cpp(
     HEADER_DIR include/test
     INCLUDE_ROOT test
     SOURCES wired_SRCS
-    OPTIONS --dont-use-hashed-ids
     OPTIONS --generate-forwards
+)
+
+wire2lua(
+    ping_pong.wire
+    OUTPUT ping_pong.lua
 )
 
 include_directories(${GTEST_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR}/include)

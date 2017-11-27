@@ -48,6 +48,19 @@ find_file(WIRE2CPP_CMAKE "wire2cpp.cmake"
 find_file(WIRE2CPP_CMAKE "wire2cpp.cmake"
     PATH_SUFFIXES etc/share/wire/cmake)
 
+find_program(WIRE2LUA NAMES "wire2lua"
+    PATHS ${WIRE_ROOT_DIR}
+    PATH_SUFFIXES bin
+    NO_DEFAULT_PATH)
+find_program(WIRE2LUA NAMES "wire2lua")
+
+find_file(WIRE2LUA_CMAKE "wire2lua.cmake"
+    PATHS ${WIRE_ROOT_DIR}
+    PATH_SUFFIXES etc/share/wire/cmake
+    NO_DEFAULT_PATH)
+find_file(WIRE2LUA_CMAKE "wire2lua.cmake"
+    PATH_SUFFIXES etc/share/wire/cmake)
+
 include(FindPackageHandleStandardArgs)
 # handle the QUIETLY and REQUIRED arguments and set benchmark_FOUND to TRUE
 # if all listed variables are TRUE
