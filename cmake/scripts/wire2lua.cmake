@@ -41,7 +41,7 @@ function(wire2lua)
     )
     if(LINUX)
         install(
-            FILES ${OUTPUT}
+            FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
             DESTINATION "${WIRESHARK_ROOT_DIR}/wire_plugins"
         )
     endif()
