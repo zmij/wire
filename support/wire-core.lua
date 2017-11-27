@@ -1090,6 +1090,16 @@ parsers 		= {
             return self:add_to_tree( tree, proto, encaps.tvbuf, n, v )
         end,
     },
+    time_point  = Type:new {
+        dissect = function ( self, encaps, offset, proto, tree )
+            return wire.encoding.dissect_int_field( self, encaps.tvbuf, offset, proto, tree, 8)
+        end,
+    },
+    duration    = Type:new {
+        dissect = function ( self, encaps, offset, proto, tree )
+            return wire.encoding.dissect_int_field( self, encaps.tvbuf, offset, proto, tree, 8)
+        end,
+    },
     proxy       = Type:new {
         dissect = function ( self, encaps, offset, proto, tree )
             dprint2("Dissect proxy")
@@ -1126,15 +1136,29 @@ parsers 		= {
 },
 
 --  Dictionary of functions by hashes
-functions = {},
+functions   = {},
 
---  Dictionary of classes and exceptions by hashes
-classes   = {},
+aliases     = {},
 
 --  Return a pair of lambdas - parser and field creator
 type 			= function ( name )
 	return function() 
-        return wire.types.parsers[name]
+        local t = wire.types.parsers[name]
+        if t == nil then
+            dprint2("Type", name, "not found")
+            -- Check aliases
+            if wire.types.aliases[name] ~= nil then
+                local aliased = wire.types.aliases[name]
+                t = Type:new{
+                    name        = name,
+                    dissect     = aliased().dissect,
+                    ind_dissect = aliased().ind_dissect,
+                    format      = aliased().format,
+                }
+                wire.types.parsers[name] = t
+            end
+        end
+        return t
     end
 end,
 
@@ -1349,11 +1373,8 @@ end,
 
 alias           = function ( name, t )
     dprint2("Add alias", name)
-    wire.types.parsers[name] = Type:new {
-        name    = name,
-        dissect = t().dissect,
-        format  = t().format,
-    }
+    -- Defer dereferencing the type
+    wire.types.aliases[name] = t
     return wire.types.type(name)
 end,
 
