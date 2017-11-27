@@ -16,14 +16,15 @@ endif()
 # 
 function(wire2lua)
     set(argnames
-        OUTPUT
+        TARGET
         OPTIONS
     )
     parse_argn("" argnames ${ARGN})
     set(wire2lua_options ${WIRE_IDL_DIRECTORIES})
-    if(NOT OUTPUT)
+    if(NOT TARGET)
         message(FATAL_ERROR "No output specified for wire2lua")
     endif()
+    message(STATUS "Add wire2lua target ${TARGET}")
     set(files)
     foreach(wire_file ${DEFAULT_ARGS})
         get_filename_component(base_dir ${wire_file} DIRECTORY)
@@ -34,14 +35,14 @@ function(wire2lua)
         list(APPEND files ${base_dir}/${wire_file})
     endforeach()
     add_custom_target(
-        ${OUTPUT} ALL
-        COMMAND ${WIRE2LUA} ${wire2lua_options} --output=${OUTPUT} ${files}
+        ${TARGET} ALL
+        COMMAND ${WIRE2LUA} ${wire2lua_options} --output=${TARGET} ${files}
         DEPENDS ${files} ${WIRE2LUA}
         COMMENT "Generate Wireshark dissector plugin ${OUTPUT}"
     )
     if(LINUX)
         install(
-            FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
+            FILES ${CMAKE_CURRENT_BINARY_DIR}/${TARGET}
             DESTINATION "${WIRESHARK_ROOT_DIR}/wire_plugins"
         )
     endif()
