@@ -60,7 +60,12 @@ generator::generate_enum(ast::enumeration_ptr enum_)
             try {
                 enum_val = ::std::stoi(*e.second);
             } catch (::std::invalid_argument const& er) {
-                throw grammar_error{ enum_->decl_position(), "Enumerator in " + e.first + " has an invalid initializer" };
+                // FIXME Try and calculate the value
+//                throw grammar_error{ enum_->decl_position(),
+//                    "Enumerator " + e.first + " in "
+//                        + enum_->name() + " has an invalid initializer" };
+                ::std::cerr << "Enumerator " << e.first << " in "
+                            << enum_->name() + " has initializer that needs to be calculated\n";
             }
         }
         out_ << off << e.first << " = " << enum_val << ",";
@@ -152,7 +157,8 @@ generator::write_functions(ast::interface_ptr iface)
         out_ << off << "functions = " << sb;
         for (auto f : funcs) {
             out_ << off << f->name() << " = " << sb
-                 << off     << "hash = '0x" << ::std::hex << f->get_hash_32() << "',";
+                 << off     << "hash = '0x"
+                 << ::std::hex << f->get_hash_32() << ::std::dec << "',";
 
             auto& params = f->get_params();
             if (!params.empty()) {
