@@ -20,6 +20,13 @@ namespace wire {
 namespace idl {
 namespace lua {
 
+namespace annotations {
+
+::std::string const LUA_FORMAT = "lua_format";
+
+} /* namespace annotations */
+
+
 class source_stream {
 public:
     source_stream(::std::string const& filename);

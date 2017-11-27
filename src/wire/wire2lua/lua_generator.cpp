@@ -80,6 +80,7 @@ generator::generate_struct(ast::structure_ptr struct_)
     out_ << off << "wire.types.structure('" << struct_->get_qualified_name() << "', " << sb;
 
     write_fields(struct_);
+    process_annotations(struct_);
 
     out_ << mod(-1) << "})\n";
 }
@@ -172,6 +173,18 @@ generator::write_functions(ast::interface_ptr iface)
     }
 }
 
+void
+generator::process_annotations(ast::entity_ptr e)
+{
+    auto ann = find(e->get_annotations(), annotations::LUA_FORMAT);
+    if (ann != e->get_annotations().end()) {
+        if (ann->arguments.empty()) {
+            throw grammar_error{ e->decl_position(),
+                "Lua format annotation must have an argument" };
+        }
+        out_ << off << "format = " << ann->arguments.front()->name << ",";
+    }
+}
 
 } /* namespace lua */
 } /* namespace idl */

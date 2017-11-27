@@ -13,7 +13,8 @@ local identity = wire.types.structure("::wire::core::identity", {
 			name    = "id", 
 			type 	= wire.types.type("::wire::core::identity::id_type") 
 		},
-	}
+	},
+	format 			= "{category}/{id}"
 })
 wire.types.alias("::wire::core::identity_seq", wire.types.sequence( wire.types.type("::wire::core::identity") ))
 
@@ -27,7 +28,8 @@ local ep_data = wire.types.structure("::wire::core::inet_endpoint_data", {
 			name 	= "port",
 			type 	= wire.types.type("uint16") 
 		}
-	}
+	},
+	format 			= "{host}:{port}"
 })
 
 local socket_endpoint = wire.types.structure("::wire::core::socket_endpoint", {

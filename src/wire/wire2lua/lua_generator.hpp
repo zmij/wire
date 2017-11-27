@@ -57,6 +57,9 @@ private:
 
     void
     write_functions(ast::interface_ptr iface);
+
+    void
+    process_annotations(ast::entity_ptr e);
 private:
     source_stream&                  out_;
     ast::global_namespace_ptr       ns_;
