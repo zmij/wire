@@ -14,7 +14,13 @@ local identity = wire.types.structure("::wire::core::identity", {
 			type 	= wire.types.type("::wire::core::identity::id_type") 
 		},
 	},
-	format 			= "{category}/{id}"
+	format 			= function ( val )
+		local cat = tostring(val.category)
+		if cat:len() > 0 then
+			return cat .. "/" .. tostring(val.id)
+		end
+		return tostring(val.id)
+	end
 })
 wire.types.alias("::wire::core::identity_seq", wire.types.sequence( wire.types.type("::wire::core::identity") ))
 

@@ -132,6 +132,41 @@ local function qname_abbrev(owner_name, name)
     return fname, make_abbrev(fname)
 end
 
+local function format_duration( dur )
+    local tmp = dur / Int64(1000000)
+    if tmp == Int64(0) then
+        return "Zero time (" .. tostring(dur) .. "μs)"
+    end
+
+    local str = ""
+
+    if tmp < Int64(0) then
+        str = str .. "-"
+        tmp = -tmp
+    end
+    local days = tmp / Int64(60 * 60 * 24)
+    if days > Int64(0) then
+        str = str .. tostring(days) .. " days"
+        tmp = tmp - days * Int64(60 * 60 * 24)
+    end
+
+    local hours = tmp / Int64(60 * 60)
+    tmp = tmp - hours * Int64(60 * 60)
+    local mins = tmp / Int64(60)
+    local secs = tmp - mins * Int64(60)
+
+    if hours > Int64(0) or mins > Int64(0) or secs > Int64(0) then
+        if days > Int64(0) then
+            str = str .. " "
+        end
+        str = str .. string.format("%.2i", hours:tonumber())
+            .. ":" .. string.format("%.2i", mins:tonumber())
+            .. ":" .. string.format("%.2i", secs:tonumber())
+    end
+
+    return str
+end
+
 local function field_to_string( val )
     return tostring(val.value)
 end
@@ -155,21 +190,24 @@ function make_formatter(fmt)
         return fmt
     end
 
-    local placeholder_pattern = "((.-){([^}]+)})"
-    local all, before, placeholder = fmt:match(placeholder_pattern)
+    local placeholder_pattern = "((.-){([^}]+)})(.*)"
+
+    local all, before, placeholder, remain = fmt:match(placeholder_pattern)
+    local save_remain = ""
 
     local formatters = {}
-
-    local l = 1
 
     while all ~= nil do
         if (before ~= nil and before:len() > 0) then
             table.insert(formatters, const_string(before))
         end
         table.insert(formatters, acceccor(placeholder))
-        l = l + all:len()
 
-        all, before, placeholder = fmt:match(placeholder_pattern, l)
+        save_remain = remain
+        all, before, placeholder, remain = remain:match(placeholder_pattern)
+    end
+    if save_remain:len() > 0 then
+        table.insert(formatters, const_string(save_remain))
     end
 
     return function ( val )
@@ -218,6 +256,8 @@ local field_protos = {
 		return ProtoField.new(name, abbrev, ft, strings, base_, mask)
 	end
 }
+
+local chat = {}
 
 ------------------------------------------------------------------------------
 Version = {
@@ -959,6 +999,12 @@ dissect_request = function(tvbuf, pktinfo, root, offset)
 
     if op.func ~= nil and op.func.dissect ~= nil then
     	fn = op.func.dissect
+
+        if op.func.ret ~= nil then
+            local req_id = tostring(pktinfo.src) .. ":" .. tostring(pktinfo.src_port) .. "#" .. tostring(req_no)
+            dprint2("Call of", op.value, "from", req_id)
+            chat[req_id] = op.func
+        end
     end
 
     n = wire.protocol.dissect_encapsulation(tvbuf, pktinfo, offset + consumed, req_tree, fn)
@@ -994,10 +1040,21 @@ dissect_reply = function(tvbuf, pktinfo, root, offset)
 
     if status ~= repstatus.success_no_body then
         local fn = nil
-        if status == repstatus.user_exception or status >= repstatus.unknown_wire_exception then
+        local rep_id = tostring(pktinfo.dst) .. ":" .. tostring(pktinfo.dst_port) .. "#" .. tostring(req_no)
+        if status == repstatus.success then
+            local op = chat[rep_id]
+            if op ~= nil then
+                dprint2("Reply ", rep_id, "to", op.name)
+                fn = op.ret
+            else
+                dprint2("Request", rep_id, "not captured")
+            end
+        elseif status == repstatus.user_exception or status >= repstatus.unknown_wire_exception then
             dprint2("Reply contains an exception in the encapsulation")
             fn = wire.encoding.dissect_exception
         end
+        --chat[rep_id] = nil
+
 
         local n = wire.protocol.dissect_encapsulation(tvbuf, pktinfo, offset + consumed, rep_tree, fn)
         if n <= 0 then
@@ -1026,79 +1083,98 @@ parsers 		= {
 			local n, v = wire.encoding.read_string_field(encaps.tvbuf, offset)
             return self:add_to_tree( tree, proto, encaps.tvbuf, n, v )
 		end,
+        inline  = true,
 	},
 	bool 		= Type:new {
 		dissect = function ( self, encaps, offset, proto, tree )
 			local n, v = wire.encoding.read_bool( encaps.tvbuf, offset, proto, tree )
             if n > 0 then
-                local val = self:new_value{ offset = offset, size = n, value = n }
-                local item = proto and tree:add(proto, range64(encaps.tvbuf, offset, n)) or nil
-                if item ~= nil then
-                    item:append_text(tostring(val))
-                end
+                local val = self:new_value{ offset = offset, size = n, value = (v and "true" or "false") }
+                local item = proto and add_tree_field(tree, proto, encaps.tvbuf, val) or nil
                 return n, val, item
             end
             return n, nil, nil
 		end,
-        format  = function ( val )
-            return val.value and "true" or "false"
-        end
+        inline  = true,
 	},
     int16       = Type:new {
         dissect = function ( self, encaps, offset, proto, tree )
             return wire.encoding.dissect_int_field( self, encaps.tvbuf, offset, proto, tree, 2)
         end,
+        inline  = true,
     },
     int32       = Type:new {
         dissect = function ( self, encaps, offset, proto, tree )
             return wire.encoding.dissect_int_field( self, encaps.tvbuf, offset, proto, tree, 4)
         end,
+        inline  = true,
     },
     int64       = Type:new {
         dissect = function ( self, encaps, offset, proto, tree )
             return wire.encoding.dissect_int_field( self, encaps.tvbuf, offset, proto, tree, 8)
         end,
+        inline  = true,
     },
     uint16      = Type:new {
         dissect = function ( self, encaps, offset, proto, tree )
             return wire.encoding.dissect_uint_field( self, encaps.tvbuf, offset, proto, tree, 2)
         end,
+        inline  = true,
     },
     uint32      = Type:new {
         dissect = function ( self, encaps, offset, proto, tree )
             return wire.encoding.dissect_uint_field( self, encaps.tvbuf, offset, proto, tree, 4)
         end,
+        inline  = true,
     },
     uint64      = Type:new {
         dissect = function ( self, encaps, offset, proto, tree )
             return wire.encoding.dissect_uint_field( self, encaps.tvbuf, offset, proto, tree, 8)
         end,
+        inline  = true,
     },
     float       = Type:new {
         dissect = function ( self, encaps, offset, proto, tree )
             return wire.encoding.dissect_float_field( self, encaps.tvbuf, offset, proto, tree, 4 )
-        end
+        end,
+        inline  = true,
     },
     double      = Type:new {
         dissect = function ( self, encaps, offset, proto, tree )
             return wire.encoding.dissect_float_field( self, encaps.tvbuf, offset, proto, tree, 8 )
-        end
+        end,
+        inline  = true,
     },
     uuid        = Type:new {
         dissect = function ( self, encaps, offset, proto, tree )
             local n, v = wire.encoding.read_uuid_field(encaps.tvbuf, offset)
             return self:add_to_tree( tree, proto, encaps.tvbuf, n, v )
         end,
+        inline  = true,
     },
     time_point  = Type:new {
         dissect = function ( self, encaps, offset, proto, tree )
-            return wire.encoding.dissect_int_field( self, encaps.tvbuf, offset, proto, tree, 8)
+            local n, v = wire.encoding.read_int(encaps.tvbuf, offset, 8)
+            if n > 0 then
+                local val = self:new_value{ offset = offset, size = n, value = tostring(os.date( "%x %X", (v / Int64(1000000)):tonumber() )) }
+                local item = proto and add_tree_field(tree, proto, encaps.tvbuf, val) or nil
+                return n, val, item
+            end
+            return 0, nil, nil
         end,
+        inline  = true,
     },
     duration    = Type:new {
         dissect = function ( self, encaps, offset, proto, tree )
-            return wire.encoding.dissect_int_field( self, encaps.tvbuf, offset, proto, tree, 8)
+            local n, v = wire.encoding.read_int(encaps.tvbuf, offset, 8)
+            if n > 0 then
+                local val = self:new_value{ offset = offset, size = n, value = format_duration(v) }
+                local item = proto and add_tree_field(tree, proto, encaps.tvbuf, val) or nil
+                return n, val, item
+            end
+            return 0, nil, nil
         end,
+        inline  = true,
     },
     proxy       = Type:new {
         dissect = function ( self, encaps, offset, proto, tree )
@@ -1239,8 +1315,15 @@ dictionary 		= function ( key_type, element_type )
     if wire.types.parsers[dict_name] == nil then
         local key_abbrev = dict_name .. ".key"
         local val_abbrev = dict_name .. ".value"
-        local key_proto = field_protos.string(key_abbrev, "key")
-        local val_proto = field_protos.string(val_abbrev, "value")
+        local key_proto = nil
+        local val_proto = nil
+        if not key_type().inline then
+            key_proto = field_protos.string(key_abbrev, "key")
+            val_proto = field_protos.string(val_abbrev, "value")
+        else
+            val_proto = field_protos.string(val_abbrev, " ")
+        end
+
         wire.hdr_fields[key_abbrev] = key_proto
         wire.hdr_fields[val_abbrev] = val_proto
         local name = "dictionary< " .. key_type().name .. ", " .. element_type().name .. " >"
@@ -1261,18 +1344,27 @@ dictionary 		= function ( key_type, element_type )
                 local vf = element_type()
                 dprint2("Dissect", name, "of size", tostring(sz))
                 for i=1, sz:tonumber() do
-                    local n, key = kf:dissect(encaps, offset + consumed, key_proto, seq_tree)
+                    local n, key, key_tree = kf:dissect(encaps, offset + consumed, key_proto, seq_tree)
                     if n <= 0 then
                         dprint("Failed to read", name, "key")
                         return 0
                     end
                     consumed = consumed + n
-                    local m, val = vf:dissect(encaps, offset + consumed, val_proto, seq_tree)
+
+                    if not kf.inline then
+                        key_tree:prepend_text("#" .. tostring(i))
+                    end
+
+                    local m, val, val_tree = vf:dissect(encaps, offset + consumed, val_proto, seq_tree)
                     if m <= 0 then
                         dprint("Failed to read", name, "value")
                         return 0
                     end
                     consumed = consumed + m
+                    if kf.inline then
+                        val_tree:prepend_text("#" .. tostring(i) .. " : " .. tostring(key))
+                    end
+
                 end
                 seq_tree:append_text(" " .. tostring(consumed) .. " byte(s)")
                 seq_tree:set_len(UInt64(consumed):tonumber())
@@ -1354,9 +1446,8 @@ variant 		= function ( variants, var_map )
                     return 0
                 end
 
-                local val_tree = tree
                 consumed = consumed + n
-                n, val, item = variants[tno + 1]():dissect(encaps, offset + consumed, proto, val_tree)
+                n, val, item = variants[tno + 1]():dissect(encaps, offset + consumed, proto, tree)
                 if n <= 0 then
                     return 0
                 end
@@ -1364,7 +1455,7 @@ variant 		= function ( variants, var_map )
                     item:prepend_text(var_map.enumerators[tno])
                 end
 
-                return consumed + n, val, val_tree
+                return consumed + n, val, item
             end,
         }
     end
@@ -1477,11 +1568,28 @@ func            = function ( owner_name, name, definition )
         return consumed
     end
 
+    local ret = nil
+    if definition.ret ~= nil then
+        local ret_proto = field_protos.string(abbrev, fname .. " return")
+        wire.hdr_fields[ fname .. "_ret" ] = ret_proto
+        local ret_type = definition.ret
+        ret = function ( encaps, offset, tree )
+            dprint2("Parse function", fname, "return")
+            local consumed, data, item = ret_type():dissect(encaps, offset, ret_proto, tree)
+            if item ~= nil then
+                item:set_len(Int64(consumed):tonumber())
+                item:append_text(" " .. tostring(consumed) .. " byte(s)")
+            end
+            return consumed
+        end
+    end
+
     local fn = {
         name    = fname,
         -- TODO invocation/return
         dissect = dissector,
-        proto   = proto
+        proto   = proto,
+        ret     = ret,
     }
 
     wire.types.functions[definition.hash] = fn
@@ -1502,7 +1610,7 @@ structure 		= function ( name, definition )
 			local struct_tree = tree:add(proto, range64(encaps.tvbuf, offset, 0))
             -- Dissect structure fields
             local consumed = fields(encaps, offset, struct_tree, data)
-            struct_tree:append_text(tostring(data))
+            struct_tree:append_text(tostring(data) .. " (" .. tostring(consumed) .. " byte(s))")
             struct_tree:set_len(Int64(consumed):tonumber())
             dprint2("Dissected structure", data)
 			return consumed, data, struct_tree
