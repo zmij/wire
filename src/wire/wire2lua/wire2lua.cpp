@@ -13,6 +13,8 @@
 #include <wire/idl/lexer.hpp>
 #include <wire/idl/parser.hpp>
 
+#include <wire/util/graph.hpp>
+
 #include <wire/wire2lua/lua_generator.hpp>
 
 #include <iterator>
@@ -47,6 +49,8 @@ try {
 
     using input_stream_iterator = ::std::istream_iterator<char>;
     using output_stream_iterator = ::std::ostream_iterator<char>;
+
+    using global_namespace_list = ::std::vector< ast::global_namespace_ptr >;
 
     wire::idl::preprocess_options       preproc_opts;
     wire::lua::options                  options;
@@ -122,26 +126,61 @@ try {
         return 1;
     }
 
-    ::wire::idl::lua::source_stream ofs{gen_options.target_file};
-    if (!ofs) {
-        ::std::cerr << "Failed to open output file " << gen_options.target_file;
-        return 2;
-    }
-    for (auto const& file : options.files) {
-        preprocessor preproc{ file, preproc_opts };
-
-        if (vm.count("preprocess-only")) {
+    if (vm.count("preprocess-only")) {
+        for (auto const& file : options.files) {
+            preprocessor preproc{ file, preproc_opts };
             ::std::copy( input_stream_iterator{ preproc.stream() },
                     input_stream_iterator{},
                     output_stream_iterator{ ::std::cout } );
-        } else {
+        }
+    } else {
+        ::wire::idl::lua::source_stream ofs{gen_options.target_file};
+        if (!ofs) {
+            ::std::cerr << "Failed to open output file " << gen_options.target_file;
+            return 2;
+        }
+        global_namespace_list generated;
+        // Preprocess and parse
+        for (auto const& file : options.files) {
+            preprocessor preproc{ file, preproc_opts };
+
             std::string input_str = preproc.to_string();
 
             parser::parser p{ input_str };
 
             auto ns = p.parse();
+            generated.push_back(ns);
+        }
+        // Prepare dependency graph
+        ::std::map< ::std::string, global_namespace_list > dependencies;
+        for (auto const& g : generated) {
+            auto cu = g->current_compilation_unit();
+            ::std::cout << cu->name << " depends on:\n";
+            dependencies.emplace(cu->name, global_namespace_list{});
+            for (auto d : cu->dependent_units()) {
+                auto f = ::std::find_if(generated.begin(), generated.end(),
+                    [&](auto ns)
+                    {
+                        return ns->current_compilation_unit()->name == d->name;
+                    });
+                if (f != generated.end()) {
+                    ::std::cout << "\t" << d->name << "\n";
+                    dependencies[cu->name].push_back(*f);
+                }
+            }
+        }
+        global_namespace_list sorted;
+        wire::util::graph::topo_sort(
+                generated.begin(), generated.end(), ::std::back_inserter(sorted),
+                [&](auto ns)
+                {
+                    auto const& deps = dependencies[ns->current_compilation_unit()->name];
+                    return ::std::make_pair(deps.begin(), deps.end());
+                });
+        for (auto ns : sorted) {
             auto cu = ns->current_compilation_unit();
-            wire::idl::lua::generator gen(ns, ofs);
+            ::std::cout << "Generate " << cu->name << "\n";
+            lua::generator gen{ns, ofs};
             cu->generate(gen);
         }
     }

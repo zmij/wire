@@ -26,6 +26,7 @@ endif()
 include_directories(${GTEST_INCLUDE_DIRS} ${GBENCH_INCLUDE_DIRS})
 
 add_subdirectory(data)
+add_subdirectory(util)
 add_subdirectory(idl)
 add_subdirectory(encoding)
 add_subdirectory(sparring)
