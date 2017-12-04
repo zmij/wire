@@ -54,7 +54,9 @@ function(wire2cpp)
         SOURCES
         HEADERS
         DEPENDENCIES
-        OPTIONS)
+        OPTIONS
+        PLUGINS
+    )
     parse_argn("" argnames ${ARGN})
     set(out_cpps ${${SOURCES}})
     set(out_hpps ${${HEADERS}})
@@ -73,6 +75,9 @@ function(wire2cpp)
     if(OPTIONS)
         list(APPEND wire2cpp_options ${OPTIONS})
     endif()
+    foreach(plugin ${PLUGINS})
+        list(APPEND wire2cpp_options --generate-plugin=${plugin})
+    endforeach()
     foreach(wire_file ${DEFAULT_ARGS})
         get_filename_component(base_dir ${wire_file} DIRECTORY)
         if (NOT base_dir)

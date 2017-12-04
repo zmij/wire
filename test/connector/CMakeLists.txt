@@ -20,7 +20,8 @@ wire2cpp(
     HEADER_DIR include/test
     INCLUDE_ROOT test
     SOURCES wired_SRCS
-    OPTIONS --generate-forwards --generate-plugin=$<TARGET_FILE:wire-test-dummy-gen>:make_plugin
+    OPTIONS --generate-forwards
+    PLUGINS $<TARGET_FILE:wire-test-dummy-gen>:make_plugin
 )
 
 wire2lua(
