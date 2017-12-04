@@ -11,6 +11,7 @@ set(test_util_SRCS
 add_executable(test-wire-utils ${test_util_SRCS})
 target_link_libraries(test-wire-utils
     ${GTEST_BOTH_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
 )
 
 if (GTEST_XML_OUTPUT)

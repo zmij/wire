@@ -155,7 +155,7 @@ try {
         ::std::map< ::std::string, global_namespace_list > dependencies;
         for (auto const& g : generated) {
             auto cu = g->current_compilation_unit();
-            ::std::cout << cu->name << " depends on:\n";
+            bool unit_name_printed = false;
             dependencies.emplace(cu->name, global_namespace_list{});
             for (auto d : cu->dependent_units()) {
                 auto f = ::std::find_if(generated.begin(), generated.end(),
@@ -164,6 +164,10 @@ try {
                         return ns->current_compilation_unit()->name == d->name;
                     });
                 if (f != generated.end()) {
+                    if (!unit_name_printed) {
+                        ::std::cout << cu->name << " depends on:\n";
+                        unit_name_printed = true;
+                    }
                     ::std::cout << "\t" << d->name << "\n";
                     dependencies[cu->name].push_back(*f);
                 }
@@ -179,7 +183,7 @@ try {
                 });
         for (auto ns : sorted) {
             auto cu = ns->current_compilation_unit();
-            ::std::cout << "Generate " << cu->name << "\n";
+            ::std::cout << "Generate " << cu->name << " dissector\n";
             lua::generator gen{ns, ofs};
             cu->generate(gen);
         }
