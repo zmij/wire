@@ -225,7 +225,8 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
       header_{ fs::path{unit_->name}.parent_path(),
             fs::path{ opts.header_include_dir }, ppo.include_dirs },
       source_{ fs::path{unit_->name}.parent_path(),
-                fs::path{ opts.header_include_dir }, ppo.include_dirs }
+                fs::path{ opts.header_include_dir }, ppo.include_dirs },
+      plugins_{ opts.plugins }
 {
     auto cwd = fs::current_path();
 
@@ -334,6 +335,11 @@ generator::generator(generate_options const& opts, preprocess_options const& ppo
     if (unit_->has_enums()) {
         header_.include("<wire/util/enum_range.hpp>");
     }
+
+    header_ << "\n";
+    source_ << "\n";
+
+    plugins_.start_compilation_unit(*unit_, header_, source_);
 
     header_ << "\n";
     source_ << "\n";
@@ -740,6 +746,8 @@ generator::generate_enum(ast::enumeration_ptr enum_)
     }
     header_ << mod(-1) << "};\n";
 
+    plugins_.generate_enum(enum_, header_, source_);
+
     auto ann = find(enum_->get_annotations(), annotations::GENERATE_IO);
     if (ann != enum_->get_annotations().end()) {
         header_.at_namespace_scope(
@@ -892,6 +900,8 @@ generator::generate_struct( ast::structure_ptr struct_ )
             }
             header_ << mod(-1) << "}";
         }
+
+        plugins_.generate_struct(struct_, header_, source_);
 
         header_ << off << "};\n";
         header_.pop_scope();
@@ -1457,6 +1467,8 @@ generator::generate_exception(ast::exception_ptr exc)
             header_ << off     << "::std::exception_ptr"
                     << off     << "make_exception_ptr() override"
                     << off     << "{ return ::std::make_exception_ptr(*this); }";
+
+            plugins_.generate_exception(exc, header_, source_);
         }
         header_ << off(-1)  << "protected:"
                 << off      << "void"
@@ -1570,9 +1582,6 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
         }
     }
 
-    header_ << mod(-1)  << "};\n";
-    header_.pop_scope();
-
     source_ << off     << "::std::string const&"
             << off     << qn_str << "::wire_function_name(::std::uint32_t hash)"
             << off     << "{"
@@ -1615,6 +1624,12 @@ generator::generate_dispatch_interface(ast::interface_ptr iface)
 
     source_ << mod(-1) << "return res;"
             << mod(-1) << "}";
+
+    plugins_.generate_dispatch_interface(iface, header_, source_);
+
+    header_ << mod(-1)  << "};\n";
+    header_.pop_scope();
+
 }
 
 void
@@ -1689,6 +1704,9 @@ generator::generate_proxy_interface(ast::interface_ptr iface)
             generate_invocation_function_member(f);
         }
     }
+
+    plugins_.generate_proxy_interface(iface, header_, source_);
+
     header_ << mod(-1)  << "};\n";
 
     header_.pop_scope();
@@ -1839,6 +1857,7 @@ generator::generate_class(ast::class_ptr class_)
                 for (auto f : funcs) {
                     generate_dispatch_function_member(f);
                 }
+                plugins_.generate_dispatch_interface(class_, header_, source_);
             }
         } else {
             // factory initializer
@@ -1861,6 +1880,8 @@ generator::generate_class(ast::class_ptr class_)
                 }
             }
         }
+
+        plugins_.generate_class(class_, header_, source_);
 
         header_ << mod(-1) << "};\n";
     }
@@ -1934,6 +1955,8 @@ generator::finish_compilation_unit(ast::compilation_unit const& u)
             generate_enum_traits(ast::dynamic_entity_cast< ast::enumeration >(e));
         }
     }
+
+    plugins_.finish_compilation_unit(u, header_, source_);
 }
 
 }  /* namespace cpp */

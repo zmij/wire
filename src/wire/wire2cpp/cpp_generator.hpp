@@ -26,6 +26,7 @@
 
 #include <wire/wire2cpp/generate_options.hpp>
 #include <wire/wire2cpp/cpp_source_stream.hpp>
+#include <wire/wire2cpp/plugin_manager.hpp>
 
 #include <fstream>
 #include <deque>
@@ -121,6 +122,8 @@ private:
 
     source_stream                   header_;
     source_stream                   source_;
+
+    plugin_manager                  plugins_;
 };
 
 ::std::ostream&

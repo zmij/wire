@@ -9,6 +9,7 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 set(
     wire2cpp_SRCS
     wire2cpp.cpp
+    plugin_manager.cpp
     cpp_generator.cpp
     fwd_generator.cpp
     cpp_source_stream.cpp

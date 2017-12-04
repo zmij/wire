@@ -93,6 +93,7 @@ try {
     po::options_description generate_opts_desc{"Generate options"};
     generate_opts_desc.add_options()
         ("generate-plugin",
+            po::value< ::wire::idl::cpp::generate_options::string_list >(&gen_options.plugins),
             "Use a plugin for code generation, format: library_name:entry_point")
     ;
 

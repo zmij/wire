@@ -9,12 +9,15 @@
 #define WIRE_WIRE2CPP_GENERATE_OPTIONS_HPP_
 
 #include <string>
+#include <vector>
 
 namespace wire {
 namespace idl {
 namespace cpp {
 
 struct generate_options {
+    using string_list   = ::std::vector<::std::string>;
+
     ::std::string    header_include_dir;
 
     ::std::string    header_output_dir;
@@ -22,6 +25,8 @@ struct generate_options {
 
     bool             dont_use_hashed_id;
     bool             generate_forwards;
+
+    string_list      plugins;
 };
 
 

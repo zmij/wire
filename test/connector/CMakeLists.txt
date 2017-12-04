@@ -12,14 +12,14 @@ if (NOT CMAKE_THREAD_LIBS_INIT)
     find_package(Threads REQUIRED)
 endif()
 
-# Add your package dependencies for test here
+add_library(wire-test-dummy-gen SHARED dummy_generator_plugin.cpp)
 
 wire2cpp(
     ping_pong.wire
     HEADER_DIR include/test
     INCLUDE_ROOT test
     SOURCES wired_SRCS
-    OPTIONS --generate-forwards
+    OPTIONS --generate-forwards --generate-plugin=$<TARGET_FILE:wire-test-dummy-gen>:make_plugin
 )
 
 wire2lua(

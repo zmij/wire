@@ -11,6 +11,7 @@ set(wire_util_SRCS
     bits.cpp
     murmur_hash.cpp
     service_runner.cpp
+    plugin.cpp
 )
 
 add_library(${WIRE_UTIL_LIB} SHARED ${wire_util_SRCS})
@@ -18,6 +19,7 @@ target_link_libraries(
     ${WIRE_UTIL_LIB}
     ${Boost_SYSTEM_LIBRARIES}
     ${OPENSSL_LIBRARIES}
+    ${CMAKE_DL_LIBS}
 )
 
 add_executable(wire-hash murmur_hash_utility.cpp murmur_hash.cpp)
