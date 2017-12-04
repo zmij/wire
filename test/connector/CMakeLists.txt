@@ -13,6 +13,7 @@ if (NOT CMAKE_THREAD_LIBS_INIT)
 endif()
 
 add_library(wire-test-dummy-gen SHARED dummy_generator_plugin.cpp)
+target_link_libraries(wire-test-dummy-gen wire-to-cpp)
 
 wire2cpp(
     ping_pong.wire
