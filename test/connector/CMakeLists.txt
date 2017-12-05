@@ -22,6 +22,7 @@ wire2cpp(
     SOURCES wired_SRCS
     OPTIONS --generate-forwards
     PLUGINS $<TARGET_FILE:wire-test-dummy-gen>:make_plugin
+    DEPENDS wire-test-dummy-gen
 )
 
 wire2lua(

@@ -56,6 +56,7 @@ function(wire2cpp)
         DEPENDENCIES
         OPTIONS
         PLUGINS
+        DEPENDS
     )
     parse_argn("" argnames ${ARGN})
     set(out_cpps ${${SOURCES}})
@@ -100,7 +101,7 @@ function(wire2cpp)
         add_custom_command(
             OUTPUT ${cpp_file} ${hpp_file}
             COMMAND ${WIRE2CPP} ${wire2cpp_options} ${base_dir}/${wire_file}
-            DEPENDS ${base_dir}/${wire_file} ${WIRE2CPP}
+            DEPENDS ${base_dir}/${wire_file} ${WIRE2CPP} ${DEPENDS}
             COMMENT "Generate C++ sources from ${wire_file}"
         )
         if (DEPENDENCIES)
