@@ -78,6 +78,24 @@ struct annotation {
 
 using annotation_list = ::std::vector< annotation >;
 
+struct annotation_location {
+    using iterator      = annotation_list::const_iterator;
+    using pointer       = iterator::pointer;
+    using reference     = iterator::reference;
+
+    iterator    iter;
+    bool        found;
+
+    operator bool() const { return found; }
+    bool
+    operator !() const { return !found; }
+
+    reference
+    operator * () const { return *iter; }
+    pointer
+    operator -> () const { return iter.operator ->(); }
+};
+
 annotation_list::const_iterator
 find(annotation_list const&, ::std::string const& name);
 

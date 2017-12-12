@@ -386,6 +386,13 @@ entity::get_hash_32() const noexcept
     return get_name_hash_32();
 }
 
+entity::annotation
+entity::find_annotation(::std::string const& name) const
+{
+    auto f = find(annotations_, name);
+    return { f, f != annotations_.end() };
+}
+
 global_namespace_ptr
 entity::get_global() const
 {

@@ -117,8 +117,11 @@ struct compilation_unit {
  */
 class entity : public ::std::enable_shared_from_this<entity> {
 public:
-    using hash_value_type = ::std::uint64_t;
-    using hash_value_type_32 = ::std::uint32_t;
+    using hash_value_type       = ::std::uint64_t;
+    using hash_value_type_32    = ::std::uint32_t;
+
+    using annotation_iterator   = grammar::annotation_list::const_iterator;
+    using annotation            = grammar::annotation_location;
 public:
     virtual ~entity() {}
 
@@ -168,11 +171,16 @@ public:
     get_annotations() const
     { return annotations_; }
 
+    annotation
+    find_annotation(::std::string const& name) const;
+
     void
     add_annotations(grammar::annotation_list const& ann)
     {
         annotations_.insert(annotations_.end(), ann.begin(), ann.end());
     }
+
+
 
     compilation_unit_ptr
     unit() const
