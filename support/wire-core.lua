@@ -229,7 +229,7 @@ local field_protos = {
 		return ProtoField.new(name, abbrev, ftypes.NONE, nil, nil, nil, description)
 	end,
 	string 		= function ( abbrev, name, description )
-        dprint2("Make field abbrev", abbrev)
+        --dprint2("Make field abbrev", abbrev)
 		return ProtoField.new(name, abbrev, ftypes.STRING, nil, nil, nil, description)
 	end,
 	bool 		= function ( abbrev, name, mask )
@@ -1641,10 +1641,11 @@ end,
 class 			= function ( name, definition )
     if definition ~= nil then
         wire.types.interface( name, definition )
-        dprint2("Add class", name, "definition")
+        dprint2("Add class", name, "definition (hash", definition.hash, ")")
         
         local fields = wire.types.fields(name, definition.fields)
         local data_dissector = function ( encaps, offset, tree, first_segment )
+            dprint2("Parse class", name, "data")
             local data     = {}
             if first_segment then
                 -- Add type name to field
@@ -1672,7 +1673,7 @@ end,
 
 exception       = function ( name, definition )
     if definition ~= nil then
-        dprint2("Add exception", name, "definition")
+        dprint2("Add exception", name, "definition (hash", definition.hash, ")")
         local parent = definition.parent
         -- Create field protos
         local fields = wire.types.fields(name, definition.fields)
@@ -1897,7 +1898,6 @@ function Encapsulation:read_segment_header( offset )
 
         self.types[ #self.types + 1 ] = hdr.type_id.value
     elseif hdr.flags:band(0x02) > 0 then
-        dprint2("Type id is hash")
         local n, hash = wire.encoding.read_uint(self.tvbuf, offset + consumed, 8)
         if n <= 0 then
             dprint2("Failed to read segment type id hash")
@@ -1909,6 +1909,7 @@ function Encapsulation:read_segment_header( offset )
             value  = "0x" .. hash:tohex()
         }
         consumed = consumed + n
+        dprint2("Type id is hash", hdr.type_id.value)
 
         self.types[ #self.types + 1 ] = hdr.type_id.value
     else
@@ -1978,8 +1979,13 @@ function Encapsulation:dissect_segment( offset, tree, read_head, first_segment, 
 
         consumed = consumed + n
 
-        if fn == nil and hdr.type ~= nil then
-            fn = hdr.type.ind_dissect
+        if fn == nil then
+            if hdr.type ~= nil then
+                fn = hdr.type.ind_dissect
+            else
+                dprint2("No type info for type id", hdr.type_id.value)
+                consumed = consumed + hdr.size
+            end
         end
     end
     if fn ~= nil then
@@ -1988,6 +1994,8 @@ function Encapsulation:dissect_segment( offset, tree, read_head, first_segment, 
             return 0
         end
         consumed = consumed + n
+    else
+        dprint("No segment parse function")
     end
     return consumed, last
 end
