@@ -8,6 +8,8 @@
 #include <wire/wire2lua/lua_generator.hpp>
 #include <wire/idl/syntax_error.hpp>
 
+#include <iomanip>
+
 namespace wire {
 namespace idl {
 namespace lua {
@@ -99,7 +101,8 @@ generator::generate_exception(ast::exception_ptr exc)
         }
     }
     out_ << off << "wire.types.exception('" << exc->get_qualified_name() << "', " << sb;
-    out_ << off << "hash = '0x" << ::std::hex << exc->get_name_hash() << ::std::dec << "',";
+    out_ << off << "hash = '0x" << ::std::hex << ::std::setw(16) << ::std::setfill('0')
+                << exc->get_name_hash() << ::std::dec << "',";
 
     write_fields(exc);
 
@@ -128,7 +131,8 @@ generator::generate_class(ast::class_ptr class_)
         }
     }
     out_ << off << "wire.types.class('" << class_->get_qualified_name() << "', " << sb;
-    out_ << off << "hash = '0x" << ::std::hex << class_->get_name_hash() << ::std::dec << "',";
+    out_ << off << "hash = '0x" << ::std::hex << ::std::setw(16) << ::std::setfill('0')
+                << class_->get_name_hash() << ::std::dec << "',";
     write_fields(class_);
     write_functions(class_);
     out_ << mod(-1) << "})\n";
@@ -158,7 +162,8 @@ generator::write_functions(ast::interface_ptr iface)
         for (auto f : funcs) {
             out_ << off << f->name() << " = " << sb
                  << off     << "hash = '0x"
-                 << ::std::hex << f->get_hash_32() << ::std::dec << "',";
+                     << ::std::hex << ::std::setw(8) << ::std::setfill('0')
+                     << f->get_hash_32() << ::std::dec << "',";
 
             auto& params = f->get_params();
             if (!params.empty()) {
