@@ -35,7 +35,7 @@ ping_pong_server::test_int(::std::int32_t val, ::wire::core::current const&) con
 }
 
 void
-ping_pong_server::test_string(::std::string const& val,
+ping_pong_server::test_string(::std::string&& val,
         test_string_return_callback __resp,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&)
@@ -49,7 +49,7 @@ ping_pong_server::test_string(::std::string const& val,
 }
 
 void
-ping_pong_server::test_struct(::test::data const& val,
+ping_pong_server::test_struct(::test::data&& val,
         test_struct_return_callback __resp,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&) const
@@ -100,7 +100,7 @@ ping_pong_server::test_ball(::test::ball_ptr b,
 }
 
 void
-ping_pong_server::error(::std::string const& message, ::wire::core::current const&)
+ping_pong_server::error(::std::string&& message, ::wire::core::current const&)
 {
     ::std::ostringstream os;
     os << ::getpid() << " " << __FUNCTION__ << " message '" << message << "'\n";
@@ -109,7 +109,7 @@ ping_pong_server::error(::std::string const& message, ::wire::core::current cons
 }
 
 void
-ping_pong_server::async_error(::std::string const& message, ::wire::core::functional::void_callback __resp,
+ping_pong_server::async_error(::std::string&& message, ::wire::core::functional::void_callback __resp,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&) const
 {
@@ -120,7 +120,7 @@ ping_pong_server::async_error(::std::string const& message, ::wire::core::functi
 }
 
 void
-ping_pong_server::throw_unexpected(::std::string const& message, ::wire::core::current const&)
+ping_pong_server::throw_unexpected(::std::string&& message, ::wire::core::current const&)
 {
     ::std::ostringstream os;
     os << ::getpid() << " " << __FUNCTION__ << " message '" << message << "'\n";

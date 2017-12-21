@@ -25,22 +25,22 @@ public:
     identity_seq
     get_adapter_ids(current const& = no_current) const override;
     void
-    get_adapter_state(identity const& adapter_id,
+    get_adapter_state(identity&& adapter_id,
             get_adapter_state_return_callback __resp,
             functional::exception_callback __exception,
             current const& = no_current) const override;
     void
-    activate(identity const& adapter_id,
+    activate(identity&& adapter_id,
             functional::void_callback __resp,
             functional::exception_callback __exception,
             current const& = no_current) override;
     void
-    deactivate(identity const& adapter_id,
+    deactivate(identity&& adapter_id,
             functional::void_callback __resp,
             functional::exception_callback __exception,
             current const& = no_current) override;
     void
-    get_adapter_admin(identity const& adapter_id,
+    get_adapter_admin(identity&& adapter_id,
             get_adapter_admin_return_callback __resp,
             functional::exception_callback __exception,
             current const& = no_current) const override;

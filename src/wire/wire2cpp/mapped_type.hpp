@@ -32,15 +32,17 @@ struct mapped_type {
     static grammar::annotation_list const empty_annotations;
 
     ast::type_const_ptr             type;
-    grammar::annotation_list const& annotations = empty_annotations;
-    bool                            is_arg      = false;
+    grammar::annotation_list const& annotations         = empty_annotations;
+    bool                            is_arg              = false;
+    bool                            is_dispatch_arg     = false;
 
     mapped_type(ast::type_const_ptr t,
             grammar::annotation_list const& al = empty_annotations,
-            bool is_arg_ = false)
-        : type{t}, annotations{al}, is_arg{is_arg_} {}
-    mapped_type(ast::type_const_ptr t, bool is_arg_)
-        : type{t}, is_arg{is_arg_} {}
+            bool is_arg_        = false,
+            bool is_disp_arp    = false)
+        : type{t}, annotations{al}, is_arg{is_arg_}, is_dispatch_arg{ is_disp_arp } {}
+    mapped_type(ast::type_const_ptr t, bool is_arg_, bool is_disp_arg = false)
+        : type{t}, is_arg{is_arg_}, is_dispatch_arg{is_disp_arg} {}
 };
 
 inline mapped_type
@@ -54,6 +56,24 @@ arg_type(ast::type_const_ptr t, grammar::annotation_list const& al)
 {
     return { t, al, true };
 }
+
+inline mapped_type
+dispatch_arg_type(ast::type_const_ptr t)
+{
+    return { t, false, true };
+}
+
+inline mapped_type
+dispatch_arg_type(ast::type_const_ptr t, grammar::annotation_list const& al)
+{
+    return { t, al, false, true };
+}
+
+struct invoke_param {
+    ast::function::function_param const& param;
+    invoke_param( ast::function::function_param const& p )
+        : param{ p } {}
+};
 
 }  /* namespace cpp */
 }  /* namespace idl */

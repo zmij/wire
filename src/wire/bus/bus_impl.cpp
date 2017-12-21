@@ -121,7 +121,7 @@ registry_impl::registry_impl(core::adapter_ptr adapter, publisher_ptr pub)
 }
 
 void
-registry_impl::create_bus(::wire::core::identity const& id,
+registry_impl::create_bus(::wire::core::identity&& id,
         create_bus_return_callback __resp,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const& curr)
@@ -137,7 +137,7 @@ registry_impl::create_bus(::wire::core::identity const& id,
 }
 
 void
-registry_impl::get_bus(::wire::core::identity const& id,
+registry_impl::get_bus(::wire::core::identity&& id,
         get_bus_return_callback __resp,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const& curr)
@@ -156,7 +156,7 @@ registry_impl::get_bus(::wire::core::identity const& id,
 }
 
 void
-registry_impl::get_or_create_bus(::wire::core::identity const& id,
+registry_impl::get_or_create_bus(::wire::core::identity&& id,
         get_or_create_bus_return_callback __resp,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const& curr)
@@ -178,7 +178,7 @@ registry_impl::get_or_create_bus(::wire::core::identity const& id,
 }
 
 void
-registry_impl::remove_bus(::wire::core::identity const& id,
+registry_impl::remove_bus(::wire::core::identity&& id,
         ::wire::core::functional::void_callback __resp,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const& curr)

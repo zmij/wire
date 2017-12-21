@@ -15,7 +15,7 @@ wire2cpp(
     OPTIONS         --generate-forwards
 )
 
-set(wire_bus_api_SRCS ${wired_BUS})
+set(wire_bus_api_SRCS ${wired_BUS} client.cpp)
 add_library(${WIRE_BUS_API_LIB} SHARED ${wire_bus_api_SRCS})
 set_target_properties(
     ${WIRE_BUS_API_LIB} PROPERTIES

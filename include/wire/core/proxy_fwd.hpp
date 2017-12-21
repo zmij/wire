@@ -16,6 +16,10 @@ namespace core {
 class object_proxy;
 typedef std::shared_ptr<object_proxy> object_prx;
 
+template < typename TargetPrx, typename SourcePrx>
+::std::shared_ptr< TargetPrx >
+unchecked_cast(::std::shared_ptr< SourcePrx > v);
+
 }  // namespace core
 }  // namespace wire
 

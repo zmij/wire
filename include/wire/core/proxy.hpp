@@ -353,10 +353,6 @@ using object_seq = ::std::vector< object_prx >;
 ::std::ostream&
 operator << (::std::ostream& os, object_proxy const& val);
 
-template < typename TargetPrx, typename SourcePrx>
-::std::shared_ptr< TargetPrx >
-unchecked_cast(::std::shared_ptr< SourcePrx > v);
-
 template < typename Prx, typename ... Bases >
 class proxy : public virtual Bases ... {
 public:

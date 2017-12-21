@@ -313,6 +313,27 @@ source_stream::set_offset(int offset)
         current_offset_ = 0;
 }
 
+bool
+is_primitive(::std::string const& name)
+{
+    return name != ast::STRING && name != ast::UUID;
+}
+
+bool
+is_primitive(ast::type_const_ptr t)
+{
+    if (auto pt = ast::dynamic_entity_cast< ast::parametrized_type >(t)) {
+        return false;
+    } else if (ast::type::is_built_in(t->get_qualified_name())) {
+        return is_primitive(t->name());
+    } else if (auto en = ast::dynamic_type_cast<ast::enumeration>(t)) {
+        return true;
+    } else if (auto alias = ast::dynamic_entity_cast< ast::type_alias >(t)) {
+        return is_primitive(alias->alias());
+    }
+    return false;
+}
+
 template < typename StreamType >
 StreamType&
 write (StreamType& os, mapped_type const& val)
@@ -350,13 +371,17 @@ write (StreamType& os, mapped_type const& val)
         os << " >";
         if (val.is_arg) {
             os << " const&";
+        } else if (val.is_dispatch_arg) {
+            os << "&&";
         }
     } else {
         if (ast::type::is_built_in(val.type->get_qualified_name())) {
             os << wire_to_cpp( val.type->name() ).type_name;
-            if (val.is_arg &&
-                    (val.type->name() == ast::STRING || val.type->name() == ast::UUID))
+            if (val.is_arg && !is_primitive(val.type->name())) {
                 os << " const&";
+            } else if (val.is_dispatch_arg && !is_primitive(val.type->name())) {
+                os << "&&";
+            }
         } else if (auto ref = ast::dynamic_entity_cast< ast::reference >(val.type)) {
             os << qname(val.type) << "_prx";
         } else if (auto cl = ast::dynamic_type_cast< ast::class_ >(val.type)) {
@@ -374,16 +399,47 @@ write (StreamType& os, mapped_type const& val)
                 // TODO Calculate type name relative to proxy's scope
                 os << qname(val.type);
             }
-            if (val.is_arg) {
+            if (val.is_arg && !is_primitive(val.type)) {
                 os << " const&";
+            } else if (val.is_dispatch_arg && !is_primitive(val.type)) {
+                os << "&&";
             }
         }
     }
     return os;
 }
 
+template < typename StreamType >
+StreamType&
+write(StreamType& os, invoke_param const& v)
+{
+    bool need_move = false;
+    if (auto pt = ast::dynamic_entity_cast< ast::parametrized_type >(v.param.first)) {
+        need_move = true;
+    } else if (ast::type::is_built_in(v.param.first->get_qualified_name())) {
+        need_move = !is_primitive(v.param.first->name());
+    } else if (auto ref = ast::dynamic_entity_cast< ast::reference >(v.param.first)) {
+    } else if (auto cl = ast::dynamic_type_cast< ast::class_ >(v.param.first)) {
+    } else if (auto iface = ast::dynamic_type_cast< ast::interface >(v.param.first)) {
+    } else {
+        need_move = !is_primitive(v.param.first);
+    }
+    if (need_move) {
+        os << "::std::move(" << v.param.second << ")";
+    } else {
+        os << v.param.second;
+    }
+    return os;
+}
+
 source_stream&
 operator << (source_stream& os, mapped_type const& v)
+{
+    return write(os, v);
+}
+
+source_stream&
+operator << (source_stream& os, invoke_param const& v)
 {
     return write(os, v);
 }
@@ -470,6 +526,12 @@ code_snippet::str(int tab_width) const
 
 code_snippet&
 operator << (code_snippet& os, mapped_type const& v)
+{
+    return write(os, v);
+}
+
+code_snippet&
+operator << (code_snippet& os, invoke_param const& v)
 {
     return write(os, v);
 }

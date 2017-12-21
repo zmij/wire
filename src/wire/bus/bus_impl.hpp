@@ -65,22 +65,22 @@ public:
     virtual ~registry_impl() = default;
 
     void
-    create_bus(::wire::core::identity const& id,
+    create_bus(::wire::core::identity&& id,
             create_bus_return_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) override;
     void
-    get_bus(::wire::core::identity const& id,
+    get_bus(::wire::core::identity&& id,
             get_bus_return_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) override;
     void
-    get_or_create_bus(::wire::core::identity const& id,
+    get_or_create_bus(::wire::core::identity&& id,
             get_or_create_bus_return_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) override;
     void
-    remove_bus(::wire::core::identity const& id,
+    remove_bus(::wire::core::identity&& id,
             ::wire::core::functional::void_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) override;

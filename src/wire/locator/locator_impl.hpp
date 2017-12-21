@@ -21,12 +21,12 @@ public:
     //@{
     /** @name Wire interface implementation */
     void
-    find_object(::wire::core::identity const& id,
+    find_object(::wire::core::identity&& id,
             find_object_return_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) const override;
     void
-    find_adapter(::wire::core::identity const& id,
+    find_adapter(::wire::core::identity&& id,
             find_adapter_return_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) const override;
@@ -78,7 +78,7 @@ public:
             ::wire::core::current const& = ::wire::core::no_current) override;
 
     void
-    add_well_known_objects(::wire::core::object_seq const& objs,
+    add_well_known_objects(::wire::core::object_seq&& objs,
             ::wire::core::functional::void_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) override;

@@ -109,12 +109,7 @@ struct local_invocation< Handler, Member,
     static constexpr bool is_sync       = is_sync_dispatch< member_type >::value;
     static constexpr bool void_response = response_traits::arity == 0;
 
-    using invocation_args = typename ::std::conditional<is_sync,
-            ::std::tuple<
-                  ::std::reference_wrapper<
-                       typename ::std::decay< Args >::type const > ... >,
-            ::std::tuple< typename ::std::decay< Args >::type ... > // Copy args for the async local invocation
-        >::type;
+    using invocation_args = ::std::tuple< typename ::std::decay< Args >::type ... >;
     using exception_handler = functional::exception_callback;
     using sent_handler      = functional::callback< bool >;
 
@@ -161,7 +156,8 @@ struct local_invocation< Handler, Member,
             invocation_mode< invokation_type::void_sync > const& ) const
     {
         try {
-            ((*srv).*member)(::std::get< Indexes >(args).get() ..., curr);
+            invocation_args tmp = args;
+            ((*srv).*member)(::std::move(::std::get< Indexes >(tmp)) ..., curr);
             response();
         } catch (...) {
             functional::report_exception(exception, ::std::current_exception());
@@ -173,7 +169,8 @@ struct local_invocation< Handler, Member,
             invocation_mode< invokation_type::nonvoid_sync > const& ) const
     {
         try {
-            response(((*srv).*member)(::std::get< Indexes >(args).get() ..., curr));
+            invocation_args tmp = args;
+            response(((*srv).*member)(::std::move(::std::get< Indexes >(tmp)) ..., curr));
         } catch (...) {
             functional::report_exception(exception, ::std::current_exception());
         }
@@ -184,7 +181,8 @@ struct local_invocation< Handler, Member,
             invocation_mode< invokation_type::void_async > const&) const
     {
         try {
-            ((*srv).*member)(::std::get< Indexes >(args) ...,
+            invocation_args tmp = args;
+            ((*srv).*member)(::std::move(::std::get< Indexes >(tmp)) ...,
                     response, exception, curr);
         } catch (...) {
             functional::report_exception(exception, ::std::current_exception());
@@ -205,7 +203,7 @@ struct local_invocation< Handler, Member,
     write_args(encoding::outgoing& out, ::std::true_type const&) const // write sync invocation args
     {
         encoding::write(::std::back_inserter(out),
-                ::std::get< Indexes >(args).get() ...);
+                ::std::get< Indexes >(args) ...);
     }
     void
     write_args(encoding::outgoing& out, ::std::false_type const&) const // write async invocation args

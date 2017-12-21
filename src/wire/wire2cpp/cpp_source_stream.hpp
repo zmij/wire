@@ -239,6 +239,8 @@ operator << (source_stream& os, ast::qname const& v)
 
 source_stream&
 operator << (source_stream& os, mapped_type const& v);
+source_stream&
+operator << (source_stream& os, invoke_param const& v);
 
 template < typename T >
 code_snippet&
@@ -250,6 +252,8 @@ operator << (code_snippet& os, T const& v)
 
 code_snippet&
 operator << (code_snippet& os, mapped_type const& v);
+code_snippet&
+operator << (code_snippet& os, invoke_param const& v);
 
 source_stream&
 operator << (source_stream& os, grammar::data_initializer const& init);

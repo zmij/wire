@@ -392,8 +392,8 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
     code_snippet formal_params { header_.current_scope() };
     code_snippet example_params { ast::qname{} };
     for (auto const& p : params) {
-        formal_params << arg_type(p.first) << " " << cpp_name(p.second) << ", ";
-        example_params << arg_type(p.first) << " " << cpp_name(p.second) << ", ";
+        formal_params << dispatch_arg_type(p.first) << " " << cpp_name(p.second) << ", ";
+        example_params << dispatch_arg_type(p.first) << " " << cpp_name(p.second) << ", ";
     }
 
     if (async_dispatch) {
@@ -473,17 +473,21 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
 
         source_.modify_offset(+1);
         // Unmarshal params
+        code_snippet unmarshal_params{ source_.current_scope() };
         code_snippet call_params{ source_.current_scope() };
         if (!params.empty()) {
             source_ << off << "auto __beg = __req.encaps_start;"
                     << off << "auto __end = __req.encaps_end;";
             for (auto p = params.begin(); p != params.end(); ++p) {
                 source_ << off << mapped_type{p->first} << " " << p->second << ";";
-                if (p != params.begin())
+                if (p != params.begin()) {
+                    unmarshal_params << ", ";
                     call_params << ", ";
-                call_params << p->second;
+                }
+                unmarshal_params << p->second;
+                call_params << invoke_param( *p );
             }
-            source_ << off << wire_encoding_read << "(__beg, __end, " << call_params << ");"
+            source_ << off << wire_encoding_read << "(__beg, __end, " << unmarshal_params << ");"
                     << off << "__req.encaps_start.incoming_encapsulation().read_indirection_table(__beg);";
         }
 

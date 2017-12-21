@@ -310,7 +310,7 @@ locator::locator(core::locator_registry_prx registry)
 locator::~locator() = default;
 
 void
-locator::find_object(::wire::core::identity const& id,
+locator::find_object(::wire::core::identity&& id,
             find_object_return_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const&) const
@@ -323,7 +323,7 @@ locator::find_object(::wire::core::identity const& id,
 }
 
 void
-locator::find_adapter(::wire::core::identity const& id,
+locator::find_adapter(::wire::core::identity&& id,
         find_adapter_return_callback __resp,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&) const
@@ -416,7 +416,7 @@ locator_registry::add_well_known_object(::wire::core::object_prx obj,
 }
 
 void
-locator_registry::add_well_known_objects(::wire::core::object_seq const& objs,
+locator_registry::add_well_known_objects(::wire::core::object_seq&& objs,
         ::wire::core::functional::void_callback __resp,
         ::wire::core::functional::exception_callback __exception,
         ::wire::core::current const&)

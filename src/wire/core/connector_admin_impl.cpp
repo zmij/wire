@@ -26,7 +26,7 @@ connector_admin_impl::get_adapter_ids(current const&) const
     throw errors::connector_destroyed{ "Connector is shut down" };
 }
 void
-connector_admin_impl::get_adapter_state(identity const& adapter_id,
+connector_admin_impl::get_adapter_state(identity&& adapter_id,
         get_adapter_state_return_callback __resp,
         functional::exception_callback __exception,
         current const&) const
@@ -39,7 +39,7 @@ connector_admin_impl::get_adapter_state(identity const& adapter_id,
 }
 
 void
-connector_admin_impl::activate(identity const& adapter_id,
+connector_admin_impl::activate(identity&& adapter_id,
         functional::void_callback __resp,
         functional::exception_callback __exception,
         current const&)
@@ -61,7 +61,7 @@ connector_admin_impl::activate(identity const& adapter_id,
 }
 
 void
-connector_admin_impl::deactivate(identity const& adapter_id,
+connector_admin_impl::deactivate(identity&& adapter_id,
         functional::void_callback __resp,
         functional::exception_callback __exception,
         current const&)
@@ -83,7 +83,7 @@ connector_admin_impl::deactivate(identity const& adapter_id,
 }
 
 void
-connector_admin_impl::get_adapter_admin(identity const& adapter_id,
+connector_admin_impl::get_adapter_admin(identity&& adapter_id,
         get_adapter_admin_return_callback __resp,
         functional::exception_callback __exception,
         current const&) const

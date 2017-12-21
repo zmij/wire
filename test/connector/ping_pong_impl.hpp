@@ -23,13 +23,13 @@ public:
             ::wire::core::current const& = ::wire::core::no_current) const override;
 
     void
-    test_string(::std::string const& val,
+    test_string(::std::string&& val,
             test_string_return_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) override;
 
     void
-    test_struct(::test::data const& val,
+    test_struct(::test::data&& val,
             test_struct_return_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) const override;
@@ -47,16 +47,16 @@ public:
             ::wire::core::current const& = ::wire::core::no_current) override;
 
     void
-    error(::std::string const& message, ::wire::core::current const& = ::wire::core::no_current) override;
+    error(::std::string&& message, ::wire::core::current const& = ::wire::core::no_current) override;
 
     void
-    async_error(::std::string const& message,
+    async_error(::std::string&& message,
             ::wire::core::functional::void_callback __resp,
             ::wire::core::functional::exception_callback __exception,
             ::wire::core::current const& = ::wire::core::no_current) const override;
 
     void
-    throw_unexpected(::std::string const& message, ::wire::core::current const& = ::wire::core::no_current) override;
+    throw_unexpected(::std::string&& message, ::wire::core::current const& = ::wire::core::no_current) override;
 
     void
     stop(::wire::core::functional::void_callback __resp,

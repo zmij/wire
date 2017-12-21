@@ -22,6 +22,8 @@ namespace ast {
 
 ::std::string const STRING      = "string";
 ::std::string const UUID        = "uuid";
+::std::string const TIME_POINT  = "time_point";
+::std::string const DURATION    = "duration";
 ::std::string const VOID        = "void";
 
 namespace annotations {
