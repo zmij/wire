@@ -47,7 +47,12 @@ fwd_generator::fwd_generator(generate_options const& opts,
             if (ast::type::is_built_in(qname(d))) {
                 auto const& tm = wire_to_cpp(d->name());
                 if (!tm.headers.empty()) {
-                    standard_headers.insert(tm.headers.begin(), tm.headers.end());
+                    ::std::copy_if(tm.headers.begin(), tm.headers.end(),
+                        ::std::inserter(standard_headers, standard_headers.end()),
+                         [](::std::string const& header)
+                         {
+                            return header.find("_io.hpp") == ::std::string::npos;
+                         });
                 }
             }
         }
@@ -76,6 +81,17 @@ fwd_generator::fwd_generator(generate_options const& opts,
     }
 
     header_.include(standard_headers);
+
+    auto units = unit_->dependent_units();
+    for (auto const& u : units) {
+        if (!u->is_builtin()) {
+            auto path = fs::path{ u->name };
+            fs::path inc = path.parent_path().string() /
+                    fs::path(path.stem().string() + "_fwd.hpp");
+            header_.include(inc);
+        }
+    }
+
     header_ << "\n";
 }
 
