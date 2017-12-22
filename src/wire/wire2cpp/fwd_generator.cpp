@@ -6,6 +6,7 @@
  */
 
 #include <wire/wire2cpp/fwd_generator.hpp>
+#include <wire/idl/syntax_error.hpp>
 
 namespace wire {
 namespace idl {
@@ -38,7 +39,43 @@ fwd_generator::fwd_generator(generate_options const& opts,
 
     header_path /= origin.filename().stem().string() + "_fwd.hpp";
     header_.open(header_path);
-    header_.include("<memory>");
+    ::std::set< ::std::string > standard_headers {"<memory>"};
+
+    auto deps = unit_->external_dependencies();
+    for (auto const& d : deps) {
+        if (auto t = ast::dynamic_entity_cast< ast::type >(d)) {
+            if (ast::type::is_built_in(qname(d))) {
+                auto const& tm = wire_to_cpp(d->name());
+                if (!tm.headers.empty()) {
+                    standard_headers.insert(tm.headers.begin(), tm.headers.end());
+                }
+            }
+        }
+    }
+
+    // Collect custom headers and types from type aliases
+    ast::entity_const_set type_aliases;
+    for (auto const& e : unit_->entities) {
+        e->collect_elements(type_aliases,
+        [](ast::entity_const_ptr e){
+            return ast::dynamic_entity_cast< ast::type_alias >(e).get();
+        });
+    }
+
+    for (auto ta : type_aliases) {
+        auto const& anns = ta->get_annotations();
+        auto f = find(anns, annotations::CPP_CONTAINER);
+        if (f != anns.end()) {
+            if (f->arguments.size() < 2)
+                throw grammar_error(ta->decl_position(),
+                        "Invalid cpp_container annotation");
+            ::std::string header = f->arguments[1]->name;
+            strip_quotes(header);
+            standard_headers.insert(header);
+        }
+    }
+
+    header_.include(standard_headers);
     header_ << "\n";
 }
 
@@ -60,6 +97,35 @@ fwd_generator::generate_constant( ast::constant_ptr c)
 void
 fwd_generator::generate_type_alias( ast::type_alias_ptr ta )
 {
+    if (ast::dynamic_entity_cast< ast::namespace_ >(ta->owner())) {
+        auto aliased_type = ta->alias();
+        if (!aliased_type->owner()
+                || ast::dynamic_entity_cast< ast::namespace_ >(aliased_type->owner())) {
+            header_.adjust_namespace(ta);
+            ast::entity_const_set deps;
+            aliased_type->collect_dependencies(deps);
+
+            for (auto d : deps) {
+                if (d->owner() && !ast::dynamic_entity_cast<ast::namespace_>(d->owner())) {
+                    header_ << off << "/* " << cpp_name(ta)
+                            << " not generated because it depends on an inner type "
+                            << cpp_name(d) << " of " << cpp_name(d->owner()) << " */";
+                    return;
+                }
+                if (ast::dynamic_entity_cast<ast::enumeration>(d)) {
+                    header_ << off << "/* " << cpp_name(ta) << " not generated because it depends on an enum "
+                            << cpp_name(d) << " which cannot be forward declared */";
+                    return;
+                }
+            }
+
+            header_ << off << "using " << cpp_name(ta) << " = "
+                    <<  mapped_type{ta->alias(), ta->get_annotations()} << ";";
+        }
+    } else {
+        header_ << off << "/* " << cpp_name(ta) << " not generated because it's an inner type of "
+                << cpp_name(ta->owner()) << " */\n";
+    }
 }
 
 void
@@ -106,7 +172,7 @@ void
 fwd_generator::generate_class(ast::class_ptr class_)
 {
     header_.adjust_namespace(class_);
-    header_ << "class " << qname(class_) << ";"
+    header_ << off << "class " << qname(class_) << ";"
             << off << "using " << cpp_name(class_)
             << "_ptr = ::std::shared_ptr< " << cpp_name(class_) << " >;"
             << off << "using " << cpp_name(class_)
