@@ -383,11 +383,23 @@ public:
     add_object(identity const&, object_ptr);
 
     /**
+     * Remove servant object with identity
+     * @param
+     */
+    void
+    remove_object(identity const&);
+
+    /**
      * Add a default servant for all requests (fallback or for objects with no category)
      * @param
      */
     void
     add_default_servant(object_ptr);
+    /**
+     * Remove the default servant for all requests
+     */
+    void
+    remove_default_servant();
     /**
      * Add a default servant for a given category
      * @param category
@@ -395,6 +407,12 @@ public:
      */
     void
     add_default_servant(::std::string const& category, object_ptr);
+    /**
+     * Remove the default servant for the given category
+     * @param category
+     */
+    void
+    remove_default_servant(::std::string const& category);
     /**
      * Add a fallback object locator instance
      * @param

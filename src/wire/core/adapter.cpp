@@ -786,15 +786,33 @@ adapter::add_object(identity const& id, object_ptr disp)
 }
 
 void
+adapter::remove_object(identity const& id)
+{
+    pimpl_->remove_object(id);
+}
+
+void
 adapter::add_default_servant(object_ptr disp)
 {
     pimpl_->add_default_servant(DEFAULT_CATEGORY, disp);
 }
 
 void
+adapter::remove_default_servant()
+{
+    pimpl_->remove_default_servant(DEFAULT_CATEGORY);
+}
+
+void
 adapter::add_default_servant(::std::string const& category, object_ptr disp)
 {
     pimpl_->add_default_servant(category, disp);
+}
+
+void
+adapter::remove_default_servant(::std::string const& category)
+{
+    pimpl_->remove_default_servant(category);
 }
 
 void
