@@ -42,6 +42,8 @@ public:
     random_object( proxy_callback __result, exception_callback __exception )
     {
         using core::reference_data;
+        auto connector = locator_->wire_get_connector();
+
         endpoints_ptr   eps = endpoints_;
         if (!eps) {
             try {
@@ -56,10 +58,12 @@ public:
             core::functional::report_exception(
                     __exception, core::object_not_found{ object_id_ });
         }
+        // Copy the endpoint data now as it can go away while get_connector works
+        auto ep_data = *eps;
 
         auto _this = this->shared_from_this();
-        locator_->wire_get_connector()->resolve_connection_async(
-            reference_data{ object_id_, {}, {}, *eps },
+        connector->resolve_connection_async(
+            reference_data{ object_id_, {}, {}, ::std::move(ep_data) },
             [_this, __result](core::connection_ptr conn)
             {
                 auto obj = _this->locator_->wire_get_connector()->make_proxy(
