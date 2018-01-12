@@ -88,7 +88,8 @@ report_exception(exception_callback handler, asio_config::error_code const& ec) 
 {
     if (handler) {
         try {
-            handler( ::std::make_exception_ptr( asio_config::system_error{ ec } ) );
+            auto ex = ::std::make_exception_ptr( asio_config::system_error{ ec } );
+            handler( ex );
         } catch (...) {}
     }
 }
@@ -99,7 +100,8 @@ report_exception(exception_callback handler, Exception&& err) noexcept
 {
     if (handler) {
         try {
-            handler(::std::make_exception_ptr(::std::forward<Exception>(err)));
+            auto ex = ::std::make_exception_ptr(::std::forward<Exception>(err));
+            handler( ex );
         } catch(...) {}
     }
 }
