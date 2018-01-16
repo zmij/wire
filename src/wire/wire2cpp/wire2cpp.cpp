@@ -66,6 +66,9 @@ try {
         ("output-comments,C",
             po::bool_switch(&preproc_opts.output_comments),
             "Output comments from IDL")
+        ("verbose,v",
+            po::bool_switch(&preproc_opts.verbose),
+            "Verbose output")
     ;
     po::options_description out_opts_desc{"Output options"};
     out_opts_desc.add_options()

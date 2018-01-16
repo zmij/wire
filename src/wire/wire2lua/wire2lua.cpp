@@ -71,6 +71,9 @@ try {
         ("output-comments,C",
             po::bool_switch(&preproc_opts.output_comments),
             "Output comments from IDL")
+        ("verbose,v",
+            po::bool_switch(&preproc_opts.verbose),
+            "Verbose output")
     ;
     po::options_description out_opts_desc{"Output options"};
     out_opts_desc.add_options()
@@ -142,6 +145,9 @@ try {
         global_namespace_list generated;
         // Preprocess and parse
         for (auto const& file : options.files) {
+            if (preproc_opts.verbose) {
+                ::std::cout << "Parse wire file " << file << "\n";
+            }
             preprocessor preproc{ file, preproc_opts };
 
             std::string input_str = preproc.to_string();
@@ -164,11 +170,13 @@ try {
                         return ns->current_compilation_unit()->name == d->name;
                     });
                 if (f != generated.end()) {
-                    if (!unit_name_printed) {
-                        ::std::cout << cu->name << " depends on:\n";
-                        unit_name_printed = true;
+                    if (preproc_opts.verbose) {
+                        if (!unit_name_printed) {
+                            ::std::cout << cu->name << " depends on:\n";
+                            unit_name_printed = true;
+                        }
+                        ::std::cout << "\t" << d->name << "\n";
                     }
-                    ::std::cout << "\t" << d->name << "\n";
                     dependencies[cu->name].push_back(*f);
                 }
             }

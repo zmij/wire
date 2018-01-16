@@ -21,6 +21,7 @@ using string_list = ::std::vector< ::std::string >;
 struct preprocess_options {
     string_list    include_dirs;
     bool           output_comments;
+    bool           verbose;
 };
 
 class preprocessor {

@@ -48,11 +48,13 @@ struct preprocessor::impl {
         }
         args.push_back(file_name);
 
-        ::std::cerr << "Execute preprocessor";
-        for (auto const& a : args) {
-            ::std::cerr << " " << a;
+        if (options.verbose) {
+            ::std::cerr << "Execute preprocessor";
+            for (auto const& a : args) {
+                ::std::cerr << " " << a;
+            }
+            ::std::cerr << "\n";
         }
-        ::std::cerr << "\n";
 
         io::file_descriptor_sink sink{ pipe_.sink, io::close_handle };
 

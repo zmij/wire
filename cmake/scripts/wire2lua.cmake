@@ -20,7 +20,7 @@ function(wire2lua)
         OPTIONS
     )
     parse_argn("" argnames ${ARGN})
-    set(wire2lua_options ${WIRE_IDL_DIRECTORIES})
+    set(wire2lua_options ${OPTIONS} ${WIRE_IDL_DIRECTORIES})
     if(NOT TARGET)
         message(FATAL_ERROR "No output specified for wire2lua")
     endif()
