@@ -57,6 +57,7 @@ public:
         if (!eps || eps->empty()) {
             core::functional::report_exception(
                     __exception, core::object_not_found{ object_id_ });
+            return;
         }
         // Copy the endpoint data now as it can go away while get_connector works
         auto ep_data = *eps;
