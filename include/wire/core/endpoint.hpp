@@ -17,10 +17,6 @@
 #include <wire/encoding/wire_io.hpp>
 #include <wire/encoding/detail/variant_io.hpp>
 
-#include <wire/errors/exceptions.hpp>
-
-#include <wire/util/enum_range.hpp>
-
 namespace wire {
 namespace core {
 
@@ -129,9 +125,6 @@ struct inet_endpoint_data {
     check(transport_type expected) const;
 
     bool
-    valid() const;
-
-    bool
     is_meta_address() const;
 };
 
@@ -204,9 +197,6 @@ struct socket_endpoint_data {
 
     void
     check(transport_type expected) const;
-
-    bool
-    valid() const;
 };
 
 ::std::ostream&
@@ -311,11 +301,7 @@ public:
     {
         return endpoint_data_ >= rhs.endpoint_data_;
     }
-    operator bool() const
-    { return valid(); }
-    bool
-    operator !() const
-    { return !valid(); }
+
 
     transport_type
     transport() const
@@ -346,9 +332,6 @@ public:
     void
     check(transport_type expected) const;
 
-    bool
-    valid() const;
-
     void
     published_endpoints(endpoint_list&) const;
 
@@ -356,9 +339,6 @@ public:
     void
     write( OutputIterator o ) const
     {
-        if (!valid()) {
-            throw errors::marshal_error{ "Invalid endpoint data" };
-        }
         encoding::write(o, endpoint_data_);
     }
     template < typename InputIterator >
@@ -366,9 +346,6 @@ public:
     read( InputIterator& begin, InputIterator end)
     {
         encoding::read(begin, end, endpoint_data_);
-        if (!valid()) {
-            throw errors::unmarshal_error{ "Invalid endpoint data" };
-        }
     }
 
     static endpoint
@@ -380,9 +357,6 @@ public:
     static endpoint
     socket(::std::string const& path);
 private:
-    bool
-    transport_valid() const;
-
     endpoint_data    endpoint_data_;
 };
 
@@ -544,21 +518,6 @@ operator "" _wire_ep(char const*, ::std::size_t);
 }  /* namespace literal */
 
 }  // namespace core
-namespace util {
-
-template <>
-struct enum_traits<core::transport_type> {
-    using enumerators = detail::enumerators<
-        core::transport_type,
-        core::transport_type::empty,
-        core::transport_type::tcp,
-        core::transport_type::ssl,
-        core::transport_type::udp,
-        core::transport_type::socket
-    >;
-};
-
-} /* namespace util */
 }  // namespace wire
 
 using ::wire::core::literal::operator ""_wire_ep;

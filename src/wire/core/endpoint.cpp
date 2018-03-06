@@ -135,12 +135,6 @@ inet_endpoint_data::check(transport_type t) const
 }
 
 bool
-inet_endpoint_data::valid() const
-{
-    return !host.empty();
-}
-
-bool
 inet_endpoint_data::is_meta_address() const
 {
     asio_config::address addr{ asio_config::address::from_string(host) };
@@ -158,12 +152,6 @@ socket_endpoint_data::check(transport_type t) const
     if (path.empty()) {
         throw errors::logic_error("Empty socket path in ", t, " endpoint");
     }
-}
-
-bool
-socket_endpoint_data::valid() const
-{
-    return !path.empty();
 }
 
 std::ostream&
@@ -327,20 +315,6 @@ struct endpoint_data_check : boost::static_visitor<> {
     }
 };
 
-struct validate_endpoint : ::boost::static_visitor<bool> {
-    bool
-    operator()(empty_endpoint const& data) const
-    { return true; }
-
-    bool
-    operator()( inet_endpoint_data const& data) const
-    { return data.valid(); }
-
-    bool
-    operator()( socket_endpoint_data const& data ) const
-    { return data.valid(); }
-};
-
 struct collect_published_endpoints : boost::static_visitor<> {
     endpoint_list& endpoints;
 
@@ -400,27 +374,12 @@ struct collect_published_endpoints : boost::static_visitor<> {
 void
 endpoint::check(transport_type expected) const
 {
-    if (!transport_valid()) {
-        throw errors::logic_error{ "Transport type is invalid ", transport() };
-    }
     if (transport() != expected) {
         throw errors::logic_error("Invalid endpoint transport type ",
                 transport(),
                 " for ", expected, " transport");
     }
     boost::apply_visitor(detail::endpoint_data_check{ expected }, endpoint_data_);
-}
-
-bool
-endpoint::transport_valid() const
-{
-    return util::enumerator_valid(transport());
-}
-
-bool
-endpoint::valid() const
-{
-    return transport_valid() && boost::apply_visitor(detail::validate_endpoint{}, endpoint_data_);
 }
 
 void

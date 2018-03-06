@@ -769,10 +769,6 @@ struct connector::impl {
             functional::exception_callback  exception,
             invocation_options const&       opts)
     {
-        if (!ep) {
-            functional::report_exception(exception, errors::runtime_error{ "Invalid endpoint data" });
-            return;
-        }
         bool new_conn = false;
         connection_ptr conn;
         {

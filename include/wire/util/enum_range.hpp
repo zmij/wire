@@ -46,12 +46,6 @@ struct enumerators {
             return right;
         return end;
     }
-
-    static constexpr bool
-    valid(value_type v)
-    {
-        return position(v) != end;
-    }
 };
 
 template < typename Enum, Enum ... Enumerators >
@@ -176,16 +170,6 @@ template < typename Enum >
 constexpr ::std::size_t
 enum_size()
 { return enum_value_range<Enum>{}.size(); }
-
-/**
- * Check enumerator value is defined in enumeration
- * @param v
- * @return
- */
-template < typename Enum >
-constexpr bool
-enumerator_valid(Enum v)
-{ return enum_value_range<Enum>::enumerators::valid(v); }
 
 } /* namespace util */
 } /* namespace wire */
