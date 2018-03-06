@@ -1209,7 +1209,7 @@ connection::connection(client_side const&, adapter_ptr adp, endpoint const& ep,
     : pimpl_{}
 {
     if (!ep)
-        throw errors::runtime_error{ "Endpoint is invalid" };
+        throw errors::runtime_error{ "Endpoint is invalid", to_string(ep) };
     create_client_connection(adp, ep.transport(), on_close);
     connect_async(ep, on_connect, on_error);
 }
@@ -1217,8 +1217,6 @@ connection::connection(client_side const&, adapter_ptr adp, endpoint const& ep,
 connection::connection(server_side const&, adapter_ptr adp, endpoint const& ep)
     : pimpl_{}
 {
-    if (!ep)
-        throw errors::runtime_error{ "Endpoint is invalid" };
     pimpl_ = detail::connection_implementation::create_listen_connection(
         adp, ep.transport(),
         [](){

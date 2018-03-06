@@ -524,6 +524,8 @@ to_string(transport_type val);
 operator << (::std::ostream& os, endpoint const& val);
 ::std::istream&
 operator >> (::std::istream& is, endpoint& val);
+::std::string
+to_string(endpoint const& val);
 
 ::std::ostream&
 operator << (::std::ostream& os, endpoint_list const& val);

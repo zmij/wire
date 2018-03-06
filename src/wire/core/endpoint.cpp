@@ -67,7 +67,7 @@ operator << (std::ostream& out, transport_type val)
         if (f != TRANSPORT_TYPE_TO_STRING.end()) {
             out << f->second;
         } else {
-            out << "Unknown class " << (int)val;
+            out << "Unknown ::wire::core::transport_type " << (int)val;
         }
     }
     return out;
@@ -456,9 +456,21 @@ operator << (std::ostream& os, endpoint const& val)
 {
     std::ostream::sentry s(os);
     if (s) {
-        os << val.transport() << "://" << val.data();
+        if (util::enumerator_valid(val.transport())) {
+            os << val.transport() << "://" << val.data();
+        } else {
+            os << "Invalid transport value " << val.transport();
+        }
     }
     return os;
+}
+
+::std::string
+to_string(endpoint const& val)
+{
+    ::std::ostringstream os;
+    os << val;
+    return os.str();
 }
 
 std::istream&
