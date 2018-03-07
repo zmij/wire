@@ -69,7 +69,8 @@ struct is_sync_dispatch< Return(Interface::*)(Args ...) const>
 enum class invokation_type {
     void_sync,
     nonvoid_sync,
-    void_async
+    void_async,
+    nonvoid_async
 };
 
 template < bool isVoid, bool isSync >
@@ -87,6 +88,9 @@ struct invokation_selector<false, true> :
 template <>
 struct invokation_selector<true, false> :
     invocation_mode< invokation_type::void_async >{};
+template <>
+struct invokation_selector<false, false> :
+    invocation_mode< invokation_type::nonvoid_async >{};
 
 template < typename Handler, typename Member,
         typename IndexTuple, typename ... Args >
@@ -147,7 +151,7 @@ struct local_invocation< Handler, Member,
         if (!srv) {
             dispatch(obj, curr, opts);
         } else {
-            invoke(srv, curr, opts, invokation_selector< is_void, is_sync >{});
+            invoke(srv, curr, opts, invokation_selector< is_void && void_response, is_sync >{});
         }
     }
 
@@ -170,7 +174,8 @@ struct local_invocation< Handler, Member,
     {
         try {
             invocation_args tmp = args;
-            response(((*srv).*member)(::std::move(::std::get< Indexes >(tmp)) ..., curr));
+            response_args res = ((*srv).*member)(::std::move(::std::get< Indexes >(tmp)) ..., curr);
+            response(::std::move(res));
         } catch (...) {
             functional::report_exception(exception, ::std::current_exception());
         }
@@ -184,6 +189,24 @@ struct local_invocation< Handler, Member,
             invocation_args tmp = args;
             ((*srv).*member)(::std::move(::std::get< Indexes >(tmp)) ...,
                     response, exception, curr);
+        } catch (...) {
+            functional::report_exception(exception, ::std::current_exception());
+        }
+    }
+
+    void
+    invoke( servant_ptr srv, current const& curr, invocation_options const&,
+            invocation_mode< invokation_type::nonvoid_async > const&) const
+    {
+        try {
+            invocation_args tmp = args;
+            auto resp = response;
+            ((*srv).*member)(::std::move(::std::get< Indexes >(tmp)) ...,
+                    [resp](response_args const& res)
+                    {
+                        auto tmp = res;
+                        resp(::std::move(tmp));
+                    }, exception, curr);
         } catch (...) {
             functional::report_exception(exception, ::std::current_exception());
         }
@@ -242,7 +265,7 @@ struct local_invocation< Handler, Member,
                 auto end = encaps.end();
                 read(begin, end, args);
                 encaps.read_indirection_table(begin);
-                ::psst::meta::invoke(resp, args);
+                ::psst::meta::invoke(resp, ::std::move(args));
             } catch (...) {
                 functional::report_exception(exc, ::std::current_exception());
             }
@@ -335,7 +358,7 @@ struct remote_invocation< Handler,
                     reply_tuple args;
                     encoding::read(begin, end, args);
                     encaps.read_indirection_table(begin);
-                    ::psst::meta::invoke(response, args);
+                    ::psst::meta::invoke(response, ::std::move(args));
                 } catch(...) {
                     functional::report_exception(exception, ::std::current_exception());
                 }

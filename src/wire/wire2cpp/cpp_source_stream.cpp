@@ -371,7 +371,7 @@ write (StreamType& os, mapped_type const& val)
         os << " >";
         if (val.is_arg) {
             os << " const&";
-        } else if (val.is_dispatch_arg) {
+        } else if (val.movable) {
             os << "&&";
         }
     } else {
@@ -379,7 +379,7 @@ write (StreamType& os, mapped_type const& val)
             os << wire_to_cpp( val.type->name() ).type_name;
             if (val.is_arg && !is_primitive(val.type->name())) {
                 os << " const&";
-            } else if (val.is_dispatch_arg && !is_primitive(val.type->name())) {
+            } else if (val.movable && !is_primitive(val.type->name())) {
                 os << "&&";
             }
         } else if (auto ref = ast::dynamic_entity_cast< ast::reference >(val.type)) {
@@ -401,7 +401,7 @@ write (StreamType& os, mapped_type const& val)
             }
             if (val.is_arg && !is_primitive(val.type)) {
                 os << " const&";
-            } else if (val.is_dispatch_arg && !is_primitive(val.type)) {
+            } else if (val.movable && !is_primitive(val.type)) {
                 os << "&&";
             }
         }
@@ -432,6 +432,29 @@ write(StreamType& os, invoke_param const& v)
     return os;
 }
 
+template < typename StreamType >
+StreamType&
+write(StreamType& os, return_value const& v)
+{
+    bool need_move = false;
+    if (auto pt = ast::dynamic_entity_cast< ast::parametrized_type >(v.value.first)) {
+        need_move = true;
+    } else if (ast::type::is_built_in(v.value.first->get_qualified_name())) {
+        need_move = !is_primitive(v.value.first->name());
+    } else if (auto ref = ast::dynamic_entity_cast< ast::reference >(v.value.first)) {
+    } else if (auto cl = ast::dynamic_type_cast< ast::class_ >(v.value.first)) {
+    } else if (auto iface = ast::dynamic_type_cast< ast::interface >(v.value.first)) {
+    } else {
+        need_move = !is_primitive(v.value.first);
+    }
+    if (need_move) {
+        os << "::std::move(" << v.value.second << ")";
+    } else {
+        os << v.value.second;
+    }
+    return os;
+}
+
 source_stream&
 operator << (source_stream& os, mapped_type const& v)
 {
@@ -440,6 +463,12 @@ operator << (source_stream& os, mapped_type const& v)
 
 source_stream&
 operator << (source_stream& os, invoke_param const& v)
+{
+    return write(os, v);
+}
+
+source_stream&
+operator << (source_stream& os, return_value const& v)
 {
     return write(os, v);
 }
@@ -532,6 +561,12 @@ operator << (code_snippet& os, mapped_type const& v)
 
 code_snippet&
 operator << (code_snippet& os, invoke_param const& v)
+{
+    return write(os, v);
+}
+
+code_snippet&
+operator << (code_snippet& os, return_value const& v)
 {
     return write(os, v);
 }

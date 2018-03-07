@@ -392,8 +392,8 @@ generator::generate_dispatch_function_member(ast::function_ptr func)
     code_snippet formal_params { header_.current_scope() };
     code_snippet example_params { ast::qname{} };
     for (auto const& p : params) {
-        formal_params << dispatch_arg_type(p.first) << " " << cpp_name(p.second) << ", ";
-        example_params << dispatch_arg_type(p.first) << " " << cpp_name(p.second) << ", ";
+        formal_params << movable_arg_type(p.first) << " " << cpp_name(p.second) << ", ";
+        example_params << movable_arg_type(p.first) << " " << cpp_name(p.second) << ", ";
     }
 
     if (async_dispatch) {
@@ -571,7 +571,7 @@ generator::generate_invocation_function_member(ast::function_ptr func)
         result_callback << cpp_name(func) << "_responce_callback";
         header_ << off << "using " << result_callback << " = "
                 << "::std::function< void( "
-                << arg_type(func->get_return_type(), func->get_annotations())
+                << movable_arg_type(func->get_return_type(), func->get_annotations())
                 << " ) >;";
     }
 
@@ -637,8 +637,8 @@ generator::generate_invocation_function_member(ast::function_ptr func)
         header_ << off <<           "[promise]()"
                 << off <<           "{ promise->set_value(); },";
     } else {
-        header_ << off <<           "[promise](" << arg_type(func->get_return_type(), func->get_annotations()) << " res)"
-                << off <<           "{ promise->set_value(res); },";
+        header_ << off <<           "[promise](" << movable_arg_type(func->get_return_type(), func->get_annotations()) << " res)"
+                << off <<           "{ promise->set_value(" << return_value(func->get_return_type(), "res") << "); },";
     }
     header_ << off     <<           "[promise]( ::std::exception_ptr ex )"
             << off     <<           "{ promise->set_exception(::std::move(ex)); },"

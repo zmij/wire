@@ -251,7 +251,7 @@ public:
 
     void
     wire_type_async(
-        functional::callback< ::std::string const& > response,
+        functional::callback< ::std::string&& >     response,
         functional::exception_callback              exception   = nullptr,
         functional::callback< bool >                sent        = nullptr,
         context_type const&                                     = no_context,
@@ -267,9 +267,9 @@ public:
         auto promise = ::std::make_shared<_Promise<::std::string>>();
 
         wire_type_async(
-            [promise](::std::string const& val)
+            [promise](::std::string&& val)
             {
-                promise->set_value(val);
+                promise->set_value(::std::move(val));
             },
             [promise](::std::exception_ptr ex)
             {
@@ -293,7 +293,7 @@ public:
 
     void
     wire_types_async(
-        functional::callback< ::std::vector< ::std::string > const& > result,
+        functional::callback< ::std::vector< ::std::string >&& > result,
         functional::exception_callback                  exception   = nullptr,
         functional::callback<bool>                      sent        = nullptr,
         context_type const&                                         = no_context,
@@ -309,9 +309,9 @@ public:
         auto promise = ::std::make_shared<_Promise<::std::vector< ::std::string >>>();
 
         wire_types_async(
-            [promise](::std::vector< ::std::string > const& val)
+            [promise](::std::vector< ::std::string >&& val)
             {
-                promise->set_value(val);
+                promise->set_value(::std::move(val));
             },
             [promise](::std::exception_ptr ex)
             {

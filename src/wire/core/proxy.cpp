@@ -124,7 +124,7 @@ object_proxy::wire_ping_async(
 
 void
 object_proxy::wire_type_async(
-        functional::callback< std::string const& >  response,
+        functional::callback< std::string&& >       response,
         functional::exception_callback              exception,
         functional::callback< bool >                sent,
         context_type const&                         ctx,
@@ -140,7 +140,7 @@ object_proxy::wire_type_async(
 
 void
 object_proxy::wire_types_async(
-        functional::callback< ::std::vector< ::std::string > const& >   response,
+        functional::callback< ::std::vector< ::std::string >&& >        response,
         functional::exception_callback                                  exception,
         functional::callback<bool>                                      sent,
         context_type const&                                             ctx,
