@@ -76,7 +76,7 @@ struct invoke_param {
 };
 
 struct return_value {
-    ast::function::function_param const& value;
+    ast::function::function_param value;
     return_value( ast::function::function_param const& p )
         : value{ p } {}
     return_value(ast::type_ptr t, ::std::string const& name)
