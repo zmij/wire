@@ -755,7 +755,8 @@ generator::generate_enum(ast::enumeration_ptr enum_)
     auto ann = find(enum_->get_annotations(), annotations::GENERATE_IO);
     if (ann != enum_->get_annotations().end()) {
         header_.at_namespace_scope(
-        [this, enum_](source_stream& ss)
+
+        [enum_](source_stream& ss)
         {
             ss  << off << "::std::ostream&"
                 << off << "operator << (::std::ostream&, " << qname(enum_) << " );"

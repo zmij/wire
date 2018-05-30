@@ -804,7 +804,7 @@ struct connector::impl {
                         DEBUG_LOG_TAG(1, tag, "Exception while setting connection");
                     }
                 },
-                [this, exception, done, ep](::std::exception_ptr ex)
+                [exception, done, ep](::std::exception_ptr ex)
                 {
                     DEBUG_LOG_TAG(2, tag, "Failed to connect to " << ep);
                     *done = true;
