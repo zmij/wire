@@ -106,6 +106,17 @@ report_exception(exception_callback handler, Exception&& err) noexcept
     }
 }
 
+template < typename Handler >
+void
+report_async_result(Handler handler)
+{
+    if (handler) {
+        try {
+            handler();
+        } catch(...) {}
+    }
+}
+
 template < typename Handler, typename Result >
 void
 report_async_result(Handler handler, Result&& res)
